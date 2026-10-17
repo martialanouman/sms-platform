@@ -44,6 +44,8 @@ Statut : design validé.
   `gdpr:erase`, `msisdn:reveal`, `cdr:export_bulk`, `audit:read`.
 - `admin:read` et `admin:write` disparaissent.
 - Pas de joker, de hiérarchie ni de scope par opération : à ajouter quand un rôle réel en a besoin.
+- **Amendé 2026-10-17** : trois rôles par défaut en ont besoin, d'où trois scopes sensibles de plus,
+  `routing-scripts:publish`, `suppressions:delete`, `billing:topup` (spec 08 §8.5).
 
 ### 3.2 Une seule liste
 

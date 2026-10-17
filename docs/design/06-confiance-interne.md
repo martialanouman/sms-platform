@@ -37,7 +37,7 @@ La frontière de confiance interne est plate :
 | Besoin | Brique | Autohébergé | Cloud managé |
 |---|---|---|---|
 | mTLS interne | cert-manager, émetteur CA interne | ✔ | ✔ |
-| KMS (KEK du contenu, `ConfigSecrets`) | OpenBao Transit | Déverrouillage Shamir, manuel | Déverrouillage automatique par la KMS du fournisseur |
+| KMS (KEK du contenu, `ConfigSecrets`, clé de signature des jetons du BFF) | OpenBao Transit | Déverrouillage Shamir, manuel | Déverrouillage automatique par la KMS du fournisseur |
 | Identité Postgres | Rôle par service, GRANT | ✔ | ✔ (RDS, Cloud SQL) |
 | Identité Kafka | mTLS, principal = CN, ACL | ✔ | ✔ (MSK, Confluent) |
 | Identité Redis | Utilisateur ACL, motif de clés | ✔ | ✔ (ElastiCache, Memorystore) |

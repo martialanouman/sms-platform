@@ -135,8 +135,8 @@
 - **Contenu et RGPD** : politique de stockage, lecture de corps auditée, effacement.
 - **Dead-letters** : consultation et rejeu par groupe.
 - **Plateforme** : quiet hours (activation, fenêtre).
-- **Alerting** : règles configurables ; les alertes d'infrastructure sont évaluées par Alertmanager,
-  indépendamment du tableau de bord (**I15**).
+- **Alerting** : règles en code, évaluées par Prometheus et Alertmanager, indépendamment du tableau de
+  bord (**I15**) ; le tableau de bord affiche le centre de notification.
 - **Audit** : deux onglets, une source chacun — plan de contrôle (passerelle) et accès au tableau de
   bord (BFF) (décision 5).
 - **Opérateurs et rôles** : un rôle est un ensemble de scopes de la passerelle et de permissions du

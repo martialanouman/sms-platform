@@ -66,8 +66,10 @@ sert, la resync reprend au retour.
 jeton par le JWKS interne du BFF (ADR-0019), puis le scope de l'opération.
 
 - **Scopes** : chaque tag du contrat donne `<tag>:read` et `<tag>:write` (`routes:read`,
-  `connectors:write`…). Plus six scopes sensibles : `content:read`, `content:erase`, `gdpr:erase`,
-  `msisdn:reveal`, `cdr:export_bulk`, `audit:read`. Plus `stream:read`. Ni joker ni hiérarchie.
+  `connectors:write`…). Plus neuf scopes sensibles : `content:read`, `content:erase`, `gdpr:erase`,
+  `msisdn:reveal`, `cdr:export_bulk`, `audit:read`, et trois qu'un rôle par défaut sépare de `:write`
+  (chapitre 8 §8.5) : `routing-scripts:publish`, `suppressions:delete` (lever un opt-out),
+  `billing:topup`. Plus `stream:read`. Ni joker ni hiérarchie.
 - **Chaque opération déclare exactement un scope.** La liste est générée depuis le contrat et
   consommée par la passerelle, l'éditeur de rôles du BFF et les types de la SPA.
 - **Jetons** : 5 min, émis par le BFF au nom de l'opérateur connecté ; un `kid` inconnu est refusé.

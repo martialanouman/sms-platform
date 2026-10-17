@@ -46,7 +46,8 @@ prolonge, jamais une interrogation automatique. Le rôle `noc` tient 12 h sans d
 - **Émis par le BFF** au nom de l'opérateur connecté (ADR-0019) : `sub` = identifiant de l'opérateur,
   scopes = union des scopes de ses rôles, `exp` 5 min.
 - **Signature par OpenBao Transit** : la clé privée ne quitte jamais OpenBao, le BFF demande une
-  signature. Le JWKS est servi sur un écouteur interne réservé à `admin-api-svc` (décision 6).
+  signature à chaque jeton. Un pod compromis signe tant qu'il l'est, il ne peut pas voler la clé ; la
+  rotation se fait dans OpenBao. Le JWKS est servi sur un écouteur interne réservé à `admin-api-svc` (décision 6).
 - **Jeton personnel** (`gateway:personal_token`) : une heure au plus, inclus dans les droits de
   l'opérateur ; son émission est journalisée.
 
@@ -59,13 +60,13 @@ peut en détenir plusieurs. La SPA masque ce qui est interdit : confort, jamais 
 | Rôle | Portée |
 |---|---|
 | `Propriétaire` | Tout |
-| `Exploitation` | Écriture : routage, numéros exacts, connecteurs, sessions, anti-spam, scripts (publication comprise), réécriture, numéros entrants, opt-out (sans levée), dead-letters, plateforme. `msisdn:reveal`, `cdr:export_bulk`. Lecture ailleurs |
-| `Scripts` | `routing-scripts:write` sans publication ; lecture du trafic |
+| `Exploitation` | Écriture : routage, numéros exacts, connecteurs, sessions, anti-spam, scripts et `routing-scripts:publish`, réécriture, numéros entrants, opt-out sans `suppressions:delete`, dead-letters, plateforme. `msisdn:reveal`, `cdr:export_bulk`. Lecture ailleurs |
+| `Scripts` | `routing-scripts:write` sans `routing-scripts:publish` ; lecture du trafic |
 | `Support` | Lecture : comptes, routage, connecteurs, sessions, CDR, trace, facturation. `msisdn:reveal`. Jamais le corps, ni les scripts, ni la réécriture |
 | `Finance` | Facturation complète ; lecture ailleurs comme `Support`, sans `msisdn:reveal` |
 | `Reporting` | `billing:read`, lecture du trafic |
-| `Clientèle` | Écriture : clients, comptes, identifiants, groupes, facturation sans recharge |
-| `Conformité` | Opt-out avec levée, numéros entrants en lecture, `gdpr:erase`, `content:erase`, `msisdn:reveal`, `cdr:export_bulk`, lecture comptes et CDR |
+| `Clientèle` | Écriture : clients, comptes, identifiants, groupes, facturation sans `billing:topup` |
+| `Conformité` | Opt-out avec `suppressions:delete`, numéros entrants en lecture, `gdpr:erase`, `content:erase`, `msisdn:reveal`, `cdr:export_bulk`, lecture comptes et CDR |
 | `Audit` | `audit:read` seul |
 | `noc` | `stream:read` et lectures, aucune écriture |
 
