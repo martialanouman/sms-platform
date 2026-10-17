@@ -15,8 +15,8 @@ paths:
   scellé par `ConfigSecrets`, jamais haché. Dans les deux cas il ne ressort pas de l'API (I2).
 - **Un échec sur le chemin chaud se classe par liste de refus** : seuls les codes déclarés définitifs
   refusent ; tout le reste est transitoire. `codes.Internal` est ambigu côté client.
-- **Le métier vit sous `internal/`** ; `cmd/<service>/main.go` ne fait que câbler. Interfaces côté
-  consommateur.
+- **Clean architecture** (ADR 0025) : un cœur qui a besoin d'I/O demande un port, jamais une exception
+  depguard.
 - **Une garde descendue dans le code partagé** exige que chaque appelant tire la même conséquence de
   l'absence. **Resserrer une porte** oblige à vérifier les portes voisines.
 - **Une absence se prouve par une recherche complète**, jamais par un `head -N` ni un glob avorté.

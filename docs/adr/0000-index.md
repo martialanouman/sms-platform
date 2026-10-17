@@ -30,6 +30,7 @@ Les décisions structurantes de la passerelle, une par fichier, au format ADR st
 | [0022](0022-solde-durable-replie-en-differe.md) | Le grand livre reste synchrone ; le solde durable = `balances` + deltas non repliés, replié en différé | Accepted, amendé |
 | [0023](0023-premiere-emission-d-un-sender-id-marquee-depuis-mt-outcome.md) | La première émission d'un sender ID est marquée depuis `mt.outcome` | Accepted |
 | [0024](0024-capture-et-liberation-depuis-mt-outcome.md) | La capture et la libération d'un message envoyé se font depuis `mt.outcome`, dans billing-svc | Accepted, amendé |
+| [0025](0025-clean-architecture-coeur-et-adaptateurs.md) | Clean architecture : un cœur et ses adaptateurs par contexte, règle de dépendance gardée par depguard | Accepted |
 
 ## Convention
 

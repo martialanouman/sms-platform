@@ -2,8 +2,42 @@ version: "2"
 
 linters:
   enable:
+    - depguard
     - revive
   settings:
+    depguard:
+      rules:
+        core:
+          list-mode: strict
+          files:
+            - "**/internal/*/*.go"
+            - "!$test"
+          allow:
+            - $gostd
+            - github.com/martialanouman/sms-platform
+          deny:
+            - pkg: "net$"
+              desc: le cœur ne fait pas d'I/O (ADR 0025)
+            - pkg: net/http
+              desc: le cœur ne fait pas d'I/O (ADR 0025)
+            - pkg: net/rpc
+              desc: le cœur ne fait pas d'I/O (ADR 0025)
+            - pkg: net/smtp
+              desc: le cœur ne fait pas d'I/O (ADR 0025)
+            - pkg: os
+              desc: le cœur ne fait pas d'I/O (ADR 0025)
+            - pkg: database/sql
+              desc: le cœur ne fait pas d'I/O (ADR 0025)
+            - pkg: syscall
+              desc: le cœur ne fait pas d'I/O (ADR 0025)
+            - pkg: io/ioutil
+              desc: le cœur ne fait pas d'I/O (ADR 0025)
+            - pkg: crypto/tls
+              desc: le cœur ne fait pas d'I/O (ADR 0025)
+            - pkg: "log$"
+              desc: le cœur ne fait pas d'I/O (ADR 0025)
+            - pkg: log/syslog
+              desc: le cœur ne fait pas d'I/O (ADR 0025)
     revive:
       rules:
         - name: exported
