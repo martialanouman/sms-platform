@@ -35,12 +35,14 @@ l'humain impose le 2026-10-17 et que l'ADR 0025 écrit.
    `issues: read` ; en local, `make` le prend à `gh auth token` s'il existe.
 5. **Fermer l'issue fait échouer la CI** : le workflow se déclenche aussi sur `issues` (`closed`,
    `unlabeled`, `deleted`) et rejoue `make check` sur `main` ; toute PR ouverte, qui porte la marque,
-   est rouge elle aussi.
+   est rouge elle aussi. La liste filtrée par étiquette a environ deux secondes de retard sur une
+   fermeture (mesuré) ; le run déclenché démarre bien après, et un vert périmé ne survit pas à la PR
+   suivante.
 6. **Gabarit** : un formulaire d'issue `.github/ISSUE_TEMPLATE/debt.yml`, cinq champs obligatoires,
    étiquette `debt` posée d'office. Les étiquettes `debt` et `go-live` se créent par `gh label create`.
 7. **Le plan se trompe de compte** : le registre de go-gateway a 108 fiches, dont 15 `PAYÉE` ; 93 sont
-   ouvertes. Avec les 30 de go-gateway-bo, 123 fiches à trier, pas 138. Le plan est corrigé dans cette
-   PR.
+   ouvertes. Celui de go-gateway-bo a 29 fiches et un `README.md`. 122 fiches à trier, pas 138. Le plan
+   est corrigé dans cette PR.
 8. **Reprise** : trié par lots en lecture seule ; chaque fiche reçoit `soldee` (décision et section
    citées), `disparait` (dashboard, liée aux relais) ou `issue`. Les verdicts `soldee` et `disparait`
    sont listés dans la description de la PR ; les issues sont créées avant la PR, pour qu'elle les cite.
@@ -51,6 +53,8 @@ l'humain impose le 2026-10-17 et que l'ADR 0025 écrit.
 
 - `docs/adr/0025-clean-architecture-coeur-et-adaptateurs.md`, ligne à l'index ; `CLAUDE.md` (section
   Code) et `.claude/rules/go-code.md` disent la forme.
+- Une marque s'écrit `debt:`, des espaces facultatifs, `#` et des chiffres : une marque tapée sans espace
+  ne doit pas échapper à la garde (mutation survivante).
 - `.golangci.yml` : `depguard`, une règle `core` (fichiers `**/internal/*/*.go`, `!$test`).
 - `internal/debt` :
   - `Mark{Path, Line, Issue}` ;
@@ -65,6 +69,6 @@ l'humain impose le 2026-10-17 et que l'ADR 0025 écrit.
 - `Makefile` : cible `debtguard`, entrée dans `check`.
 - `ci.yml` : `issues` dans `on`, `permissions: issues: read`, `GH_TOKEN` pour `check`.
 - `.github/ISSUE_TEMPLATE/debt.yml`.
-- Plan §003 corrigé (123 fiches).
+- Plan §003 corrigé (122 fiches).
 - Vérification du critère : une marque vers une issue inexistante, puis vers une issue fermée, rend
   `make check` rouge ; retirée, vert. Idem en CI sur la PR.

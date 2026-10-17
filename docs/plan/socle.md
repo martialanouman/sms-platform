@@ -52,7 +52,7 @@ formaté est rouge ; la même PR corrigée est verte.
   pourquoi, coût, déclencheur, porteur).
 - **Garde** : chaque `debt: #N` du dépôt désigne une issue ouverte étiquetée `debt`. Fermer l'issue sans
   retirer la marque fait échouer la CI.
-- **Reprise** : les 138 fiches ouvertes des deux registres (108 et 30) sont triées. Une fiche soldée par
+- **Reprise** : les 122 fiches ouvertes des deux registres (93 et 29) sont triées. Une fiche soldée par
   une décision est listée avec sa décision dans la description de la PR ; une autre devient une issue.
   Les dettes de `go-gateway-bo` liées aux 33 relais disparaissent avec eux.
 

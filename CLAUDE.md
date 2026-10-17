@@ -64,6 +64,9 @@ déclenche aucune. D'où ces déclencheurs :
 ## Code
 
 - Code en anglais ; interface, docs et messages de commit en français.
+- **Clean architecture** (ADR 0025) : un contexte = un cœur `internal/<ctx>/` (règles, cas d'usage,
+  ports) et ses adaptateurs `internal/<ctx>/<techno>/` ; composition dans `cmd/` ou `tools/` ; outillage
+  partagé sous `internal/platform/`. Le cœur ne fait aucune I/O (depguard).
 - **Zéro commentaire par défaut.** Un commentaire ne survit que s'il porte un pourquoi qu'on ne peut
   pas déduire du code et dont l'ignorance coûte cher. Sauf ce qu'exige `revive exported` : une ligne de
   doc par symbole exporté.
