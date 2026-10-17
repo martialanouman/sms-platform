@@ -8,7 +8,10 @@ tous les services importeront. Le numéro est l'ordre d'exécution (C6). Aucun s
 | 001 | Contexte de travail : `CLAUDE.md`, règles, mémoire, ADR | Push direct |
 | 002 | Squelette Go et CI unique ; protection de `main` | Push direct, le dernier |
 | 003 | Dettes en issues et leur garde | PR |
-| 004 | Contrats : catalogue des topics, protos, OpenAPI | PR |
+| 004a | Contrats : catalogue des topics | PR |
+| 004b | Contrats : protos | PR |
+| 004c | Contrats : OpenAPI | PR |
+| 004d | Sécurité en CI | PR |
 | 005 | Bibliothèques de plateforme | PR |
 | 006 | Données : migrations, rôles, GRANT, trigger d'audit | PR |
 | 007 | Livraison : images, manifests, Jobs, environnement de test, alertes | PR |
@@ -60,6 +63,10 @@ formaté est rouge ; la même PR corrigée est verte.
 
 ## 004 — Contrats
 
+Découpée en 004a (catalogue), 004b (protos) et 004c (OpenAPI) par décision humaine du 2026-10-17 :
+la step entière dépassait une PR relisible. Le critère de fin se partage entre elles.
+
+
 - **`contracts/topics.yaml`** et son chargeur typé : tous les topics et groupes du chapitre 9 §9.1.
   Gardes statiques dès maintenant : `dead_letter` obligatoire, corps `clear_bounded` ≤ 96 h,
   partitions figées d'un topic `per_key`, `latest` justifié, `fail_open` justifié. Les gardes qui lisent
@@ -73,6 +80,20 @@ formaté est rouge ; la même PR corrigée est verte.
 
 **Terminé quand** : le catalogue reproduit le chapitre 9 ; chaque garde statique est rouge sur une
 entrée fautive ; `oasdiff` et `buf breaking` tournent sur la PR.
+
+## 004d — Sécurité en CI
+
+Ajoutée le 2026-10-17 par décision humaine : aucun contrôle de sécurité n'était prévu, et le
+`govulncheck` requis et le `gosec` de l'ancienne passerelle n'ont pas été repris à la step 002.
+
+- **`govulncheck`** par la directive `tool`, bloquant dans `make check`.
+- **`gosec`** dans golangci-lint ; une exclusion nomme sa règle et dit pourquoi.
+- **CodeQL** (Go) : un job du workflow unique (C3), résultats dans le code scanning. Informatif au
+  départ, requis une fois les premiers résultats triés.
+- **Dependabot** pour les modules Go et les actions épinglées par SHA ; titres de PR conventionnels.
+
+**Terminé quand** : une PR qui ajoute une dépendance vulnérable connue, ou un motif signalé par `gosec`,
+est rouge ; CodeQL publie ses résultats sur la PR ; Dependabot a ouvert sa première PR.
 
 ## 005 — Bibliothèques de plateforme
 
@@ -106,6 +127,8 @@ Portées de `go-gateway` avec leurs tests, puis adaptées aux décisions :
 un rôle de service ne lit rien hors de sa déclaration (testé sous un rôle non superuser).
 
 ## 007 — Livraison
+
+- **Scan des images** produites (vulnérabilités connues), bloquant ; ajouté avec la step 004d.
 
 - **GoReleaser** : une version, images distroless ; la garde « exactement N images » suit le nombre de
   `cmd/` (13 à terme).
