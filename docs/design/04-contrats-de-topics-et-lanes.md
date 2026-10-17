@@ -156,6 +156,7 @@ revient pas.
 | `dlr.routed` | `account_id` | par clé | événement → idempotence côté client, sinon rien | message-state |
 | `mo.inbound` | `connector_account_id` | par clé | événement | pool |
 | `mo.routed` | `account_id` | par clé | événement | router (MO) |
+| `mo.outcome` | `message_id` | par clé | transition → clé primaire du journal | delivery (ajouté 2026-10-17, spec 04 §4.4) |
 | `message.state` | `message_id` | par clé | version de l'état → CDR | message-state |
 | `connector.account-status` | `connector_account_id`, compacté | par clé | dernier état | pool |
 | `<groupe>.dead-letter` | celle de la source | aucun | record | runtime |
