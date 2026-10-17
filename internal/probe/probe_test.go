@@ -2,4 +2,8 @@ package probe
 
 import "testing"
 
-func TestSkipped(t *testing.T) { t.Skip("sonde du critère de fin") }
+func TestExported(t *testing.T) {
+	if Exported() != 1 {
+		t.Fatal("want 1")
+	}
+}
