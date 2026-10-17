@@ -30,6 +30,15 @@ topics:
     partitions: 128
     retention: 96h
     producers: [router-svc]
+  mt.routed.otp:
+    key: manual
+    order: per_partition
+    duplicate_unit: segment
+    payload: sms.v1.MtRouted
+    body: clear_bounded
+    partitions: 384
+    retention: 96h
+    producers: [router-svc]
   connector.account-status:
     key: connector_account_id
     order: per_key
@@ -125,19 +134,21 @@ func TestEveryGuardRejectsAFaultyEntry(t *testing.T) {
 		"fail_open unjustified": {func(c *catalog.Catalog) {
 			c.Groups[0].Dependencies["cancel-token"] = catalog.Dependency{Mode: "fail_open"}
 		}, "justification"},
-		"unknown order":              {func(c *catalog.Catalog) { topic(c, "mt.outcome", func(t *catalog.Topic) { t.Order = "strict" }) }, "order"},
-		"unknown body":               {func(c *catalog.Catalog) { topic(c, "mt.outcome", func(t *catalog.Topic) { t.Body = "encrypted" }) }, "body"},
-		"no partitions":              {func(c *catalog.Catalog) { topic(c, "mt.outcome", func(t *catalog.Topic) { t.Partitions = 0 }) }, "partitions"},
-		"no producers":               {func(c *catalog.Catalog) { topic(c, "mt.outcome", func(t *catalog.Topic) { t.Producers = nil }) }, "producers"},
-		"undeclared topic":           {func(c *catalog.Catalog) { c.Groups[0].Topic = "mt.nowhere" }, "mt.nowhere is not declared"},
-		"duplicate group":            {func(c *catalog.Catalog) { c.Groups = append(c.Groups, c.Groups[0]) }, "duplicate"},
-		"unknown dependency mode":    {func(c *catalog.Catalog) { c.Groups[0].Dependencies["kafka"] = catalog.Dependency{Mode: "retry"} }, "mode"},
-		"unknown assignment":         {func(c *catalog.Catalog) { c.Groups[0].Assignment = "sticky" }, "assignment"},
-		"unknown start":              {func(c *catalog.Catalog) { c.Groups[0].Start = "middle" }, "start"},
-		"unknown concurrency":        {func(c *catalog.Catalog) { c.Groups[0].Concurrency = "per_key" }, "concurrency"},
-		"per_tenant without ceiling": {func(c *catalog.Catalog) { c.Groups[1].MaxInFlight = 0 }, "max_in_flight"},
-		"ceiling without per_tenant": {func(c *catalog.Catalog) { c.Groups[0].MaxInFlight = 4 }, "max_in_flight"},
-		"bad max_age":                {func(c *catalog.Catalog) { c.Groups[0].MaxAge = "soon" }, "max_age"},
+		"per_partition without manual key": {func(c *catalog.Catalog) { topic(c, "mt.routed.otp", func(t *catalog.Topic) { t.Key = "message_id" }) }, "manual"},
+		"manual key without per_partition": {func(c *catalog.Catalog) { topic(c, "mt.routed.otp", func(t *catalog.Topic) { t.Order = "none" }) }, "manual"},
+		"unknown order":                    {func(c *catalog.Catalog) { topic(c, "mt.outcome", func(t *catalog.Topic) { t.Order = "strict" }) }, "order"},
+		"unknown body":                     {func(c *catalog.Catalog) { topic(c, "mt.outcome", func(t *catalog.Topic) { t.Body = "encrypted" }) }, "body"},
+		"no partitions":                    {func(c *catalog.Catalog) { topic(c, "mt.outcome", func(t *catalog.Topic) { t.Partitions = 0 }) }, "partitions"},
+		"no producers":                     {func(c *catalog.Catalog) { topic(c, "mt.outcome", func(t *catalog.Topic) { t.Producers = nil }) }, "producers"},
+		"undeclared topic":                 {func(c *catalog.Catalog) { c.Groups[0].Topic = "mt.nowhere" }, "mt.nowhere is not declared"},
+		"duplicate group":                  {func(c *catalog.Catalog) { c.Groups = append(c.Groups, c.Groups[0]) }, "duplicate"},
+		"unknown dependency mode":          {func(c *catalog.Catalog) { c.Groups[0].Dependencies["kafka"] = catalog.Dependency{Mode: "retry"} }, "mode"},
+		"unknown assignment":               {func(c *catalog.Catalog) { c.Groups[0].Assignment = "sticky" }, "assignment"},
+		"unknown start":                    {func(c *catalog.Catalog) { c.Groups[0].Start = "middle" }, "start"},
+		"unknown concurrency":              {func(c *catalog.Catalog) { c.Groups[0].Concurrency = "per_key" }, "concurrency"},
+		"per_tenant without ceiling":       {func(c *catalog.Catalog) { c.Groups[1].MaxInFlight = 0 }, "max_in_flight"},
+		"ceiling without per_tenant":       {func(c *catalog.Catalog) { c.Groups[0].MaxInFlight = 4 }, "max_in_flight"},
+		"bad max_age":                      {func(c *catalog.Catalog) { c.Groups[0].MaxAge = "soon" }, "max_age"},
 	}
 	for name, tc := range cases {
 		c := parse(t)
@@ -162,6 +173,9 @@ func TestFrozenRefusesNewPartitionCountsOnPerKeyTopics(t *testing.T) {
 	in.Partitions = 128
 	head.Topics["mt.inbound.otp"] = in
 	head.Topics["new.topic"] = catalog.Topic{Order: "per_key", Partitions: 3}
+	routed := head.Topics["mt.routed.otp"]
+	routed.Partitions = 448
+	head.Topics["mt.routed.otp"] = routed
 
 	errs := catalog.Frozen(base, head)
 	if len(errs) != 1 || !strings.Contains(errs[0].Error(), "mt.outcome") {

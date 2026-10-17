@@ -77,8 +77,11 @@ func (c Catalog) Validate() []error {
 
 	for _, name := range sortedKeys(c.Topics) {
 		t := c.Topics[name]
-		if !slices.Contains([]string{"per_key", "none"}, t.Order) {
-			fail("topic %s: order %q, want per_key or none", name, t.Order)
+		if !slices.Contains([]string{"per_key", "per_partition", "none"}, t.Order) {
+			fail("topic %s: order %q, want per_key, per_partition or none", name, t.Order)
+		}
+		if (t.Key == "manual") != (t.Order == "per_partition") {
+			fail("topic %s: a manual key goes with per_partition order, and only with it", name)
 		}
 		if !slices.Contains([]string{"none", "clear_bounded"}, t.Body) {
 			fail("topic %s: body %q, want none or clear_bounded", name, t.Body)
