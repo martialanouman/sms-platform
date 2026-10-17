@@ -1,4 +1,4 @@
 package probe
 
 // Exported is a probe.
-func Exported() int { return   1 }
+func Exported() int { return 1 }
