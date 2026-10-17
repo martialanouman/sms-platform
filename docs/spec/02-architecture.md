@@ -28,10 +28,10 @@ Aucun service du plan de données n'appelle le dashboard (I15).
 | `smpp-server-svc` | Entrée SMPP : bind, admission, ACK durable ; remise MO/DLR sur bind | — | `mt.inbound.<cat>` | — | public (LB L4) ; `delivery-svc` |
 | `session-manager-svc` | Sessions SMPP, `max_sessions` (I6) | — | — | `redis-state` (sessions) | `smpp-server-svc`, `delivery-svc`, `admin-api-svc` |
 | `router-svc` | Lane MT : conformité, route, segmentation, crédit (I3) ; routage des MO | `mt.inbound.<cat>`, `mt.billing-wait.<cat>`, `mo.inbound` | `mt.routed.<cat>`, `mt.outcome`, `mo.routed` | — | aucun (Kafka seul) |
-| `billing-svc` | Seule autorité du solde : enveloppes, règlement, grand livre (I4, I5). ≥ 2 répliques | `mt.routed.<cat>`, `mt.outcome` | — | tables de facturation | `router-svc`, `admin-api-svc` |
+| `billing-svc` | Seule autorité du solde : enveloppes, règlement, grand livre (I4, I5). ≥ 2 répliques | `mt.routed.<cat>`, `mt.outcome`, `dlr.routed`, `mo.routed` | — | tables de facturation | `router-svc`, `admin-api-svc` |
 | `connector-pool-svc` | Comptes opérateur sous bail (I8), envoi SMPP et HTTP, ingress `/callbacks/{connector_account_id}` | `mt.routed.<cat>` | `mt.outcome`, `mt.reroute-park`, `dlr.events`, `mo.inbound`, `connector.account-status` | baux, curseurs de polling | public (callbacks des fournisseurs HTTP) |
 | `message-state-svc` | Seul écrivain de l'état (I7), corrélation des DLR, projection CDR | `mt.*`, `dlr.events`, `mo.*` | `dlr.routed`, `dlr.uncorrelated`, `dlr.unmatched`, `message.state` | base `message_state` ; CDR ClickHouse | `rest-api-svc`, `smpp-server-svc`, `admin-api-svc` |
-| `delivery-svc` | Remise des MO et DLR au client, isolée par tenant (I11) | `dlr.routed`, `mo.routed` | — | garage par tenant | aucun (Kafka seul) |
+| `delivery-svc` | Remise des MO et DLR au client, isolée par tenant (I11) | `dlr.routed`, `mo.routed` | `mo.outcome` | garage par tenant | aucun (Kafka seul) |
 | `content-key-svc` | Clés de contenu par client, crypto-shred | — | — | clés scellées ; appelle OpenBao Transit | `message-state-svc`, `admin-api-svc` |
 | `admin-api-svc` | Plan de contrôle : seul point d'autorisation (I12), audit (I13), flux temps réel | — | — | `control_plane` (écritures) | `dashboard` seul |
 | `dashboard` | BFF Go et SPA : authentifie, accorde, relaie `/api/gw/*` à l'aveugle (I14) | — | — | base `dashboard` | public (navigateur) ; `admin-api-svc` (JWKS interne) |

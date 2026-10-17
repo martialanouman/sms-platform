@@ -1,5 +1,3 @@
-# Catalogue des topics et des groupes (spec 09 §9.1, décision 4). Page générée : docs/topics.md.
-
 topics:
   mt.inbound.otp: &mt-inbound
     key: message_id
@@ -14,13 +12,7 @@ topics:
   mt.inbound.marketing: *mt-inbound
 
   mt.billing-wait.otp: &mt-billing-wait
-    key: message_id
-    order: none
-    duplicate_unit: message → clé primaire du journal d'état
-    payload: sms.v1.MtInbound
-    body: clear_bounded
-    partitions: 64
-    retention: 96h
+    <<: *mt-inbound
     producers: [router-svc]
   mt.billing-wait.transactional: *mt-billing-wait
   mt.billing-wait.marketing: *mt-billing-wait
@@ -40,7 +32,7 @@ topics:
   mt.reroute-park:
     key: message_id
     order: none
-    duplicate_unit: segment
+    duplicate_unit: segment → clé primaire de la facturation (décision 1 §6.1)
     payload: sms.v1.MtRouted
     body: clear_bounded
     partitions: 64
@@ -139,6 +131,7 @@ topics:
     producers: [connector-pool-svc]
 
 groups:
+  # debt: #29
   - &router-inbound
     topic: mt.inbound.otp
     service: router-svc
@@ -170,7 +163,7 @@ groups:
   - topic: mo.inbound
     service: router-svc
     tenant: none
-    dependencies: {kafka: {mode: blocking}}
+    dependencies: {kafka: {mode: blocking}, redis-state: {mode: blocking}, control-plane: {mode: blocking}}
     concurrency: per_partition
     dead_letter: router-svc.mo.inbound.dead-letter
     start: earliest
@@ -200,18 +193,27 @@ groups:
   - {<<: *state, topic: mt.routed.marketing, dead_letter: message-state-svc.mt.routed.marketing.dead-letter}
   - {<<: *state, topic: mt.outcome, dead_letter: message-state-svc.mt.outcome.dead-letter}
   - {<<: *state, topic: dlr.events, dead_letter: message-state-svc.dlr.events.dead-letter}
-  - {<<: *state, topic: dlr.uncorrelated, dead_letter: message-state-svc.dlr.uncorrelated.dead-letter}
+  - {<<: *state, topic: dlr.uncorrelated, max_age: 5m, dead_letter: message-state-svc.dlr.uncorrelated.dead-letter}
   - {<<: *state, topic: dlr.unmatched, dead_letter: message-state-svc.dlr.unmatched.dead-letter}
   - {<<: *state, topic: mo.inbound, dead_letter: message-state-svc.mo.inbound.dead-letter}
   - {<<: *state, topic: mo.routed, dead_letter: message-state-svc.mo.routed.dead-letter}
   - {<<: *state, topic: mo.outcome, dead_letter: message-state-svc.mo.outcome.dead-letter}
-  - <<: *state
+  - &projection
     topic: message.state
+    service: message-state-svc
+    lane: projection
+    tenant: none
     dependencies:
       kafka: {mode: blocking}
       clickhouse: {mode: blocking}
       content-key-svc: {mode: blocking}
-    dead_letter: message-state-svc.message.state.dead-letter
+    concurrency: per_partition
+    dead_letter: message-state-svc.projection.message.state.dead-letter
+    start: earliest
+  - {<<: *projection, topic: mt.inbound.otp, dead_letter: message-state-svc.projection.mt.inbound.otp.dead-letter}
+  - {<<: *projection, topic: mt.inbound.transactional, dead_letter: message-state-svc.projection.mt.inbound.transactional.dead-letter}
+  - {<<: *projection, topic: mt.inbound.marketing, dead_letter: message-state-svc.projection.mt.inbound.marketing.dead-letter}
+  - {<<: *projection, topic: mo.inbound, dead_letter: message-state-svc.projection.mo.inbound.dead-letter}
 
   - &pool
     topic: mt.routed.otp

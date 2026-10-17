@@ -1,6 +1,7 @@
 package catalog_test
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -70,6 +71,15 @@ groups:
     dead_letter: delivery-svc.mt.outcome.dead-letter
     start: latest
     start_justification: lecture du flux courant seulement
+  - topic: mt.inbound.otp
+    service: router-svc
+    lane: seal
+    tenant: none
+    dependencies:
+      kafka: {mode: blocking}
+    concurrency: per_partition
+    dead_letter: router-svc.seal.mt.inbound.otp.dead-letter
+    start: earliest
   - topic: connector.account-status
     service: router-svc
     assignment: broadcast
@@ -99,8 +109,9 @@ func TestParseFollowsAnchors(t *testing.T) {
 
 func TestParseRejectsUnknownFieldsAndDuplicateKeys(t *testing.T) {
 	for name, doc := range map[string]string{
-		"unknown field": "topics:\n  t:\n    partitons: 3\n",
-		"duplicate key": "topics:\n  t:\n    key: a\n  t:\n    key: b\n",
+		"second document": "topics: {}\n---\ngroups: []\n",
+		"unknown field":   "topics:\n  t:\n    partitons: 3\n",
+		"duplicate key":   "topics:\n  t:\n    key: a\n  t:\n    key: b\n",
 	} {
 		if _, err := catalog.Parse([]byte(doc)); err == nil {
 			t.Errorf("%s: Parse accepted %q", name, doc)
@@ -136,19 +147,34 @@ func TestEveryGuardRejectsAFaultyEntry(t *testing.T) {
 		}, "justification"},
 		"per_partition without manual key": {func(c *catalog.Catalog) { topic(c, "mt.routed.otp", func(t *catalog.Topic) { t.Key = "message_id" }) }, "manual"},
 		"manual key without per_partition": {func(c *catalog.Catalog) { topic(c, "mt.routed.otp", func(t *catalog.Topic) { t.Order = "none" }) }, "manual"},
-		"unknown order":                    {func(c *catalog.Catalog) { topic(c, "mt.outcome", func(t *catalog.Topic) { t.Order = "strict" }) }, "order"},
-		"unknown body":                     {func(c *catalog.Catalog) { topic(c, "mt.outcome", func(t *catalog.Topic) { t.Body = "encrypted" }) }, "body"},
-		"no partitions":                    {func(c *catalog.Catalog) { topic(c, "mt.outcome", func(t *catalog.Topic) { t.Partitions = 0 }) }, "partitions"},
-		"no producers":                     {func(c *catalog.Catalog) { topic(c, "mt.outcome", func(t *catalog.Topic) { t.Producers = nil }) }, "producers"},
-		"undeclared topic":                 {func(c *catalog.Catalog) { c.Groups[0].Topic = "mt.nowhere" }, "mt.nowhere is not declared"},
-		"duplicate group":                  {func(c *catalog.Catalog) { c.Groups = append(c.Groups, c.Groups[0]) }, "duplicate"},
-		"unknown dependency mode":          {func(c *catalog.Catalog) { c.Groups[0].Dependencies["kafka"] = catalog.Dependency{Mode: "retry"} }, "mode"},
-		"unknown assignment":               {func(c *catalog.Catalog) { c.Groups[0].Assignment = "sticky" }, "assignment"},
-		"unknown start":                    {func(c *catalog.Catalog) { c.Groups[0].Start = "middle" }, "start"},
-		"unknown concurrency":              {func(c *catalog.Catalog) { c.Groups[0].Concurrency = "per_key" }, "concurrency"},
-		"per_tenant without ceiling":       {func(c *catalog.Catalog) { c.Groups[1].MaxInFlight = 0 }, "max_in_flight"},
-		"ceiling without per_tenant":       {func(c *catalog.Catalog) { c.Groups[0].MaxInFlight = 4 }, "max_in_flight"},
-		"bad max_age":                      {func(c *catalog.Catalog) { c.Groups[0].MaxAge = "soon" }, "max_age"},
+		"empty service":                    {func(c *catalog.Catalog) { c.Groups[0].Service = "" }, "service"},
+		"empty key":                        {func(c *catalog.Catalog) { topic(c, "mt.outcome", func(t *catalog.Topic) { t.Key = "" }) }, "key"},
+		"empty payload":                    {func(c *catalog.Catalog) { topic(c, "mt.outcome", func(t *catalog.Topic) { t.Payload = "" }) }, "payload"},
+		"empty duplicate_unit":             {func(c *catalog.Catalog) { topic(c, "mt.outcome", func(t *catalog.Topic) { t.DuplicateUnit = "" }) }, "duplicate_unit"},
+		"unknown tenant":                   {func(c *catalog.Catalog) { c.Groups[0].Tenant = "customer" }, "tenant"},
+		"per_tenant without a tenant": {func(c *catalog.Catalog) {
+			c.Groups[1].Tenant = "none"
+			c.Groups[1].Dependencies = map[string]catalog.Dependency{"kafka": {Mode: "blocking"}}
+		}, "per_tenant needs a tenant"},
+		"park_by_tenant without a tenant": {func(c *catalog.Catalog) {
+			c.Groups[0].Tenant = "none"
+			c.Groups[0].Dependencies["endpoint"] = catalog.Dependency{Mode: "park_by_tenant"}
+		}, "park_by_tenant dependency endpoint needs a tenant"},
+		"no dependencies":                    {func(c *catalog.Catalog) { c.Groups[0].Dependencies = nil }, "dependencies"},
+		"manual assignment off a manual key": {func(c *catalog.Catalog) { c.Groups[0].Assignment = "manual" }, "manual"},
+		"unknown order":                      {func(c *catalog.Catalog) { topic(c, "mt.outcome", func(t *catalog.Topic) { t.Order = "strict" }) }, "order"},
+		"unknown body":                       {func(c *catalog.Catalog) { topic(c, "mt.outcome", func(t *catalog.Topic) { t.Body = "encrypted" }) }, "body"},
+		"no partitions":                      {func(c *catalog.Catalog) { topic(c, "mt.outcome", func(t *catalog.Topic) { t.Partitions = 0 }) }, "partitions"},
+		"no producers":                       {func(c *catalog.Catalog) { topic(c, "mt.outcome", func(t *catalog.Topic) { t.Producers = nil }) }, "producers"},
+		"undeclared topic":                   {func(c *catalog.Catalog) { c.Groups[0].Topic = "mt.nowhere" }, "mt.nowhere is not declared"},
+		"duplicate group":                    {func(c *catalog.Catalog) { c.Groups = append(c.Groups, c.Groups[0]) }, "duplicate"},
+		"unknown dependency mode":            {func(c *catalog.Catalog) { c.Groups[0].Dependencies["kafka"] = catalog.Dependency{Mode: "retry"} }, "mode"},
+		"unknown assignment":                 {func(c *catalog.Catalog) { c.Groups[0].Assignment = "sticky" }, "assignment"},
+		"unknown start":                      {func(c *catalog.Catalog) { c.Groups[0].Start = "middle" }, "start"},
+		"unknown concurrency":                {func(c *catalog.Catalog) { c.Groups[0].Concurrency = "per_key" }, "concurrency"},
+		"per_tenant without ceiling":         {func(c *catalog.Catalog) { c.Groups[1].MaxInFlight = 0 }, "max_in_flight"},
+		"ceiling without per_tenant":         {func(c *catalog.Catalog) { c.Groups[0].MaxInFlight = 4 }, "max_in_flight"},
+		"bad max_age":                        {func(c *catalog.Catalog) { c.Groups[0].MaxAge = "soon" }, "max_age"},
 	}
 	for name, tc := range cases {
 		c := parse(t)
@@ -173,13 +199,16 @@ func TestFrozenRefusesNewPartitionCountsOnPerKeyTopics(t *testing.T) {
 	in.Partitions = 128
 	head.Topics["mt.inbound.otp"] = in
 	head.Topics["new.topic"] = catalog.Topic{Order: "per_key", Partitions: 3}
+	status := head.Topics["connector.account-status"]
+	status.Order = "none"
+	head.Topics["connector.account-status"] = status
 	routed := head.Topics["mt.routed.otp"]
 	routed.Partitions = 448
 	head.Topics["mt.routed.otp"] = routed
 
 	errs := catalog.Frozen(base, head)
-	if len(errs) != 1 || !strings.Contains(errs[0].Error(), "mt.outcome") {
-		t.Errorf("Frozen = %v, want one error on mt.outcome", errs)
+	if len(errs) != 2 || !strings.Contains(errs[0].Error(), "connector.account-status") || !strings.Contains(errs[1].Error(), "mt.outcome") {
+		t.Errorf("Frozen = %v, want errors on connector.account-status (order) and mt.outcome (partitions)", errs)
 	}
 	if errs := catalog.Frozen(base, parse(t)); len(errs) > 0 {
 		t.Errorf("Frozen on an unchanged catalog = %v", errs)
@@ -188,19 +217,18 @@ func TestFrozenRefusesNewPartitionCountsOnPerKeyTopics(t *testing.T) {
 
 func TestDeadLettersAreDerivedFromTheirSource(t *testing.T) {
 	dl := parse(t).DeadLetters()
-	got, ok := dl["router-svc.mt.inbound.otp.dead-letter"]
-	want := catalog.Topic{Key: "message_id", Order: "none", DuplicateUnit: "record", Payload: "sms.v1.MtInbound", Body: "clear_bounded", Partitions: 8, Retention: 96 * time.Hour, Producers: []string{"router-svc"}}
-	if !ok || got.Key != want.Key || got.Order != want.Order || got.Body != want.Body || got.Partitions != want.Partitions || got.Retention != want.Retention || got.Payload != want.Payload || len(got.Producers) != 1 || got.Producers[0] != "router-svc" {
+	want := catalog.Topic{Key: "message_id", Order: "none", Body: "clear_bounded", Partitions: 8, Retention: 96 * time.Hour}
+	if got := dl["router-svc.mt.inbound.otp.dead-letter"]; !reflect.DeepEqual(got, want) {
 		t.Errorf("dead-letter = %+v, want %+v", got, want)
 	}
-	if len(dl) != 3 {
+	if len(dl) != 4 {
 		t.Errorf("%d dead-letters, want one per group", len(dl))
 	}
 }
 
 func TestMarkdownListsTopicsGroupsAndDeadLetters(t *testing.T) {
 	page := string(parse(t).Markdown())
-	for _, s := range []string{"mt.inbound.otp", "delivery-svc.mt.outcome", "router-svc.mt.inbound.otp.dead-letter", "broadcast", "fail_open"} {
+	for _, s := range []string{"mt.inbound.otp", "delivery-svc.mt.outcome", "router-svc.mt.inbound.otp.dead-letter", "router-svc.seal.mt.inbound.otp", "broadcast", "fail_open"} {
 		if !strings.Contains(page, s) {
 			t.Errorf("page lacks %q", s)
 		}

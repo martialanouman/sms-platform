@@ -28,8 +28,9 @@ documentation en est générée.
 `payload` (message protobuf versionné), `body` (`none`, `clear_bounded`), `partitions`, `retention`,
 `compacted`, `producers`.
 
-**Groupe** : `topic`, `service`, `assignment` (`group` par défaut ; `broadcast` quand chaque pod lit
-tout, `manual` quand un bail assigne les partitions ; ni l'un ni l'autre n'entre dans la garde 6),
+**Groupe** : `topic`, `service`, `lane` (facultatif, quand un service a deux lanes sur le même topic ;
+le groupe se nomme `<service>[.<lane>].<topic>`), `assignment` (`group` par défaut ; `broadcast` quand
+chaque pod lit tout, `manual` quand un bail assigne les partitions),
 `tenant`, `dependencies` (chacune `blocking`, `park_by_tenant`,
 `park_global` ou `fail_open` justifié), `concurrency` (`per_partition`, `per_tenant` plafonné),
 `max_age`, `dead_letter` (obligatoire), `start` (`earliest` ; `latest` justifié).

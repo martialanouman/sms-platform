@@ -3,7 +3,9 @@ package catalog
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"slices"
 	"strings"
 	"time"
@@ -45,6 +47,7 @@ type Dependency struct {
 type Group struct {
 	Topic              string                `yaml:"topic"`
 	Service            string                `yaml:"service"`
+	Lane               string                `yaml:"lane"`
 	Assignment         string                `yaml:"assignment"`
 	Tenant             string                `yaml:"tenant"`
 	Dependencies       map[string]Dependency `yaml:"dependencies"`
@@ -56,8 +59,12 @@ type Group struct {
 	StartJustification string                `yaml:"start_justification"`
 }
 
-// Name is the group's identity: its service and its topic.
-func (g Group) Name() string { return g.Service + "." + g.Topic }
+func (g Group) name() string {
+	if g.Lane != "" {
+		return g.Service + "." + g.Lane + "." + g.Topic
+	}
+	return g.Service + "." + g.Topic
+}
 
 // Parse decodes a catalog, refusing unknown fields and duplicate keys.
 func Parse(data []byte) (Catalog, error) {
@@ -66,6 +73,9 @@ func Parse(data []byte) (Catalog, error) {
 	dec.KnownFields(true)
 	if err := dec.Decode(&c); err != nil {
 		return Catalog{}, fmt.Errorf("catalog: %w", err)
+	}
+	if err := dec.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return Catalog{}, errors.New("catalog: a single YAML document is expected")
 	}
 	return c, nil
 }
@@ -86,6 +96,9 @@ func (c Catalog) Validate() []error {
 		if !slices.Contains([]string{"none", "clear_bounded"}, t.Body) {
 			fail("topic %s: body %q, want none or clear_bounded", name, t.Body)
 		}
+		if t.Key == "" || t.Payload == "" || t.DuplicateUnit == "" {
+			fail("topic %s: key, payload and duplicate_unit are required", name)
+		}
 		if t.Partitions < 1 {
 			fail("topic %s: partitions must be positive", name)
 		}
@@ -103,13 +116,26 @@ func (c Catalog) Validate() []error {
 
 	seen := map[string]bool{}
 	for _, g := range c.Groups {
-		name := g.Name()
+		name := g.name()
 		if seen[name] {
 			fail("group %s: duplicate", name)
 		}
 		seen[name] = true
-		if _, ok := c.Topics[g.Topic]; !ok {
+		topic, ok := c.Topics[g.Topic]
+		if !ok {
 			fail("group %s: topic %s is not declared", name, g.Topic)
+		}
+		if g.Service == "" {
+			fail("group %s: service is required", name)
+		}
+		if g.Assignment == "manual" && topic.Key != "manual" {
+			fail("group %s: a manual assignment needs a topic with a manual key", name)
+		}
+		if !slices.Contains([]string{"account_id", "customer_id", "connector_account_id", "none"}, g.Tenant) {
+			fail("group %s: tenant %q, want account_id, customer_id, connector_account_id or none", name, g.Tenant)
+		}
+		if len(g.Dependencies) == 0 {
+			fail("group %s: no dependencies", name)
 		}
 		if g.DeadLetter != name+deadLetterSuffix {
 			fail("group %s: dead_letter %q, want %q", name, g.DeadLetter, name+deadLetterSuffix)
@@ -132,6 +158,9 @@ func (c Catalog) Validate() []error {
 				fail("group %s: max_in_flight only applies to per_tenant", name)
 			}
 		case "per_tenant":
+			if g.Tenant == "none" {
+				fail("group %s: per_tenant needs a tenant", name)
+			}
 			if g.MaxInFlight < 1 {
 				fail("group %s: per_tenant needs a positive max_in_flight", name)
 			}
@@ -146,7 +175,11 @@ func (c Catalog) Validate() []error {
 		for _, dep := range sortedKeys(g.Dependencies) {
 			d := g.Dependencies[dep]
 			switch d.Mode {
-			case "blocking", "park_by_tenant", "park_global":
+			case "park_by_tenant":
+				if g.Tenant == "none" {
+					fail("group %s: park_by_tenant dependency %s needs a tenant", name, dep)
+				}
+			case "blocking", "park_global":
 			case "fail_open":
 				if d.Justification == "" {
 					fail("group %s: fail_open dependency %s needs a justification", name, dep)
@@ -159,14 +192,14 @@ func (c Catalog) Validate() []error {
 	return errs
 }
 
-// Frozen returns an error for every per_key topic of base whose partition count head changes.
+// Frozen returns an error for every per_key topic of base whose order or partition count head changes.
 func Frozen(base, head Catalog) []error {
 	var errs []error
 	for _, name := range sortedKeys(base.Topics) {
 		b := base.Topics[name]
 		h, ok := head.Topics[name]
-		if b.Order == "per_key" && ok && h.Partitions != b.Partitions {
-			errs = append(errs, fmt.Errorf("topic %s: per_key partitions are frozen at %d, got %d", name, b.Partitions, h.Partitions))
+		if b.Order == "per_key" && ok && (h.Order != b.Order || h.Partitions != b.Partitions) {
+			errs = append(errs, fmt.Errorf("topic %s: per_key order and partitions are frozen at %d, got %s with %d", name, b.Partitions, h.Order, h.Partitions))
 		}
 	}
 	return errs
@@ -178,14 +211,11 @@ func (c Catalog) DeadLetters() map[string]Topic {
 	for _, g := range c.Groups {
 		src := c.Topics[g.Topic]
 		dl[g.DeadLetter] = Topic{
-			Key:           src.Key,
-			Order:         "none",
-			DuplicateUnit: "record",
-			Payload:       src.Payload,
-			Body:          src.Body,
-			Partitions:    8,
-			Retention:     maxClearRetention,
-			Producers:     []string{g.Service},
+			Key:        src.Key,
+			Order:      "none",
+			Body:       src.Body,
+			Partitions: 8,
+			Retention:  maxClearRetention,
 		}
 	}
 	return dl
@@ -220,7 +250,7 @@ func (c Catalog) Markdown() []byte {
 			maxAge = "—"
 		}
 		fmt.Fprintf(&b, "| `%s` | %s | %s | %s | %s | %s | %s |\n",
-			g.Name(), assignment, g.Tenant, strings.Join(deps, ", "), concurrency, maxAge, g.Start)
+			g.name(), assignment, g.Tenant, strings.Join(deps, ", "), concurrency, maxAge, g.Start)
 	}
 	dl := c.DeadLetters()
 	b.WriteString("\n## Dead-letters\n\nDérivées de chaque groupe : clé et corps de la source, ordre `none`.\n\n| Topic | Corps | Partitions | Rétention |\n|---|---|---|---|\n")

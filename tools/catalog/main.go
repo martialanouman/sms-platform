@@ -18,27 +18,25 @@ func main() {
 
 	data, err := os.ReadFile(path)
 	if err != nil {
-		fail(2, err)
+		fail(err)
 	}
 	head, err := catalog.Parse(data)
 	if err != nil {
-		fail(2, err)
+		fail(err)
 	}
-	errs := head.Validate()
 
 	if *doc != "" {
-		report(errs)
 		if err := os.WriteFile(*doc, head.Markdown(), 0o644); err != nil {
-			fail(2, err)
+			fail(err)
 		}
 		return
 	}
 
 	base, err := baseCatalog()
 	if err != nil {
-		fail(2, err)
+		fail(err)
 	}
-	report(append(errs, catalog.Frozen(base, head)...))
+	report(append(head.Validate(), catalog.Frozen(base, head)...))
 }
 
 func baseCatalog() (catalog.Catalog, error) {
@@ -49,7 +47,11 @@ func baseCatalog() (catalog.Catalog, error) {
 	if err := exec.Command("git", "rev-parse", "--verify", "--quiet", ref+"^{commit}").Run(); err != nil {
 		return catalog.Catalog{}, fmt.Errorf("base %s not found: %w", ref, err)
 	}
-	if exec.Command("git", "cat-file", "-e", ref+":"+path).Run() != nil {
+	listed, err := exec.Command("git", "ls-tree", "--name-only", ref, "--", path).Output()
+	if err != nil {
+		return catalog.Catalog{}, err
+	}
+	if len(listed) == 0 {
 		return catalog.Catalog{}, nil
 	}
 	data, err := exec.Command("git", "show", ref+":"+path).Output()
@@ -68,7 +70,7 @@ func report(errs []error) {
 	}
 }
 
-func fail(code int, err error) {
+func fail(err error) {
 	fmt.Fprintln(os.Stderr, "catalog:", err)
-	os.Exit(code)
+	os.Exit(2)
 }

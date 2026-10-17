@@ -49,6 +49,23 @@ rouge sur une entrée fautive.
     qui n'existe que comme tableau de la spec 05, illisible par une machine. Report : une issue `debt`
     dans cette PR, marquée dans `Validate`.
 
+11. **Revue, premier tour** : trois défauts de contenu.
+    - La lane MO du routeur dépend aussi de `redis-state` (réassemblage) et de `control-plane` (STOP), en
+      `blocking` (spec 04 §4.6).
+    - La projection CDR lit le corps sur `mt.inbound.*` et `mo.inbound` (spec 05 §5.2) : `message-state-svc`
+      a deux lanes sur ces topics. Champ facultatif `lane`, groupe `<service>.<lane>.<topic>` ; la règle
+      choisie par l'humain reste le défaut, elle s'étend. §9.1 le nomme.
+    - L'anti-spam du routeur appelle `redis-state` sans mode de panne écrit dans la spec : dette ouverte
+      #29, marquée sur les lanes du routeur, au lieu d'un mode inventé. `redis-cache` n'est pas une
+      dépendance de lane : accélérateur des lectures `control-plane` (décision 7), repli direct sur
+      Postgres.
+    - La remise appelle `session-manager-svc` et `smpp-server-svc` sous la dépendance `endpoint` (un bind
+      introuvable est un endpoint en panne, spec 04 §4.6).
+12. **Gardes resserrées** : un topic `per_key` de la base ne change ni d'ordre ni de partitions (sinon on
+    contourne en deux PR) ; un seul document YAML ; `service`, `key`, `payload`, `duplicate_unit`
+    requis ; `tenant` énuméré, exigé par `per_tenant` et `park_by_tenant` ; une dépendance au moins ;
+    `assignment: manual` sur un topic à clé `manual`.
+
 ## Design arrêté
 
 - `contracts/topics.yaml` : `topics` (table nom → topic), `groups` (liste). Champs de topic : `key`,
@@ -59,7 +76,7 @@ rouge sur une entrée fautive.
   `dead_letter`, `start` (`earliest`, `latest`) et `start_justification`. Décodage strict : un champ
   inconnu ou une clé dupliquée est une erreur.
 - Le contenu reproduit §9.1 : 14 familles de topics (20 topics avec les catégories), un groupe par
-  consommateur de la table (34).
+  consommateur de la table, plus la lane de projection (38).
 - `order: per_partition` pour une clé `manual` (`mt.routed.<cat>`, « par partition » dans la table de
   §9.1) : ni figé comme `per_key`, ni muet comme `none`. §9.1 nomme la valeur.
 - `internal/catalog` :
@@ -69,7 +86,7 @@ rouge sur une entrée fautive.
     ≤ 96 h, rétention présente
     hors topic compacté, `latest` et `fail_open` justifiés, `max_in_flight` ssi `per_tenant` ;
   - `Frozen(base, head Catalog) []error` : partitions inchangées des topics `per_key` de la base ;
-  - `(Catalog) DeadLetters() map[string]Topic` ;
+  - `(Catalog) DeadLetters() map[string]Topic` : clé, ordre `none`, corps, 8 partitions, 96 h ;
   - `(Catalog) Markdown() []byte` : la page.
 - `tools/catalog` : sans option, valide `contracts/topics.yaml` et le compare à `CATALOG_BASE`
   (défaut `origin/main`) ; `-doc <fichier>` écrit la page. `doc.go` racine porte le `go:generate`.
