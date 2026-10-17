@@ -227,7 +227,7 @@ func TestFrozenRefusesNewPartitionCountsOnPerKeyTopics(t *testing.T) {
 
 func TestDeadLettersAreDerivedFromTheirSource(t *testing.T) {
 	dl := parse(t).DeadLetters()
-	want := catalog.Topic{Body: "clear_bounded", Partitions: 8, Retention: 96 * time.Hour}
+	want := catalog.Topic{Key: "message_id", Order: "none", Body: "clear_bounded", Partitions: 8, Retention: 96 * time.Hour}
 	if got := dl["router-svc.mt.inbound.otp.dead-letter"]; !reflect.DeepEqual(got, want) {
 		t.Errorf("dead-letter = %+v, want %+v", got, want)
 	}

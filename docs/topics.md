@@ -72,7 +72,7 @@ Page générée depuis `contracts/topics.yaml` par `go generate` : ne pas l'édi
 
 ## Dead-letters
 
-Dérivées de chaque groupe : corps de la source, ordre `none`.
+Dérivées de chaque groupe : clé et corps de la source, ordre `none`.
 
 | Topic | Corps | Partitions | Rétention |
 |---|---|---|---|

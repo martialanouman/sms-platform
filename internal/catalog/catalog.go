@@ -211,6 +211,8 @@ func (c Catalog) DeadLetters() map[string]Topic {
 	for _, g := range c.Groups {
 		src := c.Topics[g.Topic]
 		dl[g.DeadLetter] = Topic{
+			Key:        src.Key,
+			Order:      "none",
 			Body:       src.Body,
 			Partitions: 8,
 			Retention:  maxClearRetention,
@@ -251,7 +253,7 @@ func (c Catalog) Markdown() []byte {
 			g.name(), assignment, g.Tenant, strings.Join(deps, ", "), concurrency, maxAge, g.Start)
 	}
 	dl := c.DeadLetters()
-	b.WriteString("\n## Dead-letters\n\nDérivées de chaque groupe : corps de la source, ordre `none`.\n\n| Topic | Corps | Partitions | Rétention |\n|---|---|---|---|\n")
+	b.WriteString("\n## Dead-letters\n\nDérivées de chaque groupe : clé et corps de la source, ordre `none`.\n\n| Topic | Corps | Partitions | Rétention |\n|---|---|---|---|\n")
 	for _, name := range sortedKeys(dl) {
 		t := dl[name]
 		fmt.Fprintf(&b, "| `%s` | %s | %d | %s |\n", name, t.Body, t.Partitions, retention(t))

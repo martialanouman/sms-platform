@@ -96,7 +96,8 @@ rouge sur une entrée fautive.
     hors topic compacté, `latest` et `fail_open` justifiés, `max_in_flight` ssi `per_tenant` ;
   - `Frozen(base, head Catalog) []error` : clé, ordre et partitions inchangés des topics `per_key` de la
     base ;
-  - `(Catalog) DeadLetters() map[string]Topic` : corps de la source, 8 partitions, 96 h ;
+  - `(Catalog) DeadLetters() map[string]Topic` : clé et corps de la source, ordre `none`, 8 partitions,
+    96 h (spec 09 §9.1) ;
   - `(Catalog) Markdown() []byte` : la page.
 - `tools/catalog` : sans option, valide `contracts/topics.yaml` et le compare à `CATALOG_BASE`
   (défaut `origin/main`) ; `-doc <fichier>` écrit la page. `doc.go` racine porte le `go:generate`.
