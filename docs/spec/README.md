@@ -26,7 +26,7 @@ statut de leurs propres messages. Tout se provisionne par l'exploitant.
 | [03-pipeline-mt](03-pipeline-mt.md) | Ordre du pipeline, admission, routage, crédit, comptes opérateur, lanes |
 | [04-voie-retour](04-voie-retour.md) | Pipeline MO, corrélation des DLR, remise isolée par tenant |
 | [05-etat-et-cdr](05-etat-et-cdr.md) | État du message, projection CDR, rétention, RGPD |
-| 06-facturation | Enveloppes de crédit, `charge_on`, grand livre |
+| [06-facturation](06-facturation.md) | Enveloppes de crédit, `charge_on`, grand livre |
 | 07-plan-de-controle | Modèle de configuration, distribution, Admin API, autorisation et audit |
 | 08-dashboard | BFF, authentification, rôles, écrans |
 | 09-contrats | Catalogue des topics, contrats d'API, codes d'erreur |
