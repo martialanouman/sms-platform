@@ -45,7 +45,7 @@ Kafka (partition manuelle, topics compactés, offsets).
 | `order` | `per_key` ou `none` |
 | `duplicate_unit` | Message, segment ou événement, **et où le doublon est absorbé** : clé primaire, repli d'état, ou rien (un SMS en double, dit comme tel) |
 | `payload` | Message protobuf versionné |
-| `body` | `none` ou `sealed`. Jamais `clear` (invariant a, T8) |
+| `body` | `none` ou `clear_bounded` : le corps transite en clair, protégé par mTLS, ACL et chiffrement disque des brokers, sous une rétention ≤ 96 h (amendé 2026-10-17, voir spec 02 §4) |
 | `partitions`, `retention`, `compacted` | Configuration Kafka. La rétention minimale se **calcule** depuis les contraintes déclarées (par exemple 72 h + marge pour la reconstruction de la décision 2) |
 | `producers` | Services autorisés à produire |
 
@@ -73,8 +73,8 @@ toute création de topic à la main. Une page de documentation en est générée
 2. **Un service ne produit que sur les topics où il figure dans `producers`.**
 3. **Une dépendance appelée dans une lane est déclarée** : le runtime ne fournit son client qu'à
    travers sa déclaration.
-4. **Un topic où transite le corps** a `body: sealed` et une rétention couverte par l'inventaire RGPD
-   (T8).
+4. **Un topic où transite le corps** a `body: clear_bounded`, une rétention ≤ 96 h, et figure dans
+   l'inventaire RGPD (T8).
 5. **Un topic `order: per_key` a un nombre de partitions figé** : la garde refuse de l'augmenter dans
    le catalogue (§6.1).
 6. **`maxReplicas` d'un service consommant par groupe ≤ partitions du plus petit topic qu'il

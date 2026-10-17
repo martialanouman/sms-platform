@@ -22,7 +22,7 @@ statut de leurs propres messages. Tout se provisionne par l'exploitant.
 | Fichier | Contenu |
 |---|---|
 | [01-exigences](01-exigences.md) | Exigences fonctionnelles et non fonctionnelles, contraintes, estimation |
-| 02-architecture | Services, magasins, confiance interne, portabilité |
+| [02-architecture](02-architecture.md) | Services, magasins, confiance interne, portabilité |
 | 03-pipeline-mt | Ordre du pipeline, admission, routage, crédit, comptes opérateur, lanes |
 | 04-voie-retour | Pipeline MO, corrélation des DLR, remise isolée par tenant |
 | 05-etat-et-cdr | État du message, projection CDR, rétention, RGPD |
