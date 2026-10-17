@@ -34,7 +34,10 @@ formaté est rouge ; la même PR corrigée est verte.
    générateur aujourd'hui ; les steps 004 et 006 en ajoutent.
 7. **`doc.go` racine** : golangci-lint refuse un module sans fichier Go ; le paquet racine ne porte que
    sa doc.
-8. **Protection de `main`** : un ruleset GitHub, PR obligatoire, check `ci` requis, aucun contournement.
+8. **Protection de `main`** : un ruleset GitHub, PR obligatoire, check `ci` requis et émis par GitHub
+   Actions, aucun contournement. Merge par squash seulement : le titre de la PR devient le commit de
+   `main`, ce qui donne son sens à la regex. Suppression et push forcé interdits. Aucune approbation
+   exigée : l'humain merge lui-même.
 
 ## Design arrêté
 
@@ -54,6 +57,7 @@ formaté est rouge ; la même PR corrigée est verte.
   - `check` : checkout + setup-go épinglés par SHA, `make check` ;
   - `pr-title` (PR seulement) : regex conventionnelle sur le titre ;
   - `ci` : agrégateur, `needs` des deux, échoue si l'un a échoué ou été annulé ; seul check requis.
-- Ruleset `main` : PR obligatoire, `ci` vert, pas de bypass.
+- Ruleset `main` : PR obligatoire (squash seul), `ci` vert émis par GitHub Actions, ni suppression ni
+  push forcé, pas de bypass.
 - Vérification du critère : une PR de démonstration (test sauté, symbole exporté sans doc, fichier non
   formaté), rouge, puis corrigée, verte ; fermée sans merge.
