@@ -130,7 +130,8 @@ suivant de la route, comme aujourd'hui pour un connecteur ouvert.
 
 - Le détenteur s'assigne les trois partitions de chacun de ses comptes (assignation manuelle). La
   priorité entre catégories (ADR-0021) s'applique **au sein du compte**.
-- Offsets commités dans un groupe unique `connector-pool`, en commit autonome, hors adhésion.
+- Offsets commités dans un groupe par catégorie, `connector-pool-svc.mt.routed.<cat>`
+  (`assignment: manual`, step 004a), en commit autonome, hors adhésion.
 - Une partition jamais commitée se lit **depuis le début** : neuve, elle est vide. Le piège
   `FromLatest` disparaît.
 - Un compte sans détenteur garde ses messages dans sa partition : ils attendent, ils ne se perdent

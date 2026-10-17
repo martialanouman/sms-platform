@@ -24,11 +24,14 @@ Chaque topic et chaque groupe de consommateurs est déclaré dans `contracts/top
 Un Job idempotent en applique partitions, rétention, `cleanup.policy` et ACL ; une page de
 documentation en est générée.
 
-**Topic** : `key`, `order` (`per_key`, `none`), `duplicate_unit` et où le doublon est absorbé,
+**Topic** : `key`, `order` (`per_key`, `per_partition` pour une clé `manual`, `none`), `duplicate_unit` et où le doublon est absorbé,
 `payload` (message protobuf versionné), `body` (`none`, `clear_bounded`), `partitions`, `retention`,
 `compacted`, `producers`.
 
-**Groupe** : `topic`, `service`, `tenant`, `dependencies` (chacune `blocking`, `park_by_tenant`,
+**Groupe** : `topic`, `service`, `lane` (facultatif, quand un service a deux lanes sur le même topic ;
+le groupe se nomme `<service>[.<lane>].<topic>`), `assignment` (`group` par défaut ; `broadcast` quand
+chaque pod lit tout, `manual` quand un bail assigne les partitions),
+`tenant`, `dependencies` (chacune `blocking`, `park_by_tenant`,
 `park_global` ou `fail_open` justifié), `concurrency` (`per_partition`, `per_tenant` plafonné),
 `max_age`, `dead_letter` (obligatoire), `start` (`earliest` ; `latest` justifié).
 
@@ -60,7 +63,8 @@ documentation en est générée.
    elle.
 4. Un topic où transite le corps est `clear_bounded`, de rétention ≤ 96 h, inscrit à l'inventaire RGPD.
 5. Le nombre de partitions d'un topic `order: per_key` est figé.
-6. `maxReplicas` d'un service consommant par groupe ≤ partitions du plus petit topic qu'il consomme.
+6. `maxReplicas` d'un service consommant par groupe (`assignment: group`) ≤ partitions du plus petit
+   topic qu'il consomme.
 7. Les ACL Kafka générées correspondent exactement au catalogue.
 
 ## 9.2 gRPC interne
