@@ -25,7 +25,7 @@ statut de leurs propres messages. Tout se provisionne par l'exploitant.
 | [02-architecture](02-architecture.md) | Services, magasins, confiance interne, portabilité |
 | [03-pipeline-mt](03-pipeline-mt.md) | Ordre du pipeline, admission, routage, crédit, comptes opérateur, lanes |
 | [04-voie-retour](04-voie-retour.md) | Pipeline MO, corrélation des DLR, remise isolée par tenant |
-| 05-etat-et-cdr | État du message, projection CDR, rétention, RGPD |
+| [05-etat-et-cdr](05-etat-et-cdr.md) | État du message, projection CDR, rétention, RGPD |
 | 06-facturation | Enveloppes de crédit, `charge_on`, grand livre |
 | 07-plan-de-controle | Modèle de configuration, distribution, Admin API, autorisation et audit |
 | 08-dashboard | BFF, authentification, rôles, écrans |
