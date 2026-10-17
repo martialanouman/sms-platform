@@ -20,8 +20,9 @@ autorisation du sender ID → opt-out → anti-spam → route (numéro exact →
 du compte opérateur → encodage et segmentation → crédit → débit du compte opérateur et jeton
 d'annulation → envoi → règlement → état et CDR.
 
-Le débit se refuse **avant** l'ACK, jamais après. Le court-circuit « numéro exact » saute la
-résolution de route, **jamais** la conformité (I3). Détail : `docs/spec/03-pipeline-mt.md`.
+Le débit se refuse **avant** l'ACK, jamais après. **I3** — un message routé par numéro exact
+traverse toutes les étapes de conformité (sender ID, opt-out, anti-spam) : le court-circuit saute la
+résolution de route, **jamais** la conformité. Détail : `docs/spec/03-pipeline-mt.md`.
 
 ## Invariants
 
