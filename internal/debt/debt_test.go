@@ -10,14 +10,16 @@ import (
 	"github.com/martialanouman/sms-platform/internal/debt"
 )
 
+const d = "debt"
+
 func repo() fstest.MapFS {
 	return fstest.MapFS{
-		"a.go":       {Data: []byte("package a\n\n// debt: #12\n")},
-		"docs/b.md":  {Data: []byte("voir debt: #3 et debt: #12\n")},
+		"a.go":       {Data: []byte("package a\n\n// " + d + ": #12\n")},
+		"docs/b.md":  {Data: []byte("voir " + d + ": #3 et " + d + ": #12\n")},
 		"c.md":       {Data: []byte("la marque s'écrit debt: #N\n")},
-		"d.go":       {Data: []byte("// debt:#7\n")},
-		".git/HEAD":  {Data: []byte("debt: #99\n")},
-		"sub/.git/x": {Data: []byte("debt: #98\n")},
+		"d.go":       {Data: []byte("// " + d + ":#7\n")},
+		".git/HEAD":  {Data: []byte(d + ": #99\n")},
+		"sub/.git/x": {Data: []byte(d + ": #98\n")},
 	}
 }
 

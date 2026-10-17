@@ -1,0 +1,36 @@
+name: Dette
+description: Un report assumé, marqué `debt: #N` là où le code le porte.
+labels: [debt]
+body:
+  - type: textarea
+    id: instead
+    attributes:
+      label: Ce qu'on a fait à la place
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Pourquoi
+    validations:
+      required: true
+  - type: textarea
+    id: cost
+    attributes:
+      label: Ce qu'il en coûte
+    validations:
+      required: true
+  - type: textarea
+    id: trigger
+    attributes:
+      label: Déclencheur
+      description: À quoi on reconnaîtra qu'il faut la payer.
+    validations:
+      required: true
+  - type: input
+    id: owner
+    attributes:
+      label: Porteur
+      description: Le composant ou la step qui la paiera.
+    validations:
+      required: true
