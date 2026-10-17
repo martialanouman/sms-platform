@@ -58,12 +58,15 @@ rouge sur une entrée fautive.
   (`per_partition`, `per_tenant`) et `max_in_flight`, `max_age` (`category`, une durée, ou absent),
   `dead_letter`, `start` (`earliest`, `latest`) et `start_justification`. Décodage strict : un champ
   inconnu ou une clé dupliquée est une erreur.
-- Le contenu reproduit §9.1 : 14 familles de topics (22 topics avec les catégories), un groupe par
-  consommateur de la table.
+- Le contenu reproduit §9.1 : 14 familles de topics (20 topics avec les catégories), un groupe par
+  consommateur de la table (34).
+- `order: per_partition` pour une clé `manual` (`mt.routed.<cat>`, « par partition » dans la table de
+  §9.1) : ni figé comme `per_key`, ni muet comme `none`. §9.1 nomme la valeur.
 - `internal/catalog` :
   - `Parse([]byte) (Catalog, error)` ;
   - `(Catalog) Validate() []error` : valeurs énumérées, topic de groupe déclaré, groupe unique,
-    `dead_letter` = `<groupe>.dead-letter`, `clear_bounded` ⇒ rétention ≤ 96 h, rétention présente
+    `dead_letter` = `<groupe>.dead-letter`, clé `manual` ⇔ `per_partition`, `clear_bounded` ⇒ rétention
+    ≤ 96 h, rétention présente
     hors topic compacté, `latest` et `fail_open` justifiés, `max_in_flight` ssi `per_tenant` ;
   - `Frozen(base, head Catalog) []error` : partitions inchangées des topics `per_key` de la base ;
   - `(Catalog) DeadLetters() map[string]Topic` ;

@@ -1,6 +1,6 @@
 SHELL := /bin/bash -o pipefail
 
-.PHONY: help lint test ciguard check-generated debtguard check
+.PHONY: help lint test ciguard check-generated debtguard catalog check
 
 help: ## Liste les cibles
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "%-16s %s\n", $$1, $$2}'
@@ -24,4 +24,7 @@ debtguard: ## Chaque marque de dette désigne une issue ouverte étiquetée debt
 	GITHUB_REPOSITORY=$${GITHUB_REPOSITORY:-martialanouman/sms-platform} \
 		GH_TOKEN=$${GH_TOKEN:-$$(gh auth token 2>/dev/null)} go run ./tools/debtguard
 
-check: lint ciguard check-generated debtguard ## Ce que vérifie la CI
+catalog: ## Le catalogue des topics est valide et ses partitions per_key n'ont pas bougé
+	go run ./tools/catalog
+
+check: lint ciguard check-generated debtguard catalog ## Ce que vérifie la CI

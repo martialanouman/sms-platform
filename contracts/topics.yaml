@@ -1,0 +1,269 @@
+# Catalogue des topics et des groupes (spec 09 §9.1, décision 4). Page générée : docs/topics.md.
+
+topics:
+  mt.inbound.otp: &mt-inbound
+    key: message_id
+    order: none
+    duplicate_unit: message → clé primaire du journal d'état ; SMS en double possible à la frontière du routeur (ADR-0014)
+    payload: sms.v1.MtInbound
+    body: clear_bounded
+    partitions: 64
+    retention: 96h
+    producers: [rest-api-svc, smpp-server-svc]
+  mt.inbound.transactional: *mt-inbound
+  mt.inbound.marketing: *mt-inbound
+
+  mt.billing-wait.otp: &mt-billing-wait
+    key: message_id
+    order: none
+    duplicate_unit: message → clé primaire du journal d'état
+    payload: sms.v1.MtInbound
+    body: clear_bounded
+    partitions: 64
+    retention: 96h
+    producers: [router-svc]
+  mt.billing-wait.transactional: *mt-billing-wait
+  mt.billing-wait.marketing: *mt-billing-wait
+
+  mt.routed.otp: &mt-routed
+    key: manual
+    order: per_partition
+    duplicate_unit: segment → SMS en double possible à la frontière du pool (décision 3 §6.7)
+    payload: sms.v1.MtRouted
+    body: clear_bounded
+    partitions: 384
+    retention: 96h
+    producers: [router-svc, connector-pool-svc]
+  mt.routed.transactional: *mt-routed
+  mt.routed.marketing: *mt-routed
+
+  mt.reroute-park:
+    key: message_id
+    order: none
+    duplicate_unit: segment
+    payload: sms.v1.MtRouted
+    body: clear_bounded
+    partitions: 64
+    retention: 96h
+    producers: [connector-pool-svc]
+
+  mt.outcome:
+    key: message_id
+    order: per_key
+    duplicate_unit: transition → clé primaire du journal d'état
+    payload: sms.v1.MtOutcome
+    body: none
+    partitions: 128
+    retention: 96h
+    producers: [router-svc, connector-pool-svc]
+
+  dlr.events:
+    key: connector_account_id
+    order: per_key
+    duplicate_unit: événement → corrélation
+    payload: sms.v1.DlrEvent
+    body: none
+    partitions: 64
+    retention: 96h
+    producers: [connector-pool-svc]
+
+  dlr.uncorrelated: &dlr-parked
+    key: connector_account_id
+    order: none
+    duplicate_unit: événement
+    payload: sms.v1.DlrEvent
+    body: none
+    partitions: 64
+    retention: 96h
+    producers: [message-state-svc]
+  dlr.unmatched: *dlr-parked
+
+  dlr.routed:
+    key: account_id
+    order: per_key
+    duplicate_unit: événement → idempotence côté client, sinon rien
+    payload: sms.v1.DlrRouted
+    body: none
+    partitions: 64
+    retention: 96h
+    producers: [message-state-svc]
+
+  mo.inbound:
+    key: connector_account_id
+    order: per_key
+    duplicate_unit: événement
+    payload: sms.v1.MoInbound
+    body: clear_bounded
+    partitions: 64
+    retention: 96h
+    producers: [connector-pool-svc]
+
+  mo.routed:
+    key: account_id
+    order: per_key
+    duplicate_unit: événement
+    payload: sms.v1.MoRouted
+    body: clear_bounded
+    partitions: 64
+    retention: 96h
+    producers: [router-svc]
+
+  mo.outcome:
+    key: message_id
+    order: per_key
+    duplicate_unit: transition → clé primaire du journal d'état
+    payload: sms.v1.MoOutcome
+    body: none
+    partitions: 64
+    retention: 96h
+    producers: [delivery-svc]
+
+  message.state:
+    key: message_id
+    order: per_key
+    duplicate_unit: version de l'état → CDR
+    payload: sms.v1.MessageState
+    body: none
+    partitions: 128
+    retention: 96h
+    producers: [message-state-svc]
+
+  connector.account-status:
+    key: connector_account_id
+    order: per_key
+    duplicate_unit: dernier état
+    payload: sms.v1.ConnectorAccountStatus
+    body: none
+    partitions: 8
+    compacted: true
+    producers: [connector-pool-svc]
+
+groups:
+  - &router-inbound
+    topic: mt.inbound.otp
+    service: router-svc
+    tenant: account_id
+    dependencies:
+      kafka: {mode: blocking}
+      control-plane: {mode: blocking}
+      billing-svc: {mode: park_global}
+    concurrency: per_partition
+    max_age: category
+    dead_letter: router-svc.mt.inbound.otp.dead-letter
+    start: earliest
+  - {<<: *router-inbound, topic: mt.inbound.transactional, dead_letter: router-svc.mt.inbound.transactional.dead-letter}
+  - {<<: *router-inbound, topic: mt.inbound.marketing, dead_letter: router-svc.mt.inbound.marketing.dead-letter}
+  - &router-wait
+    topic: mt.billing-wait.otp
+    service: router-svc
+    tenant: account_id
+    dependencies:
+      kafka: {mode: blocking}
+      control-plane: {mode: blocking}
+      billing-svc: {mode: blocking}
+    concurrency: per_partition
+    max_age: category
+    dead_letter: router-svc.mt.billing-wait.otp.dead-letter
+    start: earliest
+  - {<<: *router-wait, topic: mt.billing-wait.transactional, dead_letter: router-svc.mt.billing-wait.transactional.dead-letter}
+  - {<<: *router-wait, topic: mt.billing-wait.marketing, dead_letter: router-svc.mt.billing-wait.marketing.dead-letter}
+  - topic: mo.inbound
+    service: router-svc
+    tenant: none
+    dependencies: {kafka: {mode: blocking}}
+    concurrency: per_partition
+    dead_letter: router-svc.mo.inbound.dead-letter
+    start: earliest
+  - topic: connector.account-status
+    service: router-svc
+    assignment: broadcast
+    tenant: none
+    dependencies: {kafka: {mode: blocking}}
+    concurrency: per_partition
+    dead_letter: router-svc.connector.account-status.dead-letter
+    start: earliest
+
+  - &state
+    topic: mt.inbound.otp
+    service: message-state-svc
+    tenant: none
+    dependencies:
+      kafka: {mode: blocking}
+      message-state-db: {mode: blocking}
+    concurrency: per_partition
+    dead_letter: message-state-svc.mt.inbound.otp.dead-letter
+    start: earliest
+  - {<<: *state, topic: mt.inbound.transactional, dead_letter: message-state-svc.mt.inbound.transactional.dead-letter}
+  - {<<: *state, topic: mt.inbound.marketing, dead_letter: message-state-svc.mt.inbound.marketing.dead-letter}
+  - {<<: *state, topic: mt.routed.otp, dead_letter: message-state-svc.mt.routed.otp.dead-letter}
+  - {<<: *state, topic: mt.routed.transactional, dead_letter: message-state-svc.mt.routed.transactional.dead-letter}
+  - {<<: *state, topic: mt.routed.marketing, dead_letter: message-state-svc.mt.routed.marketing.dead-letter}
+  - {<<: *state, topic: mt.outcome, dead_letter: message-state-svc.mt.outcome.dead-letter}
+  - {<<: *state, topic: dlr.events, dead_letter: message-state-svc.dlr.events.dead-letter}
+  - {<<: *state, topic: dlr.uncorrelated, dead_letter: message-state-svc.dlr.uncorrelated.dead-letter}
+  - {<<: *state, topic: dlr.unmatched, dead_letter: message-state-svc.dlr.unmatched.dead-letter}
+  - {<<: *state, topic: mo.inbound, dead_letter: message-state-svc.mo.inbound.dead-letter}
+  - {<<: *state, topic: mo.routed, dead_letter: message-state-svc.mo.routed.dead-letter}
+  - {<<: *state, topic: mo.outcome, dead_letter: message-state-svc.mo.outcome.dead-letter}
+  - <<: *state
+    topic: message.state
+    dependencies:
+      kafka: {mode: blocking}
+      clickhouse: {mode: blocking}
+      content-key-svc: {mode: blocking}
+    dead_letter: message-state-svc.message.state.dead-letter
+
+  - &pool
+    topic: mt.routed.otp
+    service: connector-pool-svc
+    assignment: manual
+    tenant: connector_account_id
+    dependencies:
+      kafka: {mode: blocking}
+      control-plane: {mode: blocking}
+      redis-state: {mode: fail_open, justification: "jeton d'annulation (ADR-0013) : en panne, l'envoi continue et l'écart est compté"}
+    concurrency: per_partition
+    max_age: category
+    dead_letter: connector-pool-svc.mt.routed.otp.dead-letter
+    start: earliest
+  - {<<: *pool, topic: mt.routed.transactional, dead_letter: connector-pool-svc.mt.routed.transactional.dead-letter}
+  - {<<: *pool, topic: mt.routed.marketing, dead_letter: connector-pool-svc.mt.routed.marketing.dead-letter}
+  - topic: mt.reroute-park
+    service: connector-pool-svc
+    tenant: connector_account_id
+    dependencies: {kafka: {mode: blocking}, control-plane: {mode: blocking}}
+    concurrency: per_partition
+    max_age: category
+    dead_letter: connector-pool-svc.mt.reroute-park.dead-letter
+    start: earliest
+
+  - &billing
+    topic: mt.routed.otp
+    service: billing-svc
+    tenant: none
+    dependencies:
+      kafka: {mode: blocking}
+      control-plane: {mode: blocking}
+    concurrency: per_partition
+    dead_letter: billing-svc.mt.routed.otp.dead-letter
+    start: earliest
+  - {<<: *billing, topic: mt.routed.transactional, dead_letter: billing-svc.mt.routed.transactional.dead-letter}
+  - {<<: *billing, topic: mt.routed.marketing, dead_letter: billing-svc.mt.routed.marketing.dead-letter}
+  - {<<: *billing, topic: mt.outcome, dead_letter: billing-svc.mt.outcome.dead-letter}
+  - {<<: *billing, topic: dlr.routed, dead_letter: billing-svc.dlr.routed.dead-letter}
+  - {<<: *billing, topic: mo.routed, dead_letter: billing-svc.mo.routed.dead-letter}
+
+  - &delivery
+    topic: dlr.routed
+    service: delivery-svc
+    tenant: account_id
+    dependencies:
+      kafka: {mode: blocking}
+      control-plane: {mode: blocking}
+      endpoint: {mode: park_by_tenant}
+    concurrency: per_tenant
+    max_in_flight: 8
+    max_age: 24h
+    dead_letter: delivery-svc.dlr.routed.dead-letter
+    start: earliest
+  - {<<: *delivery, topic: mo.routed, dead_letter: delivery-svc.mo.routed.dead-letter}
