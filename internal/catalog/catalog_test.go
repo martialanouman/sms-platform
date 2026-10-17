@@ -202,6 +202,9 @@ func TestFrozenRefusesNewPartitionCountsOnPerKeyTopics(t *testing.T) {
 	status := head.Topics["connector.account-status"]
 	status.Order = "none"
 	head.Topics["connector.account-status"] = status
+	outcome := head.Topics["mt.outcome"]
+	outcome.Key = "account_id"
+	head.Topics["mt.outcome"] = outcome
 	routed := head.Topics["mt.routed.otp"]
 	routed.Partitions = 448
 	head.Topics["mt.routed.otp"] = routed
@@ -210,6 +213,13 @@ func TestFrozenRefusesNewPartitionCountsOnPerKeyTopics(t *testing.T) {
 	if len(errs) != 2 || !strings.Contains(errs[0].Error(), "connector.account-status") || !strings.Contains(errs[1].Error(), "mt.outcome") {
 		t.Errorf("Frozen = %v, want errors on connector.account-status (order) and mt.outcome (partitions)", errs)
 	}
+	keyOnly := parse(t)
+	k := keyOnly.Topics["mt.outcome"]
+	k.Key = "account_id"
+	keyOnly.Topics["mt.outcome"] = k
+	if errs := catalog.Frozen(base, keyOnly); len(errs) != 1 {
+		t.Errorf("Frozen on a changed key = %v, want one error", errs)
+	}
 	if errs := catalog.Frozen(base, parse(t)); len(errs) > 0 {
 		t.Errorf("Frozen on an unchanged catalog = %v", errs)
 	}
@@ -217,7 +227,7 @@ func TestFrozenRefusesNewPartitionCountsOnPerKeyTopics(t *testing.T) {
 
 func TestDeadLettersAreDerivedFromTheirSource(t *testing.T) {
 	dl := parse(t).DeadLetters()
-	want := catalog.Topic{Key: "message_id", Order: "none", Body: "clear_bounded", Partitions: 8, Retention: 96 * time.Hour}
+	want := catalog.Topic{Body: "clear_bounded", Partitions: 8, Retention: 96 * time.Hour}
 	if got := dl["router-svc.mt.inbound.otp.dead-letter"]; !reflect.DeepEqual(got, want) {
 		t.Errorf("dead-letter = %+v, want %+v", got, want)
 	}

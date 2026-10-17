@@ -61,7 +61,13 @@ rouge sur une entrée fautive.
       Postgres.
     - La remise appelle `session-manager-svc` et `smpp-server-svc` sous la dépendance `endpoint` (un bind
       introuvable est un endpoint en panne, spec 04 §4.6).
-12. **Gardes resserrées** : un topic `per_key` de la base ne change ni d'ordre ni de partitions (sinon on
+12. **Revue, second tour** : `content-key-svc` ne concerne que le scellement du corps (groupes de
+    projection sur `mt.inbound.*` et `mo.inbound`), pas la projection de `message.state` : sa panne
+    retarde le contenu, pas le CDR (spec 05 §5.5). Le scellement lit aussi `customers.content_storage` et
+    le `customer_id` dans `control-plane`, `blocking`. Une clé changée sur un topic `per_key` casse
+    l'ordre comme un repartitionnement : `Frozen` la fige aussi. Trou connu : supprimer un topic puis le
+    recréer autrement ne se voit pas sans historique.
+13. **Gardes resserrées** : un topic `per_key` de la base ne change ni d'ordre ni de partitions (sinon on
     contourne en deux PR) ; un seul document YAML ; `service`, `key`, `payload`, `duplicate_unit`
     requis ; `tenant` énuméré, exigé par `per_tenant` et `park_by_tenant` ; une dépendance au moins ;
     `assignment: manual` sur un topic à clé `manual`.
@@ -70,7 +76,7 @@ rouge sur une entrée fautive.
 
 - `contracts/topics.yaml` : `topics` (table nom → topic), `groups` (liste). Champs de topic : `key`,
   `order` (`per_key`, `none`), `duplicate_unit`, `payload`, `body` (`none`, `clear_bounded`),
-  `partitions`, `retention`, `compacted`, `producers`. Champs de groupe : `topic`, `service`,
+  `partitions`, `retention`, `compacted`, `producers`. Champs de groupe : `topic`, `service`, `lane`,
   `assignment`, `tenant`, `dependencies` (nom → `{mode, justification}`), `concurrency`
   (`per_partition`, `per_tenant`) et `max_in_flight`, `max_age` (`category`, une durée, ou absent),
   `dead_letter`, `start` (`earliest`, `latest`) et `start_justification`. Décodage strict : un champ
@@ -81,12 +87,16 @@ rouge sur une entrée fautive.
   §9.1) : ni figé comme `per_key`, ni muet comme `none`. §9.1 nomme la valeur.
 - `internal/catalog` :
   - `Parse([]byte) (Catalog, error)` ;
-  - `(Catalog) Validate() []error` : valeurs énumérées, topic de groupe déclaré, groupe unique,
+  - `Parse` refuse aussi un second document ;
+  - `(Catalog) Validate() []error` : valeurs énumérées (dont `tenant`), champs requis (`service`, `key`,
+    `payload`, `duplicate_unit`), une dépendance au moins, `per_tenant` et `park_by_tenant` avec un
+    tenant, `assignment: manual` sur une clé `manual`, topic de groupe déclaré, groupe unique,
     `dead_letter` = `<groupe>.dead-letter`, clé `manual` ⇔ `per_partition`, `clear_bounded` ⇒ rétention
     ≤ 96 h, rétention présente
     hors topic compacté, `latest` et `fail_open` justifiés, `max_in_flight` ssi `per_tenant` ;
-  - `Frozen(base, head Catalog) []error` : partitions inchangées des topics `per_key` de la base ;
-  - `(Catalog) DeadLetters() map[string]Topic` : clé, ordre `none`, corps, 8 partitions, 96 h ;
+  - `Frozen(base, head Catalog) []error` : clé, ordre et partitions inchangés des topics `per_key` de la
+    base ;
+  - `(Catalog) DeadLetters() map[string]Topic` : corps de la source, 8 partitions, 96 h ;
   - `(Catalog) Markdown() []byte` : la page.
 - `tools/catalog` : sans option, valide `contracts/topics.yaml` et le compare à `CATALOG_BASE`
   (défaut `origin/main`) ; `-doc <fichier>` écrit la page. `doc.go` racine porte le `go:generate`.

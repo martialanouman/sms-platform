@@ -206,14 +206,20 @@ groups:
     dependencies:
       kafka: {mode: blocking}
       clickhouse: {mode: blocking}
-      content-key-svc: {mode: blocking}
     concurrency: per_partition
     dead_letter: message-state-svc.projection.message.state.dead-letter
     start: earliest
-  - {<<: *projection, topic: mt.inbound.otp, dead_letter: message-state-svc.projection.mt.inbound.otp.dead-letter}
-  - {<<: *projection, topic: mt.inbound.transactional, dead_letter: message-state-svc.projection.mt.inbound.transactional.dead-letter}
-  - {<<: *projection, topic: mt.inbound.marketing, dead_letter: message-state-svc.projection.mt.inbound.marketing.dead-letter}
-  - {<<: *projection, topic: mo.inbound, dead_letter: message-state-svc.projection.mo.inbound.dead-letter}
+  - <<: *projection
+    topic: mt.inbound.otp
+    dependencies: &seal
+      kafka: {mode: blocking}
+      clickhouse: {mode: blocking}
+      content-key-svc: {mode: blocking}
+      control-plane: {mode: blocking}
+    dead_letter: message-state-svc.projection.mt.inbound.otp.dead-letter
+  - {<<: *projection, topic: mt.inbound.transactional, dependencies: *seal, dead_letter: message-state-svc.projection.mt.inbound.transactional.dead-letter}
+  - {<<: *projection, topic: mt.inbound.marketing, dependencies: *seal, dead_letter: message-state-svc.projection.mt.inbound.marketing.dead-letter}
+  - {<<: *projection, topic: mo.inbound, dependencies: *seal, dead_letter: message-state-svc.projection.mo.inbound.dead-letter}
 
   - &pool
     topic: mt.routed.otp

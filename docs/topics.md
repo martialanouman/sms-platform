@@ -52,11 +52,11 @@ Page générée depuis `contracts/topics.yaml` par `go generate` : ne pas l'édi
 | `message-state-svc.mo.inbound` | group | none | kafka : blocking, message-state-db : blocking | per_partition | — | earliest |
 | `message-state-svc.mo.routed` | group | none | kafka : blocking, message-state-db : blocking | per_partition | — | earliest |
 | `message-state-svc.mo.outcome` | group | none | kafka : blocking, message-state-db : blocking | per_partition | — | earliest |
-| `message-state-svc.projection.message.state` | group | none | clickhouse : blocking, content-key-svc : blocking, kafka : blocking | per_partition | — | earliest |
-| `message-state-svc.projection.mt.inbound.otp` | group | none | clickhouse : blocking, content-key-svc : blocking, kafka : blocking | per_partition | — | earliest |
-| `message-state-svc.projection.mt.inbound.transactional` | group | none | clickhouse : blocking, content-key-svc : blocking, kafka : blocking | per_partition | — | earliest |
-| `message-state-svc.projection.mt.inbound.marketing` | group | none | clickhouse : blocking, content-key-svc : blocking, kafka : blocking | per_partition | — | earliest |
-| `message-state-svc.projection.mo.inbound` | group | none | clickhouse : blocking, content-key-svc : blocking, kafka : blocking | per_partition | — | earliest |
+| `message-state-svc.projection.message.state` | group | none | clickhouse : blocking, kafka : blocking | per_partition | — | earliest |
+| `message-state-svc.projection.mt.inbound.otp` | group | none | clickhouse : blocking, content-key-svc : blocking, control-plane : blocking, kafka : blocking | per_partition | — | earliest |
+| `message-state-svc.projection.mt.inbound.transactional` | group | none | clickhouse : blocking, content-key-svc : blocking, control-plane : blocking, kafka : blocking | per_partition | — | earliest |
+| `message-state-svc.projection.mt.inbound.marketing` | group | none | clickhouse : blocking, content-key-svc : blocking, control-plane : blocking, kafka : blocking | per_partition | — | earliest |
+| `message-state-svc.projection.mo.inbound` | group | none | clickhouse : blocking, content-key-svc : blocking, control-plane : blocking, kafka : blocking | per_partition | — | earliest |
 | `connector-pool-svc.mt.routed.otp` | manual | connector_account_id | control-plane : blocking, kafka : blocking, redis-state : fail_open | per_partition | category | earliest |
 | `connector-pool-svc.mt.routed.transactional` | manual | connector_account_id | control-plane : blocking, kafka : blocking, redis-state : fail_open | per_partition | category | earliest |
 | `connector-pool-svc.mt.routed.marketing` | manual | connector_account_id | control-plane : blocking, kafka : blocking, redis-state : fail_open | per_partition | category | earliest |
@@ -72,7 +72,7 @@ Page générée depuis `contracts/topics.yaml` par `go generate` : ne pas l'édi
 
 ## Dead-letters
 
-Dérivées de chaque groupe : clé et corps de la source, ordre `none`.
+Dérivées de chaque groupe : corps de la source, ordre `none`.
 
 | Topic | Corps | Partitions | Rétention |
 |---|---|---|---|
