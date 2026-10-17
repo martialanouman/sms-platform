@@ -29,13 +29,15 @@ l'humain impose le 2026-10-17 et que l'ADR 0025 écrit.
 3. **La garde des dettes est un outil Go**, pas une ligne de shell : le cœur `internal/debt` (lire les
    marques d'un `fs.FS`, calculer les orphelines) se teste sans réseau ; l'adaptateur
    `internal/debt/github` parle à l'API REST d'issues (pagination, exclusion des PR) ; `tools/debtguard`
-   compose. Une marque est `debt: #` suivi de chiffres, dans n'importe quel fichier du dépôt hors
-   `.git`.
+   compose. Une marque est `debt`, des espaces facultatifs (insécables compris) autour des deux-points,
+   `#` et des chiffres, sans égard à la casse, dans un fichier régulier suivi par git (`git ls-files`) :
+   ni worktree, ni lien symbolique, ni dépendance installée.
 4. **Jeton** : facultatif (dépôt public). En CI, `GH_TOKEN` vient de `github.token` avec
    `issues: read` ; en local, `make` le prend à `gh auth token` s'il existe.
 5. **Fermer l'issue fait échouer la CI** : le workflow se déclenche aussi sur `issues` (`closed`,
-   `unlabeled`, `deleted`) et rejoue `make check` sur `main` ; toute PR ouverte, qui porte la marque,
-   est rouge elle aussi. La liste filtrée par étiquette a environ deux secondes de retard sur une
+   `reopened`, `labeled`, `unlabeled`, `deleted`, `transferred`) et rejoue `make check` sur `main`, qui
+   passe au rouge, puis au vert quand l'état est rétabli. Une PR ouverte ne le voit qu'à son prochain
+   push : son check n'est pas rejoué. La liste filtrée par étiquette a environ deux secondes de retard sur une
    fermeture (mesuré) ; le run déclenché démarre bien après, et un vert périmé ne survit pas à la PR
    suivante.
 6. **Gabarit** : un formulaire d'issue `.github/ISSUE_TEMPLATE/debt.yml`, cinq champs obligatoires,
@@ -53,18 +55,19 @@ l'humain impose le 2026-10-17 et que l'ADR 0025 écrit.
 
 - `docs/adr/0025-clean-architecture-coeur-et-adaptateurs.md`, ligne à l'index ; `CLAUDE.md` (section
   Code) et `.claude/rules/go-code.md` disent la forme.
-- Une marque s'écrit `debt:`, des espaces facultatifs, `#` et des chiffres : une marque tapée sans espace
-  ne doit pas échapper à la garde (mutation survivante).
+- Une marque mal typographiée (sans espace, espace avant les deux-points, insécable, majuscules) ne doit
+  pas échapper à la garde : mutation survivante, puis revue. Un numéro hors limite est une erreur
+  localisée par chemin et ligne.
 - `.golangci.yml` : `depguard`, une règle `core` (fichiers `**/internal/*/*.go`, `!$test`).
 - `internal/debt` :
   - `Mark{Path, Line, Issue}` ;
-  - `Scan(fs.FS) ([]Mark, error)` ;
+  - `Scan(fs.FS, paths) ([]Mark, error)` : les fichiers réguliers seulement ;
   - port `Issues` : `OpenDebt(ctx) (map[int]bool, error)` ;
-  - `Orphans(ctx, fs.FS, Issues) ([]Mark, error)`.
+  - `Orphans(ctx, fs.FS, paths, Issues) ([]Mark, error)`.
 - `internal/debt/github` : `Client{BaseURL, Repo, Token, HTTP}` implémente `Issues` par
   `GET /repos/{repo}/issues?labels=debt&state=open&per_page=100&page=N`, jusqu'à une page vide ; les
   entrées portant `pull_request` sont ignorées ; un statut ≠ 200 est une erreur.
-- `tools/debtguard/main.go` : lit `GITHUB_REPOSITORY`, `GH_TOKEN` ; scanne `.` ; imprime
+- `tools/debtguard/main.go` : lit `GITHUB_REPOSITORY`, `GH_TOKEN` ; scanne `git ls-files` ; imprime
   `chemin:ligne: debt: #N ne désigne aucune issue ouverte étiquetée debt` et sort en 1.
 - `Makefile` : cible `debtguard`, entrée dans `check`.
 - `ci.yml` : `issues` dans `on`, `permissions: issues: read`, `GH_TOKEN` pour `check`.

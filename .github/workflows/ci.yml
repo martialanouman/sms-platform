@@ -6,7 +6,7 @@ on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
   issues:
-    types: [closed, unlabeled, deleted]
+    types: [closed, reopened, labeled, unlabeled, deleted, transferred]
 
 permissions:
   contents: read

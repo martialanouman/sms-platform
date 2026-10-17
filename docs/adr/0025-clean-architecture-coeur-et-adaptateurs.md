@@ -29,15 +29,14 @@ cœur. L'outillage partagé (step 005) vit sous `internal/platform/<lib>/`.
 les cycles, le cœur ne peut pas importer son adaptateur. depguard (règle `core` de `.golangci.yml`)
 garde le reste : un fichier `internal/<ctx>/*.go` hors tests n'importe que la bibliothèque standard et le
 module, et dans la bibliothèque standard ni `net`, `net/http`, `net/rpc`, `net/smtp`, `os`,
-`database/sql`, ni `syscall`. Une bibliothèque tierce pure s'ajoute à la liste blanche quand un cœur en
-a besoin.
+`database/sql`, `syscall`, `io/ioutil`, `crypto/tls`, `log`, `log/syslog`, `plugin`, ni `runtime/cgo`.
+`log/slog` reste permis : son handler est l'adaptateur. `path/filepath` et `crypto/rand` aussi, pour
+leurs fonctions de calcul ; un cœur qui lit le disque passe par `fs.FS`. Une bibliothèque tierce pure
+s'ajoute à la liste blanche quand un cœur en a besoin.
 
 ## Consequences
 
 - Un cœur se teste sans réseau, sans base, sans environnement : ses ports se doublent par des types de
   test, ses fichiers par `fs.FS`.
-- Une bibliothèque tierce dans un cœur est une décision visible : elle passe par la liste blanche.
 - Trou connu : un cœur qui importerait l'adaptateur d'un **autre** contexte. Aucune garde ne le voit ;
   la revue, si.
-- Ce qui ne relève d'aucun contexte métier (outillage partagé) se range sous `internal/platform/`, hors
-  de la règle `core`.

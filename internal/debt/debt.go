@@ -4,12 +4,13 @@ package debt
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io/fs"
 	"regexp"
 	"strconv"
 )
 
-var markPattern = regexp.MustCompile(`debt:\s*#(\d+)`)
+var markPattern = regexp.MustCompile(`(?i)debt[\s\p{Zs}]*:[\s\p{Zs}]*#(\d+)`)
 
 // Mark is a `debt: #N` found in a file.
 type Mark struct {
@@ -23,40 +24,37 @@ type Issues interface {
 	OpenDebt(ctx context.Context) (map[int]bool, error)
 }
 
-// Scan returns every mark of fsys, in path then line order, outside .git directories.
-func Scan(fsys fs.FS) ([]Mark, error) {
+// Scan returns the marks of the regular files among paths, in the given order.
+func Scan(fsys fs.FS, paths []string) ([]Mark, error) {
 	var marks []Mark
-	err := fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
+	for _, path := range paths {
+		info, err := fs.Stat(fsys, path)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		if d.IsDir() {
-			if d.Name() == ".git" {
-				return fs.SkipDir
-			}
-			return nil
+		if !info.Mode().IsRegular() {
+			continue
 		}
 		data, err := fs.ReadFile(fsys, path)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		for i, line := range bytes.Split(data, []byte("\n")) {
 			for _, m := range markPattern.FindAllSubmatch(line, -1) {
 				issue, err := strconv.Atoi(string(m[1]))
 				if err != nil {
-					return err
+					return nil, fmt.Errorf("%s:%d: %w", path, i+1, err)
 				}
 				marks = append(marks, Mark{Path: path, Line: i + 1, Issue: issue})
 			}
 		}
-		return nil
-	})
-	return marks, err
+	}
+	return marks, nil
 }
 
-// Orphans returns the marks of fsys that no open debt issue backs.
-func Orphans(ctx context.Context, fsys fs.FS, issues Issues) ([]Mark, error) {
-	marks, err := Scan(fsys)
+// Orphans returns the marks of paths that no open debt issue backs.
+func Orphans(ctx context.Context, fsys fs.FS, paths []string, issues Issues) ([]Mark, error) {
+	marks, err := Scan(fsys, paths)
 	if err != nil {
 		return nil, err
 	}

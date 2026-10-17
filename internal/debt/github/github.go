@@ -48,7 +48,6 @@ func (c Client) page(ctx context.Context, page int) ([]issue, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Accept", "application/vnd.github+json")
 	if c.Token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.Token)
 	}

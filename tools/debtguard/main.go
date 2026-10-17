@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/martialanouman/sms-platform/internal/debt"
@@ -13,18 +15,19 @@ import (
 )
 
 func main() {
-	repo := os.Getenv("GITHUB_REPOSITORY")
-	if repo == "" {
-		fmt.Fprintln(os.Stderr, "debtguard: GITHUB_REPOSITORY manquant")
+	tracked, err := exec.Command("git", "ls-files", "-z").Output()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "debtguard: git ls-files:", err)
 		os.Exit(2)
 	}
+	paths := strings.Split(strings.TrimSuffix(string(tracked), "\x00"), "\x00")
 	issues := github.Client{
 		BaseURL: "https://api.github.com",
-		Repo:    repo,
+		Repo:    os.Getenv("GITHUB_REPOSITORY"),
 		Token:   os.Getenv("GH_TOKEN"),
 		HTTP:    &http.Client{Timeout: 30 * time.Second},
 	}
-	orphans, err := debt.Orphans(context.Background(), os.DirFS("."), issues)
+	orphans, err := debt.Orphans(context.Background(), os.DirFS("."), paths, issues)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "debtguard:", err)
 		os.Exit(2)

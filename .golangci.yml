@@ -30,6 +30,18 @@ linters:
               desc: le cœur ne fait pas d'I/O (ADR 0025)
             - pkg: syscall
               desc: le cœur ne fait pas d'I/O (ADR 0025)
+            - pkg: io/ioutil
+              desc: le cœur ne fait pas d'I/O (ADR 0025)
+            - pkg: crypto/tls
+              desc: le cœur ne fait pas d'I/O (ADR 0025)
+            - pkg: "log$"
+              desc: le cœur ne fait pas d'I/O (ADR 0025)
+            - pkg: log/syslog
+              desc: le cœur ne fait pas d'I/O (ADR 0025)
+            - pkg: plugin
+              desc: le cœur ne fait pas d'I/O (ADR 0025)
+            - pkg: runtime/cgo
+              desc: le cœur ne fait pas d'I/O (ADR 0025)
     revive:
       rules:
         - name: exported
