@@ -1,0 +1,39 @@
+# Architecture Decision Records — Passerelle SMS
+
+> Repris de `go-gateway`. Les chemins, steps et fiches `debts/` cités appartiennent à ce dépôt d'origine.
+
+Les décisions structurantes de la passerelle, une par fichier, au format ADR standard. Elles sont **déjà tranchées** dans la spécification technique (§7 Évaluation) ; ces ADR les figent pour éviter de rejouer les débats en cours d'implémentation. Statut par défaut : `Accepted`.
+
+| ADR | Décision | Statut |
+|---|---|---|
+| [0001](0001-kafka-ingestion-durable.md) | Kafka comme couche d'ingestion durable | Accepted |
+| [0002](0002-soldes-mt-mo-separes.md) | Soldes MT et MO séparés ; MO = compteur postpayé | Accepted |
+| [0003](0003-moteur-script-routage-embarque.md) | Moteur de script de routage embarqué (goja/Lua) vs FaaS | Accepted |
+| [0004](0004-routage-3-niveaux-numero-exact.md) | Routage à 3 niveaux avec court-circuit numéro exact | Accepted |
+| [0005](0005-disjoncteur-etat-hybride.md) | Disjoncteur par connecteur à état hybride | Remplacé (décision 3) |
+| [0006](0006-client-compte-smpp-distincts.md) | Client et compte SMPP distincts ; cardinalité des identifiants | Accepted |
+| [0007](0007-opt-out-scope-canal.md) | Opt-out scopé au canal avec union à l'application | Accepted, amendé |
+| [0008](0008-contenu-chiffre-cle-client.md) | Stockage de contenu chiffré par clé client, jamais loggé | Accepted, amendé |
+| [0009](0009-annulation-reservee-smpp.md) | Annulation d'un message réservée au canal SMPP (pas de surface REST) | Accepted |
+| [0010](0010-config-billing-sur-customers.md) | Configuration de facturation consolidée sur `customers` | Accepted, amendé |
+| [0011](0011-content-key-svc-dedie.md) | La garde des clés de contenu vit dans un service dédié | Accepted, amendé |
+| [0012](0012-duplication-submit-sm-bornee.md) | Duplication d'un `submit_sm` assumée et **bornée** (~250 par partition et par crash) | Accepted, amendé |
+| [0013](0013-annulation-jeton-vainqueur-unique.md) | `cancelled` signifie « jamais parti » ; arbitrage par jeton à vainqueur unique | Accepted, amendé |
+| [0014](0014-duplication-au-routeur.md) | La duplication a **deux** causes ; la seconde est au routeur, bornée par la même grandeur | Accepted |
+| [0015](0015-exactroute-cache-read-through.md) | `exactroute:{msisdn}` est un cache read-through, pas une projection (étend 0004) | Accepted, amendé |
+| [0016](0016-secrets-rejoues-scelles-par-content-key-svc.md) | Les secrets qu'on **rejoue** sont scellés par `content-key-svc`, pas hachés (étend 0011) | Accepted, amendé |
+| [0017](0017-deux-journaux-d-audit-deux-perimetres.md) | Deux journaux d'audit : `control_plane` fait foi pour ce qui atteint la passerelle, `dashboard` pour le BFF | Accepted, amendé |
+| [0018](0018-ce-qui-survit-a-un-effacement-atteste.md) | Ce qui survit à un effacement attesté : `audit_log` 365 j par défaut (plancher en base), opt-out sans fin, logs sans numéro | Accepted, amendé |
+| [0019](0019-le-bff-emet-les-jetons-de-l-api-admin.md) | Le BFF émet les jetons de l'API Admin (JWT `ES256`, JWKS publié), `sub` = opérateur humain (amende 0017) | Accepted, amendé |
+| [0020](0020-categorie-de-trafic-declaree-et-priorite-sortante.md) | Catégorie de trafic déclarée par sender ID, `marketing` par défaut (pas de ML) ; elle fixe le `priority_flag` sortant, `priority_tier` réserve des connecteurs | Accepted, amendé |
+| [0021](0021-un-topic-par-categorie-et-priorite-bornee.md) | Un topic par catégorie aux deux étages, un consommateur par topic ; OTP et transactionnel d'abord, part minimale garantie au marketing, débit par sender ID à l'admission | Accepted, amendé |
+| [0022](0022-solde-durable-replie-en-differe.md) | Le grand livre reste synchrone ; le solde durable = `balances` + deltas non repliés, replié en différé | Accepted, amendé |
+| [0023](0023-premiere-emission-d-un-sender-id-marquee-depuis-mt-outcome.md) | La première émission d'un sender ID est marquée depuis `mt.outcome` | Accepted |
+| [0024](0024-capture-et-liberation-depuis-mt-outcome.md) | La capture et la libération d'un message envoyé se font depuis `mt.outcome`, dans billing-svc | Accepted, amendé |
+
+## Convention
+
+Un nouvel ADR reçoit le numéro suivant, statut `Proposed`, et passe `Accepted` après revue. Une décision qui en remplace une autre référence l'ancienne (`Supersedes ADR-XXXX`) et passe l'ancienne à `Superseded`. On n'édite jamais le fond d'un ADR accepté : on en écrit un nouveau.
+
+
+La série continue à 0025 dans ce dépôt. Les neuf décisions du monorepo vivent dans `../design/` et ne sont pas dupliquées en ADR.

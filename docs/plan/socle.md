@@ -21,8 +21,8 @@ Objectif : qu'une session ouverte dans ce dépôt sache ce qu'elle doit savoir, 
   couplages qu'on oublie (code d'erreur, contrat, schéma, dette, topic). Rien de ce que le dépôt dit
   de lui-même.
 - **`.claude/rules/`**, une règle par territoire : `go-code`, `tests` (discipline de mutation, pièges
-  des tests creux), `contracts`, `errors`, `migrations`, `topics`, `debts` (issues `debt`, marque
-  `debt: #N`), `steps`. Les enseignements de l'annexe de l'audit y entrent comme règles, dans le
+  des tests creux), `contracts`, `errors`, `migrations`, `topics`, `ci-deploy`, `steps` (dont les
+  dettes : issues `debt`, marque `debt: #N`). Les enseignements de l'annexe de l'audit y entrent comme règles, dans le
   territoire où ils mordent.
 - **Mémoire neuve** du projet `sms-platform` : seulement les mémoires de méthode (TDD strict, mutation,
   revue, merge par l'humain, recommandation plutôt que QCM). L'historique des steps reste dans les
