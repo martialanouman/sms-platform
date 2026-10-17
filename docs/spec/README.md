@@ -29,7 +29,7 @@ statut de leurs propres messages. Tout se provisionne par l'exploitant.
 | [06-facturation](06-facturation.md) | Enveloppes de crédit, `charge_on`, grand livre |
 | [07-plan-de-controle](07-plan-de-controle.md) | Modèle de configuration, distribution, Admin API, autorisation et audit |
 | [08-dashboard](08-dashboard.md) | BFF, authentification, rôles, écrans |
-| 09-contrats | Catalogue des topics, contrats d'API, codes d'erreur |
+| [09-contrats](09-contrats.md) | Catalogue des topics, contrats d'API, codes d'erreur |
 | 10-exploitation | Observabilité, déploiement, secours, mise en production |
 | [decisions](../design/) | L'audit et les neuf designs qui fondent cette spec |
 
