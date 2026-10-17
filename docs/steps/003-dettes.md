@@ -35,7 +35,7 @@ l'humain impose le 2026-10-17 et que l'ADR 0025 écrit.
 4. **Jeton** : facultatif (dépôt public). En CI, `GH_TOKEN` vient de `github.token` avec
    `issues: read` ; en local, `make` le prend à `gh auth token` s'il existe.
 5. **Fermer l'issue fait échouer la CI** : le workflow se déclenche aussi sur `issues` (`closed`,
-   `reopened`, `labeled`, `unlabeled`, `deleted`, `transferred`) et rejoue `make check` sur `main`, qui
+   `reopened`, `unlabeled`, `deleted`, `transferred`) et rejoue `make check` sur `main`, qui
    passe au rouge, puis au vert quand l'état est rétabli. Une PR ouverte ne le voit qu'à son prochain
    push : son check n'est pas rejoué. La liste filtrée par étiquette a environ deux secondes de retard sur une
    fermeture (mesuré) ; le run déclenché démarre bien après, et un vert périmé ne survit pas à la PR

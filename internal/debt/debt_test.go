@@ -3,6 +3,7 @@ package debt_test
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"reflect"
 	"strings"
 	"testing"
@@ -19,10 +20,11 @@ var repo = fstest.MapFS{
 	"d.go":      {Data: []byte("// " + d + ":#7\n")},
 	"dir/x":     {Data: []byte(d + ": #98\n")},
 	"docs/b.md": {Data: []byte("voir " + d + ": #3 et " + d + ": #12\n")},
-	"e.md":      {Data: []byte(d + " : #8\n" + d + ": #9\n" + strings.ToUpper(d) + ": #10\n")},
+	"e.md":      {Data: []byte(d + " : #8\n" + d + ":\u00a0#9\n" + strings.ToUpper(d) + ": #10\n")},
+	"ln":        {Data: []byte("a.go"), Mode: fs.ModeSymlink},
 }
 
-var paths = []string{"a.go", "c.md", "d.go", "dir", "docs/b.md", "e.md"}
+var paths = []string{"a.go", "c.md", "d.go", "dir", "docs/b.md", "e.md", "ln"}
 
 func TestScanReadsEveryMarkWithItsLine(t *testing.T) {
 	got, err := debt.Scan(repo, paths)

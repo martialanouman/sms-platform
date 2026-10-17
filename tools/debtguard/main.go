@@ -15,7 +15,9 @@ import (
 )
 
 func main() {
-	tracked, err := exec.Command("git", "ls-files", "-z").Output()
+	ls := exec.Command("git", "ls-files", "-z")
+	ls.Stderr = os.Stderr
+	tracked, err := ls.Output()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "debtguard: git ls-files:", err)
 		os.Exit(2)

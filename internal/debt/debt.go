@@ -28,7 +28,7 @@ type Issues interface {
 func Scan(fsys fs.FS, paths []string) ([]Mark, error) {
 	var marks []Mark
 	for _, path := range paths {
-		info, err := fs.Stat(fsys, path)
+		info, err := fs.Lstat(fsys, path)
 		if err != nil {
 			return nil, err
 		}
