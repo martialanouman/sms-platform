@@ -15,34 +15,40 @@ formaté est rouge ; la même PR corrigée est verte.
 
 1. **`ciguard` se place sur la sortie de `go test`, pas dans une bibliothèque.** L'ancien `ciguard`
    (go-gateway) est une fonction que le test appelle à la place de `t.Skip` : un `t.Skip` direct lui
-   échappe, ce que le critère de fin interdit. La garde lit donc `go test -json` et échoue sur tout
-   événement `skip` porté par un test. Elle couvre aussi les helpers d'intégration à venir, qui peuvent
-   sauter librement hors `make check`. L'ancienne bibliothèque n'est pas portée. Tranché par la spec
-   (critère de fin, C3).
+   échappe, ce que le critère de fin interdit. La garde lit donc la sortie de `go test -v` et échoue sur
+   toute ligne `--- SKIP` ; un log qui contiendrait ce texte la ferait échouer, jamais passer. Elle
+   couvre aussi les helpers d'intégration à venir, qui peuvent sauter librement hors `make check`.
+   L'ancienne bibliothèque n'est pas portée. Tranché par la spec (critère de fin, C3).
 2. **Les cinq outils entrent dès maintenant** par la directive `tool` (golangci-lint, sqlc, buf,
    oapi-codegen, goose), comme le plan le dit : un conflit de versions entre leurs dépendances, dans un
    seul `go.mod` (C1, « une version par dépendance »), se découvre ici une fois pour toutes. La version
    de golangci-lint n'est écrite qu'à un endroit, `go.mod`.
-3. **`gofmt` passe par golangci-lint** (`formatters`), sans second outil ; `goimports` et `gofumpt`
-   n'entrent pas (C9).
+3. **`gofmt` passe par golangci-lint** (`formatters`), sans second outil ; `simplify: false` l'accorde
+   à `gofmt -l` et aux éditeurs. `goimports` et `gofumpt` n'entrent pas (C9).
 4. **Linters** : le jeu par défaut de golangci-lint v2, plus `revive` réduit à la règle `exported`.
    Aucun preset d'exclusion : le preset `comments` désactiverait justement `exported`.
 5. **Titre de PR conventionnel** : une regex dans un job du workflow, sans action tierce.
-6. **`check-generated`** : `go generate ./...` puis l'arbre doit rester propre. Aucun générateur
-   aujourd'hui ; les steps 004 et 006 en ajoutent.
-7. **Protection de `main`** : un ruleset GitHub, PR obligatoire, check `ci` requis, aucun contournement.
+6. **`check-generated`** : l'état de l'arbre avant et après `go generate ./...` doit être identique,
+   pour fonctionner aussi sur un arbre local non commité. `git status` liste les fichiers non suivis un
+   par un (`-uall`) : sans cela, un fichier généré dans un dossier non suivi passe inaperçu. Aucun
+   générateur aujourd'hui ; les steps 004 et 006 en ajoutent.
+7. **`doc.go` racine** : golangci-lint refuse un module sans fichier Go ; le paquet racine ne porte que
+   sa doc.
+8. **Protection de `main`** : un ruleset GitHub, PR obligatoire, check `ci` requis, aucun contournement.
 
 ## Design arrêté
 
 - `go.mod` : `github.com/martialanouman/sms-platform`, version de Go locale, bloc `tool` des cinq
-  outils.
+  outils ; `doc.go` racine.
 - `.golangci.yml` (v2) : linters par défaut + `revive` (`exported`) ; formatter `gofmt`.
 - `Makefile` :
   - `help` : liste les cibles commentées `##` ;
   - `lint` : `go tool golangci-lint run` ;
   - `test` : `go test -race ./...` (les sauts sont permis) ;
-  - `ciguard` : `go test -race -json ./...`, échec si un test a sauté ;
-  - `check-generated` : `go generate ./...`, puis `git status --porcelain` vide ;
+  - `ciguard` : `go test -race -v ./...`, échec sur une ligne `--- SKIP` (`pipefail` garde l'échec
+    des tests) ;
+  - `check-generated` : `git status --porcelain -uall` et `git diff` identiques avant et après
+    `go generate ./...` ;
   - `check` : `lint ciguard check-generated`, ce que vérifie la CI.
 - `.github/workflows/ci.yml`, workflow unique (`push` sur `main`, `pull_request`) :
   - `check` : checkout + setup-go épinglés par SHA, `make check` ;
