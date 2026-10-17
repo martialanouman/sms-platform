@@ -41,7 +41,7 @@ La lane MO du routeur consomme `mo.inbound` :
    le message entier, ce n'est pas une perte au sens de I9.
 2. **E.164** de l'émetteur.
 3. **STOP.** Le premier token comparé aux mots-clés STOP du pays de référence. Un STOP inscrit un
-   opt-out **scopé au numéro entrant** (ADR-0007), sous l'acteur `system:mo-stop` (I13) ; le trigger le
+   opt-out **scopé au numéro entrant** (ADR-0007), sous l'acteur `service:router-svc` (I13, décision 5) ; le trigger le
    propage au Bloom par le canal `optout`. Le MO est quand même remis, et jamais facturé.
 4. **Résolution du compte.** `dest_addr → inbound_numbers` : dédié, son compte ; partagé,
    `inbound_keywords` sur le premier token, par priorité. Sans correspondance : compte de repli, sinon
