@@ -22,7 +22,7 @@ La spec tranche le contenu ; ce qui reste est de la forme :
   `enum` des contrats sont dans §9.3 (`make openapi`), donc dans le catalogue, par transitivité.
 - **Une seule lecture de §9.3** : le parseur de `internal/openapi` rend les lignes (code, HTTP, SMPP) au
   lieu des seuls codes ; une ligne à plusieurs codes porte une valeur commune ou une valeur par code, dans
-  l'ordre ; tout autre compte est une erreur.
+  l'ordre ; « — » se lit valeur par valeur ; tout autre compte est une erreur.
 - **Frontière** : `HTTP(err)` rend le code et le statut d'une réponse REST, `SMPP(err)` le
   `command_status`. Une erreur sans code, ou dont le code n'a pas de surface sur ce protocole, sort en
   `internal_error` : 500, `ESME_RSYSERR`. Les codes d'après l'ACK n'ont pas de surface synchrone (§9.3).
@@ -38,9 +38,10 @@ La spec tranche le contenu ; ce qui reste est de la forme :
   `analyze-types`) refuse partout. Une fonction ne se promeut pas par embedding et ne passe pas par une
   interface, contrairement à une méthode. Chaque appel admis est une exclusion de `.golangci.yml` qui
   nomme son fichier et sa raison : l'audit. Seule exclusion aujourd'hui, le test du paquet.
-- **Revue, premier tour** : `Format` et une méthode `Reveal` laissaient fuir le clair d'un champ non
-  exporté (`fmt` y descend par réflexion) et contourner la garde par embedding ; d'où la fonction gardée
-  dans `Body` et `Reveal` en fonction de paquet. « — » se lit valeur par valeur. Les replis de `HTTP` et `SMPP` sont des littéraux.
+- **Revue, deuxième tour** : l'audit ne vaut que si aucune exclusion ne lui échappe. `make lint` refuse
+  tout `nolint` et tout `go:linkname` dans le Go du dépôt (il n'y en a aucun) ; les fichiers générés
+  sont lintés (`generated: disable`), le `gosec` des `.pb.go` exclu par chemin. Le paquet `msg` lit son
+  propre champ sans garde : il ne contient que `Body` et `Reveal`.
 
 ## Design arrêté
 
@@ -50,8 +51,8 @@ La spec tranche le contenu ; ce qui reste est de la forme :
   nommés, `HTTP(error) (Code, int)`, `SMPP(error) uint32`.
 - `internal/platform/msg` : `Body`, `NewBody([]byte) Body`, `Reveal(Body) []byte`.
 - `.golangci.yml` : `forbidigo` activé, `analyze-types`, motif `msg.Reveal` du paquet, exclusion du
-  test du paquet.
+  test du paquet ; fichiers générés lintés. `Makefile` : `lint` refuse `nolint` et `go:linkname`.
 - Vérification du critère : catalogue et §9.3 mutés tour à tour (code, HTTP, SMPP) rouges ; un appel à
-  `Reveal` hors exclusion, direct, par valeur de fonction ou par un type qui embarque `Body`, rend
+  `Reveal` hors exclusion, direct, par valeur de fonction, dans un fichier généré ou sous `nolint`, rend
   `make lint` rouge ; aucune sortie `fmt`, `slog` (texte, JSON) ni `encoding/json` ne contient le clair,
   `Body` nu, en champ exporté ou non exporté.
