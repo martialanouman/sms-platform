@@ -4,8 +4,19 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Les dépendances directes, et chaque outil de la directive tool comme un tout : une dépendance indirecte montée
+    # seule casse l'outil qui l'emporte (gobwas/glob v0.3 a cassé golangci-lint, PR #95).
     allow:
-      - dependency-type: all
+      - dependency-type: direct
+      - dependency-name: github.com/bufbuild/buf
+      - dependency-name: github.com/golangci/golangci-lint/v2
+      - dependency-name: github.com/oapi-codegen/oapi-codegen/v2
+      - dependency-name: github.com/oasdiff/oasdiff
+      - dependency-name: github.com/pressly/goose/v3
+      - dependency-name: github.com/sqlc-dev/sqlc
+      - dependency-name: golang.org/x/vuln
+      - dependency-name: google.golang.org/grpc/cmd/protoc-gen-go-grpc
+      - dependency-name: google.golang.org/protobuf
     groups:
       go:
         patterns: ["*"]
