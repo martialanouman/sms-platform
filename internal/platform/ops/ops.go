@@ -31,6 +31,7 @@ type Server struct {
 	shutdown time.Duration
 	draining atomic.Bool
 	checks   []Check
+	inFlight []atomic.Bool
 }
 
 // New listens on addr; shutdown bounds the stop of Run.
@@ -46,15 +47,21 @@ func New(addr string, shutdown time.Duration, g prometheus.Gatherer, checks ...C
 	if err != nil {
 		return nil, fmt.Errorf("ops: %w", err)
 	}
-	s := &Server{ln: ln, shutdown: shutdown, checks: checks}
+	s := &Server{ln: ln, shutdown: shutdown, checks: checks, inFlight: make([]atomic.Bool, len(checks))}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok\n")) })
 	mux.HandleFunc("GET /readyz", s.readyz)
+	gatherErrors := prometheus.NewCounter(prometheus.CounterOpts{Name: "ops_metrics_gather_errors_total", Help: "Collections of /metrics that failed, served partially."})
+	own := prometheus.NewRegistry()
+	own.MustRegister(gatherErrors)
 	collected := prometheus.GathererFunc(func() ([]*dto.MetricFamily, error) {
-		families, _ := g.Gather()
+		families, err := g.Gather()
+		if err != nil {
+			gatherErrors.Inc()
+		}
 		return families, nil
 	})
-	mux.Handle("GET /metrics", promhttp.HandlerFor(collected, promhttp.HandlerOpts{}))
+	mux.Handle("GET /metrics", promhttp.HandlerFor(prometheus.Gatherers{collected, own}, promhttp.HandlerOpts{}))
 	s.srv = &http.Server{Handler: mux, ReadHeaderTimeout: probeTimeout, IdleTimeout: probeTimeout}
 	return s, nil
 }
@@ -95,15 +102,23 @@ func (s *Server) readyz(w http.ResponseWriter, r *http.Request) {
 		err error
 	}
 	results := make(chan result, len(s.checks))
+	launched := 0
 	for i, c := range s.checks {
-		go func() { results <- result{i, c.Probe(ctx)} }()
+		if !s.inFlight[i].CompareAndSwap(false, true) {
+			continue
+		}
+		launched++
+		go func() {
+			results <- result{i, c.Probe(ctx)}
+			s.inFlight[i].Store(false)
+		}()
 	}
 	down := make([]bool, len(s.checks))
 	for i := range down {
 		down[i] = true
 	}
 collect:
-	for range s.checks {
+	for range launched {
 		select {
 		case r := <-results:
 			down[r.i] = r.err != nil

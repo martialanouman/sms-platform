@@ -253,7 +253,41 @@ func (failing) Collect(ch chan<- prometheus.Metric) {
 func TestMetricsHidesACollectorError(t *testing.T) {
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(failing{})
-	if _, body := get(t, serve(t, reg), "/metrics"); strings.Contains(body, "db.internal") {
-		t.Errorf("/metrics leaks a collector error: %q", body)
+	_, body := get(t, serve(t, reg), "/metrics")
+	if strings.Contains(body, "db.internal") || !strings.Contains(body, "ops_metrics_gather_errors_total 1") {
+		t.Errorf("/metrics = %q, want the failure counted, not told", body)
+	}
+}
+
+func TestASilentProbeIsLaunchedOnceAndRecovers(t *testing.T) {
+	release := make(chan struct{})
+	var calls atomic.Int32
+	s := serve(t, prometheus.NewRegistry(), ops.Check{Name: "stuck", Probe: func(context.Context) error {
+		calls.Add(1)
+		<-release
+		return nil
+	}})
+	for i := range 2 {
+		start := time.Now()
+		if code, body := get(t, s, "/readyz"); code != http.StatusServiceUnavailable || body != "not ready: stuck\n" {
+			t.Fatalf("/readyz = %d %q", code, body)
+		}
+		if elapsed := time.Since(start); i == 1 && elapsed > time.Second {
+			t.Errorf("with the probe still in flight, /readyz waited %s", elapsed)
+		}
+	}
+	if n := calls.Load(); n != 1 {
+		t.Errorf("the silent probe was launched %d times, want once", n)
+	}
+	close(release)
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		if code, _ := get(t, s, "/readyz"); code == http.StatusOK {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("/readyz did not recover once the probe returned")
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
