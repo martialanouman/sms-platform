@@ -1,6 +1,7 @@
 package metrics_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -16,7 +17,7 @@ func counter(name string, labels []string, constLabels prometheus.Labels) promet
 func TestGuardAcceptsBoundedLabels(t *testing.T) {
 	reg := prometheus.NewRegistry()
 	g := metrics.Guard(reg)
-	if err := g.Register(counter("sms_total", []string{"route_id", "consumer_group", "Code", "context"}, prometheus.Labels{"lane": "otp"})); err != nil {
+	if err := g.Register(counter("sms_total", []string{"route_id", "consumer_group", "code", "context", "status"}, prometheus.Labels{"lane": "otp"})); err != nil {
 		t.Fatal(err)
 	}
 	if err := g.Register(prometheus.NewGaugeFunc(prometheus.GaugeOpts{Name: "up_total", Help: "h"}, func() float64 { return 1 })); err != nil {
@@ -32,6 +33,7 @@ func TestGuardRefusesForbiddenLabels(t *testing.T) {
 		"msisdn", "dest_msisdn", "PHONE", "phone_e164", "number", "source_addr", "recipient", "destination",
 		"body", "body_len", "text", "content", "payload",
 		"to", "from", "message_id", "msg_id", "trace_id", "span_id", "customer_group", "client_group",
+		"msisdns", "recipients_count", "messageId", "phoneNumber", "msisdn}}", "lane ", "Route_id",
 	} {
 		t.Run(label, func(t *testing.T) {
 			reg := prometheus.NewRegistry()
@@ -40,7 +42,7 @@ func TestGuardRefusesForbiddenLabels(t *testing.T) {
 				"constant": counter("sms_total", nil, prometheus.Labels{label: "x"}),
 			} {
 				err := metrics.Guard(reg).Register(c)
-				if err == nil || !strings.Contains(err.Error(), label) {
+				if err == nil || !strings.Contains(err.Error(), fmt.Sprintf("label %q is refused", label)) {
 					t.Errorf("%s label %q: Register = %v", name, label, err)
 				}
 				if reg.Unregister(c) {
@@ -48,6 +50,17 @@ func TestGuardRefusesForbiddenLabels(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestGuardRefusesAnUnreadableDesc(t *testing.T) {
+	reg := prometheus.NewRegistry()
+	c := counter("sms_total", nil, prometheus.Labels{"msisdn": "1", "z=": "v"})
+	if err := metrics.Guard(reg).Register(c); err == nil {
+		t.Error("a Desc the guard cannot read registered")
+	}
+	if reg.Unregister(c) {
+		t.Error("the unreadable collector reached the registry")
 	}
 }
 

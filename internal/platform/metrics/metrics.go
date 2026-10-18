@@ -4,6 +4,7 @@ package metrics
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -16,18 +17,20 @@ var (
 	refusedNames    = []string{"to", "from", "message_id", "msg_id", "trace_id", "span_id", "customer_group", "client_group"}
 )
 
+var snakeCase = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
+
 func refused(label string) bool {
-	label = strings.ToLower(label)
-	return slices.Contains(refusedNames, label) || slices.ContainsFunc(strings.Split(label, "_"), func(s string) bool {
-		return slices.Contains(refusedSegments, s)
-	})
+	return !snakeCase.MatchString(label) || slices.Contains(refusedNames, label) ||
+		slices.ContainsFunc(strings.Split(label, "_"), func(s string) bool {
+			return slices.Contains(refusedSegments, s) || slices.Contains(refusedSegments, strings.TrimSuffix(s, "s"))
+		})
 }
 
 type guard struct {
 	prometheus.Registerer
 }
 
-// Guard wraps r so that it refuses a collector carrying a refused label, or one it cannot read.
+// Guard wraps r, the registry itself, so that it refuses a collector carrying a refused label, or one it cannot read.
 func Guard(r prometheus.Registerer) prometheus.Registerer {
 	return guard{r}
 }
@@ -73,28 +76,34 @@ func check(c prometheus.Collector) error {
 	return errors.Join(errs...)
 }
 
-const (
-	constMark    = ", constLabels: {"
-	variableMark = ", variableLabels: {"
-)
-
 func labels(desc string) ([]string, error) {
-	v := strings.LastIndex(desc, variableMark)
-	c := strings.LastIndex(desc[:max(v, 0)], constMark)
-	if c < 0 || !strings.HasSuffix(desc, "}}") {
-		return nil, fmt.Errorf("metrics: unreadable %s", desc)
+	unreadable := fmt.Errorf("metrics: unreadable %s", desc)
+	rest := strings.TrimPrefix(desc, "Desc{")
+	for _, field := range []string{"fqName: ", ", help: ", ", unit: "} {
+		rest = strings.TrimPrefix(rest, field)
+		quoted, err := strconv.QuotedPrefix(rest)
+		if err != nil {
+			return nil, unreadable
+		}
+		rest = rest[len(quoted):]
 	}
+	rest = strings.TrimPrefix(rest, ", constLabels: {")
 	var names []string
-	for rest := strings.TrimSuffix(desc[c+len(constMark):v], "}"); rest != ""; {
+	for !strings.HasPrefix(rest, "}") {
 		name, value, ok := strings.Cut(rest, "=")
 		quoted, err := strconv.QuotedPrefix(value)
 		if !ok || err != nil {
-			return nil, fmt.Errorf("metrics: unreadable constant labels in %s", desc)
+			return nil, unreadable
 		}
 		names = append(names, name)
 		rest = strings.TrimPrefix(value[len(quoted):], ",")
 	}
-	if variables := desc[v+len(variableMark) : len(desc)-2]; variables != "" {
+	variables, prefixed := strings.CutPrefix(rest, "}, variableLabels: {")
+	variables, suffixed := strings.CutSuffix(variables, "}}")
+	if !prefixed || !suffixed {
+		return nil, unreadable
+	}
+	if variables != "" {
 		for _, l := range strings.Split(variables, ",") {
 			names = append(names, strings.TrimSuffix(strings.TrimPrefix(l, "c("), ")"))
 		}
