@@ -5,8 +5,8 @@ Plan : `docs/plan/socle.md` §005, deuxième des cinq PR. Spec : `docs/spec/10-e
 
 ## Contexte
 
-Portée de `go-gateway` (`internal/observability`) et adaptée à la spec : la liste blanche des labels,
-la configuration, le serveur d'exploitation et l'exportateur OTLP restent hors de cette PR. La
+Portée de `go-gateway` (`internal/observability`) et adaptée à la spec : la configuration et le serveur
+d'exploitation restent hors de cette PR. La
 configuration d'environnement arrive en 005d, le mTLS en 005c, `/metrics` et `/readyz` avec le drain en
 005d.
 
@@ -18,17 +18,21 @@ garde des labels et l'échantillonnage des échecs ont été prouvés par une mu
 Fable a tranché le 2026-10-18, sans amendement de spec :
 
 - **Garde des labels, à l'enregistrement** (§10.1) : un `prometheus.Registerer` qui lit les labels
-  variables et constants de chaque `Desc` par `String()` (la seule voie que `client_golang` v1.23
-  expose), ancré sur la dernière occurrence de `variableLabels: {`. Il refuse un collecteur qui ne
-  décrit rien (invérifiable) et un `Desc` qu'il ne sait pas lire. Un test épingle le format de
-  `String()` : une montée de version qui le change casse en CI. Le refus d'un `Desc` illisible reste au
-  démarrage, en second rempart ; aucun `Desc` réel ne s'écrit autrement, sa mutation est donc équivalente. Pas de contrôle au
-  `Gather` : il ne couvrirait qu'un collecteur maison qui déclare un label et en émet un autre, absent ici.
-- **Liste de refus seule**, sans liste blanche (§10.1). Un nom, en minuscules, est refusé si lui-même ou
-  l'un de ses segments `_` est dans la liste. Segments : `msisdn`, `phone`, `number`, `addr`,
-  `recipient`, `destination`, `body`, `text`, `content`, `payload`. Noms entiers : `to`, `from`,
-  `message_id`, `msg_id`, `trace_id`, `span_id` (un `trace_id` par message, §10.1), `customer_group`,
-  `client_group`.
+  variables et constants de chaque `Desc` par `String()`, la seule voie que `client_golang` expose, champ
+  par champ (`fqName`, `help`, `unit` et les valeurs constantes lus comme chaînes Go). Il refuse un
+  collecteur qui ne décrit rien et un `Desc` qu'il ne sait pas lire : depuis v1.25, un nom de label est
+  de l'UTF-8 quelconque, un label constant nommé `z=` rend le `Desc` illisible, et ce refus est alors seul
+  à bloquer un `msisdn` voisin. Un test épingle le format de `String()`. La garde enveloppe le registre
+  lui-même : un `WrapRegistererWith` posé entre elle et le registre ajoute des labels qu'elle ne voit
+  pas. Pas de contrôle au `Gather` : il ne couvrirait qu'un collecteur maison qui déclare un label et en
+  émet un autre, absent ici.
+- **Liste de refus seule**, sans liste blanche (§10.1). Un nom qui n'est pas en snake_case minuscule
+  (`^[a-z][a-z0-9_]*$`, la convention Prometheus, que suivent les collecteurs standard) est refusé : sans
+  cela, `messageId`, `phoneNumber` ou `msisdn}}` passeraient la liste. Un nom est refusé si lui-même ou
+  l'un de ses segments `_`, au singulier comme au pluriel, est dans la liste. Segments : `msisdn`,
+  `phone`, `number`, `addr`, `recipient`, `destination`, `body`, `text`, `content`, `payload`. Noms
+  entiers : `to`, `from`, `message_id`, `msg_id`, `trace_id`, `span_id` (un `trace_id` par message,
+  §10.1), `customer_group`, `client_group`.
 - **Exportateur injecté** : la bibliothèque construit le `TracerProvider` depuis un `SpanExporter`.
   L'exportateur OTLP et son transport sont de la composition (`cmd/`) et attendent 005c et 005d :
   dette #93.
@@ -55,6 +59,6 @@ Fable a tranché le 2026-10-18, sans amendement de spec :
   `InitTracing(sdktrace.SpanExporter, service string, ratio float64) *sdktrace.TracerProvider`, qui pose
   le fournisseur et le propagateur globaux (`debt: #93`) ; `RecordError(trace.Span, error)`.
 - Dépendances directes : `client_golang`, `otel`, `otel/sdk`, `otel/trace`.
-- Vérification du critère : chaque segment et nom refusé, un collecteur muet, un label constant et un
-  `Desc` illisible rouges ; un span en erreur non échantillonné exporté, un span réussi non échantillonné
-  non exporté ; un `Body` dans un log, un attribut ou une erreur de span ne sort pas en clair.
+- Vérification du critère : chaque segment, pluriel et nom refusé, un nom hors snake_case, un collecteur
+  muet, un label constant et un `Desc` illisible rouges ; un span en erreur non échantillonné exporté, un
+  span réussi non échantillonné non exporté ; le texte d'une erreur jamais sur un span.
