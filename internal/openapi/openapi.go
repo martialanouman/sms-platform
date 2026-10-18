@@ -1,4 +1,5 @@
-// Package openapi reads the OpenAPI contracts, checks their static rules and derives the Admin API scopes.
+// Package openapi reads the OpenAPI contracts, checks their static rules and derives the Admin API scopes and
+// the BFF permissions.
 package openapi
 
 import (
@@ -150,15 +151,13 @@ func (c Contract) PublicSecurity() []error {
 }
 
 // Permissions checks that every BFF operation declares the session with at most one permission or Admin API
-// scope, or no security at all for the public ones, that no path falls under the proxy's /gw, and lists the
-// BFF permissions, sorted.
+// scope, or no security at all for the public ones, that every BFF permission is used, that no path falls
+// under the proxy's /gw, and lists the BFF permissions, sorted.
 func (c Contract) Permissions(scopes []string) ([]string, []error) {
-	var declared []string
+	var used []string
 	errs := c.check(func(op Operation) error {
 		perm, err := permissionOf(op, scopes)
-		if slices.Contains(permissions, perm) && !slices.Contains(declared, perm) {
-			declared = append(declared, perm)
-		}
+		used = append(used, perm)
 		return err
 	})
 	for path := range c.Paths {
@@ -170,12 +169,14 @@ func (c Contract) Permissions(scopes []string) ([]string, []error) {
 		if slices.Contains(scopes, perm) {
 			errs = append(errs, fmt.Errorf("permission %q is also an Admin API scope", perm))
 		}
+		if !slices.Contains(used, perm) {
+			errs = append(errs, fmt.Errorf("permission %q is declared by no operation", perm))
+		}
 	}
 	if errs != nil {
 		return nil, errs
 	}
-	slices.Sort(declared)
-	return declared, nil
+	return permissions, nil
 }
 
 func permissionOf(op Operation, scopes []string) (string, error) {

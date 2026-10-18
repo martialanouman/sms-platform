@@ -2,7 +2,6 @@ package openapi_test
 
 import (
 	"reflect"
-	"slices"
 	"strings"
 	"testing"
 
@@ -208,6 +207,20 @@ paths:
     post:
       operationId: requestOperatorAccessLink
       security: [{ session: ["operators:write"] }]
+  /roles:
+    get:
+      operationId: listRoles
+      security: [{ session: ["roles:read"] }]
+    post:
+      operationId: createRole
+      security: [{ session: ["roles:write"] }]
+  /sessions:
+    get:
+      operationId: listSessions
+      security: [{ session: ["sessions:read"] }]
+    delete:
+      operationId: deleteSession
+      security: [{ session: ["sessions:write"] }]
   /access-log:
     get:
       operationId: listAccessLog
@@ -225,7 +238,7 @@ func TestPermissions(t *testing.T) {
 	if errs != nil {
 		t.Fatal(errs)
 	}
-	want := []string{"gateway:personal_token", "operators:read", "operators:write"}
+	want := []string{"gateway:personal_token", "operators:read", "operators:write", "roles:read", "roles:write", "sessions:read", "sessions:write"}
 	if !reflect.DeepEqual(p, want) {
 		t.Errorf("Permissions = %v, want %v", p, want)
 	}
@@ -249,15 +262,10 @@ func TestPermissionsRefusesAPublicOperationWithoutSecurity(t *testing.T) {
 	}
 }
 
-func TestPermissionsAcceptsEveryBFFPermission(t *testing.T) {
-	for _, perm := range []string{"operators:read", "operators:write", "roles:read", "roles:write", "sessions:read", "sessions:write", "gateway:personal_token"} {
-		t.Run(perm, func(t *testing.T) {
-			doc := bff + "  /x:\n    get:\n      operationId: x\n      security: [{ session: [\"" + perm + "\"] }]\n"
-			p, errs := parse(t, doc).Permissions(adminScopes)
-			if errs != nil || !slices.Contains(p, perm) {
-				t.Fatalf("Permissions = %v, %v, want %s listed", p, errs, perm)
-			}
-		})
+func TestPermissionsRefusesAnOrphanPermission(t *testing.T) {
+	doc := strings.Replace(bff, `session: ["roles:write"]`, `session: ["roles:read"]`, 1)
+	if _, errs := parse(t, doc).Permissions(adminScopes); len(errs) != 1 || !strings.Contains(errs[0].Error(), "roles:write") {
+		t.Fatalf("errs = %v, want one error naming roles:write", errs)
 	}
 }
 
@@ -273,10 +281,10 @@ func TestPermissionsRefuses(t *testing.T) {
 		"unknown scope":      "\n      security: [{ session: [\"routes:read\"] }]",
 	} {
 		t.Run(name, func(t *testing.T) {
-			doc := bff + "  /roles:\n    get:\n      operationId: listRoles" + sec + "\n"
+			doc := bff + "  /roles/{roleId}:\n    get:\n      operationId: getRole" + sec + "\n"
 			p, errs := parse(t, doc).Permissions(adminScopes)
-			if len(errs) != 1 || !strings.Contains(errs[0].Error(), "listRoles") {
-				t.Fatalf("errs = %v, want one error naming listRoles", errs)
+			if len(errs) != 1 || !strings.Contains(errs[0].Error(), "getRole") {
+				t.Fatalf("errs = %v, want one error naming getRole", errs)
 			}
 			if p != nil {
 				t.Errorf("Permissions = %v, want nil on error", p)

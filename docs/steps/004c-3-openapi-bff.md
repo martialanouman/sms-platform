@@ -71,6 +71,9 @@ lui malgré la montée de kin-openapi de 004c-1.
    triées. `Go` rend aussi `Permissions`.
 2. `tools/openapi` lit le BFF : sa garde, ses codes (`UnknownCodes`), et la génération.
 3. `make openapi` : `oasdiff validate` et `breaking` informatif pour le BFF.
+4. **Revue, premier tour** : une permission BFF qu'aucune opération ne porte est refusée (spec 08 §8.5,
+   orphelins) ; la liste rendue est la liste figée, triée. La garde du BFF ne tourne que sur un Admin vert,
+   dont elle lit les scopes.
 
 ## Design arrêté
 
