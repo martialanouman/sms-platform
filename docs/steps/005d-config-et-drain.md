@@ -25,7 +25,8 @@ Fable a tranché le 2026-10-18 ; l'humain, le port ops :
   est au collecteur). Ni `Environment` (aucun usage depuis la 005c), ni endpoint OTLP (dette #93, au premier
   `cmd/`), ni nom de service (une constante du binaire).
 - **Garde** : forbidigo refuse `os.Getenv`, `os.LookupEnv`, `os.Environ`, `os.ExpandEnv` et
-  `syscall.Getenv` hors de `internal/platform/config`. Distinguer `DRAIN_DELAY` de `MAX_BINDS` est un
+  `syscall.Getenv` hors de `internal/platform/config` ; les outils de CI (`tools/`), qui ne sont pas des
+  services, lisent l'environnement de la CI. Distinguer `DRAIN_DELAY` de `MAX_BINDS` est un
   jugement de revue, pas d'analyseur : un champ ajouté à la structure passe en revue.
 - **Validation** : `DRAIN_DELAY` ≥ 0, `SHUTDOWN_TIMEOUT` > 0, `DRAIN_BUDGET` > `SHUTDOWN_TIMEOUT` (un
   composant a droit à tout son délai, et le drain est séquentiel), ratio dans [0, 1], toute valeur
@@ -55,7 +56,7 @@ Fable a tranché le 2026-10-18 ; l'humain, le port ops :
   shutdown time.Duration, prometheus.Gatherer, ...Check) (*Server, error)`, qui écoute dès la
   construction ; `(*Server) Drain()` ; `(*Server) Run(context.Context) error`, un composant du
   superviseur qui s'arrête en `SHUTDOWN_TIMEOUT` au plus ; `(*Server) Addr() string`.
-- `.golangci.yml` : forbidigo sur la lecture d'environnement, exclusion du paquet `config`.
+- `.golangci.yml` : forbidigo sur la lecture d'environnement, exclusion du chargeur et de `tools/`.
 - Vérification du critère : chaque variable lue, défaut appliqué, valeur illisible et règle violée ;
   une lecture d'environnement hors du paquet rend `make lint` rouge ; les rappels avant tout arrêt, le
   délai respecté, l'ordre inverse, le budget qui nomme le composant bloqué et annule les suivants, le drain
