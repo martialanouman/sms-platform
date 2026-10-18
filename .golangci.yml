@@ -44,7 +44,7 @@ linters:
     forbidigo:
       analyze-types: true
       forbid:
-        - pattern: ^msg\.Body\.Reveal$
+        - pattern: ^msg\.Reveal$
           pkg: ^github\.com/martialanouman/sms-platform/internal/platform/msg$
           msg: le clair d'un corps ne sort que par un appel audité, exclu ici avec sa raison (I1)
     revive:

@@ -29,17 +29,18 @@ La spec tranche le contenu ; ce qui reste est de la forme :
 - **Abandonné de go-gateway** : `Retryable` (la spec n'en dit rien), le statut propriétaire de
   `insufficient_credit` (« — » au §9.3), le mapping inverse SMPP → code (au connecteur), les adaptateurs
   huma et gRPC (avec leurs composants), `Len`, `IsEmpty`, `NewBodyString`.
-- **Corps** : `msg.Body` (`internal/platform/msg`) ne garde qu'un pointeur non exporté vers le clair :
-  `fmt` (et `slog` texte, qui passe par lui) rend un pointeur imbriqué par son adresse, jamais son
-  contenu, champ non exporté d'une struct compris ; `encoding/json` et `slog` JSON ne voient aucun champ
-  exporté. Aucune méthode de rendu.
+- **Corps** : `msg.Body` (`internal/platform/msg`) ne garde qu'une fonction non exportée qui rend le
+  clair : `fmt` (et `slog` texte, qui passe par lui) rend une fonction par son adresse, à toute
+  profondeur et pour tout verbe, champ non exporté d'une struct compris. Un pointeur ne suffit pas : un
+  verbe inadapté (`%s`) le fait imprimer en `%v`, contenu compris. `encoding/json` et `slog` JSON ne
+  voient aucun champ exporté. Aucune méthode de rendu. La valeur zéro est un corps vide.
 - **Garde de `Reveal`** : le clair sort par une fonction, `msg.Reveal(b)`, que `forbidigo` (golangci-lint,
   `analyze-types`) refuse partout. Une fonction ne se promeut pas par embedding et ne passe pas par une
   interface, contrairement à une méthode. Chaque appel admis est une exclusion de `.golangci.yml` qui
   nomme son fichier et sa raison : l'audit. Seule exclusion aujourd'hui, le test du paquet.
 - **Revue, premier tour** : `Format` et une méthode `Reveal` laissaient fuir le clair d'un champ non
-  exporté (`fmt` y descend par réflexion) et contourner la garde par embedding ; d'où le pointeur et la
-  fonction. « — » se lit valeur par valeur. Les replis de `HTTP` et `SMPP` sont des littéraux.
+  exporté (`fmt` y descend par réflexion) et contourner la garde par embedding ; d'où la fonction gardée
+  dans `Body` et `Reveal` en fonction de paquet. « — » se lit valeur par valeur. Les replis de `HTTP` et `SMPP` sont des littéraux.
 
 ## Design arrêté
 
