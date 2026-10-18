@@ -36,10 +36,12 @@ Email et mot de passe, puis MFA, sans fournisseur d'identité externe. Tout vit 
   monotone (zéro constant admis) ; défis à usage unique liés à la session et à leur objet.
 - **Remplacer ou ajouter un facteur** exige une session élevée ; le nouveau attend sa confirmation,
   l'ancien reste seul en vigueur jusque-là. Retirer le dernier facteur est refusé.
-- **MFA obligatoire** pour tout rôle qui porte une écriture.
+- **MFA obligatoire** pour tout rôle qui porte une écriture : tant que sa session n'est pas élevée, elle
+  n'atteint que `/auth/*` ; ailleurs, proxy compris, `mfa_required`.
 
 **Session** (décision 8, P7) : 15 min d'inactivité la ferment ; seul un geste de l'opérateur la
-prolonge, jamais une interrogation automatique. Le rôle `noc` tient 12 h sans délai d'inactivité.
+prolonge (`POST /auth/activity`), jamais une interrogation automatique. Le rôle `noc` n'a pas de délai
+d'inactivité. Toute session prend fin 12 h après la connexion.
 
 ## 8.4 Jetons de la passerelle
 
@@ -48,8 +50,8 @@ prolonge, jamais une interrogation automatique. Le rôle `noc` tient 12 h sans d
 - **Signature par OpenBao Transit** : la clé privée ne quitte jamais OpenBao, le BFF demande une
   signature à chaque jeton. Un pod compromis signe tant qu'il l'est, il ne peut pas voler la clé ; la
   rotation se fait dans OpenBao. Le JWKS est servi sur un écouteur interne réservé à `admin-api-svc` (décision 6).
-- **Jeton personnel** (`gateway:personal_token`) : une heure au plus, inclus dans les droits de
-  l'opérateur ; son émission est journalisée.
+- **Jeton personnel** (`gateway:personal_token`) : une heure au plus, les scopes de ses rôles moins
+  `content:read`, `content:erase` et `gdpr:erase` ; son émission est journalisée.
 
 ## 8.5 Rôles
 
@@ -72,7 +74,8 @@ peut en détenir plusieurs. La SPA masque ce qui est interdit : confort, jamais 
 
 **Hors de tout rôle par défaut sauf `Propriétaire`** : `content:read` (accordé à un opérateur nommé par un
 rôle taillé), `content:write` (décider de conserver les corps et pour combien de temps), `operators:*` et `roles:*` (qui édite les rôles s'accorde tout), `gateway:personal_token`.
-Un test bloquant signale tout autre scope ou permission orphelin.
+Un test bloquant signale tout autre scope ou permission orphelin. Toute portée qui lit le trafic comprend
+`stream:read` (sujets temps réel, §8.6).
 
 ## 8.6 Temps réel
 
@@ -103,7 +106,7 @@ Ceux du chapitre 1 §1.2. Règles communes :
 - **Un contrôle interdit** est désactivé et expliqué, jamais masqué sans raison.
 - **Facturation désactivée** : l'écran dit « fonctionnalité indisponible ».
 - **Audit** : deux onglets, « Plan de contrôle » (passerelle, sous `audit:read`) et « Accès au
-  dashboard » (journal du BFF), jamais fusionnés.
+  dashboard » (journal du BFF, sous `audit:read` aussi), jamais fusionnés.
 - Accessibilité WCAG 2.1 AA sur les parcours principaux ; bureau d'abord, tablette dégradée proprement.
 
 ## 8.9 Journal d'accès
