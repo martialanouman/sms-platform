@@ -79,6 +79,11 @@ générée et gardée par `check-generated` ; chaque garde statique est rouge su
      décision 5) ; `fallback_chain` dérivée par le routeur (spec 03 §3.4, décision 3) ; bornes gardées
      au contrat ; audit écrit une fois, à l'issue (décision 5 §4.1).
 
+**Humain**, après la revue : la politique de contenu, client (`update-customer-content-policy`) et
+plateforme (`update-platform-content-policy`, ajoutée : 145 opérations), passe sous `content:write`, hors de
+tout rôle par défaut sauf `Propriétaire` ; les lectures du réglage restent sous `customers:read` et
+`platform:read`. `content_retention_days` plafonné à 90 jours. Spec 05 §5.3, 07 §7.4 et 08 §8.5 amendées.
+
 ## Design arrêté
 
 - `contracts/openapi-admin.yaml` : OpenAPI 3.1, 1.0.0, en anglais, sans commentaire.

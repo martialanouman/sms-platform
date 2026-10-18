@@ -68,7 +68,8 @@ sert, la resync reprend au retour.
 jeton par le JWKS interne du BFF (ADR-0019), puis le scope de l'opération.
 
 - **Scopes** : un tag du contrat donne `<tag>:read` à ses lectures et `<tag>:write` à ses écritures
-  (`routes:read`, `connectors:write`…). Plus neuf scopes sensibles : `content:read`, `content:erase`, `gdpr:erase`,
+  (`routes:read`, `connectors:write`…). Plus dix scopes sensibles : `content:read`, `content:write` (stockage et rétention des corps, client et
+  plateforme), `content:erase`, `gdpr:erase`,
   `msisdn:reveal`, `cdr:export_bulk`, `audit:read`, et trois qu'un rôle par défaut sépare de `:write`
   (chapitre 8 §8.5) : `routing-scripts:publish`, `suppressions:delete` (lever un opt-out),
   `billing:topup` (recharger, ajuster, fixer les conditions de crédit : mode, découvert, limite,

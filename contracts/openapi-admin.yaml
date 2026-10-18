@@ -258,11 +258,11 @@ paths:
         '422': { $ref: '#/components/responses/ValidationError' }
         '500': { $ref: '#/components/responses/InternalError' }
     patch:
-      tags: [customers]
+      tags: [content]
       summary: Update a customer's content policy
       description: Applies to bodies stored from then on.
       operationId: update-customer-content-policy
-      security: [{ OperatorBearer: ['customers:write'] }]
+      security: [{ OperatorBearer: ['content:write'] }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CustomerContentPolicyUpdate' } } } }
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/CustomerContentPolicy' } } } }
@@ -1989,6 +1989,21 @@ paths:
         '422': { $ref: '#/components/responses/ValidationError' }
         '500': { $ref: '#/components/responses/InternalError' }
 
+  /admin/platform/content-policy:
+    patch:
+      tags: [content]
+      summary: Update the platform content policy
+      description: The default of every customer without its own setting. Applies to bodies stored from then on.
+      operationId: update-platform-content-policy
+      security: [{ OperatorBearer: ['content:write'] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PlatformContentPolicyUpdate' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/PlatformPolicy' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
   /admin/messages/{id}/content:
     parameters: [{ $ref: '#/components/parameters/MessageId' }]
     get:
@@ -2761,7 +2776,7 @@ components:
           oneOf:
             - $ref: '#/components/schemas/ContentStorage'
             - type: "null"
-        content_retention_days: { type: [integer, "null"], minimum: 1, description: Null inherits the platform policy. }
+        content_retention_days: { type: [integer, "null"], minimum: 1, maximum: 90, description: Null inherits the platform policy. }
       required: [content_storage, content_retention_days]
     CustomerContentPolicyUpdate:
       type: object
@@ -2771,7 +2786,7 @@ components:
           oneOf:
             - $ref: '#/components/schemas/ContentStorage'
             - type: "null"
-        content_retention_days: { type: [integer, "null"], minimum: 1 }
+        content_retention_days: { type: [integer, "null"], minimum: 1, maximum: 90 }
 
     ContentKeyRotated:
       type: object
@@ -3858,7 +3873,7 @@ components:
       type: object
       properties:
         content_storage: { $ref: '#/components/schemas/ContentStorage' }
-        content_retention_days: { type: integer, minimum: 1, description: Default 7. }
+        content_retention_days: { type: integer, minimum: 1, maximum: 90, description: Default 7. }
         quiet_hours:
           description: Null disables them. Inside the window, a marketing message is refused at admission (`quiet_hours`).
           oneOf:
@@ -3869,14 +3884,19 @@ components:
     PlatformPolicyUpdate:
       type: object
       additionalProperties: false
+      description: The content policy is set by `update-platform-content-policy`.
       properties:
-        content_storage: { $ref: '#/components/schemas/ContentStorage' }
-        content_retention_days: { type: integer, minimum: 1 }
         quiet_hours:
           oneOf:
             - $ref: '#/components/schemas/TimeWindow'
             - type: "null"
         billing_enabled: { type: boolean }
+    PlatformContentPolicyUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        content_storage: { $ref: '#/components/schemas/ContentStorage' }
+        content_retention_days: { type: integer, minimum: 1, maximum: 90 }
 
     MessageContent:
       type: object

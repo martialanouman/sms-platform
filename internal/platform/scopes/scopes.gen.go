@@ -19,6 +19,7 @@ var All = []string{
 	"connectors:write",
 	"content:erase",
 	"content:read",
+	"content:write",
 	"credentials:read",
 	"credentials:write",
 	"customer-groups:read",

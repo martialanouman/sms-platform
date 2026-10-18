@@ -78,7 +78,7 @@ relisible sans la plateforme. Le corps n'est jamais archivé.
 | Classe | Défaut | Purge |
 |---|---|---|
 | État du message | 72 h | Suppression de partition |
-| Corps (`cdr_content`) | `content_retention_days`, 7 j | TTL ClickHouse ; crypto-shred |
+| Corps (`cdr_content`) | `content_retention_days`, 7 j, plafonné à 90 j (un corps ne survit pas au CDR qui le retrouve) | TTL ClickHouse ; crypto-shred |
 | Corps en transit (Kafka, garages) | ≤ 96 h | Rétention des topics ; `max_age` des garages (chapitre 2 §2.4) |
 | CDR | 90 j | Suppression de partition (TTL) |
 | Archives CDR | Politique de l'exploitant | Hors plateforme |
