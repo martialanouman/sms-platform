@@ -1,0 +1,415 @@
+openapi: 3.1.0
+
+info:
+  title: SMS Gateway — Public API
+  version: "1.0.0"
+  description: |
+    Customer-facing REST surface of the SMS gateway. A customer authenticates with the API key of one of
+    its accounts and may submit MT messages and read the status of its own messages.
+
+    MO messages and delivery receipts are pushed to the account, over its active SMPP `receiver` or
+    `transceiver` bind, or else to its webhook (see `webhooks`).
+
+    **Submission is asynchronous.** Refusals before the acknowledgement are synchronous: authentication,
+    account and channel status, rate limit, quiet hours. A `202 Accepted` means the message is durably
+    queued. Every later refusal (destination, sender ID, opt-out, content, route, credit) is a state:
+    the message reads `rejected` with an `error_code`, through `GET /messages/{id}`.
+
+servers:
+  - url: https://api.example.com/v1
+    description: Example
+
+paths:
+  /messages:
+    post:
+      summary: Submit an MT message
+      operationId: submit-message
+      security:
+        - BearerApiKey: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SubmitMessageRequest' }
+            example:
+              to: "+12025550101"
+              from: "ACME"
+              text: "Your code is 123456"
+      responses:
+        '202':
+          description: Accepted and durably queued.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AcceptedMessage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /messages/{id}:
+    get:
+      summary: Get message status
+      description: |
+        Readable as soon as the `202` is returned. Exact within 72 hours of acceptance; otherwise the answer
+        comes from the message history (`source`). MO messages
+        of the account are readable too.
+      operationId: get-message
+      security:
+        - BearerApiKey: []
+      parameters:
+        - $ref: '#/components/parameters/MessageId'
+      responses:
+        '200':
+          description: Message status.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+webhooks:
+  mo:
+    post:
+      summary: MO message delivered to the account
+      operationId: on-mo
+      parameters:
+        - $ref: '#/components/parameters/Signature'
+        - $ref: '#/components/parameters/Timestamp'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MoWebhookEvent' }
+      responses:
+        '200': { $ref: '#/components/responses/WebhookDelivery' }
+
+  dlr:
+    post:
+      summary: Delivery receipt of an MT message
+      operationId: on-dlr
+      parameters:
+        - $ref: '#/components/parameters/Signature'
+        - $ref: '#/components/parameters/Timestamp'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DlrWebhookEvent' }
+      responses:
+        '200': { $ref: '#/components/responses/WebhookDelivery' }
+
+components:
+  securitySchemes:
+    BearerApiKey:
+      type: http
+      scheme: bearer
+      bearerFormat: API-Key
+      description: |
+        `Authorization: Bearer <api_key>`. A key belongs to exactly one account, whose REST channel must
+        be enabled (`channel_disabled`) and whose effective status, the stricter of the customer's and the
+        account's, must be active (`account_suspended`). During a rotation's grace period both keys are
+        valid.
+
+  parameters:
+    MessageId:
+      name: id
+      in: path
+      required: true
+      description: Message ID (UUIDv7). Unknown and foreign messages both answer `message_not_found`.
+      schema: { type: string, format: uuid }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: |
+        Client-chosen key, scoped to the account. Only a `202` is kept: a repeat within 24 hours replays
+        it, and a refused submission may be retried with the same key. The same key with a different
+        body, or while its first request is in flight, answers `idempotency_conflict`. Best effort after a
+        platform restore.
+      schema: { type: string, minLength: 1, maxLength: 128, pattern: '^[\x21-\x7E]+$' }
+    Signature:
+      name: X-Signature
+      in: header
+      required: true
+      description: |
+        `v1=` followed by `hex(HMAC_SHA256(secret, X-Timestamp + "." + raw_body))` in lowercase, with the
+        account webhook secret. During a secret rotation, one comma-separated value per valid secret;
+        accept the delivery if any matches. Compare in constant time.
+      schema: { type: string }
+    Timestamp:
+      name: X-Timestamp
+      in: header
+      required: true
+      description: |
+        Unix seconds at signing; every attempt is signed anew. Reject a delivery more than 5 minutes away
+        from the receiver's clock.
+      schema: { type: string, pattern: '^[0-9]+$' }
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key (`unauthenticated`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: |
+        Account or customer suspended (`account_suspended`), REST channel disabled (`channel_disabled`), or,
+        on submission, a marketing message inside the quiet hours (`quiet_hours`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: The `Idempotency-Key` is in flight, or was used within 24 hours for a different body (`idempotency_conflict`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: No such message for this account (`message_not_found`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    PayloadTooLarge:
+      description: The request body exceeds the accepted size (`payload_too_large`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ValidationError:
+      description: Malformed request (`validation_error`); `errors[]` details each field.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    TooManyRequests:
+      description: Rate limit exceeded (`rate_limited`).
+      headers:
+        Retry-After:
+          description: Seconds to wait before retrying.
+          schema: { type: integer }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    InternalError:
+      description: Unexpected error (`internal_error`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ServiceUnavailable:
+      description: |
+        The gateway cannot take the request now (`queue_full`, `service_unavailable`). A submission was not
+        accepted; it is safe to retry.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    WebhookDelivery:
+      description: |
+        Sent when the account holds no active SMPP `receiver` or `transceiver` bind. Any 2xx acknowledges;
+        a redirect is not followed and counts as a failure. Otherwise the delivery is retried for at most 24 hours after the event;
+        past that, a receipt is dropped and an MO is set aside. Up to 8 deliveries per account are in
+        flight at once: no order is promised. A delivery may arrive twice; deduplicate an MO by
+        `message_id` and a receipt by `(message_id, segment_seq, status)`.
+
+  schemas:
+    Error:
+      type: object
+      description: |
+        Flat error body. `code` is the stable code of the cause, shared with the SMPP `command_status` and
+        the message `error_code`. The HTTP status is on the status line only.
+      properties:
+        code:
+          type: string
+          enum:
+            - unauthenticated
+            - account_suspended
+            - channel_disabled
+            - rate_limited
+            - quiet_hours
+            - payload_too_large
+            - validation_error
+            - idempotency_conflict
+            - queue_full
+            - service_unavailable
+            - message_not_found
+            - internal_error
+        message:
+          type: string
+          description: Human-readable explanation.
+        errors:
+          type: array
+          description: Per-field problems, on `validation_error`.
+          items:
+            type: object
+            properties:
+              field: { type: string, examples: [text] }
+              message: { type: string }
+            required: [field, message]
+      required: [code, message]
+
+    ErrorCode:
+      type: string
+      description: Why a message or a segment did not succeed, recorded after acceptance.
+      enum:
+        - invalid_destination
+        - invalid_source
+        - sender_id_not_authorized
+        - recipient_opted_out
+        - content_blocked
+        - no_route
+        - insufficient_credit
+        - quiet_hours
+        - billing_unavailable
+        - message_expired
+        - submit_failed
+        - ambiguous_submit
+        - incomplete_message
+        - fallback_exhausted
+        - retries_exhausted
+        - delivery_failed
+        - delivery_expired
+        - internal_error
+
+    MessageStatus:
+      type: string
+      description: |
+        Lifecycle of a message.
+
+        | Event | Status |
+        |---|---|
+        | Accepted, held back, released, routed on its first attempt | `accepted` |
+        | Routed again to a fallback, before any outcome | `rerouted` |
+        | Taken by the carrier, or no outcome or receipt received in time | `enroute` |
+        | Delivered | `delivered` |
+        | Undeliverable, refused by the carrier, not sent | `failed` |
+        | Expired at the carrier, or `error_code` is `message_expired` | `expired` |
+        | Refused after acceptance, for any other cause | `rejected` |
+        | Cancelled before sending (SMPP `cancel_sm`) | `cancelled` |
+
+        A long message is split into segments sent independently; the status aggregates them:
+        `delivered` once every segment is delivered, `failed` if any segment failed, `expired` if a
+        segment expired and none failed, otherwise the least advanced state in flight. A failure or an
+        expiry outranks a partial delivery. A delivered message never reads `cancelled`.
+
+        An MO reads `accepted` once received, then `delivered` or `failed` according to its delivery to
+        the account.
+
+        Do not poll to detect delivery: receipts are pushed when requested (`registered_delivery`).
+      enum: [accepted, enroute, delivered, failed, expired, rejected, rerouted, cancelled]
+
+    DlrStatus:
+      type: string
+      description: Outcome reported by the carrier for one segment.
+      enum: [delivered, undeliverable, expired, rejected, failed]
+
+    SubmitMessageRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        to:
+          type: string
+          description: Destination number, international or national; normalized to E.164 after acceptance (`invalid_destination`).
+          pattern: '^\+?[0-9]{1,20}$'
+          examples: ["+12025550101"]
+        from:
+          type: string
+          description: |
+            Sender ID, authorized for the account after acceptance (`sender_id_not_authorized`). It fixes
+            the traffic category, its priority range and its maximum age. A sender ID the customer does
+            not own is treated as marketing until rejected.
+          minLength: 1
+          maxLength: 20
+          examples: ["ACME"]
+        text:
+          type: string
+          description: Message body, at most 2000 Unicode code points. A long body is split into segments.
+          minLength: 1
+          maxLength: 2000
+        registered_delivery:
+          type: boolean
+          description: Request a delivery receipt. Absent, the carrier connection's default applies.
+        validity_period:
+          type: string
+          format: date-time
+          description: |
+            Absolute expiry. It can only shorten the message's life: the effective expiry is the earliest
+            of this value and the maximum age of the traffic category, possibly lowered for the customer.
+        priority:
+          type: integer
+          minimum: 0
+          maximum: 3
+          default: 0
+          description: |
+            Requested priority, bounded by the traffic category of the sender ID. The effective priority is
+            min(max(priority, category default), category ceiling): marketing 0 (ceiling 0), transactional
+            1 (ceiling 2), otp 3 (ceiling 3).
+      required: [to, from, text]
+
+    AcceptedMessage:
+      type: object
+      properties:
+        id: { type: string, format: uuid, description: Message ID (UUIDv7). }
+        trace_id: { type: string, format: uuid }
+        accepted_at: { type: string, format: date-time }
+      required: [id, trace_id, accepted_at]
+
+    Message:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        trace_id: { type: string, format: uuid }
+        direction: { type: string, enum: [mt, mo] }
+        to: { type: string }
+        from: { type: string, description: The sender as submitted; a carrier-side rewrite is never shown. }
+        status: { $ref: '#/components/schemas/MessageStatus' }
+        segment_count: { type: [integer, "null"], minimum: 1, description: 'Null until routed, and for an MO.' }
+        error_code:
+          oneOf:
+            - $ref: '#/components/schemas/ErrorCode'
+            - type: "null"
+        accepted_at: { type: string, format: date-time }
+        delivered_at: { type: [string, "null"], format: date-time }
+        source:
+          type: string
+          enum: [state, history]
+          description: |
+            `state`: exact. `history`: from the message history, which may lag.
+      required: [id, trace_id, direction, to, from, status, segment_count, error_code, accepted_at, delivered_at, source]
+
+    MoWebhookEvent:
+      type: object
+      description: MO message routed to the account. Exactly one of `text` and `octets` is set.
+      properties:
+        event: { type: string, const: mo }
+        message_id: { type: string, format: uuid }
+        trace_id: { type: string, format: uuid }
+        account_id: { type: string, format: uuid }
+        from: { type: string, description: Originating number (E.164). }
+        to: { type: string, description: Inbound number that received the message. }
+        encoding: { type: string, enum: [gsm7, ucs2, binary] }
+        text: { type: [string, "null"], description: Body when `encoding` is gsm7 or ucs2. }
+        octets: { type: [string, "null"], contentEncoding: base64, description: Body when `encoding` is binary. }
+        stop: { type: boolean, description: The message is an opt-out request; the opt-out is recorded. }
+        received_at: { type: string, format: date-time }
+      required: [event, message_id, trace_id, account_id, from, to, encoding, text, octets, stop, received_at]
+
+    DlrWebhookEvent:
+      type: object
+      description: Delivery receipt of one segment of an MT message.
+      properties:
+        event: { type: string, const: dlr }
+        message_id: { type: string, format: uuid }
+        trace_id: { type: string, format: uuid }
+        account_id: { type: string, format: uuid }
+        segment_seq: { type: integer, minimum: 0, description: Segment number; 0 for the whole message. }
+        status: { $ref: '#/components/schemas/DlrStatus' }
+        error_code: { type: [string, "null"], enum: [delivery_failed, delivery_expired, null] }
+        occurred_at: { type: string, format: date-time }
+      required: [event, message_id, trace_id, account_id, segment_seq, status, error_code, occurred_at]

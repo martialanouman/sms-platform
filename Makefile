@@ -1,6 +1,6 @@
 SHELL := /bin/bash -o pipefail
 
-.PHONY: help lint test ciguard check-generated debtguard catalog proto check
+.PHONY: help lint test ciguard check-generated debtguard catalog proto openapi check
 
 help: ## Liste les cibles
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "%-16s %s\n", $$1, $$2}'
@@ -35,4 +35,12 @@ proto: ## buf lint, puis buf breaking contre origin/main
 		echo "buf breaking : $$base n'a pas de contracts/proto, rien à comparer"; \
 	else go tool buf breaking --against ".git#ref=$$base"; fi
 
-check: lint ciguard check-generated debtguard catalog proto ## Ce que vérifie la CI
+openapi: ## oasdiff validate, puis oasdiff breaking contre origin/main, bloquant sur ERR
+	go tool oasdiff validate --fail-on WARN contracts/openapi-public.yaml
+	@base=$${OPENAPI_BASE:-origin/main}; git rev-parse --verify --quiet "$$base^{commit}" >/dev/null \
+		|| { echo "base $$base introuvable"; exit 1; }; \
+	if [ -z "$$(git ls-tree --name-only "$$base" -- contracts/openapi-public.yaml)" ]; then \
+		echo "oasdiff breaking : $$base n'a pas de contracts/openapi-public.yaml, rien à comparer"; \
+	else go tool oasdiff breaking --fail-on ERR "$$base:contracts/openapi-public.yaml" contracts/openapi-public.yaml; fi
+
+check: lint ciguard check-generated debtguard catalog proto openapi ## Ce que vérifie la CI

@@ -10,7 +10,9 @@ tous les services importeront. Le numéro est l'ordre d'exécution (C6). Aucun s
 | 003 | Dettes en issues et leur garde | PR |
 | 004a | Contrats : catalogue des topics | PR |
 | 004b | Contrats : protos | PR |
-| 004c | Contrats : OpenAPI | PR |
+| 004c-1 | Contrats : OpenAPI public, `oasdiff` | PR |
+| 004c-2 | Contrats : OpenAPI Admin, scopes générés, gardes | PR |
+| 004c-3 | Contrats : OpenAPI BFF, permissions | PR |
 | 004d | Sécurité en CI | PR |
 | 005 | Bibliothèques de plateforme | PR |
 | 006 | Données : migrations, rôles, GRANT, trigger d'audit | PR |
@@ -64,7 +66,8 @@ formaté est rouge ; la même PR corrigée est verte.
 ## 004 — Contrats
 
 Découpée en 004a (catalogue), 004b (protos) et 004c (OpenAPI) par décision humaine du 2026-10-17 :
-la step entière dépassait une PR relisible. Le critère de fin se partage entre elles.
+la step entière dépassait une PR relisible. Le critère de fin se partage entre elles. La 004c est à son tour
+découpée en trois PR, une par contrat (décision humaine du 2026-10-18).
 
 
 - **`contracts/topics.yaml`** et son chargeur typé : tous les topics et groupes du chapitre 9 §9.1.
@@ -76,7 +79,7 @@ la step entière dépassait une PR relisible. Le critère de fin se partage entr
 - **OpenAPI** public, Admin et BFF, repris des anciens dépôts et **mis directement à l'état des
   décisions** (scopes, codes d'erreur, `charge_on`, champs retirés), en version 1.0.0 : aucune version
   n'a été mise en production, il n'y a donc aucun client à ménager. Liste des scopes générée.
-- `check-generated` couvre les types générés.
+- `check-generated` couvre la liste générée.
 
 **Terminé quand** : le catalogue reproduit le chapitre 9 ; chaque garde statique est rouge sur une
 entrée fautive ; `oasdiff` et `buf breaking` tournent sur la PR.

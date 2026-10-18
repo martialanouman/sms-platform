@@ -25,7 +25,7 @@ Le chemin d'un message de la soumission à l'opérateur. Deux entrées (REST, SM
 | 15 | État et CDR | message-state | — |
 
 - **Avant l'ACK, rien n'est écrit** : un refus est une réponse synchrone. **Après l'ACK, un refus est un
-  état** (`rejected`, publié sur `mt.outcome`) : le client le lit par DLR ou par `GET /messages/{id}`.
+  état** (`rejected`, publié sur `mt.outcome`) : le client le lit par `GET /messages/{id}`.
 - **Le débit se refuse avant l'ACK, jamais après.** Au-delà, le plafond du compte opérateur ralentit
   l'envoi.
 - **Le court-circuit « numéro exact » saute l'étape 9, jamais les étapes 5 à 8** (I3).
@@ -34,13 +34,15 @@ Le chemin d'un message de la soumission à l'opérateur. Deux entrées (REST, SM
 
 1. **Authentification.** REST : clé d'API hachée. SMPP : le bind authentifie la session, `max_sessions`
    la borne (I6), l'anti-brute-force la protège.
-2. **Débit.** Seaux `redis-state` atomiques, sender ID puis compte (ADR-0021). En panne de Redis :
-   plafond local par pod, fail-closed.
-3. **Catégorie et quiet hours.** La catégorie du `source_addr` se **lit** dans l'instantané de
-   `sender_ids` ; un expéditeur inconnu part en `marketing` et le routeur le rejettera. Si les quiet
-   hours sont actives (`platform_policy`) et qu'un message `marketing` tombe dans la fenêtre, à l'heure
-   du pays de référence : refus `quiet_hours`, jamais différé.
-4. **Idempotence REST** : une clé `Idempotency-Key` rejouée sous 24 h rend la réponse d'origine.
+2. **Débit.** Seaux `redis-state` atomiques, sender ID du client du compte puis compte (ADR-0021).
+   En panne de Redis : plafond local par pod, fail-closed.
+3. **Catégorie et quiet hours.** La catégorie du `source_addr` se **lit** dans l'instantané des
+   `sender_ids` du client du compte ; un expéditeur qui n'y figure pas part en `marketing`, sans seau
+   propre, et le routeur le rejettera. Si les quiet hours sont actives (`platform_policy`) et qu'un
+   message `marketing` tombe dans la fenêtre, à l'heure du pays de référence : refus `quiet_hours`,
+   jamais différé.
+4. **Idempotence REST** : une clé `Idempotency-Key` rejouée sous 24 h rend le `202` d'origine ; encore
+   en cours, ou reprise pour un autre corps : `idempotency_conflict`.
 5. **ACK.** Production `acks=all` sur `mt.inbound.<cat>`, clé `message_id` (UUIDv7, attribué ici).
    L'en-tête `origin_ts` est posé à cet instant et ne change plus (I10). Puis `202` / `submit_sm_resp`.
 
@@ -50,7 +52,8 @@ Le corps est lu ici pour la longueur et l'encodage déclaré, jamais journalisé
 
 Un consommateur par `mt.inbound.<cat>`, lane du catalogue (décision 4). Chaque record :
 
-1. **Âge.** Plus vieux que son `max_age` (§3.6) : `expired`, terminal, non facturé.
+1. **Âge.** Plus vieux que son `max_age` (§3.6) : `rejected` (`message_expired`), exposé `expired`,
+   terminal, non facturé.
 2. **E.164**, avec l'indicatif du pays de référence.
 3. **Sender ID.** Le `source_addr` soumis, avant réécriture, doit être un sender ID `active` du client,
    numérique compris (ADR-0020). Le routeur **recalcule la catégorie** depuis son instantané ; si un
@@ -88,7 +91,7 @@ bloquer une partition du routeur (I11).
 
 Le détenteur du bail d'un compte opérateur (I8) consomme ses trois partitions (une par catégorie) :
 
-1. **Âge** : expiré, `not_sent` (`expired`), jamais envoyé (I10).
+1. **Âge** : expiré, `not_sent` (`message_expired`), jamais envoyé (I10).
 2. **Ordonnancement** au sein du compte : OTP → transactionnel → marketing, le marketing garde au moins
    `marketing_min_share` (0,4) des envois tant qu'il attend (ADR-0021).
 3. **Seau local** à `throughput_limit_per_sec` ; une file pleine bloque la consommation, le message
