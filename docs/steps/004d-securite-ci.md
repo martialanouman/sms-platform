@@ -39,7 +39,9 @@ Le plan tranche le périmètre ; ce qui reste est de la forme, sans choix produi
 - `tools/catalog`, `tools/openapi` : permissions resserrées.
 - `.github/workflows/ci.yml` : job `codeql` (`init`, `analyze`), hors de l'agrégateur, `debt: #88`.
 - `.github/dependabot.yml`.
-- Vérification du critère : sur une copie jetable, une dépendance vulnérable appelée (`golang.org/x/text`
-  v0.3.7, `language.Parse`, GO-2022-1059) fait échouer `make vuln`, un `exec.Command` sur une variable
-  hors de `tools/` fait échouer `make lint` ; CodeQL publie sur la PR ; la première PR de Dependabot suit le
+- Vérification du critère : sur une copie jetable, une dépendance vulnérable appelée
+  (`github.com/dgrijalva/jwt-go` v3.2.0, `MapClaims.VerifyAudience`, GO-2020-0017) fait échouer `make vuln` —
+  un module absent du graphe : une version vulnérable d'un module partagé, comme `golang.org/x/text`, ne
+  descend pas sous les exigences des outils ; une lecture de fichier sur une variable hors de `tools/` fait
+  échouer `make lint` (G304) ; CodeQL publie sur la PR ; la première PR de Dependabot suit le
   merge.
