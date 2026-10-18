@@ -225,7 +225,7 @@ paths:
     get:
       operationId: listAccessLog
       security: [{ session: ["audit:read"] }]
-  /auth/gateway-token:
+  /gateway-token:
     post:
       operationId: issueGatewayToken
       security: [{ session: ["gateway:personal_token"] }]

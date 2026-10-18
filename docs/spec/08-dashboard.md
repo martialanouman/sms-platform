@@ -112,8 +112,8 @@ Ceux du chapitre 1 §1.2. Règles communes :
 
 ## 8.9 Journal d'accès
 
-Les seuls faits du BFF : connexions, déconnexions, échecs de mot de passe ou de MFA, usage d'un lien
-d'accès, enrôlements et retraits de facteurs, création, désactivation et réactivation d'opérateurs,
+Les seuls faits du BFF : connexions, déconnexions, échecs de mot de passe ou de MFA, demande et usage
+d'un lien d'accès, enrôlements et retraits de facteurs, création, désactivation et réactivation d'opérateurs,
 changements de rôles d'un opérateur, création, modification et suppression d'un rôle, fermeture forcée
 d'une session, émission d'un jeton personnel, refus de session. Un opérateur se désactive, il ne se supprime pas : le journal tient ses auteurs.
 

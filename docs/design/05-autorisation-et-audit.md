@@ -113,7 +113,7 @@ Plancher existant `8760 hours` (step-297) ; les deux tables sont partitionnées 
 
 ### 4.5 Le journal du BFF
 
-Ses seuls faits : connexions et déconnexions, échecs de mot de passe ou de MFA, usage d'un lien d'accès,
+Ses seuls faits : connexions et déconnexions, échecs de mot de passe ou de MFA, demande et usage d'un lien d'accès,
 enrôlement et retrait de facteurs (TOTP, WebAuthn), création, désactivation et réactivation d'opérateurs,
 changements de rôles d'un opérateur, création, modification et suppression d'un rôle, fermeture forcée
 d'une session, **émission** d'un jeton personnel, refus de session.

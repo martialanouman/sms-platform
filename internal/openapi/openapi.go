@@ -176,7 +176,7 @@ func (c Contract) Permissions(scopes []string) ([]string, []error) {
 	if errs != nil {
 		return nil, errs
 	}
-	return permissions, nil
+	return slices.Clone(permissions), nil
 }
 
 func permissionOf(op Operation, scopes []string) (string, error) {

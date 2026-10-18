@@ -72,8 +72,7 @@ lui malgré la montée de kin-openapi de 004c-1.
 2. `tools/openapi` lit le BFF : sa garde, ses codes (`UnknownCodes`), et la génération.
 3. `make openapi` : `oasdiff validate` et `breaking` informatif pour le BFF.
 4. **Revue, premier tour** : une permission BFF qu'aucune opération ne porte est refusée (spec 08 §8.5,
-   orphelins) ; la liste rendue est la liste figée, triée. La garde du BFF ne tourne que sur un Admin vert,
-   dont elle lit les scopes.
+   orphelins) ; la liste rendue est une copie de la liste figée, triée.
 5. **Revue, premier tour, contrat** :
    - jeton personnel hors de `/auth/*` (`/gateway-token`), donc soumis à l'élévation (ADR-0019 « MFA
      comprise ») ; un scope demandé au-delà de ce que le jeton porte rend `forbidden_scope` ;
@@ -83,7 +82,7 @@ lui malgré la montée de kin-openapi de 004c-1.
    - §9.3 : `unauthenticated`, `password_policy`, `service_unavailable` et `payload_too_large` précisés
      pour le BFF ; spec 09 : liste des permissions générée ;
    - **Fable** : 413 `payload_too_large` sur les douze opérations à corps (un code par cause) ; journal
-     d'accès étendu (lien d'accès, retrait de facteur, réactivation, édition d'un rôle, fermeture forcée ;
+     d'accès étendu (demande et usage d'un lien d'accès, retrait de facteur, réactivation, édition d'un rôle, fermeture forcée ;
      `target` opérateur ou rôle), spec 08 §8.9 et décision 5 §4.5 amendées ; MFA obligatoire dès un scope
      `:write`, un scope sensible ou une permission du BFF, spec 08 §8.3 et §9.3 amendées.
 

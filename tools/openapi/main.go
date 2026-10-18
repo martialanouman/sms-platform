@@ -40,11 +40,8 @@ func run(root, gen string) []error {
 	}
 	scopes, errs := admin.Scopes()
 	errs = prefix(adminPath, errs)
-	var permissions []string
-	if errs == nil {
-		permissions, errs = bff.Permissions(scopes)
-		errs = prefix(bffPath, errs)
-	}
+	permissions, permErrs := bff.Permissions(scopes)
+	errs = append(errs, prefix(bffPath, permErrs)...)
 
 	if gen != "" {
 		if errs != nil {
