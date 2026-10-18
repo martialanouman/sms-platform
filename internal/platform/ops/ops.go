@@ -7,14 +7,13 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"slices"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	dto "github.com/prometheus/client_model/go"
 )
 
 const probeTimeout = 2 * time.Second
@@ -51,8 +50,12 @@ func New(addr string, shutdown time.Duration, g prometheus.Gatherer, checks ...C
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok\n")) })
 	mux.HandleFunc("GET /readyz", s.readyz)
-	mux.Handle("GET /metrics", promhttp.HandlerFor(g, promhttp.HandlerOpts{}))
-	s.srv = &http.Server{Handler: mux, ReadHeaderTimeout: probeTimeout}
+	collected := prometheus.GathererFunc(func() ([]*dto.MetricFamily, error) {
+		families, _ := g.Gather()
+		return families, nil
+	})
+	mux.Handle("GET /metrics", promhttp.HandlerFor(collected, promhttp.HandlerOpts{}))
+	s.srv = &http.Server{Handler: mux, ReadHeaderTimeout: probeTimeout, IdleTimeout: probeTimeout}
 	return s, nil
 }
 
@@ -87,18 +90,35 @@ func (s *Server) readyz(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), probeTimeout)
 	defer cancel()
-	failed := make([]string, len(s.checks))
-	var wg sync.WaitGroup
-	for i, c := range s.checks {
-		wg.Go(func() {
-			if c.Probe(ctx) != nil {
-				failed[i] = c.Name
-			}
-		})
+	type result struct {
+		i   int
+		err error
 	}
-	wg.Wait()
-	if down := strings.Join(slices.DeleteFunc(failed, func(n string) bool { return n == "" }), ", "); down != "" {
-		http.Error(w, "not ready: "+down, http.StatusServiceUnavailable)
+	results := make(chan result, len(s.checks))
+	for i, c := range s.checks {
+		go func() { results <- result{i, c.Probe(ctx)} }()
+	}
+	down := make([]bool, len(s.checks))
+	for i := range down {
+		down[i] = true
+	}
+collect:
+	for range s.checks {
+		select {
+		case r := <-results:
+			down[r.i] = r.err != nil
+		case <-ctx.Done():
+			break collect
+		}
+	}
+	var names []string
+	for i, c := range s.checks {
+		if down[i] {
+			names = append(names, c.Name)
+		}
+	}
+	if len(names) > 0 {
+		http.Error(w, "not ready: "+strings.Join(names, ", "), http.StatusServiceUnavailable)
 		return
 	}
 	_, _ = w.Write([]byte("ok\n"))

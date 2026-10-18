@@ -1,11 +1,14 @@
 package ops_test
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -72,39 +75,15 @@ func TestHealthz(t *testing.T) {
 }
 
 func TestReadyz(t *testing.T) {
-	if code, _ := get(t, serve(t, prometheus.NewRegistry(), ops.Check{Name: "kafka", Probe: ok}), "/readyz"); code != http.StatusOK {
-		t.Errorf("all probes up: /readyz = %d", code)
-	}
+	down := func(context.Context) error { return errors.New("dial host=db") }
 	s := serve(t, prometheus.NewRegistry(),
 		ops.Check{Name: "kafka", Probe: ok},
-		ops.Check{Name: "postgres", Probe: func(context.Context) error { return errors.New("dial host=db") }},
+		ops.Check{Name: "postgres", Probe: down},
+		ops.Check{Name: "redis", Probe: down},
 	)
 	code, body := get(t, s, "/readyz")
-	if code != http.StatusServiceUnavailable || body != "not ready: postgres\n" {
-		t.Errorf("one probe down: /readyz = %d %q, want 503 naming postgres only, without its error", code, body)
-	}
-}
-
-func TestReadyzBoundsAndParallelisesTheProbes(t *testing.T) {
-	slow := func(ctx context.Context) error {
-		select {
-		case <-time.After(300 * time.Millisecond):
-		case <-ctx.Done():
-		}
-		deadline, ok := ctx.Deadline()
-		if !ok || time.Until(deadline) > 2*time.Second {
-			return errors.New("no 2s deadline")
-		}
-		return nil
-	}
-	s := serve(t, prometheus.NewRegistry(), ops.Check{Name: "a", Probe: slow}, ops.Check{Name: "b", Probe: slow})
-	start := time.Now()
-	code, body := get(t, s, "/readyz")
-	if code != http.StatusOK {
-		t.Errorf("/readyz = %d %q", code, body)
-	}
-	if elapsed := time.Since(start); elapsed > 550*time.Millisecond {
-		t.Errorf("two 300ms probes took %s: they ran one after the other", elapsed)
+	if code != http.StatusServiceUnavailable || body != "not ready: postgres, redis\n" {
+		t.Errorf("one probe down: /readyz = %d %q, want 503 naming postgres and redis, without their error", code, body)
 	}
 }
 
@@ -127,31 +106,6 @@ func TestMetricsServesTheGuardedRegistry(t *testing.T) {
 	c.WithLabelValues("r1").Inc()
 	if code, body := get(t, serve(t, reg), "/metrics"); code != http.StatusOK || !strings.Contains(body, `sms_accepted_total{route_id="r1"} 1`) {
 		t.Errorf("/metrics = %d %q", code, body)
-	}
-}
-
-func TestRunStopsOnCancel(t *testing.T) {
-	s, err := ops.New("127.0.0.1:0", time.Second, prometheus.NewRegistry())
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() { done <- s.Run(ctx) }()
-	if code, _ := get(t, s, "/healthz"); code != http.StatusOK {
-		t.Fatalf("/healthz = %d", code)
-	}
-	cancel()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Errorf("Run = %v", err)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("Run did not return after cancel")
-	}
-	if _, err := http.Get("http://" + s.Addr() + "/healthz"); err == nil {
-		t.Error("the server still answers after Run returned")
 	}
 }
 
@@ -185,5 +139,121 @@ func TestRunFinishesTheRequestsInFlight(t *testing.T) {
 	}
 	if code := <-codes; code != http.StatusOK {
 		t.Errorf("the request in flight got %d", code)
+	}
+}
+
+func TestReadyzRunsTheProbesTogether(t *testing.T) {
+	var barrier sync.WaitGroup
+	barrier.Add(2)
+	meet := func(ctx context.Context) error {
+		barrier.Done()
+		met := make(chan struct{})
+		go func() { barrier.Wait(); close(met) }()
+		select {
+		case <-met:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	s := serve(t, prometheus.NewRegistry(), ops.Check{Name: "a", Probe: meet}, ops.Check{Name: "b", Probe: meet})
+	if code, body := get(t, s, "/readyz"); code != http.StatusOK {
+		t.Errorf("/readyz = %d %q: the probes did not run together", code, body)
+	}
+}
+
+func TestReadyzAnswersWithinTwoSeconds(t *testing.T) {
+	release := make(chan struct{})
+	t.Cleanup(func() { close(release) })
+	ignores := func(d time.Duration) func(context.Context) error {
+		return func(context.Context) error {
+			select {
+			case <-time.After(d):
+			case <-release:
+			}
+			return nil
+		}
+	}
+	s := serve(t, prometheus.NewRegistry(), ops.Check{Name: "slow", Probe: ignores(1500 * time.Millisecond)}, ops.Check{Name: "stuck", Probe: ignores(time.Hour)})
+	start := time.Now()
+	code, body := get(t, s, "/readyz")
+	if code != http.StatusServiceUnavailable || body != "not ready: stuck\n" {
+		t.Errorf("/readyz = %d %q, want 503 naming the stuck probe only", code, body)
+	}
+	if elapsed := time.Since(start); elapsed > 2500*time.Millisecond {
+		t.Errorf("/readyz answered after %s", elapsed)
+	}
+}
+
+func TestRunIsBoundedByTheShutdownTimeout(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	t.Cleanup(func() { close(release) })
+	s, err := ops.New("127.0.0.1:0", 200*time.Millisecond, prometheus.NewRegistry(), ops.Check{Name: "slow", Probe: func(context.Context) error {
+		close(started)
+		<-release
+		return nil
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- s.Run(ctx) }()
+	go func() {
+		if resp, err := http.Get("http://" + s.Addr() + "/readyz"); err == nil {
+			_ = resp.Body.Close()
+		}
+	}()
+	<-started
+	cancel()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Errorf("Run = %v, want the shutdown timeout", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Run outlived its 200ms shutdown timeout")
+	}
+}
+
+func TestAnIdleConnectionIsClosed(t *testing.T) {
+	s := serve(t, prometheus.NewRegistry())
+	conn, err := net.Dial("tcp", s.Addr())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = conn.Close() }()
+	if _, err := conn.Write([]byte("GET /healthz HTTP/1.1\r\nHost: ops\r\n\r\n")); err != nil {
+		t.Fatal(err)
+	}
+	r := bufio.NewReader(conn)
+	resp, err := http.ReadResponse(r, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = io.Copy(io.Discard, resp.Body)
+	_ = resp.Body.Close()
+	_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	if _, err := r.ReadByte(); !errors.Is(err, io.EOF) {
+		t.Errorf("idle connection read = %v, want the server to close it", err)
+	}
+}
+
+type failing struct{}
+
+func (failing) Describe(ch chan<- *prometheus.Desc) {
+	ch <- prometheus.NewDesc("pool_up", "h", nil, nil)
+}
+
+func (failing) Collect(ch chan<- prometheus.Metric) {
+	ch <- prometheus.NewInvalidMetric(prometheus.NewDesc("pool_up", "h", nil, nil), errors.New("dial tcp db.internal:5432: refused"))
+}
+
+func TestMetricsHidesACollectorError(t *testing.T) {
+	reg := prometheus.NewRegistry()
+	reg.MustRegister(failing{})
+	if _, body := get(t, serve(t, reg), "/metrics"); strings.Contains(body, "db.internal") {
+		t.Errorf("/metrics leaks a collector error: %q", body)
 	}
 }
