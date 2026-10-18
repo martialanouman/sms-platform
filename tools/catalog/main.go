@@ -7,7 +7,11 @@ import (
 	"os"
 	"os/exec"
 
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
+
 	"github.com/martialanouman/sms-platform/internal/catalog"
+	_ "github.com/martialanouman/sms-platform/internal/gen/sms/v1"
 )
 
 const path = "contracts/topics.yaml"
@@ -36,7 +40,8 @@ func main() {
 	if err != nil {
 		fail(err)
 	}
-	report(append(head.Validate(), catalog.Frozen(base, head)...))
+	errs := append(head.Validate(), catalog.Frozen(base, head)...)
+	report(append(errs, head.MissingPayloads(known)...))
 }
 
 func baseCatalog() (catalog.Catalog, error) {
@@ -59,6 +64,11 @@ func baseCatalog() (catalog.Catalog, error) {
 		return catalog.Catalog{}, err
 	}
 	return catalog.Parse(data)
+}
+
+func known(name string) bool {
+	_, err := protoregistry.GlobalFiles.FindDescriptorByName(protoreflect.FullName(name))
+	return err == nil
 }
 
 func report(errs []error) {
