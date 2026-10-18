@@ -52,7 +52,7 @@ func TestLoggerWritesJSONWithServiceAndTrace(t *testing.T) {
 	}
 	var grouped bytes.Buffer
 	observability.NewLogger(&grouped, "s", slog.LevelInfo).With("k", "v").WithGroup("g").InfoContext(ctx, "m", "a", 1)
-	if !strings.Contains(grouped.String(), sc.TraceID().String()) {
+	if !strings.Contains(grouped.String(), sc.TraceID().String()) || !strings.Contains(grouped.String(), `"service":"s"`) {
 		t.Errorf("With and WithGroup dropped the trace: %s", grouped.String())
 	}
 }
@@ -60,7 +60,7 @@ func TestLoggerWritesJSONWithServiceAndTrace(t *testing.T) {
 func spans(t *testing.T, ratio float64, run func(trace.Tracer)) tracetest.SpanStubs {
 	t.Helper()
 	exp := tracetest.NewInMemoryExporter()
-	tp := observability.InitTracing(exp, "router-svc", ratio)
+	tp := observability.InitTracing(exp, t.Name(), ratio)
 	t.Cleanup(func() { _ = tp.Shutdown(context.Background()) })
 	run(otel.Tracer("t"))
 	if err := tp.ForceFlush(context.Background()); err != nil {
@@ -73,6 +73,9 @@ func TestAFailedSpanIsAlwaysExported(t *testing.T) {
 	got := spans(t, 0, func(tr trace.Tracer) {
 		_, ok := tr.Start(context.Background(), "ok")
 		ok.End()
+		_, marked := tr.Start(context.Background(), "marked ok")
+		marked.SetStatus(codes.Ok, "")
+		marked.End()
 		_, failed := tr.Start(context.Background(), "failed")
 		observability.RecordError(failed, fmt.Errorf("route: %w", errs.ErrNoRoute))
 		failed.End()
@@ -83,7 +86,7 @@ func TestAFailedSpanIsAlwaysExported(t *testing.T) {
 	if got[0].Status.Code != codes.Error || got[0].Status.Description != "no_route" {
 		t.Errorf("status = %+v", got[0].Status)
 	}
-	if v, _ := got[0].Resource.Set().Value("service.name"); v.AsString() != "router-svc" {
+	if v, _ := got[0].Resource.Set().Value("service.name"); v.AsString() != t.Name() {
 		t.Errorf("resource = %v", got[0].Resource)
 	}
 }

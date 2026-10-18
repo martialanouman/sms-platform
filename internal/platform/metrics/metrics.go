@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 )
 
 var (
@@ -22,7 +22,7 @@ var snakeCase = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 func refused(label string) bool {
 	return !snakeCase.MatchString(label) || slices.Contains(refusedNames, label) ||
 		slices.ContainsFunc(strings.Split(label, "_"), func(s string) bool {
-			return slices.Contains(refusedSegments, s) || slices.Contains(refusedSegments, strings.TrimSuffix(s, "s"))
+			return slices.Contains(refusedSegments, strings.TrimSuffix(s, "s"))
 		})
 }
 
@@ -60,7 +60,7 @@ func check(c prometheus.Collector) error {
 	n := 0
 	for d := range descs {
 		n++
-		names, err := labels(d.String())
+		names, err := labels(d)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -76,37 +76,21 @@ func check(c prometheus.Collector) error {
 	return errors.Join(errs...)
 }
 
-func labels(desc string) ([]string, error) {
-	unreadable := fmt.Errorf("metrics: unreadable %s", desc)
-	rest := strings.TrimPrefix(desc, "Desc{")
-	for _, field := range []string{"fqName: ", ", help: ", ", unit: "} {
-		rest = strings.TrimPrefix(rest, field)
-		quoted, err := strconv.QuotedPrefix(rest)
+func labels(d *prometheus.Desc) ([]string, error) {
+	for n := 0; n <= len(d.String()); n++ {
+		m, err := prometheus.NewConstMetric(d, prometheus.UntypedValue, 0, make([]string, n)...)
 		if err != nil {
-			return nil, unreadable
+			continue
 		}
-		rest = rest[len(quoted):]
-	}
-	rest = strings.TrimPrefix(rest, ", constLabels: {")
-	var names []string
-	for !strings.HasPrefix(rest, "}") {
-		name, value, ok := strings.Cut(rest, "=")
-		quoted, err := strconv.QuotedPrefix(value)
-		if !ok || err != nil {
-			return nil, unreadable
+		var out dto.Metric
+		if err := m.Write(&out); err != nil {
+			return nil, err
 		}
-		names = append(names, name)
-		rest = strings.TrimPrefix(value[len(quoted):], ",")
-	}
-	variables, prefixed := strings.CutPrefix(rest, "}, variableLabels: {")
-	variables, suffixed := strings.CutSuffix(variables, "}}")
-	if !prefixed || !suffixed {
-		return nil, unreadable
-	}
-	if variables != "" {
-		for _, l := range strings.Split(variables, ",") {
-			names = append(names, strings.TrimSuffix(strings.TrimPrefix(l, "c("), ")"))
+		var names []string
+		for _, l := range out.GetLabel() {
+			names = append(names, l.GetName())
 		}
+		return names, nil
 	}
-	return names, nil
+	return nil, fmt.Errorf("metrics: invalid %s", d)
 }

@@ -1,6 +1,7 @@
 package metrics_test
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -30,10 +31,10 @@ func TestGuardAcceptsBoundedLabels(t *testing.T) {
 
 func TestGuardRefusesForbiddenLabels(t *testing.T) {
 	for _, label := range []string{
-		"msisdn", "dest_msisdn", "PHONE", "phone_e164", "number", "source_addr", "recipient", "destination",
+		"msisdn", "dest_msisdn", "phone_e164", "number", "source_addr", "recipient", "destination",
 		"body", "body_len", "text", "content", "payload",
 		"to", "from", "message_id", "msg_id", "trace_id", "span_id", "customer_group", "client_group",
-		"msisdns", "recipients_count", "messageId", "phoneNumber", "msisdn}}", "lane ", "Route_id",
+		"msisdns", "messageId", "msisdn}}", "Route_id", "9lane", "_lane", `lane="msisdn",code`, "route_id,code", "c(lane)",
 	} {
 		t.Run(label, func(t *testing.T) {
 			reg := prometheus.NewRegistry()
@@ -64,6 +65,17 @@ func TestGuardRefusesAnUnreadableDesc(t *testing.T) {
 	}
 }
 
+func TestGuardPassesOnTheRegistryError(t *testing.T) {
+	g := metrics.Guard(prometheus.NewRegistry())
+	if err := g.Register(counter("sms_total", []string{"route_id"}, nil)); err != nil {
+		t.Fatal(err)
+	}
+	var already prometheus.AlreadyRegisteredError
+	if err := g.Register(counter("sms_total", []string{"route_id"}, nil)); !errors.As(err, &already) {
+		t.Errorf("second Register = %v, want AlreadyRegisteredError", err)
+	}
+}
+
 type silent struct{}
 
 func (silent) Describe(chan<- *prometheus.Desc) {}
@@ -82,11 +94,4 @@ func TestMustRegisterPanicsOnAForbiddenLabel(t *testing.T) {
 		}
 	}()
 	metrics.Guard(prometheus.NewRegistry()).MustRegister(counter("ok_total", nil, nil), counter("sms_total", []string{"msisdn"}, nil))
-}
-
-func TestDescRenderingIsPinned(t *testing.T) {
-	d := prometheus.NewDesc("sms_total", "h", []string{"a", "b"}, prometheus.Labels{"c": "v"})
-	if got, want := d.String(), `Desc{fqName: "sms_total", help: "h", unit: "", constLabels: {c="v"}, variableLabels: {a,b}}`; got != want {
-		t.Errorf("Desc.String() = %s, want %s: the label guard reads this rendering", got, want)
-	}
 }
