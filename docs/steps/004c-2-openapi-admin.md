@@ -50,8 +50,7 @@ générée et gardée par `check-generated` ; chaque garde statique est rouge su
 **Outillage** :
 
 1. **Cœur** `internal/openapi` : décode le strict nécessaire d'un contrat (yaml.v3, déjà admis par
-   depguard ; `go/format` ajouté à sa liste blanche : bibliothèque standard sans I/O, que `$gostd` de
-   depguard omet) ; `Scopes` (liste triée et opération → scope) ; trois gardes ; rendu Go de la liste.
+   depguard) ; `Scopes` (liste triée et opération → scope) ; trois gardes ; rendu Go de la liste.
    `tools/openapi` compose : lit les contrats et la spec, échoue sur une garde, écrit la liste avec `-gen`.
 2. **Gardes** :
    - Admin : chaque opération a exactement un tag et exactement un scope de son tag (read, write ou action
@@ -60,8 +59,8 @@ générée et gardée par `check-generated` ; chaque garde statique est rouge su
    - `Error.code` et `ErrorCode` de chaque contrat ⊆ codes de la table §9.3, lue dans
      `docs/spec/09-contrats.md`. Le catalogue Go de la step 005 reprendra ce rôle.
    La validation, l'unicité des `operationId` et les ruptures restent à `oasdiff`.
-3. **Liste générée** : `internal/platform/scopes/scopes.gen.go`, `type Scope string`, `All` (trié),
-   `ByOperation`. Pas de constante par scope : aucun consommateur encore. `go:generate` dans `doc.go`.
+3. **Liste générée** : `internal/platform/scopes/scopes.gen.go`, `All` (trié). Pas de constante par
+   scope : aucun consommateur encore. `go:generate` dans `doc.go`.
 4. `make openapi` : la garde, puis `oasdiff validate` des deux contrats ; `oasdiff breaking` bloquant pour
    le public, informatif pour l'Admin (spec 09).
 5. **Revue, premier tour** (quatre axes) :
@@ -87,9 +86,9 @@ tout rôle par défaut sauf `Propriétaire` ; les lectures du réglage restent s
 ## Design arrêté
 
 - `contracts/openapi-admin.yaml` : OpenAPI 3.1, 1.0.0, en anglais, sans commentaire.
-- `internal/openapi` : `Parse([]byte) (Contract, error)`, `(Contract) Scopes() (Scopes, []error)` qui porte
+- `internal/openapi` : `Parse([]byte) (Contract, error)`, `(Contract) Scopes() ([]string, []error)` qui porte
   la garde Admin, `(Contract) PublicSecurity() []error`, `(Contract) UnknownCodes([]string) []error`,
-  `SpecCodes([]byte) []string`, `(Scopes) Go() ([]byte, error)`.
+  `SpecCodes([]byte) []string`, `Go([]string) []byte`. Un contrat sans opération est refusé.
 - `tools/openapi` ; `internal/platform/scopes/scopes.gen.go` ; `doc.go`.
 - `Makefile` : `openapi` étendue.
 - Protos et amendements ci-dessus.

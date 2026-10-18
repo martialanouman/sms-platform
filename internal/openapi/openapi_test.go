@@ -153,6 +153,16 @@ func TestScopesRefusesMissingOperationID(t *testing.T) {
 	}
 }
 
+func TestGuardsRefuseAContractWithoutOperations(t *testing.T) {
+	c := parse(t, "openapi: 3.1.0\ntags:\n  - name: routes\npaths: {}\n")
+	if _, errs := c.Scopes(); len(errs) != 1 {
+		t.Errorf("Scopes errs = %v, want one", errs)
+	}
+	if errs := c.PublicSecurity(); len(errs) != 1 {
+		t.Errorf("PublicSecurity errs = %v, want one", errs)
+	}
+}
+
 func TestPublicSecurity(t *testing.T) {
 	if errs := parse(t, public).PublicSecurity(); errs != nil {
 		t.Fatal(errs)

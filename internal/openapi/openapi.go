@@ -77,6 +77,9 @@ func Parse(data []byte) (Contract, error) {
 }
 
 func (c Contract) check(rule func(Operation) error) []error {
+	if len(c.Paths) == 0 {
+		return []error{errors.New("no operation")}
+	}
 	var errs []error
 	for path, p := range c.Paths {
 		for _, op := range []*Operation{p.Get, p.Put, p.Post, p.Delete, p.Patch, p.Head, p.Options, p.Trace} {

@@ -54,24 +54,6 @@ func TestRunFailsOnAFaultyContract(t *testing.T) {
 	}
 }
 
-func TestRunGeneratesTheScopeList(t *testing.T) {
-	out := filepath.Join(t.TempDir(), "scopes.gen.go")
-	if errs := run(tree(t, "", "", ""), out); errs != nil {
-		t.Fatal(errs)
-	}
-	got, err := os.ReadFile(out)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want, err := os.ReadFile(filepath.Join("..", "..", "internal", "platform", "scopes", "scopes.gen.go"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) != string(want) {
-		t.Error("generated scope list differs from internal/platform/scopes/scopes.gen.go")
-	}
-}
-
 func TestRunDoesNotGenerateFromAFaultyContract(t *testing.T) {
 	out := filepath.Join(t.TempDir(), "scopes.gen.go")
 	root := tree(t, adminPath, "OperatorBearer: ['customer-groups:read']", "OperatorBearer: ['customers:read']")
