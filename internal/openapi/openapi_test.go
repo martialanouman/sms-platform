@@ -390,7 +390,7 @@ func TestSpecErrorsRefusesAMismatchedRow(t *testing.T) {
 		"| `a`, `b` | 404, 409, 403 | — | |",
 	} {
 		if _, err := openapi.SpecErrors([]byte("## 9.3 Codes d'erreur\n\n" + row + "\n")); err == nil {
-			t.Errorf("SpecErrors accepted two statuses for three codes: %s", row)
+			t.Errorf("SpecErrors accepted a mismatched row: %s", row)
 		}
 	}
 }

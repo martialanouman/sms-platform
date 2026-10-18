@@ -254,7 +254,7 @@ func SpecErrors(md []byte) ([]SpecError, error) {
 func statuses(cell string, n int) []string {
 	var values []string
 	for v := range strings.SplitSeq(cell, ",") {
-		values = append(values, strings.Trim(strings.TrimSpace(v), "`—"))
+		values = append(values, strings.Trim(v, " `—"))
 	}
 	if len(values) == 1 {
 		return slices.Repeat(values, n)

@@ -5,8 +5,9 @@ SHELL := /bin/bash -o pipefail
 help: ## Liste les cibles
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "%-16s %s\n", $$1, $$2}'
 
-lint: ## golangci-lint, gofmt compris
+lint: ## golangci-lint, gofmt compris ; une exclusion vit dans .golangci.yml, jamais en nolint ni go:linkname
 	go tool golangci-lint run ./...
+	@! git grep --untracked -nE 'nolint|go:linkname' -- '*.go'
 
 vuln: ## govulncheck : une vulnérabilité connue atteinte par le code échoue
 	go tool govulncheck ./...
