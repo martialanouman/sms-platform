@@ -145,7 +145,7 @@ func HTTP(err error) (Code, int) {
 	if errors.As(err, &c) && catalog[c].http != 0 {
 		return c, catalog[c].http
 	}
-	return ErrInternal, catalog[ErrInternal].http
+	return ErrInternal, 500
 }
 
 // SMPP returns the command_status of the SMPP response for err: ESME_RSYSERR when err carries no code with an SMPP

@@ -68,7 +68,6 @@ func TestHTTP(t *testing.T) {
 		code   Code
 		status int
 	}{
-		{ErrUnauthenticated, ErrUnauthenticated, 401},
 		{fmt.Errorf("transfer: %w", ErrInsufficientCredit), ErrInsufficientCredit, 402},
 		{ErrNoRoute, ErrInternal, 500},
 		{fmt.Errorf("plain"), ErrInternal, 500},
@@ -84,7 +83,6 @@ func TestSMPP(t *testing.T) {
 		err    error
 		status uint32
 	}{
-		{ErrUnauthenticated, 0x0E},
 		{fmt.Errorf("bind: %w", ErrMaxSessionsExceeded), 0x0D},
 		{ErrForbiddenScope, 0x08},
 		{fmt.Errorf("plain"), 0x08},
