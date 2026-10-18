@@ -30,7 +30,7 @@ func main() {
 	}
 
 	if *doc != "" {
-		if err := os.WriteFile(*doc, head.Markdown(), 0o644); err != nil {
+		if err := os.WriteFile(*doc, head.Markdown(), 0o600); err != nil {
 			fail(err)
 		}
 		return

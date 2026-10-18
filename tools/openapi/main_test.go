@@ -21,10 +21,10 @@ func tree(t *testing.T, path, old, new string) string {
 			}
 			data = []byte(strings.Replace(string(data), old, new, 1))
 		}
-		if err := os.MkdirAll(filepath.Join(root, filepath.Dir(p)), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Join(root, filepath.Dir(p)), 0o750); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(root, p), data, 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(root, p), data, 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
