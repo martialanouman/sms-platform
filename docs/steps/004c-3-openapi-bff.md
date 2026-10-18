@@ -34,8 +34,8 @@ contrat fautif ; `oasdiff` valide et compare les trois contrats.
   `security` : `[]` pour les quatre publiques (`health`, `login`, `setPasswordFromAccessLink`, `logout`),
   `[{session: []}]` ou `[{session: [<permission>]}]` sinon. CSRF porté : 403 `forbidden_origin` et 415
   `unsupported_media_type` sur toute méthode non sûre, proxy compris.
-- **MFA** (spec 08 §8.3) : propriété de la session. Tant que la session d'un opérateur dont un rôle porte une
-  écriture n'est pas élevée, elle n'atteint que `/auth/*` ; ailleurs, et au proxy, 403 `mfa_required`.
+- **MFA** (spec 08 §8.3) : propriété de la session. Tant que la session d'un opérateur dont un rôle porte
+  plus que des lectures ordinaires n'est pas élevée, elle n'atteint que `/auth/*` ; ailleurs, et au proxy, 403 `mfa_required`.
 - **Session** (décision 8 P7) : `Me.idleTimeoutSeconds` (`null` pour `noc`) ; seul `POST /auth/activity`
   (204), appelé par la SPA sur un geste, prolonge ; borne absolue de 12 h pour tous.
 - **Jeton personnel** : scopes des rôles, sans traduction, moins `content:read`, `content:erase` et
@@ -74,6 +74,18 @@ lui malgré la montée de kin-openapi de 004c-1.
 4. **Revue, premier tour** : une permission BFF qu'aucune opération ne porte est refusée (spec 08 §8.5,
    orphelins) ; la liste rendue est la liste figée, triée. La garde du BFF ne tourne que sur un Admin vert,
    dont elle lit les scopes.
+5. **Revue, premier tour, contrat** :
+   - jeton personnel hors de `/auth/*` (`/gateway-token`), donc soumis à l'élévation (ADR-0019 « MFA
+     comprise ») ; un scope demandé au-delà de ce que le jeton porte rend `forbidden_scope` ;
+   - `NotificationEntry` valide (`unevaluatedProperties`, base ouverte) ; identifiants de chemin sans
+     borne ; compteur de connexion indexé sur l'adresse soumise, qu'un compte la porte ou non ; refus du
+     proxy `not_found` ; récepteur Alertmanager hors de `/api` ;
+   - §9.3 : `unauthenticated`, `password_policy`, `service_unavailable` et `payload_too_large` précisés
+     pour le BFF ; spec 09 : liste des permissions générée ;
+   - **Fable** : 413 `payload_too_large` sur les douze opérations à corps (un code par cause) ; journal
+     d'accès étendu (lien d'accès, retrait de facteur, réactivation, édition d'un rôle, fermeture forcée ;
+     `target` opérateur ou rôle), spec 08 §8.9 et décision 5 §4.5 amendées ; MFA obligatoire dès un scope
+     `:write`, un scope sensible ou une permission du BFF, spec 08 §8.3 et §9.3 amendées.
 
 ## Design arrêté
 

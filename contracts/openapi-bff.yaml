@@ -11,18 +11,24 @@ info:
     **Proxy.** `/api/gw/*` relays the Admin API contract verbatim (`/api/gw/admin/customers` reaches
     `/admin/customers`) with the operator's token; it is absent from this file, and no path here starts with
     `/gw`. Before relaying, the proxy refuses with the codes of this file: 401 `unauthenticated`, 403
-    `forbidden_origin` or `mfa_required`, 415 `unsupported_media_type`, 503 `service_unavailable` when the
-    Admin API cannot be reached.
+    `forbidden_origin` or `mfa_required`, 404 `not_found` for a path absent from the Admin API contract, 415
+    `unsupported_media_type`, 503 `service_unavailable` when the Admin API cannot be reached.
+
+    **Alertmanager** notifies the BFF on an internal listener, never under `/api`; it is not part of this
+    contract.
 
     **Session.** A sealed `HttpOnly` cookie, never readable by the client. 15 minutes without a gesture close
     it; only `POST /auth/activity` extends it, never a background request. A `noc` session has no idle
     timeout. Every session ends 12 hours after login.
 
-    **MFA.** Until its session is elevated by `POST /auth/mfa/verify`, an operator whose roles carry any write
-    reaches `/auth/*` only; anywhere else, the proxy included, the answer is 403 `mfa_required`.
+    **MFA.** Until its session is elevated by `POST /auth/mfa/verify`, an operator whose roles carry anything
+    beyond ordinary reads (a `:write` scope, a sensitive scope or a BFF permission) reaches `/auth/*` only;
+    anywhere else, the proxy included, the answer is 403 `mfa_required`.
 
     **Cross-site requests.** Every unsafe method checks `Origin` (403 `forbidden_origin`) and requires an
-    `application/json` content type (415 `unsupported_media_type`), the proxy included.
+    `application/json` content type (415 `unsupported_media_type`), the proxy included. Every request body is
+    capped before decoding (413 `payload_too_large`); the cap does not apply to `/api/gw/*`, the Admin API
+    bounding its own imports.
 
     **Real time.** The socket is served at `/ws`, outside `/api`: a protocol upgrade has no typed response.
     The client sends `RealtimeRequest`; the server sends `RealtimeData`, `RealtimeStatus` and
@@ -60,6 +66,7 @@ paths:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/MfaChallenge' } } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/ValidationError' }
         '429': { $ref: '#/components/responses/RateLimited' }
@@ -85,6 +92,7 @@ paths:
             `access_link_invalid`: the link was used, expired, replaced, or targets a disabled account. One
             refusal for the four causes.
           content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422':
           description: |
@@ -92,7 +100,9 @@ paths:
             after the token, so the link stays valid. `validation_error`: the body is malformed.
           content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
         '500': { $ref: '#/components/responses/InternalError' }
-        '503': { $ref: '#/components/responses/HashingBusy' }
+        '503':
+          description: '`service_unavailable`: every argon2id hashing slot is busy. Nothing was saved and the link stays valid.'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
 
   /auth/me:
     get:
@@ -162,6 +172,7 @@ paths:
             `mfa_replacement_refused`: the proof presented was refused. An enrolment never confirmed does not
             count as in place.
           content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/ValidationError' }
         '429': { $ref: '#/components/responses/RateLimited' }
@@ -184,6 +195,7 @@ paths:
         '409':
           description: '`mfa_elevation_required`: the session is not elevated. `mfa_nothing_to_confirm`: no enrolment is pending.'
           content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422':
           description: |
@@ -211,6 +223,7 @@ paths:
             operator's, or no session lives. One body for every cause.
           content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/ValidationError' }
         '429': { $ref: '#/components/responses/RateLimited' }
@@ -250,6 +263,7 @@ paths:
         '409':
           description: '`mfa_elevation_required`: a factor was put in place since the ceremony opened, and the session is not elevated.'
           content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422':
           description: |
@@ -313,7 +327,7 @@ paths:
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '500': { $ref: '#/components/responses/InternalError' }
 
-  /auth/gateway-token:
+  /gateway-token:
     post:
       summary: Issue a personal token for the Admin API
       description: |
@@ -327,7 +341,13 @@ paths:
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/GatewayToken' } } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+        '403':
+          description: |
+            `forbidden_origin`, `mfa_required`, or `forbidden_scope`: the operator lacks `gateway:personal_token`,
+            or a requested scope is beyond what the token may carry (not held, excluded, or not an Admin API
+            scope), and the message names it.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/ValidationError' }
         '500': { $ref: '#/components/responses/InternalError' }
@@ -360,6 +380,7 @@ paths:
         '409':
           description: '`email_taken`: an operator already has this address, case-insensitively.'
           content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/ValidationError' }
         '500': { $ref: '#/components/responses/InternalError' }
@@ -378,6 +399,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/SelfLockout' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/ValidationError' }
         '500': { $ref: '#/components/responses/InternalError' }
@@ -395,6 +417,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/SelfLockout' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/ValidationError' }
         '500': { $ref: '#/components/responses/InternalError' }
@@ -443,6 +466,7 @@ paths:
         '409':
           description: '`role_name_taken`: a role already has this name.'
           content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/ValidationError' }
         '500': { $ref: '#/components/responses/InternalError' }
@@ -464,6 +488,7 @@ paths:
             `role_is_default`: default roles ship with the product and are re-seeded on every deployment.
             `self_lockout`: the change would remove `operators:write` or `roles:write` from its author.
           content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/ValidationError' }
         '500': { $ref: '#/components/responses/InternalError' }
@@ -568,28 +593,28 @@ components:
       name: operatorId
       in: path
       required: true
-      schema: { type: string, maxLength: 64 }
+      schema: { type: string }
     RoleId:
       name: roleId
       in: path
       required: true
-      schema: { type: string, maxLength: 64 }
+      schema: { type: string }
     SessionId:
       name: sessionId
       in: path
       required: true
-      schema: { type: string, maxLength: 64 }
+      schema: { type: string }
     PasskeyId:
       name: passkeyId
       in: path
       required: true
       description: The ID returned at registration, never the authenticator's own credential ID.
-      schema: { type: string, maxLength: 64 }
+      schema: { type: string }
     NotificationId:
       name: notificationId
       in: path
       required: true
-      schema: { type: string, maxLength: 64 }
+      schema: { type: string }
     Cursor:
       name: cursor
       in: query
@@ -615,6 +640,9 @@ components:
     SelfLockout:
       description: '`self_lockout`: the change would lock its author out: disabling oneself, or losing `operators:write` or `roles:write`.'
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    PayloadTooLarge:
+      description: '`payload_too_large`: the request body exceeds the accepted size.'
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
     UnsupportedMediaType:
       description: '`unsupported_media_type`: the request is not announced as `application/json`.'
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
@@ -623,8 +651,8 @@ components:
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
     RateLimited:
       description: |
-        `rate_limited`: too many attempts on this account or from this address. The message carries the time
-        left, so the operator knows when to retry.
+        `rate_limited`: too many attempts for the submitted email, whether an account has it or not, or from
+        the source address. The message carries the time left, so the operator knows when to retry.
       headers:
         Retry-After:
           description: Seconds left, an integer and never an HTTP date.
@@ -658,6 +686,7 @@ components:
             - forbidden_scope
             - not_found
             - validation_error
+            - payload_too_large
             - unsupported_media_type
             - rate_limited
             - service_unavailable
@@ -903,7 +932,7 @@ components:
 
     GatewayTokenRequest:
       type: object
-      description: Without `scopes`, the token carries every scope it may.
+      description: Admin API scopes only. Without `scopes`, the token carries every scope it may.
       additionalProperties: false
       properties:
         scopes: { type: array, minItems: 1, maxItems: 64, items: { $ref: '#/components/schemas/Permission' } }
@@ -1022,8 +1051,10 @@ components:
         id: { type: string }
         at: { type: string, format: date-time }
         actor: { type: [string, "null"], description: 'The operator ID; null when no operator is known, such as a login with an unknown email.' }
-        event: { type: string, enum: [login, logout, mfa, factor_enrolled, operator_created, operator_disabled, roles_changed, personal_token_issued, session_refused] }
-        target: { type: [string, "null"], description: 'The operator ID acted upon, when not the actor.' }
+        event:
+          type: string
+          enum: [login, logout, mfa, access_link_used, factor_enrolled, factor_removed, operator_created, operator_disabled, operator_enabled, roles_changed, role_created, role_updated, role_deleted, session_closed, personal_token_issued, session_refused]
+        target: { type: [string, "null"], description: 'The ID acted upon when not the actor: an operator, or the role for `role_*` events.' }
         outcome: { type: string, enum: [success, failure] }
       required: [id, at, actor, event, target, outcome]
 
@@ -1038,7 +1069,6 @@ components:
     Notification:
       type: object
       description: An alert Alertmanager sent, as the `notifications` topic broadcasts it.
-      additionalProperties: false
       properties:
         id: { type: string }
         severity: { type: string, enum: [info, warning, critical] }
@@ -1053,6 +1083,7 @@ components:
           properties:
             read: { type: boolean, description: Read by the signed-in operator. }
           required: [read]
+      unevaluatedProperties: false
 
     NotificationPage:
       type: object
