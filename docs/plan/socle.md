@@ -79,7 +79,7 @@ découpée en trois PR, une par contrat (décision humaine du 2026-10-18).
 - **OpenAPI** public, Admin et BFF, repris des anciens dépôts et **mis directement à l'état des
   décisions** (scopes, codes d'erreur, `charge_on`, champs retirés), en version 1.0.0 : aucune version
   n'a été mise en production, il n'y a donc aucun client à ménager. Liste des scopes générée.
-- `check-generated` couvre les types et la liste générés.
+- `check-generated` couvre la liste générée.
 
 **Terminé quand** : le catalogue reproduit le chapitre 9 ; chaque garde statique est rouge sur une
 entrée fautive ; `oasdiff` et `buf breaking` tournent sur la PR.

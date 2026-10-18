@@ -118,5 +118,5 @@ l'`enum` des contrats OpenAPI concernés et ce tableau, ensemble ; un test garde
 | `not_found`, `conflict`, `forbidden_scope` | 404, 409, 403 | — | Admin API |
 | `internal_error` | 500 | `ESME_RSYSERR` | |
 
-Les codes après l'ACK ne sont jamais une réponse synchrone : ils sont lus par `GET /messages/{id}`,
-`query_sm` ou dans le CDR ; seuls `delivery_failed` et `delivery_expired` arrivent aussi par l'accusé.
+Les codes après l'ACK ne sont jamais une réponse synchrone : ils sont lus par `GET /messages/{id}` ou
+dans le CDR ; seuls `delivery_failed` et `delivery_expired` arrivent aussi par l'accusé.

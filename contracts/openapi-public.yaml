@@ -56,8 +56,8 @@ paths:
     get:
       summary: Get message status
       description: |
-        Readable as soon as the `202` is returned. Exact within 72 hours of acceptance; past that, or while
-        the state store is unavailable, the answer comes from the message history (`source`). MO messages
+        Readable as soon as the `202` is returned. Exact within 72 hours of acceptance; otherwise the answer
+        comes from the message history (`source`). MO messages
         of the account are readable too.
       operationId: get-message
       security:
@@ -146,7 +146,7 @@ components:
         `v1=` followed by `hex(HMAC_SHA256(secret, X-Timestamp + "." + raw_body))` in lowercase, with the
         account webhook secret. During a secret rotation, one comma-separated value per valid secret;
         accept the delivery if any matches. Compare in constant time.
-      schema: { type: string, pattern: '^v1=[0-9a-f]{64}(,v1=[0-9a-f]{64})*$' }
+      schema: { type: string }
     Timestamp:
       name: X-Timestamp
       in: header
@@ -221,7 +221,6 @@ components:
   schemas:
     Error:
       type: object
-      additionalProperties: false
       description: |
         Flat error body. `code` is the stable code of the cause, shared with the SMPP `command_status` and
         the message `error_code`. The HTTP status is on the status line only.
@@ -249,7 +248,6 @@ components:
           description: Per-field problems, on `validation_error`.
           items:
             type: object
-            additionalProperties: false
             properties:
               field: { type: string, examples: [text] }
               message: { type: string }
@@ -328,7 +326,6 @@ components:
             not own is treated as marketing until rejected.
           minLength: 1
           maxLength: 20
-          pattern: '^[\x20-\x7E]+$'
           examples: ["ACME"]
         text:
           type: string
@@ -383,8 +380,7 @@ components:
           type: string
           enum: [state, history]
           description: |
-            `state`: exact. `history`: from the message history, past 72 hours of acceptance or while the
-            state store is unavailable, in which case the answer may lag.
+            `state`: exact. `history`: from the message history, which may lag.
       required: [id, trace_id, direction, to, from, status, segment_count, error_code, accepted_at, delivered_at, source]
 
     MoWebhookEvent:
@@ -414,9 +410,6 @@ components:
         account_id: { type: string, format: uuid }
         segment_seq: { type: integer, minimum: 0, description: Segment number; 0 for the whole message. }
         status: { $ref: '#/components/schemas/DlrStatus' }
-        error_code:
-          oneOf:
-            - $ref: '#/components/schemas/ErrorCode'
-            - type: "null"
+        error_code: { type: [string, "null"], enum: [delivery_failed, delivery_expired, null] }
         occurred_at: { type: string, format: date-time }
       required: [event, message_id, trace_id, account_id, segment_seq, status, error_code, occurred_at]

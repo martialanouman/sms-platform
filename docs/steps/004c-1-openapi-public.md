@@ -43,7 +43,7 @@ valide le contrat et compare au contrat de la base, bloquant sur une rupture `ER
 - **Lecture** : 404 pour un message inconnu ou d'un autre compte ; 429 et 503 déclarés ;
   `segment_count` nul avant le routage ; `accepted_at` partout (`submitted` est le SMSC) ; ni `encoding`,
   ni `category`, ni `credits_charged` ; correspondance événement → statut publiée dans `MessageStatus`.
-- **Webhooks** : `X-Signature = hex(HMAC_SHA256(secret, X-Timestamp + "." + raw_body))`, tolérance 5 min,
+- **Webhooks** : `X-Signature = v1=hex(HMAC_SHA256(secret, X-Timestamp + "." + raw_body))`, tolérance 5 min,
   en-têtes déclarés ; DLR sur l'enum `DlrStatus`, par segment, dédoublonné par
   `(message_id, segment_seq, status)` ; MO avec `stop`, corps en `text` ou `octets` (base64).
 - **Exemples** : numéros de la plage fictive NANP (`+12025550101`) ; `servers` en `example.com`.
@@ -63,18 +63,20 @@ valide le contrat et compare au contrat de la base, bloquant sur une rupture `ER
 6. Les gardes statiques (un scope par opération, sécurité du public, `Error.code` ⊆ §9.3) naissent en
    004c-2 avec l'outil qui lit les contrats : une garde du public seul n'aurait qu'un cas.
 7. **Revue** :
-   - `Error` et ses `errors[]` fermés : l'erreur par défaut de huma renvoie la valeur refusée (I1) ;
    - idempotence : seul le `202` est gardé, une clé en cours répond `idempotency_conflict` ;
    - signature `v1=<hex>`, une valeur par secret valide pendant une rotation, re-signée à chaque
      tentative ; redirection non suivie ;
-   - `from` et la clé d'idempotence bornés ; `validity_period` ne fait que raccourcir ;
+   - `from` non vide, clé d'idempotence en ASCII imprimable ; `validity_period` ne fait que raccourcir ;
+   - l'accusé ne porte que `delivery_failed` ou `delivery_expired` (dlr.proto) ;
    - retirés : tags, licence, descriptions redites, adresses et `accepted_at` du DLR, `segment_count`
      du MO.
    - **Fable** : aucun accusé pour un rejet, la promesse retirée de spec 03 §3.1 et §9.3 ; `source`
      (`state`, `history`) sur `Message`, spec 05 §5.5 ; colonne SMPP de §9.3 à « — » pour les codes
      d'après l'ACK et `submit_failed` ; sender ID lu parmi ceux du client du compte, spec 03 §3.2.
-   - Écartés : schémas de réponse fermés (la comparaison du contrat servi au fichier attrape un champ
-     non déclaré, et fermer interdirait l'ajout compatible) ; forme de la clé d'API et frein avant
+   - Écartés : schémas fermés, `Error` compris (la comparaison du contrat servi au fichier attrape un
+     champ non déclaré, comme la valeur refusée de l'erreur par défaut de huma, et fermer interdirait
+     l'ajout compatible) ; motifs de `X-Signature` et de `from` (un motif ajouté ensuite est une
+     rupture, un `v2=` en exigerait une) ; forme de la clé d'API et frein avant
      l'authentification (implémentation).
 
 ## Design arrêté
@@ -84,8 +86,14 @@ valide le contrat et compare au contrat de la base, bloquant sur une rupture `ER
 - `go.mod` : `tool github.com/oasdiff/oasdiff`.
 - `Makefile` : cible `openapi` dans `check`.
 - `.claude/rules/contracts.md` : conventions (anglais, nullable `type: [T, "null"]`, erreur plate
-  `{code, message, errors[]}`, `operationId` kebab-case, champs snake_case, MSISDN jamais dans une URL).
-- Amendements : §9.3 (colonne HTTP), en-tête de spec 09 (génération, huma et oapi-codegen), spec 03 §3.3.1
-  et §3.4.1, spec 07 §7.3 et 08 §8.1 (`contracts/`), décision 2 §10, plan §004 (découpage).
+  `{code, message, errors[]}`, MSISDN jamais dans une URL ; public : `operationId` kebab-case, champs
+  snake_case) ; ce qui est généré.
+- Amendements :
+  - §9.3 : colonnes HTTP et SMPP des codes d'après l'ACK, `rate_limited` en lecture,
+    `idempotency_conflict` en cours, dernière ligne (aucun accusé de rejet) ;
+  - en-tête de spec 09 (génération, huma et oapi-codegen) ; spec 08 §8.1 (types générés) ;
+  - spec 03 §3.1, §3.2 (sender ID du client, idempotence), §3.3.1 et §3.4.1 (`message_expired`) ;
+  - spec 05 §5.5 (`source`) ; spec 07 §7.3 et 08 §8.1 (`contracts/`) ;
+  - décision 2 §3.3.2 et §10 ; plan §004 (découpage).
 - Vérification du critère : `oasdiff validate` rouge sur un contrat invalide ; `oasdiff breaking` rouge sur
   un chemin retiré contre la base ; le contrat chargé par `oasdiff` sans avertissement.
