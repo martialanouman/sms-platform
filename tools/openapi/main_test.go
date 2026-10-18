@@ -43,7 +43,7 @@ func TestRunFailsOnAFaultyContract(t *testing.T) {
 		"admin code":      {adminPath, "            - unauthenticated\n", "            - unauthenticated\n            - made_up\n"},
 		"public security": {publicPath, "      security:\n        - BearerApiKey: []\n", ""},
 		"public code":     {publicPath, "            - unauthenticated\n", "            - unauthenticated\n            - made_up\n"},
-		"spec code":       {specPath, "| `not_found`, ", "| "},
+		"spec code":       {specPath, "| `payload_too_large` |", "| |"},
 		"bff permission":  {bffPath, "session: ['operators:read']", "session: ['operators:admin']"},
 		"bff proxy path":  {bffPath, "  /sessions:\n", "  /gw/sessions:\n"},
 		"bff code":        {bffPath, "            - unauthenticated\n", "            - unauthenticated\n            - made_up\n"},
@@ -54,6 +54,13 @@ func TestRunFailsOnAFaultyContract(t *testing.T) {
 				t.Fatalf("errs = %v, want an error on %s", errs, c.path)
 			}
 		})
+	}
+}
+
+func TestRunFailsOnAMalformedSpecRow(t *testing.T) {
+	errs := run(tree(t, specPath, "| 404, 409, 403 |", "| 404, 409 |"), "")
+	if len(errs) != 1 || !strings.HasPrefix(errs[0].Error(), specPath) {
+		t.Fatalf("errs = %v, want one error on %s", errs, specPath)
 	}
 }
 
