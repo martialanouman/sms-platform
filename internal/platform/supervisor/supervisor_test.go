@@ -104,6 +104,7 @@ func TestTheBudgetNamesTheStuckComponentAndCancelsTheRest(t *testing.T) {
 	defer close(release)
 	o := supervisor.Ordered{DrainBudget: 100 * time.Millisecond}
 	o.Add("ops", until(&j, "ops"))
+	o.Add("kafka", until(&j, "kafka"))
 	o.Add("stuck too", func(context.Context) error { <-release; return nil })
 	o.Add("stuck", func(context.Context) error { <-release; return nil })
 	o.Add("listener", until(&j, "listener"))
@@ -119,11 +120,11 @@ func TestTheBudgetNamesTheStuckComponentAndCancelsTheRest(t *testing.T) {
 	}
 	deadline := time.Now().Add(time.Second)
 	for {
-		if events, _ := j.read(); slices.Contains(events, "stop ops") {
+		if events, _ := j.read(); slices.Contains(events, "stop ops") && slices.Contains(events, "stop kafka") {
 			break
 		}
 		if time.Now().After(deadline) {
-			t.Fatal("ops was not cancelled after the budget ran out")
+			t.Fatal("ops and kafka were not both cancelled after the budget ran out")
 		}
 		time.Sleep(time.Millisecond)
 	}

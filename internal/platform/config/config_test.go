@@ -127,6 +127,14 @@ func TestAnUnreadableDurationIsOneError(t *testing.T) {
 	}
 }
 
+func TestAnUnreadableShutdownIsNotComparedToTheBudget(t *testing.T) {
+	env(t, map[string]string{"SHUTDOWN_TIMEOUT": "abc", "DRAIN_BUDGET": "0s"})
+	_, err := config.Load()
+	if err == nil || strings.Contains(err.Error(), "DRAIN_BUDGET") {
+		t.Errorf("Load() error = %v, want only the unreadable SHUTDOWN_TIMEOUT", err)
+	}
+}
+
 func TestLoadAcceptsTheRatioBounds(t *testing.T) {
 	for _, ratio := range []string{"0", "1"} {
 		env(t, map[string]string{"TRACE_SAMPLE_RATIO": ratio})

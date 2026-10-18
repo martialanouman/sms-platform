@@ -47,7 +47,7 @@ linters:
         - pattern: ^msg\.Reveal$
           pkg: ^github\.com/martialanouman/sms-platform/internal/platform/msg$
           msg: le clair d'un corps ne sort que par un appel audité, exclu ici avec sa raison (I1)
-        - pattern: ^(os\.(Getenv|LookupEnv|Environ|ExpandEnv)|syscall\.(Getenv|Environ)|exec\.Cmd\.Environ)$
+        - pattern: ^(os\.(Getenv|LookupEnv|Environ|ExpandEnv)|(syscall|unix)\.(Getenv|Environ)|exec\.Cmd\.Environ)$
           msg: seul internal/platform/config lit l'environnement, et seulement l'infrastructure (décision 7)
     revive:
       rules:

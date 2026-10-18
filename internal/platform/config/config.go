@@ -73,7 +73,7 @@ func Load() (Infra, error) {
 	if c.ShutdownTimeout <= 0 && !unreadable["SHUTDOWN_TIMEOUT"] {
 		errs = append(errs, fmt.Errorf("SHUTDOWN_TIMEOUT: %s is not positive", c.ShutdownTimeout))
 	}
-	if c.DrainBudget <= c.ShutdownTimeout && !unreadable["DRAIN_BUDGET"] {
+	if c.DrainBudget <= c.ShutdownTimeout && !unreadable["DRAIN_BUDGET"] && !unreadable["SHUTDOWN_TIMEOUT"] {
 		errs = append(errs, fmt.Errorf("DRAIN_BUDGET: %s does not exceed SHUTDOWN_TIMEOUT %s", c.DrainBudget, c.ShutdownTimeout))
 	}
 	return c, errors.Join(errs...)
