@@ -9,14 +9,14 @@ service n'en lit dans son environnement, qui ne porte que l'infrastructure (gard
 
 | Domaine | Tables |
 |---|---|
-| Clients | `customer_groups`, `customers` (facturation, `balance_scope`, `charge_on`, `content_storage`, `content_retention_days`), `rate_plans` |
+| Clients | `customer_groups`, `customers` (facturation, `balance_scope`, `charge_on`, `content_storage`, `content_retention_days`, `max_age_override`), `rate_plans` |
 | Comptes | `accounts` (débits, `max_sessions`, canaux, `query_sm`/`cancel_sm`), `credentials` (une clé d'API et un bind par compte, hachés), `webhooks` (secret scellé) |
 | Expéditeurs | `sender_ids` (catégorie, statut), `sender_id_rewrite_rules`, `rate_limits` (sender ID, compte) |
 | Sortie | `connectors`, `connector_accounts` (identifiants scellés, débit, binds, partition) |
 | Routage | `routes`, `route_targets`, `routing_scripts`, `exact_routes` |
 | Conformité | `antispam_rules`, `suppressions`, `opt_out_keywords` |
 | Entrée | `inbound_numbers`, `inbound_keywords` |
-| Plateforme | `platform_policy` (une ligne : politique de contenu par défaut, `quiet_hours` nullable) |
+| Plateforme | `platform_policy` (une ligne : politique de contenu par défaut, `quiet_hours` nullable, `billing_enabled`) |
 | Contenu | `content_keys` (clé enveloppée par client, `active` / `retired` / `destroyed`) |
 
 Les secrets rejoués (bind sortant, clé d'API d'un fournisseur, secret de webhook) sont **scellés** par
@@ -69,7 +69,8 @@ jeton par le JWKS interne du BFF (ADR-0019), puis le scope de l'opération.
   `connectors:write`…). Plus neuf scopes sensibles : `content:read`, `content:erase`, `gdpr:erase`,
   `msisdn:reveal`, `cdr:export_bulk`, `audit:read`, et trois qu'un rôle par défaut sépare de `:write`
   (chapitre 8 §8.5) : `routing-scripts:publish`, `suppressions:delete` (lever un opt-out),
-  `billing:topup`. Plus `stream:read`. Ni joker ni hiérarchie.
+  `billing:topup`. Plus `stream:read`. Ni joker ni hiérarchie. Un scope qu'aucune opération ne déclare
+  n'existe pas, sauf `msisdn:reveal`, qui démasque les MSISDN de toute réponse.
 - **Chaque opération déclare exactement un scope.** La liste est générée depuis le contrat et
   consommée par la passerelle, l'éditeur de rôles du BFF et les types de la SPA.
 - **Jetons** : 5 min, émis par le BFF au nom de l'opérateur connecté ; un `kid` inconnu est refusé.

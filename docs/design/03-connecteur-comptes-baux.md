@@ -122,8 +122,8 @@ suivant de la route, comme aujourd'hui pour un connecteur ouvert.
   manuel). La clé reste `message_id` ; le payload porte `connector_account_id` et `connector_id`.
 - **Extension des partitions.** À la création d'un compte, l'Admin API attribue `partition` (séquence)
   et, si elle dépasse le nombre de partitions, étend les trois topics par blocs de 64, de façon
-  idempotente, **avant** de passer le compte à `active`. Un échec répond 503 et laisse le compte en
-  `provisioning`, que le routeur ignore.
+  idempotente, **avant** de passer le compte à `active`. La création répond `202` et un job (spec 07 §7.3) ;
+  un échec fait échouer le job et laisse le compte en `provisioning`, que le routeur ignore.
 - La partition d'un compte supprimé reste orpheline : jamais réattribuée.
 
 ### 4.3 Consommation

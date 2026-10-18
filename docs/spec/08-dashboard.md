@@ -77,7 +77,7 @@ Un test bloquant signale tout autre scope ou permission orphelin.
 ## 8.6 Temps réel
 
 Le hub de chaque instance s'abonne lui-même aux trois flux de la passerelle (`/admin/stream/metrics`,
-`sessions`, `billing-alerts`, identité système sous `stream:read`) et les sert au navigateur sur **une**
+`sessions`, `connectors`, identité système sous `stream:read`) et les sert au navigateur sur **une**
 WebSocket par opérateur, multiplexée par sujet. Pas de couche pub/sub entre instances : deux ou trois
 instances font six à neuf abonnements, ce que la passerelle absorbe. Mises à jour visibles en 2 à 5 s.
 

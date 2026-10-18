@@ -38,7 +38,7 @@ identifiant de bind SMPP et exactement une clé
   (le `source_addr` correspond à un sender ID approuvé et actif du client, numérique compris), opt-out
   bloquant, anti-spam (règles de contenu, vélocité MT et MO, doublons).
 - **Routage en trois niveaux** : (0) numéro exact (portabilité), prioritaire et court-circuitant, mais
-  jamais pour la conformité (**I3**) ; (1) script de routage de l'exploitant (JavaScript ou Lua, isolé,
+  jamais pour la conformité (**I3**) ; (1) script de routage de l'exploitant (JavaScript, isolé,
   borné) ; (2) matching déclaratif (compte, client, sender ID, préfixe ou MCC-MNC, contenu, heure,
   priorité), avec route de repli et chaîne de repli entre connecteurs.
 - **Encodage et segmentation** : GSM-7, UCS-2, 8-bit ; UDH ; surcharge d'encodage par connecteur.
@@ -118,7 +118,7 @@ identifiant de bind SMPP et exactement une clé
   déconnexion forcée, débit et taux d'erreur.
 - **Routes** : constructeur visuel des règles déclaratives (priorité, conditions, stratégie de
   distribution), routage par numéro exact, import en masse.
-- **Scripts de routage** : éditeur (JS, Lua), validation, test contre un payload, versions,
+- **Scripts de routage** : éditeur (JavaScript), validation, test contre un payload, versions,
   publication et retour arrière, affectation, métriques d'exécution.
 - **Réécriture de sender ID** : CRUD par portée, avec test.
 - **Opt-out** : listes de suppression, import en masse, outil « pourquoi ce message a-t-il été
