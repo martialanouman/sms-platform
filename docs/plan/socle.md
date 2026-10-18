@@ -115,7 +115,7 @@ Portées de `go-gateway` avec leurs tests, puis adaptées aux décisions :
 - **Corps** : le type qui ne se sérialise pas, `Reveal` audité (I1), et sa garde.
 - **Observabilité** : logger structuré, garde des labels de métriques, traces OpenTelemetry avec
   échantillonnage des échecs.
-- **mTLS** : serveur et client depuis la CA interne ; allowlist obligatoire, vide en production = échec
+- **mTLS** : serveur et client depuis la CA interne ; allowlist obligatoire, vide = échec
   du démarrage (décision 6).
 - **Configuration d'infrastructure** : chargeur d'environnement limité à l'infrastructure, garde AST
   contre toute configuration métier (décision 7).
