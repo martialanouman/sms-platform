@@ -28,7 +28,7 @@ jobs:
 
   # debt: #88
   codeql:
-    if: github.event_name != 'issues'
+    if: github.event_name != 'issues' && github.event.action != 'edited'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -41,7 +41,8 @@ jobs:
       - uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
           languages: go
-          build-mode: autobuild
+          build-mode: manual
+      - run: go build ./...
       - uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
 
   pr-title:
