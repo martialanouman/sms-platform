@@ -205,6 +205,17 @@ func Frozen(base, head Catalog) []error {
 	return errs
 }
 
+// MissingPayloads returns an error for every topic whose payload message known does not recognise.
+func (c Catalog) MissingPayloads(known func(string) bool) []error {
+	var errs []error
+	for _, name := range sortedKeys(c.Topics) {
+		if p := c.Topics[name].Payload; !known(p) {
+			errs = append(errs, fmt.Errorf("topic %s: payload %s does not exist", name, p))
+		}
+	}
+	return errs
+}
+
 // DeadLetters returns the dead-letter topic of every group, derived from its source topic.
 func (c Catalog) DeadLetters() map[string]Topic {
 	dl := map[string]Topic{}

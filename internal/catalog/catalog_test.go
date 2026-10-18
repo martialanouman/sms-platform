@@ -244,3 +244,14 @@ func TestMarkdownListsTopicsGroupsAndDeadLetters(t *testing.T) {
 		}
 	}
 }
+
+func TestMissingPayloadsNamesEveryUnknownMessage(t *testing.T) {
+	known := map[string]bool{"sms.v1.MtInbound": true, "sms.v1.MtRouted": true, "sms.v1.ConnectorAccountStatus": true}
+	errs := parse(t).MissingPayloads(func(name string) bool { return known[name] })
+	if len(errs) != 1 || !strings.Contains(errs[0].Error(), "sms.v1.MtOutcome") || !strings.Contains(errs[0].Error(), "mt.outcome") {
+		t.Errorf("MissingPayloads = %v, want one error naming mt.outcome and sms.v1.MtOutcome", errs)
+	}
+	if errs := parse(t).MissingPayloads(func(string) bool { return true }); len(errs) > 0 {
+		t.Errorf("MissingPayloads with every message known = %v", errs)
+	}
+}
