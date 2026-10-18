@@ -109,7 +109,9 @@ table non classée.
 
 ### 4.4 Rétention
 
-Plancher existant `8760 hours` (step-297) ; les deux tables sont partitionnées par mois.
+Plancher existant `8760 hours` (step-297). **Amendé 2026-10-18** (step 006a, décision humaine) : les
+deux tables ne sont pas partitionnées ; la purge est un `DELETE` sous le plancher (ADR-0018), et une
+ligne tombée dans une partition `DEFAULT` y resterait coincée par l'immuabilité.
 
 ### 4.5 Le journal du BFF
 
