@@ -3,8 +3,8 @@ package openapi
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
-	"go/format"
 	"regexp"
 	"slices"
 	"strings"
@@ -25,6 +25,7 @@ const reveal = "msisdn:reveal"
 
 // Contract is the part of an OpenAPI contract the static rules read.
 type Contract struct {
+	Tags       []Tag               `yaml:"tags"`
 	Paths      map[string]PathItem `yaml:"paths"`
 	Components struct {
 		Schemas struct {
@@ -42,13 +43,21 @@ type Contract struct {
 	} `yaml:"components"`
 }
 
+// Tag is a tag declared by a contract.
+type Tag struct {
+	Name string `yaml:"name"`
+}
+
 // PathItem holds the operations of one path.
 type PathItem struct {
-	Get    *Operation `yaml:"get"`
-	Put    *Operation `yaml:"put"`
-	Post   *Operation `yaml:"post"`
-	Delete *Operation `yaml:"delete"`
-	Patch  *Operation `yaml:"patch"`
+	Get     *Operation `yaml:"get"`
+	Put     *Operation `yaml:"put"`
+	Post    *Operation `yaml:"post"`
+	Delete  *Operation `yaml:"delete"`
+	Patch   *Operation `yaml:"patch"`
+	Head    *Operation `yaml:"head"`
+	Options *Operation `yaml:"options"`
+	Trace   *Operation `yaml:"trace"`
 }
 
 // Operation is one operation of a contract.
@@ -56,12 +65,6 @@ type Operation struct {
 	ID       string                `yaml:"operationId"`
 	Tags     []string              `yaml:"tags"`
 	Security []map[string][]string `yaml:"security"`
-}
-
-// Scopes is the scope list of the Admin API.
-type Scopes struct {
-	All         []string
-	ByOperation map[string]string
 }
 
 // Parse decodes a contract.
@@ -73,45 +76,49 @@ func Parse(data []byte) (Contract, error) {
 	return c, nil
 }
 
-func (c Contract) operations() []Operation {
-	var ops []Operation
-	for _, p := range c.Paths {
-		for _, op := range []*Operation{p.Get, p.Put, p.Post, p.Delete, p.Patch} {
-			if op != nil {
-				ops = append(ops, *op)
+func (c Contract) check(rule func(Operation) error) []error {
+	var errs []error
+	for path, p := range c.Paths {
+		for _, op := range []*Operation{p.Get, p.Put, p.Post, p.Delete, p.Patch, p.Head, p.Options, p.Trace} {
+			if op == nil {
+				continue
+			}
+			err := rule(*op)
+			if op.ID == "" {
+				err = errors.New("missing operationId")
+			}
+			if err != nil {
+				errs = append(errs, fmt.Errorf("%s %s: %w", path, op.ID, err))
 			}
 		}
 	}
-	slices.SortFunc(ops, func(a, b Operation) int { return strings.Compare(a.ID, b.ID) })
-	return ops
+	return errs
 }
 
-// Scopes checks that every operation declares exactly one scope of its only tag, and lists the scopes.
-func (c Contract) Scopes() (Scopes, []error) {
-	var errs []error
-	by := map[string]string{}
+// Scopes checks that every operation declares exactly one scope of its only, declared tag, and lists the
+// scopes, sorted.
+func (c Contract) Scopes() ([]string, []error) {
 	all := []string{reveal}
-	for _, op := range c.operations() {
-		scope, err := scopeOf(op)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("%s: %w", op.ID, err))
-			continue
-		}
-		by[op.ID] = scope
-		if !slices.Contains(all, scope) {
+	errs := c.check(func(op Operation) error {
+		scope, err := c.scopeOf(op)
+		if err == nil && !slices.Contains(all, scope) {
 			all = append(all, scope)
 		}
-	}
+		return err
+	})
 	if errs != nil {
-		return Scopes{}, errs
+		return nil, errs
 	}
 	slices.Sort(all)
-	return Scopes{All: all, ByOperation: by}, nil
+	return all, nil
 }
 
-func scopeOf(op Operation) (string, error) {
+func (c Contract) scopeOf(op Operation) (string, error) {
 	if len(op.Tags) != 1 {
 		return "", fmt.Errorf("%d tags, want exactly one", len(op.Tags))
+	}
+	if !slices.Contains(c.Tags, Tag{Name: op.Tags[0]}) {
+		return "", fmt.Errorf("tag %q is not declared in tags", op.Tags[0])
 	}
 	if len(op.Security) != 1 || len(op.Security[0]) != 1 || len(op.Security[0]["OperatorBearer"]) != 1 {
 		return "", fmt.Errorf("security %v, want exactly one OperatorBearer scope", op.Security)
@@ -126,21 +133,24 @@ func scopeOf(op Operation) (string, error) {
 
 // PublicSecurity checks that every operation declares the API key alone, without scope.
 func (c Contract) PublicSecurity() []error {
-	var errs []error
-	for _, op := range c.operations() {
+	return c.check(func(op Operation) error {
 		s := op.Security
 		if len(s) != 1 || len(s[0]) != 1 || s[0]["BearerApiKey"] == nil || len(s[0]["BearerApiKey"]) != 0 {
-			errs = append(errs, fmt.Errorf("%s: security %v, want [{BearerApiKey: []}]", op.ID, s))
+			return fmt.Errorf("security %v, want [{BearerApiKey: []}]", s)
 		}
-	}
-	return errs
+		return nil
+	})
 }
 
-// UnknownCodes lists the error codes of the contract missing from known.
+// UnknownCodes lists the error codes of the contract missing from known; a contract without codes is an error.
 func (c Contract) UnknownCodes(known []string) []error {
-	var errs []error
 	s := c.Components.Schemas
-	for _, code := range append(s.Error.Properties.Code.Enum, s.ErrorCode.Enum...) {
+	codes := append(s.Error.Properties.Code.Enum, s.ErrorCode.Enum...)
+	if len(codes) == 0 {
+		return []error{errors.New("no error code: Error.code and ErrorCode have no enum")}
+	}
+	var errs []error
+	for _, code := range codes {
 		if !slices.Contains(known, code) {
 			errs = append(errs, fmt.Errorf("error code %q is not in docs/spec/09-contrats.md §9.3", code))
 		}
@@ -154,7 +164,7 @@ var backquoted = regexp.MustCompile("`([^`]+)`")
 func SpecCodes(md []byte) []string {
 	var codes []string
 	in := false
-	for _, line := range strings.Split(string(md), "\n") {
+	for line := range strings.SplitSeq(string(md), "\n") {
 		if strings.HasPrefix(line, "## ") {
 			in = strings.HasPrefix(line, "## 9.3 ")
 			continue
@@ -170,25 +180,15 @@ func SpecCodes(md []byte) []string {
 	return codes
 }
 
-// Go renders the scope list as a Go source file.
-func (s Scopes) Go() ([]byte, error) {
+// Go renders the scope list as a gofmt-formatted Go source file.
+func Go(scopes []string) []byte {
 	var b bytes.Buffer
 	b.WriteString("// Code generated by tools/openapi from contracts/openapi-admin.yaml. DO NOT EDIT.\n\n")
 	b.WriteString("// Package scopes lists the scopes of the Admin API, generated from its contract.\npackage scopes\n\n")
-	b.WriteString("// Scope grants the operations that declare it.\ntype Scope string\n\n")
-	b.WriteString("// All is every scope, sorted.\nvar All = []Scope{\n")
-	for _, scope := range s.All {
-		fmt.Fprintf(&b, "%q,\n", scope)
-	}
-	b.WriteString("}\n\n// ByOperation is the scope each operation declares.\nvar ByOperation = map[string]Scope{\n")
-	ids := make([]string, 0, len(s.ByOperation))
-	for id := range s.ByOperation {
-		ids = append(ids, id)
-	}
-	slices.Sort(ids)
-	for _, id := range ids {
-		fmt.Fprintf(&b, "%q: %q,\n", id, s.ByOperation[id])
+	b.WriteString("// All is every scope, sorted.\nvar All = []string{\n")
+	for _, scope := range scopes {
+		fmt.Fprintf(&b, "\t%q,\n", scope)
 	}
 	b.WriteString("}\n")
-	return format.Source(b.Bytes())
+	return b.Bytes()
 }

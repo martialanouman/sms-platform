@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/martialanouman/sms-platform/internal/openapi"
 )
@@ -18,53 +19,61 @@ const (
 func main() {
 	gen := flag.String("gen", "", "write the Admin API scope list to this file")
 	flag.Parse()
-
-	admin, public := load(adminPath), load(publicPath)
-	scopes, errs := admin.Scopes()
-	report(adminPath, errs)
-
-	if *gen != "" {
-		src, err := scopes.Go()
-		if err != nil {
-			fail(err)
-		}
-		if err := os.WriteFile(*gen, src, 0o644); err != nil {
-			fail(err)
-		}
-		return
-	}
-
-	spec, err := os.ReadFile(specPath)
-	if err != nil {
-		fail(err)
-	}
-	codes := openapi.SpecCodes(spec)
-	report(adminPath, admin.UnknownCodes(codes))
-	report(publicPath, append(public.PublicSecurity(), public.UnknownCodes(codes)...))
-}
-
-func load(path string) openapi.Contract {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		fail(err)
-	}
-	c, err := openapi.Parse(data)
-	if err != nil {
-		fail(fmt.Errorf("%s: %w", path, err))
-	}
-	return c
-}
-
-func report(path string, errs []error) {
+	errs := run(".", *gen)
 	for _, err := range errs {
-		fmt.Fprintln(os.Stderr, path+":", err)
+		fmt.Fprintln(os.Stderr, err)
 	}
 	if len(errs) > 0 {
 		os.Exit(1)
 	}
 }
 
-func fail(err error) {
-	fmt.Fprintln(os.Stderr, "openapi:", err)
-	os.Exit(2)
+func run(root, gen string) []error {
+	admin, err := load(filepath.Join(root, adminPath))
+	if err != nil {
+		return []error{err}
+	}
+	scopes, errs := admin.Scopes()
+	errs = prefix(adminPath, errs)
+
+	if gen != "" {
+		if errs != nil {
+			return errs
+		}
+		if err := os.WriteFile(gen, openapi.Go(scopes), 0o644); err != nil {
+			return []error{err}
+		}
+		return nil
+	}
+
+	public, err := load(filepath.Join(root, publicPath))
+	if err != nil {
+		return []error{err}
+	}
+	spec, err := os.ReadFile(filepath.Join(root, specPath))
+	if err != nil {
+		return []error{err}
+	}
+	codes := openapi.SpecCodes(spec)
+	errs = append(errs, prefix(adminPath, admin.UnknownCodes(codes))...)
+	return append(errs, prefix(publicPath, append(public.PublicSecurity(), public.UnknownCodes(codes)...))...)
+}
+
+func load(path string) (openapi.Contract, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return openapi.Contract{}, err
+	}
+	c, err := openapi.Parse(data)
+	if err != nil {
+		return openapi.Contract{}, fmt.Errorf("%s: %w", path, err)
+	}
+	return c, nil
+}
+
+func prefix(path string, errs []error) []error {
+	for i, err := range errs {
+		errs[i] = fmt.Errorf("%s: %w", path, err)
+	}
+	return errs
 }
