@@ -40,7 +40,7 @@ func run(root, gen string) []error {
 		if errs != nil {
 			return errs
 		}
-		if err := os.WriteFile(gen, openapi.Go(scopes), 0o644); err != nil {
+		if err := os.WriteFile(gen, openapi.Go(scopes, nil), 0o644); err != nil {
 			return []error{err}
 		}
 		return nil
