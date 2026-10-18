@@ -55,10 +55,16 @@ func newAuthority(t *testing.T) authority {
 	return authority{cert, key, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})}
 }
 
-func (a authority) issue(t *testing.T, dir, name string) mtls.Files {
+func (a authority) issue(t *testing.T, dir string, names ...string) mtls.Files {
 	t.Helper()
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
+	f := mtls.Files{Cert: filepath.Join(dir, "tls.crt"), Key: filepath.Join(dir, "tls.key"), CA: filepath.Join(dir, "ca.crt")}
+	var key *ecdsa.PrivateKey
+	if pemKey, err := os.ReadFile(f.Key); err == nil {
+		block, _ := pem.Decode(pemKey)
+		if key, err = x509.ParseECPrivateKey(block.Bytes); err != nil {
+			t.Fatal(err)
+		}
+	} else if key, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader); err != nil {
 		t.Fatal(err)
 	}
 	serial, err := rand.Int(rand.Reader, big.NewInt(1<<62))
@@ -67,8 +73,8 @@ func (a authority) issue(t *testing.T, dir, name string) mtls.Files {
 	}
 	tmpl := &x509.Certificate{
 		SerialNumber: serial,
-		Subject:      pkix.Name{CommonName: "cn-" + name},
-		DNSNames:     []string{name},
+		Subject:      pkix.Name{CommonName: "cn-" + names[0]},
+		DNSNames:     names,
 		NotBefore:    time.Now().Add(-time.Hour),
 		NotAfter:     time.Now().Add(time.Hour),
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
@@ -81,22 +87,29 @@ func (a authority) issue(t *testing.T, dir, name string) mtls.Files {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := mtls.Files{Cert: filepath.Join(dir, "tls.crt"), Key: filepath.Join(dir, "tls.key"), CA: filepath.Join(dir, "ca.crt")}
-	for path, data := range map[string][]byte{
+	files := map[string][]byte{
 		f.Cert: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}),
 		f.Key:  pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER}),
-		f.CA:   a.pem,
-	} {
-		if err := os.WriteFile(path, data, 0o600); err != nil {
-			t.Fatal(err)
-		}
-		issued++
-		later := time.Now().Add(time.Duration(issued) * time.Minute)
-		if err := os.Chtimes(path, later, later); err != nil {
-			t.Fatal(err)
-		}
+	}
+	if _, err := os.Stat(f.CA); err != nil {
+		files[f.CA] = a.pem
+	}
+	for path, data := range files {
+		write(t, path, data)
 	}
 	return f
+}
+
+func write(t *testing.T, path string, data []byte) {
+	t.Helper()
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	issued++
+	later := time.Now().Add(time.Duration(issued) * time.Minute)
+	if err := os.Chtimes(path, later, later); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func handshake(t *testing.T, server, client *tls.Config) (tls.ConnectionState, tls.ConnectionState, error, error) {
@@ -158,13 +171,22 @@ func pair(t *testing.T, ca authority, serverName, clientName string, allowed ...
 }
 
 func TestANamedCallerIsAdmitted(t *testing.T) {
-	server, client, _, _ := pair(t, newAuthority(t), "admin-api-svc", "dashboard", "billing-svc", "dashboard")
+	ca := newAuthority(t)
+	server, err := ca.issue(t, t.TempDir(), "admin-api-svc").Server([]string{"billing-svc", "dashboard"}, []string{"h2", "http/1.1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	client, err := ca.issue(t, t.TempDir(), "dashboard-canary", "dashboard").Client()
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.ServerName = "admin-api-svc"
 	client.NextProtos = []string{"h2"}
 	ss, cs, serr, cerr := handshake(t, server, client)
 	if serr != nil || cerr != nil {
 		t.Fatalf("handshake: server %v, client %v", serr, cerr)
 	}
-	if got := ss.PeerCertificates[0].DNSNames; len(got) != 1 || got[0] != "dashboard" {
+	if got := ss.PeerCertificates[0].DNSNames; len(got) != 2 || got[1] != "dashboard" {
 		t.Errorf("server saw %v", got)
 	}
 	if cs.Version != tls.VersionTLS13 || cs.NegotiatedProtocol != "h2" {
@@ -174,24 +196,27 @@ func TestANamedCallerIsAdmitted(t *testing.T) {
 
 func TestAnUnnamedCallerIsRefused(t *testing.T) {
 	ca := newAuthority(t)
-	for name, setup := range map[string]func(*tls.Config){
-		"other SAN": func(*tls.Config) {},
-		"no certificate": func(c *tls.Config) {
+	for name, c := range map[string]struct {
+		setup func(*testing.T, *tls.Config)
+		cause string
+	}{
+		"other SAN": {func(*testing.T, *tls.Config) {}, "not an allowed caller"},
+		"no certificate": {func(_ *testing.T, c *tls.Config) {
 			c.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) { return &tls.Certificate{}, nil }
-		},
-		"other authority": func(c *tls.Config) {
+		}, "didn't provide a certificate"},
+		"other authority": {func(t *testing.T, c *tls.Config) {
 			other, err := newAuthority(t).issue(t, t.TempDir(), "dashboard").Client()
 			if err != nil {
 				t.Fatal(err)
 			}
 			c.GetClientCertificate = other.GetClientCertificate
-		},
+		}, "unknown authority"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			server, client, _, _ := pair(t, ca, "admin-api-svc", "router-svc", "dashboard", "cn-router-svc")
-			setup(client)
-			if _, _, serr, _ := handshake(t, server, client); serr == nil {
-				t.Error("the server admitted the caller")
+			c.setup(t, client)
+			if _, _, serr, _ := handshake(t, server, client); serr == nil || !strings.Contains(serr.Error(), c.cause) {
+				t.Errorf("server error = %v, want %q", serr, c.cause)
 			}
 		})
 	}
@@ -210,8 +235,8 @@ func TestTheAllowlistIsCopied(t *testing.T) {
 		t.Fatal(err)
 	}
 	client.ServerName = "admin-api-svc"
-	if _, _, serr, _ := handshake(t, server, client); serr == nil {
-		t.Error("a caller added to the slice after construction was admitted")
+	if _, _, serr, _ := handshake(t, server, client); serr == nil || !strings.Contains(serr.Error(), "not an allowed caller") {
+		t.Errorf("server error = %v: a caller added to the slice after construction was admitted", serr)
 	}
 }
 
@@ -249,9 +274,9 @@ func TestUnreadableFilesFailAtConstruction(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, f := range map[string]mtls.Files{
-		"missing cert": {Cert: "/nonexistent", Key: good.Key, CA: good.CA},
-		"missing CA":   {Cert: good.Cert, Key: good.Key, CA: "/nonexistent"},
-		"empty CA":     {Cert: good.Cert, Key: good.Key, CA: notPEM},
+		"missing CA":  {Cert: good.Cert, Key: good.Key, CA: "/nonexistent"},
+		"missing key": {Cert: good.Cert, Key: "/nonexistent", CA: good.CA},
+		"empty CA":    {Cert: good.Cert, Key: good.Key, CA: notPEM},
 	} {
 		if _, err := f.Server([]string{"dashboard"}, nil); err == nil {
 			t.Errorf("%s: Server built a config", name)
@@ -290,5 +315,41 @@ func TestRenewedCertificatesAreServedWithoutRestart(t *testing.T) {
 	}
 	if ss.PeerCertificates[0].SerialNumber.Cmp(clientSerial) == 0 {
 		t.Error("the client still presents its old certificate")
+	}
+}
+
+func TestAFailedRereadServesThePreviousGeneration(t *testing.T) {
+	server, client, sf, cf := pair(t, newAuthority(t), "admin-api-svc", "dashboard", "dashboard")
+	ss, cs, serr, cerr := handshake(t, server, client)
+	if serr != nil || cerr != nil {
+		t.Fatalf("first handshake: %v, %v", serr, cerr)
+	}
+	write(t, sf.Cert, []byte("half-written"))
+	write(t, cf.Cert, []byte("half-written"))
+	ss2, cs2, serr, cerr := handshake(t, server, client)
+	if serr != nil || cerr != nil {
+		t.Fatalf("handshake during a broken rotation: %v, %v", serr, cerr)
+	}
+	if cs2.PeerCertificates[0].SerialNumber.Cmp(cs.PeerCertificates[0].SerialNumber) != 0 ||
+		ss2.PeerCertificates[0].SerialNumber.Cmp(ss.PeerCertificates[0].SerialNumber) != 0 {
+		t.Error("the previous generation was not served")
+	}
+}
+
+func TestAnAddedAuthorityIsAdmittedWithoutRestart(t *testing.T) {
+	ca, next := newAuthority(t), newAuthority(t)
+	server, _, sf, _ := pair(t, ca, "admin-api-svc", "dashboard", "dashboard")
+	client, err := next.issue(t, t.TempDir(), "dashboard").Client()
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.RootCAs.AppendCertsFromPEM(ca.pem)
+	client.ServerName = "admin-api-svc"
+	if _, _, serr, _ := handshake(t, server, client); serr == nil {
+		t.Fatal("a caller of the next authority was admitted before the rotation")
+	}
+	write(t, sf.CA, append(append([]byte{}, ca.pem...), next.pem...))
+	if _, _, serr, cerr := handshake(t, server, client); serr != nil || cerr != nil {
+		t.Errorf("after the rotation: server %v, client %v", serr, cerr)
 	}
 }

@@ -54,5 +54,6 @@ Fable a tranché le 2026-10-18 :
 - Vérification du critère : allowlist vide et fichiers illisibles refusés à la construction ; un appelant
   nommé admis, y compris par un SAN qui n'est pas le premier ; un appelant non nommé (même si son CN
   l'est), sans certificat ou d'une autre CA refusé pour cette raison ; une relecture qui échoue sert la
-  génération précédente ; une CA ajoutée sur disque admise par le serveur sans redémarrage ; un certificat renouvelé sur disque servi sans redémarrage, côté serveur et côté client ;
+  génération précédente ; une CA ajoutée sur disque admise par le serveur sans redémarrage ; un
+  certificat renouvelé (clé et CA inchangées) servi sans redémarrage, côté serveur et côté client ;
   TLS 1.2 refusé des deux côtés ; l'allowlist copiée ; la liste ALPN servie.

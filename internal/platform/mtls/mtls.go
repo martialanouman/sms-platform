@@ -11,7 +11,7 @@ import (
 	"sync"
 )
 
-// Files are the PEM paths of a service's certificate, its key and the internal CA; they are reread when they change on disk.
+// Files are the PEM paths of a service's certificate, its key and the internal CA.
 type Files struct {
 	Cert, Key, CA string
 }
@@ -22,17 +22,14 @@ func (f Files) Server(allowed, nextProtos []string) (*tls.Config, error) {
 	if len(allowed) == 0 {
 		return nil, errors.New("mtls: an internal server names its callers; the allowlist is empty")
 	}
-	l := &loader{files: f}
-	if _, err := l.load(); err != nil {
+	l, err := newLoader(f)
+	if err != nil {
 		return nil, err
 	}
-	allowed, nextProtos = slices.Clone(allowed), slices.Clone(nextProtos)
+	allowed = slices.Clone(allowed)
 	return &tls.Config{
 		GetConfigForClient: func(*tls.ClientHelloInfo) (*tls.Config, error) {
-			g, err := l.load()
-			if err != nil {
-				return nil, err
-			}
+			g := l.latest()
 			return &tls.Config{
 				MinVersion:       tls.VersionTLS13,
 				NextProtos:       nextProtos,
@@ -48,20 +45,15 @@ func (f Files) Server(allowed, nextProtos []string) (*tls.Config, error) {
 // Client returns the config of an internal client; the caller sets ServerName to the bare service name it dials. The CA is
 // read once: a CA rotation restarts the client.
 func (f Files) Client() (*tls.Config, error) {
-	l := &loader{files: f}
-	g, err := l.load()
+	l, err := newLoader(f)
 	if err != nil {
 		return nil, err
 	}
 	return &tls.Config{
 		MinVersion: tls.VersionTLS13,
-		RootCAs:    g.pool,
+		RootCAs:    l.cur.pool,
 		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			g, err := l.load()
-			if err != nil {
-				return nil, err
-			}
-			return &g.cert, nil
+			return &l.latest().cert, nil
 		},
 	}, nil
 }
@@ -88,32 +80,48 @@ type loader struct {
 	cur   *generation
 }
 
-func (l *loader) load() (*generation, error) {
+func newLoader(f Files) (*loader, error) {
+	l := &loader{files: f}
+	g, stamp, err := l.read()
+	if err != nil {
+		return nil, err
+	}
+	l.cur, l.stamp = g, stamp
+	return l, nil
+}
+
+func (l *loader) latest() *generation {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if g, stamp, err := l.read(); err == nil {
+		l.cur, l.stamp = g, stamp
+	}
+	return l.cur
+}
+
+func (l *loader) read() (*generation, string, error) {
 	var stamp string
-	for _, p := range []string{l.files.Cert, l.files.Key, l.files.CA} {
+	for _, p := range []string{l.files.Cert, l.files.CA} {
 		fi, err := os.Stat(p)
 		if err != nil {
-			return nil, fmt.Errorf("mtls: %w", err)
+			return nil, "", fmt.Errorf("mtls: %w", err)
 		}
 		stamp += fmt.Sprintf("%d/%d;", fi.Size(), fi.ModTime().UnixNano())
 	}
-	l.mu.Lock()
-	defer l.mu.Unlock()
 	if l.cur != nil && l.stamp == stamp {
-		return l.cur, nil
+		return l.cur, stamp, nil
 	}
 	cert, err := tls.LoadX509KeyPair(l.files.Cert, l.files.Key)
 	if err != nil {
-		return nil, fmt.Errorf("mtls: %w", err)
+		return nil, "", fmt.Errorf("mtls: %w", err)
 	}
 	ca, err := os.ReadFile(l.files.CA)
 	if err != nil {
-		return nil, fmt.Errorf("mtls: %w", err)
+		return nil, "", fmt.Errorf("mtls: %w", err)
 	}
 	pool := x509.NewCertPool()
 	if !pool.AppendCertsFromPEM(ca) {
-		return nil, fmt.Errorf("mtls: %s holds no certificate", l.files.CA)
+		return nil, "", fmt.Errorf("mtls: %s holds no certificate", l.files.CA)
 	}
-	l.cur, l.stamp = &generation{cert, pool}, stamp
-	return l.cur, nil
+	return &generation{cert, pool}, stamp, nil
 }
