@@ -20,18 +20,18 @@ Fable a tranché le 2026-10-18 :
   magasin (006 pour Postgres). Amendé : plan §005. Aucune enveloppe générique de testcontainers, qui
   entre dans `go.mod` par le test de preuve.
 - **Forme** : `tcpproxy.New(t, upstream)`, `Addr`, `Cut` (ferme les connexions vives et refuse les
-  nouvelles : la connexion aboutit, puis tombe), `Resume`, `Close` (enregistré en `t.Cleanup`).
+  nouvelles : la connexion aboutit, puis tombe), `Resume`, `Close` (enregistré en `t.Cleanup`). `Close`
+  n'attend pas les relais : chacun s'arrête de lui-même, son client fermé ou sa composition vers l'amont
+  échue (3 s) ; l'attendre faisait payer ces 3 s au nettoyage d'un test sur un amont injoignable.
 - **Docker et Ryuk** : aucune bibliothèque. La step 002 a placé la garde sur la sortie de `go test -v`
   (`ciguard` refuse tout `--- SKIP` en CI) ; en local sans Docker, le test d'intégration saute si le
-  fournisseur Docker de testcontainers ne répond pas. Ryuk reste au défaut de testcontainers, la CI ne
+  fournisseur Docker de testcontainers ne répond pas (`SkipIfProviderIsNotHealthy`). Ryuk reste au défaut de testcontainers, la CI ne
   le désactive pas et la règle l'interdit. « Socket exporté » est de la documentation, déjà dans
   `tests.md` : rien à coder, aucune lecture d'environnement.
 - **Preuve** : un test en processus, sur un écho `net.Listen`, qui porte les mutations ; un test
   d'intégration sur `redis:8-alpine`, pingé en TCP brut à travers le proxy : `Cut`, un second client
   direct répond toujours, le client à travers le proxy échoue, `Resume`, il répond de nouveau.
 - **Emplacement** : `internal/platform/tcpproxy` (ADR 0025).
-- **Mutation** : `Close` attend la fin des relais (`sync.WaitGroup`) pour qu'aucun ne survive au test ;
-  l'effet n'est pas observable de dehors, la mutation qui le retire est équivalente.
 - **Pas de build tag** : le saut reste visible et gardé ; la dette #2 n'est pas touchée.
 
 ## Design arrêté
