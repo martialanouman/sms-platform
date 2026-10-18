@@ -50,7 +50,8 @@ générée et gardée par `check-generated` ; chaque garde statique est rouge su
 **Outillage** :
 
 1. **Cœur** `internal/openapi` : décode le strict nécessaire d'un contrat (yaml.v3, déjà admis par
-   depguard) ; `Scopes` (liste triée et opération → scope) ; trois gardes ; rendu Go de la liste.
+   depguard ; `go/format` ajouté à sa liste blanche : bibliothèque standard sans I/O, que `$gostd` de
+   depguard omet) ; `Scopes` (liste triée et opération → scope) ; trois gardes ; rendu Go de la liste.
    `tools/openapi` compose : lit les contrats et la spec, échoue sur une garde, écrit la liste avec `-gen`.
 2. **Gardes** :
    - Admin : chaque opération a exactement un tag et exactement un scope de son tag (read, write ou action

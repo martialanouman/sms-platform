@@ -1,0 +1,194 @@
+// Package openapi reads the OpenAPI contracts, checks their static rules and derives the Admin API scopes.
+package openapi
+
+import (
+	"bytes"
+	"fmt"
+	"go/format"
+	"regexp"
+	"slices"
+	"strings"
+
+	"go.yaml.in/yaml/v3"
+)
+
+var sensitive = map[string][]string{
+	"routing-scripts": {"publish"},
+	"suppressions":    {"delete"},
+	"billing":         {"topup"},
+	"content":         {"erase"},
+	"gdpr":            {"erase"},
+	"cdr":             {"export_bulk"},
+}
+
+const reveal = "msisdn:reveal"
+
+// Contract is the part of an OpenAPI contract the static rules read.
+type Contract struct {
+	Paths      map[string]PathItem `yaml:"paths"`
+	Components struct {
+		Schemas struct {
+			Error struct {
+				Properties struct {
+					Code struct {
+						Enum []string `yaml:"enum"`
+					} `yaml:"code"`
+				} `yaml:"properties"`
+			} `yaml:"Error"`
+			ErrorCode struct {
+				Enum []string `yaml:"enum"`
+			} `yaml:"ErrorCode"`
+		} `yaml:"schemas"`
+	} `yaml:"components"`
+}
+
+// PathItem holds the operations of one path.
+type PathItem struct {
+	Get    *Operation `yaml:"get"`
+	Put    *Operation `yaml:"put"`
+	Post   *Operation `yaml:"post"`
+	Delete *Operation `yaml:"delete"`
+	Patch  *Operation `yaml:"patch"`
+}
+
+// Operation is one operation of a contract.
+type Operation struct {
+	ID       string                `yaml:"operationId"`
+	Tags     []string              `yaml:"tags"`
+	Security []map[string][]string `yaml:"security"`
+}
+
+// Scopes is the scope list of the Admin API.
+type Scopes struct {
+	All         []string
+	ByOperation map[string]string
+}
+
+// Parse decodes a contract.
+func Parse(data []byte) (Contract, error) {
+	var c Contract
+	if err := yaml.Unmarshal(data, &c); err != nil {
+		return Contract{}, err
+	}
+	return c, nil
+}
+
+func (c Contract) operations() []Operation {
+	var ops []Operation
+	for _, p := range c.Paths {
+		for _, op := range []*Operation{p.Get, p.Put, p.Post, p.Delete, p.Patch} {
+			if op != nil {
+				ops = append(ops, *op)
+			}
+		}
+	}
+	slices.SortFunc(ops, func(a, b Operation) int { return strings.Compare(a.ID, b.ID) })
+	return ops
+}
+
+// Scopes checks that every operation declares exactly one scope of its only tag, and lists the scopes.
+func (c Contract) Scopes() (Scopes, []error) {
+	var errs []error
+	by := map[string]string{}
+	all := []string{reveal}
+	for _, op := range c.operations() {
+		scope, err := scopeOf(op)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", op.ID, err))
+			continue
+		}
+		by[op.ID] = scope
+		if !slices.Contains(all, scope) {
+			all = append(all, scope)
+		}
+	}
+	if errs != nil {
+		return Scopes{}, errs
+	}
+	slices.Sort(all)
+	return Scopes{All: all, ByOperation: by}, nil
+}
+
+func scopeOf(op Operation) (string, error) {
+	if len(op.Tags) != 1 {
+		return "", fmt.Errorf("%d tags, want exactly one", len(op.Tags))
+	}
+	if len(op.Security) != 1 || len(op.Security[0]) != 1 || len(op.Security[0]["OperatorBearer"]) != 1 {
+		return "", fmt.Errorf("security %v, want exactly one OperatorBearer scope", op.Security)
+	}
+	scope := op.Security[0]["OperatorBearer"][0]
+	tag, action, _ := strings.Cut(scope, ":")
+	if tag != op.Tags[0] || !slices.Contains(append([]string{"read", "write"}, sensitive[tag]...), action) {
+		return "", fmt.Errorf("scope %q is not an action of tag %q", scope, op.Tags[0])
+	}
+	return scope, nil
+}
+
+// PublicSecurity checks that every operation declares the API key alone, without scope.
+func (c Contract) PublicSecurity() []error {
+	var errs []error
+	for _, op := range c.operations() {
+		s := op.Security
+		if len(s) != 1 || len(s[0]) != 1 || s[0]["BearerApiKey"] == nil || len(s[0]["BearerApiKey"]) != 0 {
+			errs = append(errs, fmt.Errorf("%s: security %v, want [{BearerApiKey: []}]", op.ID, s))
+		}
+	}
+	return errs
+}
+
+// UnknownCodes lists the error codes of the contract missing from known.
+func (c Contract) UnknownCodes(known []string) []error {
+	var errs []error
+	s := c.Components.Schemas
+	for _, code := range append(s.Error.Properties.Code.Enum, s.ErrorCode.Enum...) {
+		if !slices.Contains(known, code) {
+			errs = append(errs, fmt.Errorf("error code %q is not in docs/spec/09-contrats.md §9.3", code))
+		}
+	}
+	return errs
+}
+
+var backquoted = regexp.MustCompile("`([^`]+)`")
+
+// SpecCodes reads the codes of the §9.3 table of docs/spec/09-contrats.md.
+func SpecCodes(md []byte) []string {
+	var codes []string
+	in := false
+	for _, line := range strings.Split(string(md), "\n") {
+		if strings.HasPrefix(line, "## ") {
+			in = strings.HasPrefix(line, "## 9.3 ")
+			continue
+		}
+		cells := strings.Split(line, "|")
+		if !in || len(cells) < 3 {
+			continue
+		}
+		for _, m := range backquoted.FindAllStringSubmatch(cells[1], -1) {
+			codes = append(codes, m[1])
+		}
+	}
+	return codes
+}
+
+// Go renders the scope list as a Go source file.
+func (s Scopes) Go() ([]byte, error) {
+	var b bytes.Buffer
+	b.WriteString("// Code generated by tools/openapi from contracts/openapi-admin.yaml. DO NOT EDIT.\n\n")
+	b.WriteString("// Package scopes lists the scopes of the Admin API, generated from its contract.\npackage scopes\n\n")
+	b.WriteString("// Scope grants the operations that declare it.\ntype Scope string\n\n")
+	b.WriteString("// All is every scope, sorted.\nvar All = []Scope{\n")
+	for _, scope := range s.All {
+		fmt.Fprintf(&b, "%q,\n", scope)
+	}
+	b.WriteString("}\n\n// ByOperation is the scope each operation declares.\nvar ByOperation = map[string]Scope{\n")
+	ids := make([]string, 0, len(s.ByOperation))
+	for id := range s.ByOperation {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	for _, id := range ids {
+		fmt.Fprintf(&b, "%q: %q,\n", id, s.ByOperation[id])
+	}
+	b.WriteString("}\n")
+	return format.Source(b.Bytes())
+}
