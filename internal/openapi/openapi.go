@@ -218,9 +218,14 @@ func (c Contract) UnknownCodes(known []string) []error {
 
 var backquoted = regexp.MustCompile("`([^`]+)`")
 
-// SpecCodes reads the codes of the §9.3 table of docs/spec/09-contrats.md.
-func SpecCodes(md []byte) []string {
-	var codes []string
+// SpecError is a code of the §9.3 table with its HTTP status and SMPP command_status names, empty when it has none.
+type SpecError struct {
+	Code, HTTP, SMPP string
+}
+
+// SpecErrors reads the rows of the §9.3 table of docs/spec/09-contrats.md, one per code.
+func SpecErrors(md []byte) ([]SpecError, error) {
+	var rows []SpecError
 	in := false
 	for line := range strings.SplitSeq(string(md), "\n") {
 		if strings.HasPrefix(line, "## ") {
@@ -228,14 +233,36 @@ func SpecCodes(md []byte) []string {
 			continue
 		}
 		cells := strings.Split(line, "|")
-		if !in || len(cells) < 3 {
+		if !in || len(cells) < 4 {
 			continue
 		}
+		var codes []string
 		for _, m := range backquoted.FindAllStringSubmatch(cells[1], -1) {
 			codes = append(codes, m[1])
 		}
+		http, smpp := statuses(cells[2], len(codes)), statuses(cells[3], len(codes))
+		if http == nil || smpp == nil {
+			return nil, fmt.Errorf("§9.3: %d codes but a status count that matches neither one nor them: %s", len(codes), line)
+		}
+		for i, code := range codes {
+			rows = append(rows, SpecError{Code: code, HTTP: http[i], SMPP: smpp[i]})
+		}
 	}
-	return codes
+	return rows, nil
+}
+
+func statuses(cell string, n int) []string {
+	var values []string
+	for v := range strings.SplitSeq(cell, ",") {
+		values = append(values, strings.Trim(v, " `—"))
+	}
+	if len(values) == 1 {
+		return slices.Repeat(values, n)
+	}
+	if len(values) != n {
+		return nil
+	}
+	return values
 }
 
 // Go renders the scope and permission lists as a gofmt-formatted Go source file.

@@ -14,7 +14,11 @@ tous les services importeront. Le numéro est l'ordre d'exécution (C6). Aucun s
 | 004c-2 | Contrats : OpenAPI Admin, scopes générés, gardes | PR |
 | 004c-3 | Contrats : OpenAPI BFF, permissions | PR |
 | 004d | Sécurité en CI | PR |
-| 005 | Bibliothèques de plateforme | PR |
+| 005a | Bibliothèques : erreurs, corps | PR |
+| 005b | Bibliothèques : observabilité | PR |
+| 005c | Bibliothèques : mTLS | PR |
+| 005d | Bibliothèques : configuration d'infrastructure, drain | PR |
+| 005e | Bibliothèques : tests | PR |
 | 006 | Données : migrations, rôles, GRANT, trigger d'audit | PR |
 | 007 | Livraison : images, manifests, Jobs, environnement de test, alertes | PR |
 
@@ -99,6 +103,10 @@ Ajoutée le 2026-10-17 par décision humaine : aucun contrôle de sécurité n'�
 est rouge ; CodeQL publie ses résultats sur la PR ; Dependabot a ouvert sa première PR.
 
 ## 005 — Bibliothèques de plateforme
+
+Découpée en cinq PR par décision humaine du 2026-10-18 : 005a (erreurs, corps), 005b (observabilité),
+005c (mTLS), 005d (configuration d'infrastructure, drain), 005e (tests). Chacune porte le critère de fin
+pour ses bibliothèques.
 
 Portées de `go-gateway` avec leurs tests, puis adaptées aux décisions :
 

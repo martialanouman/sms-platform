@@ -358,15 +358,40 @@ func slicesWithout(s []string, v string) []string {
 	return out
 }
 
-func TestSpecCodes(t *testing.T) {
+func TestSpecErrors(t *testing.T) {
 	md := "## 9.2 gRPC\n\n| `billing-svc` | x | y |\n\n## 9.3 Codes d'erreur\n\n" +
 		"| Code | HTTP | SMPP | Quand |\n|---|---|---|---|\n" +
 		"| `unauthenticated` | 401 | `ESME_RINVPASWD` | Clé (jamais `ESME_RINVSYSID`) |\n" +
-		"| `queue_full`, `service_unavailable` | 503 | `ESME_RMSGQFUL` | |\n\n" +
+		"| `queue_full`, `service_unavailable` | 503 | `ESME_RMSGQFUL`, `ESME_RSYSERR` | |\n" +
+		"| `not_found`, `conflict` | 404, 409 | — | |\n" +
+		"| `no_route` | — | — | |\n" +
+		"| `a`, `b` | 404, — | — | |\n\nVoir `later` | ou | ailleurs.\n" +
 		"Les codes après l'ACK…\n\n## 9.4 Suite\n\n| `later` | — | — | |\n"
-	want := []string{"unauthenticated", "queue_full", "service_unavailable"}
-	if got := openapi.SpecCodes([]byte(md)); !reflect.DeepEqual(got, want) {
-		t.Errorf("SpecCodes = %v, want %v", got, want)
+	want := []openapi.SpecError{
+		{Code: "unauthenticated", HTTP: "401", SMPP: "ESME_RINVPASWD"},
+		{Code: "queue_full", HTTP: "503", SMPP: "ESME_RMSGQFUL"},
+		{Code: "service_unavailable", HTTP: "503", SMPP: "ESME_RSYSERR"},
+		{Code: "not_found", HTTP: "404"},
+		{Code: "conflict", HTTP: "409"},
+		{Code: "no_route"},
+		{Code: "a", HTTP: "404"},
+		{Code: "b"},
+	}
+	got, err := openapi.SpecErrors([]byte(md))
+	if err != nil || !reflect.DeepEqual(got, want) {
+		t.Errorf("SpecErrors = %v, %v, want %v", got, err, want)
+	}
+}
+
+func TestSpecErrorsRefusesAMismatchedRow(t *testing.T) {
+	for _, row := range []string{
+		"| `a`, `b`, `c` | 404, 409 | — | |",
+		"| `a`, `b`, `c` | — | `X`, `Y` | |",
+		"| `a`, `b` | 404, 409, 403 | — | |",
+	} {
+		if _, err := openapi.SpecErrors([]byte("## 9.3 Codes d'erreur\n\n" + row + "\n")); err == nil {
+			t.Errorf("SpecErrors accepted a mismatched row: %s", row)
+		}
 	}
 }
 

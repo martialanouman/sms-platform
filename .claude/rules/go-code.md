@@ -6,8 +6,8 @@ paths:
 
 # Code Go — ce qu'un compilateur vert ne garantit pas
 
-- **Le corps d'un message ne sort jamais** (I1) : type `Body` qui ne se sérialise pas, `Reveal()`
-  audité pour le clair. Un DTO de sortie est un struct déclaré, jamais une `map` ni un type de domaine.
+- **Le corps d'un message ne sort jamais** (I1) : `msg.Body` ne se rend jamais en clair ; le clair
+  sort par `msg.Reveal`, chaque appel admis étant une exclusion nommée de `.golangci.yml` (jamais `nolint`). Un DTO de sortie est un struct déclaré, jamais une `map` ni un type de domaine.
 - **Aucune goroutine sans condition d'arrêt.**
 - **Redis : une opération atomique est un script Lua**, jamais un read-modify-write en Go.
 - **Un secret : le vérifie-t-on ou le rejoue-t-on ?** Vérifié (clé d'API, mot de passe de bind

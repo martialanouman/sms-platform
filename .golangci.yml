@@ -3,6 +3,7 @@ version: "2"
 linters:
   enable:
     - depguard
+    - forbidigo
     - gosec
     - revive
   settings:
@@ -40,11 +41,18 @@ linters:
               desc: le cœur ne fait pas d'I/O (ADR 0025)
             - pkg: log/syslog
               desc: le cœur ne fait pas d'I/O (ADR 0025)
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: ^msg\.Reveal$
+          pkg: ^github\.com/martialanouman/sms-platform/internal/platform/msg$
+          msg: le clair d'un corps ne sort que par un appel audité, exclu ici avec sa raison (I1)
     revive:
       rules:
         - name: exported
 
   exclusions:
+    generated: disable
     rules:
       # G304, G703 : les outils lisent et écrivent des chemins du dépôt, fixés par eux ou par la recette ; aucune
       # entrée non fiable.
@@ -57,6 +65,14 @@ linters:
         text: "G204:|G702:"
         linters:
           - gosec
+      # Code de protoc : gosec y voit des constantes et unsafe qu'on ne réécrit pas.
+      - path: ^internal/gen/
+        linters:
+          - gosec
+      # Reveal : le test du paquet vérifie que le clair revient intact.
+      - path: ^internal/platform/msg/msg_test\.go$
+        linters:
+          - forbidigo
 
 formatters:
   enable:

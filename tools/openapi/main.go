@@ -61,7 +61,14 @@ func run(root, gen string) []error {
 	if err != nil {
 		return []error{err}
 	}
-	codes := openapi.SpecCodes(spec)
+	rows, err := openapi.SpecErrors(spec)
+	if err != nil {
+		return []error{fmt.Errorf("%s: %w", specPath, err)}
+	}
+	var codes []string
+	for _, r := range rows {
+		codes = append(codes, r.Code)
+	}
 	errs = append(errs, prefix(adminPath, admin.UnknownCodes(codes))...)
 	errs = append(errs, prefix(bffPath, bff.UnknownCodes(codes))...)
 	return append(errs, prefix(publicPath, append(public.PublicSecurity(), public.UnknownCodes(codes)...))...)
