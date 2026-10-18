@@ -18,17 +18,20 @@ Fable a tranché le 2026-10-18, sans amendement de spec :
 - **Garde des labels, à l'enregistrement** (§10.1) : un `prometheus.Registerer` qui lit les noms exacts
   des labels variables et constants de chaque `Desc` en construisant une métrique constante
   (`NewConstMetric`, autant de valeurs vides que de labels variables, trouvées par essais successifs) et
-  en l'écrivant (`Write`). Il refuse un collecteur qui ne décrit rien et un `Desc` invalide. La garde
+  en l'écrivant (`Write`). Il refuse un collecteur qui ne décrit rien ; un `Desc` invalide, le registre le
+  refuse lui-même, avec sa cause. La garde
   enveloppe le registre lui-même : un `WrapRegistererWith` posé entre elle et le registre ajoute des
   labels qu'elle ne voit pas. Pas de contrôle au `Gather` : il ne couvrirait qu'un collecteur maison qui
   déclare un label et en émet un autre, absent ici.
-- **Liste de refus seule**, sans liste blanche (§10.1). Un nom qui n'est pas en snake_case minuscule
-  (`^[a-z][a-z0-9_]*$`, la convention Prometheus, que suivent les collecteurs standard) est refusé : sans
-  cela, `messageId`, `phoneNumber` ou `msisdn}}` passeraient la liste. Un nom est refusé si lui-même ou
-  l'un de ses segments `_`, au singulier comme au pluriel, est dans la liste. Segments : `msisdn`,
-  `phone`, `number`, `addr`, `recipient`, `destination`, `body`, `text`, `content`, `payload`. Noms
-  entiers : `to`, `from`, `message_id`, `msg_id`, `trace_id`, `span_id` (un `trace_id` par message,
-  §10.1), `customer_group`, `client_group`.
+- **Liste de refus seule**, sans liste blanche (§10.1). Elle ne lit que les noms : c'est un filet contre
+  un label nommé d'après le champ qu'il porte, pas une barrière ; on y met les noms qu'on écrirait ici.
+  Un nom qui n'est pas en snake_case minuscule (`^[a-z][a-z0-9_]*$`, la convention Prometheus, que
+  suivent les collecteurs standard) est refusé : sans cela, `messageId`, `phoneNumber` ou `msisdn}}`
+  passeraient la liste. Sont refusés : un nom entier `to`, `from`, `trace_id`, `span_id` (un `trace_id`
+  par message, §10.1), `customer_group`, `client_group` ; un nom qui finit par `message_id`, `msg_id`,
+  `messageid` ou `msgid` (`smsc_message_id`, `dlr_msg_id`) ; un nom dont un segment `_`, ou son singulier
+  (`-s`, `-es`, `-ies`), est `msisdn`, `phone`, `number`, `addr`, `address`, `recipient`, `destination`,
+  `body`, `text`, `content` ou `payload`.
 - **Exportateur injecté** : la bibliothèque construit le `TracerProvider` depuis un `SpanExporter`.
   L'exportateur OTLP et son transport sont de la composition (`cmd/`) et attendent 005c et 005d :
   dette #93.
@@ -48,7 +51,9 @@ Fable a tranché le 2026-10-18, sans amendement de spec :
   d'en-têtes Kafka vient avec la bibliothèque Kafka.
 - **Revue** : le rendu `String()` d'un `Desc`, lu d'abord, n'échappe pas les noms de labels (un label
   constant nommé `lane="msisdn",code` s'y lisait comme deux labels admis) ; la lecture par une métrique
-  constante le remplace, et l'analyseur disparaît.
+  constante le remplace, et l'analyseur disparaît. Troisième tour, arbitré par l'humain : les
+  identifiants de message par suffixe, `address` et les pluriels en `-es` et `-ies` entrent dans la
+  liste ; le refus propre d'un `Desc` invalide, doublon du registre, disparaît.
 
 ## Design arrêté
 
@@ -58,7 +63,7 @@ Fable a tranché le 2026-10-18, sans amendement de spec :
   `InitTracing(sdktrace.SpanExporter, service string, ratio float64) *sdktrace.TracerProvider`, qui pose
   le fournisseur et le propagateur globaux (`debt: #93`) ; `RecordError(trace.Span, error)`.
 - Dépendances directes : `client_golang`, `client_model`, `otel`, `otel/sdk`, `otel/trace`.
-- Vérification du critère : chaque segment et nom refusé, un pluriel, un nom hors snake_case (camelCase,
-  premier caractère, nom constant qui imite un rendu), un collecteur muet, un label constant et un `Desc`
-  invalide rouges ; une erreur du registre remonte ; un span en erreur non échantillonné exporté, un
+- Vérification du critère : chaque nom, suffixe et segment refusé, chaque forme de pluriel, un nom hors
+  snake_case (camelCase, premier caractère, nom constant qui imite un rendu), un collecteur muet et un
+  label constant rouges ; une erreur du registre remonte ; un span en erreur non échantillonné exporté, un
   span réussi ou `Ok` non échantillonné non exporté ; le texte d'une erreur jamais sur un span.
