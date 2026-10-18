@@ -25,15 +25,17 @@ Fable a tranché le 2026-10-18 ; l'humain, le port ops :
   est au collecteur). Ni `Environment` (aucun usage depuis la 005c), ni endpoint OTLP (dette #93, au premier
   `cmd/`), ni nom de service (une constante du binaire).
 - **Garde** : forbidigo refuse `os.Getenv`, `os.LookupEnv`, `os.Environ`, `os.ExpandEnv`,
-  `syscall.Getenv`, `syscall.Environ` et `exec.Cmd.Environ` hors de `internal/platform/config` ; les deux
+  `syscall.Getenv`, `syscall.Environ`, `unix.Getenv`, `unix.Environ` et `exec.Cmd.Environ` hors de
+  `internal/platform/config` ; les deux
   outils de CI qui lisent l'environnement de la CI (`tools/catalog`, `tools/debtguard`) sont exclus par
   nom, pour qu'un Job déployé composé sous `tools/` reste gardé. Lire `/proc/self/environ` relève de la
-  revue. Distinguer `DRAIN_DELAY` de `MAX_BINDS` est un
+  revue, comme les bibliothèques qui lisent l'environnement d'elles-mêmes (pgx et ses `PG*`, le SDK OTel
+  et ses `OTEL_*`) : chacune reçoit une configuration explicite. Distinguer `DRAIN_DELAY` de `MAX_BINDS` est un
   jugement de revue, pas d'analyseur : un champ ajouté à la structure passe en revue.
 - **Validation** : `DRAIN_DELAY` ≥ 0, `SHUTDOWN_TIMEOUT` > 0, `DRAIN_BUDGET` > `SHUTDOWN_TIMEOUT` (un
   composant a droit à tout son délai, et le drain est séquentiel), ratio dans [0, 1] (`NaN` refusé),
-  toute valeur illisible refusée ; une durée illisible n'est pas confrontée aux règles de cohérence, une
-  seule erreur par variable ; les erreurs sont jointes pour qu'un démarrage les montre toutes. Rien sur les
+  toute valeur illisible refusée ; une durée illisible n'est confrontée à aucune règle, ni la sienne ni
+  celle d'une autre variable : une seule erreur par variable ; les erreurs sont jointes pour qu'un démarrage les montre toutes. Rien sur les
   fichiers TLS ni l'allowlist, que `mtls` refuse déjà à la construction ; rien sur `OPS_ADDR`, que
   `net.Listen` refuse mieux.
 - **Superviseur** : `supervisor.Ordered{DrainDelay, DrainBudget}` seul. `Run` : à l'arrêt demandé ou au
@@ -50,8 +52,11 @@ Fable a tranché le 2026-10-18 ; l'humain, le port ops :
   NetworkPolicy au kubelet et à Prometheus (décision humaine ; amendé : décision 6 §4, spec 02 §2.5).
   `/healthz` (200 tant que le processus vit), `/readyz` (503 `draining` dès le drain, sans sonder ; sinon
   les sondes vitales en parallèle, et 503 avec le nom de chaque sonde en échec ou sans réponse au bout de
-  2 s, même si elle ignore son contexte), `/metrics` depuis le registre gardé ; aucun corps ne porte une
-  erreur de sonde ou de collecteur, qui peut porter un hôte (`/metrics` sert ce qu'il a pu collecter).
+  2 s, même si elle ignore son contexte ; une sonde encore en vol d'une requête précédente compte en échec
+  sans être relancée, pour qu'une sonde sourde ne fasse pas s'accumuler les goroutines), `/metrics` depuis le registre gardé ; aucun corps ne porte une
+  erreur de sonde ou de collecteur, qui peut porter un hôte : `/metrics` sert ce qu'il a pu collecter, et
+  compte les collectes en erreur dans `ops_metrics_gather_errors_total`, pour qu'une panne ne se réduise
+  pas à des séries disparues.
   `ReadHeaderTimeout` et `IdleTimeout` à 2 s ; pas de `WriteTimeout`, le seul lecteur lent possible est
   Prometheus, derrière la NetworkPolicy. Une sonde : `ops.Check{Name, Probe}`, nom unique et non vide. L'arrêt laisse finir les requêtes en
   vol, en `SHUTDOWN_TIMEOUT` au plus. Pas de `pprof`.
@@ -66,10 +71,12 @@ Fable a tranché le 2026-10-18 ; l'humain, le port ops :
   shutdown time.Duration, prometheus.Gatherer, ...Check) (*Server, error)`, qui écoute dès la
   construction ; `(*Server) Drain()` ; `(*Server) Run(context.Context) error`, un composant du
   superviseur qui s'arrête en `SHUTDOWN_TIMEOUT` au plus ; `(*Server) Addr() string`.
-- `.golangci.yml` : forbidigo sur la lecture d'environnement, exclusion du chargeur et de `tools/`.
+- `.golangci.yml` : forbidigo sur la lecture d'environnement, exclusion du chargeur, de `tools/catalog` et
+  de `tools/debtguard`.
 - Vérification du critère : chaque variable lue, défaut appliqué, valeur illisible (une erreur) et règle
   violée, ratio 0 et 1 admis ;
   une lecture d'environnement hors du paquet rend `make lint` rouge ; les rappels avant tout arrêt, le
   délai respecté, l'ordre inverse, le budget global, hors délai, qui nomme le composant bloqué et annule les
   suivants, la première erreur avant le dépassement, le drain sur erreur et sur `nil` prématuré ; `/healthz`, `/readyz` prêt, en échec de sonde, sous délai et en
-  drain, `/metrics` servi sans erreur de collecteur, l'arrêt borné et la connexion inactive fermée, noms de sonde vides ou en double refusés.
+  drain, une sonde sourde lancée une seule fois et rétablie à son retour, `/metrics` servi sans erreur de
+  collecteur et qui la compte, l'arrêt borné et la connexion inactive fermée, noms de sonde vides ou en double refusés.
