@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package messagestate.v1;
+
+import "sms/v1/state.proto";
+
+// MessageStateService serves the folded state. spec 05 §5.1 Lectures, spec 09 §9.2 ; appelants rest-api, smpp-server, admin-api
+service MessageStateService {
+  // GetMessage returns the folded state, or NOT_FOUND for an unknown message or another account's. spec 05 §5.1
+  rpc GetMessage(GetMessageRequest) returns (GetMessageResponse);
+  // CheckCancellable answers a cancel_sm. spec 03 §3.7, spec 05 §5.1
+  rpc CheckCancellable(CheckCancellableRequest) returns (CheckCancellableResponse);
+  // IsTerminal guards replay-dead-letter. spec 07 §7.3, spec 05 §5.1
+  rpc IsTerminal(IsTerminalRequest) returns (IsTerminalResponse);
+}
+
+message GetMessageRequest {
+  string message_id = 1; // spec 05 §5.1
+  string account_id = 2; // spec 05 §5.1, autre compte = inconnu ; vide admis pour admin-api-svc seul, intercepteur par appelant et méthode (ADR-0016)
+}
+
+// Source says where the answer came from. spec 05 §5.1, §5.5
+enum Source {
+  SOURCE_UNSPECIFIED = 0;
+  SOURCE_JOURNAL = 1; // spec 05 §5.1, horizon 72 h
+  SOURCE_CDR = 2; // spec 05 §5.1 au-delà de 72 h, §5.5 « possiblement en retard »
+}
+
+message GetMessageResponse {
+  sms.v1.MessageState state = 1; // spec 05 §5.1
+  Source source = 2; // spec 05 §5.5 lectures sur le CDR marquées
+}
+
+message CheckCancellableRequest {
+  string message_id = 1; // spec 05 §5.1
+  string account_id = 2; // spec 05 §5.1
+}
+
+// Cancellability is the answer to cancel_sm. spec 03 §3.7 « inconnu, déjà soumis ou annulable »
+enum Cancellability {
+  CANCELLABILITY_UNSPECIFIED = 0;
+  CANCELLABILITY_UNKNOWN = 1;
+  CANCELLABILITY_ALREADY_SUBMITTED = 2;
+  CANCELLABILITY_CANCELLABLE = 3;
+}
+
+message CheckCancellableResponse {
+  Cancellability cancellability = 1; // spec 03 §3.7
+}
+
+message IsTerminalRequest {
+  string message_id = 1; // spec 05 §5.1
+}
+
+message IsTerminalResponse {
+  bool terminal = 1; // spec 07 §7.3, message déjà terminal refusé au rejeu
+}

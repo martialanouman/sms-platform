@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package contentkey.v1;
+
+// ContentKeyService holds the per-customer content keys. spec 05 §5.2, spec 09 §9.2, ADR-0011 ; appelants message-state, admin-api
+service ContentKeyService {
+  // GetSealingKey opens the customer's active key to seal bodies; NOT_FOUND when none is provisioned. spec 05 §5.2
+  rpc GetSealingKey(GetSealingKeyRequest) returns (GetSealingKeyResponse);
+  // RotateContentKey provisions the customer's first key, or retires the active one and creates the next.
+  // spec 07 §7.1 retired, spec 10 §10.5 ; appelant admin-api-svc seul, sous acteur (I13)
+  rpc RotateContentKey(RotateContentKeyRequest) returns (RotateContentKeyResponse);
+  // OpenContentKey opens a key by id to read a sealed body. spec 05 §5.2 Lecture
+  rpc OpenContentKey(OpenContentKeyRequest) returns (OpenContentKeyResponse);
+  // DestroyContentKeys crypto-shreds all keys of a customer. spec 05 §5.4
+  rpc DestroyContentKeys(DestroyContentKeysRequest) returns (DestroyContentKeysResponse);
+}
+
+message GetSealingKeyRequest {
+  string customer_id = 1; // spec 05 §5.2 « la clé du client »
+}
+
+message GetSealingKeyResponse {
+  string content_key_id = 1; // spec 05 §5.2 cdr_content.content_key_id
+  bytes key = 2; // spec 05 §5.2, base du HKDF par message ; jamais journalisée ni persistée
+}
+
+message RotateContentKeyRequest {
+  string customer_id = 1; // spec 07 §7.1
+  string request_id = 2; // spec 07 §7.3 app.request_id ; clé d'idempotence
+  string actor = 3; // I13, spec 07 §7.5
+}
+
+message RotateContentKeyResponse {
+  string content_key_id = 1; // spec 05 §5.2, la nouvelle clé active
+}
+
+message OpenContentKeyRequest {
+  string content_key_id = 1; // spec 05 §5.2 cdr_content.content_key_id
+}
+
+message OpenContentKeyResponse {
+  bytes key = 1; // spec 05 §5.2 ; une clé détruite rend NOT_FOUND
+}
+
+message DestroyContentKeysRequest {
+  string customer_id = 1; // spec 05 §5.4
+  string request_id = 2; // spec 07 §7.3 app.request_id ; clé d'idempotence
+  string actor = 3; // I13, spec 05 §5.4 (effacement audité sous gdpr:erase)
+}
+
+message DestroyContentKeysResponse {}
+
+// ConfigSecretsService seals and opens replayed configuration secrets. spec 07 §7.1, ADR-0016 ; appelants admin-api et tout service qui ouvre un secret
+service ConfigSecretsService {
+  // Seal returns the form to persist in *_sealed and *_kms_key_ref. ADR-0016
+  rpc Seal(SealRequest) returns (SealResponse);
+  // Open reverses Seal. ADR-0016, décision 3 §6.6
+  rpc Open(OpenRequest) returns (OpenResponse);
+}
+
+message SealRequest {
+  bytes plaintext = 1; // ADR-0016 ; I2, jamais journalisé
+}
+
+message SealResponse {
+  bytes sealed = 1; // ADR-0016, colonne *_sealed
+  string kms_key_ref = 2; // ADR-0016, colonne *_kms_key_ref
+}
+
+message OpenRequest {
+  string kms_key_ref = 1; // ADR-0016, la KEK sous laquelle la ligne a été scellée
+  bytes sealed = 2; // ADR-0016
+}
+
+message OpenResponse {
+  bytes plaintext = 1; // ADR-0016 ; I2, jamais journalisé ni persisté
+}

@@ -4,7 +4,7 @@
 Statut : design validé.
 
 **Nommage.** Ici, « compte » est le compte **opérateur** d'un connecteur : `connector_account_id`,
-jamais `account_id`, qui reste le compte SMPP du client partout ailleurs.
+jamais `account_id`, qui reste le compte du client partout ailleurs.
 
 ## 1. Problème
 
@@ -119,7 +119,7 @@ suivant de la route, comme aujourd'hui pour un connecteur ouvert.
 ### 4.2 Adressage
 
 - Production sur `mt.routed.<catégorie>` avec `Partition = connector_account.partition` (partitionneur
-  manuel). La clé reste `message_id` ; les en-têtes portent `connector_account_id` et `connector_id`.
+  manuel). La clé reste `message_id` ; le payload porte `connector_account_id` et `connector_id`.
 - **Extension des partitions.** À la création d'un compte, l'Admin API attribue `partition` (séquence)
   et, si elle dépasse le nombre de partitions, étend les trois topics par blocs de 64, de façon
   idempotente, **avant** de passer le compte à `active`. Un échec répond 503 et laisse le compte en

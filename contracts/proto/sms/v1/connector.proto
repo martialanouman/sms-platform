@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package sms.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// LinkStatus is the link state of an operator account. décision 3 §4.5
+enum LinkStatus {
+  LINK_STATUS_UNSPECIFIED = 0;
+  LINK_STATUS_UP = 1;
+  LINK_STATUS_RECONNECTING = 2;
+  LINK_STATUS_DOWN = 3;
+  LINK_STATUS_AUTH_FAILED = 4;
+}
+
+// BreakerState is the per-account circuit breaker state. décision 3 §4.1, §4.5
+enum BreakerState {
+  BREAKER_STATE_UNSPECIFIED = 0;
+  BREAKER_STATE_CLOSED = 1;
+  BREAKER_STATE_OPEN = 2;
+  BREAKER_STATE_HALF_OPEN = 3;
+}
+
+// ConnectorAccountStatus is the payload of connector.account-status, compacted. topics.yaml, décision 3 §4.5
+message ConnectorAccountStatus {
+  string connector_account_id = 1; // décision 3 §4.5, clé
+  int64 epoch = 2; // décision 3 §4.5, un epoch inférieur au dernier vu est ignoré
+  string holder = 3; // décision 3 §4.5
+  LinkStatus link_status = 4; // décision 3 §4.1, disponible si up
+  BreakerState breaker_state = 5; // décision 3 §4.1, disponible si ≠ open
+  int64 in_flight = 6; // décision 3 §4.5 « en vol »
+  int64 lag = 7; // décision 3 §4.5 « lag »
+  google.protobuf.Timestamp observed_at = 8; // décision 3 §4.5 « un état de plus de 15 s rend le compte indisponible »
+}

@@ -219,8 +219,8 @@ identiques.
 **Dettes payées en partie** :
 - `dlr-d-un-client-injoignable-retarde-tous-les-autres` : la clé par compte isole les comptes ;
   l'isolation de la remise elle-même relève de la décision 4.
-- `cdr-ne-distingue-pas-non-facturable-de-capture-echouee` : la distinction vient de
-  `billing.events` (décision 1).
+- `cdr-ne-distingue-pas-non-facturable-de-capture-echouee` : la distinction vient
+  des faits de facturation (spec 06 §6.3).
 
 ## 11. Hors périmètre
 
