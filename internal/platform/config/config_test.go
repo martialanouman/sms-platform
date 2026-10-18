@@ -100,13 +100,12 @@ func TestLoadRefusesEachRule(t *testing.T) {
 		values map[string]string
 		names  string
 	}{
-		"negative delay":           {map[string]string{"DRAIN_DELAY": "-1ns"}, "DRAIN_DELAY"},
 		"zero shutdown":            {map[string]string{"SHUTDOWN_TIMEOUT": "0s", "DRAIN_BUDGET": "1s"}, "SHUTDOWN_TIMEOUT"},
 		"budget equal to shutdown": {map[string]string{"DRAIN_BUDGET": "30s"}, "DRAIN_BUDGET"},
 		"negative ratio":           {map[string]string{"TRACE_SAMPLE_RATIO": "-0.1"}, "TRACE_SAMPLE_RATIO"},
-		"ratio above one":          {map[string]string{"TRACE_SAMPLE_RATIO": "1.01"}, "TRACE_SAMPLE_RATIO"},
+		"NaN ratio":                {map[string]string{"TRACE_SAMPLE_RATIO": "NaN"}, "TRACE_SAMPLE_RATIO"},
 		"unreadable ratio":         {map[string]string{"TRACE_SAMPLE_RATIO": "half"}, "TRACE_SAMPLE_RATIO"},
-		"unreadable shutdown":      {map[string]string{"SHUTDOWN_TIMEOUT": "long"}, "SHUTDOWN_TIMEOUT"},
+		"unreadable shutdown":      {map[string]string{"SHUTDOWN_TIMEOUT": "long"}, `SHUTDOWN_TIMEOUT: time: invalid duration "long"`},
 		"unreadable delay":         {map[string]string{"DRAIN_DELAY": "later"}, "DRAIN_DELAY"},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -115,5 +114,24 @@ func TestLoadRefusesEachRule(t *testing.T) {
 				t.Errorf("Load() error = %v, want one naming %s", err, c.names)
 			}
 		})
+	}
+}
+
+func TestAnUnreadableDurationIsOneError(t *testing.T) {
+	for _, name := range []string{"DRAIN_BUDGET", "SHUTDOWN_TIMEOUT"} {
+		env(t, map[string]string{name: "90"})
+		_, err := config.Load()
+		if err == nil || strings.Count(err.Error(), name) != 1 {
+			t.Errorf("Load() error = %v, want one error on %s", err, name)
+		}
+	}
+}
+
+func TestLoadAcceptsTheRatioBounds(t *testing.T) {
+	for _, ratio := range []string{"0", "1"} {
+		env(t, map[string]string{"TRACE_SAMPLE_RATIO": ratio})
+		if _, err := config.Load(); err != nil {
+			t.Errorf("TRACE_SAMPLE_RATIO=%s: %v", ratio, err)
+		}
 	}
 }

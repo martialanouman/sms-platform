@@ -47,7 +47,7 @@ linters:
         - pattern: ^msg\.Reveal$
           pkg: ^github\.com/martialanouman/sms-platform/internal/platform/msg$
           msg: le clair d'un corps ne sort que par un appel audité, exclu ici avec sa raison (I1)
-        - pattern: ^(os\.(Getenv|LookupEnv|Environ|ExpandEnv)|syscall\.Getenv)$
+        - pattern: ^(os\.(Getenv|LookupEnv|Environ|ExpandEnv)|syscall\.(Getenv|Environ)|exec\.Cmd\.Environ)$
           msg: seul internal/platform/config lit l'environnement, et seulement l'infrastructure (décision 7)
     revive:
       rules:
@@ -76,10 +76,10 @@ linters:
         text: "G402:"
         linters:
           - gosec
-      # Environnement : le chargeur d'infrastructure est le seul lecteur d'un service ; les outils de CI lisent celui
+      # Environnement : le chargeur d'infrastructure est le seul lecteur d'un service ; deux outils de CI lisent celui
       # de la CI, ils ne sont pas des services.
-      - path: ^(internal/platform/config/config\.go|tools/)
-        text: "only internal/platform/config|seul internal/platform/config"
+      - path: ^(internal/platform/config/config\.go|tools/(catalog|debtguard)/)
+        text: "seul internal/platform/config"
         linters:
           - forbidigo
       # Reveal : le test du paquet vérifie que le clair revient intact.

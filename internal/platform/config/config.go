@@ -29,6 +29,7 @@ type Infra struct {
 // Load reads Infra from the environment and reports every unreadable or inconsistent variable at once.
 func Load() (Infra, error) {
 	var errs []error
+	unreadable := map[string]bool{}
 	value := func(name, fallback string) string {
 		if v := os.Getenv(name); v != "" {
 			return v
@@ -39,6 +40,7 @@ func Load() (Infra, error) {
 		d, err := time.ParseDuration(value(name, fallback))
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", name, err))
+			unreadable[name] = true
 		}
 		return d
 	}
@@ -61,17 +63,17 @@ func Load() (Infra, error) {
 	switch {
 	case err != nil:
 		errs = append(errs, fmt.Errorf("TRACE_SAMPLE_RATIO: %w", err))
-	case ratio < 0 || ratio > 1:
+	case !(ratio >= 0 && ratio <= 1):
 		errs = append(errs, fmt.Errorf("TRACE_SAMPLE_RATIO: %v is outside [0, 1]", ratio))
 	}
 	c.TraceSampleRatio = ratio
 	if c.DrainDelay < 0 {
 		errs = append(errs, fmt.Errorf("DRAIN_DELAY: %s is negative", c.DrainDelay))
 	}
-	if c.ShutdownTimeout <= 0 {
+	if c.ShutdownTimeout <= 0 && !unreadable["SHUTDOWN_TIMEOUT"] {
 		errs = append(errs, fmt.Errorf("SHUTDOWN_TIMEOUT: %s is not positive", c.ShutdownTimeout))
 	}
-	if c.DrainBudget <= c.ShutdownTimeout {
+	if c.DrainBudget <= c.ShutdownTimeout && !unreadable["DRAIN_BUDGET"] {
 		errs = append(errs, fmt.Errorf("DRAIN_BUDGET: %s does not exceed SHUTDOWN_TIMEOUT %s", c.DrainBudget, c.ShutdownTimeout))
 	}
 	return c, errors.Join(errs...)
