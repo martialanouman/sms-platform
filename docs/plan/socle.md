@@ -120,7 +120,8 @@ Portées de `go-gateway` avec leurs tests, puis adaptées aux décisions :
 - **Configuration d'infrastructure** : chargeur d'environnement limité à l'infrastructure, garde AST
   contre toute configuration métier (décision 7).
 - **Drain** : `OnDrain`, `/readyz`, ordre des composants.
-- **Tests** : testcontainers (socket exporté, Ryuk actif), `Cuttable` et `tcpproxy`.
+- **Tests** : testcontainers (socket exporté, Ryuk actif) et `tcpproxy` ; les `Cuttable` par magasin
+  arrivent avec le magasin (006 pour Postgres, la step Redis ensuite).
 
 **Terminé quand** : chaque bibliothèque a son test, et chaque garde a été prouvée par une mutation.
 
