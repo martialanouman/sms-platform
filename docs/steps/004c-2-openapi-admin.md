@@ -64,6 +64,20 @@ générée et gardée par `check-generated` ; chaque garde statique est rouge su
    `ByOperation`. Pas de constante par scope : aucun consommateur encore. `go:generate` dans `doc.go`.
 4. `make openapi` : la garde, puis `oasdiff validate` des deux contrats ; `oasdiff breaking` bloquant pour
    le public, informatif pour l'Admin (spec 09).
+5. **Revue, premier tour** (quatre axes) :
+   - outil : opération sans `operationId`, tag non déclaré et contrat sans enum de codes refusés ;
+     `head`, `options`, `trace` lus ; la liste se réduit à `All` (aucun consommateur de l'opération →
+     scope), rendue sans `go/format`, donc sans exception depguard ; le câblage de `tools/openapi` est
+     testé sur des copies fautives des vrais contrats ;
+   - contrat : changer l'`endpoint` ou le TLS d'un compte opérateur exige ses identifiants ; identifiants
+     en écriture seule ; URL de webhook sans userinfo ; `MsisdnInput` E.164 en entrée ; bornes des
+     chaînes, motifs RE2 ; `Idempotency-Key` sur l'effacement RGPD ; schémas de jobs en `allOf` ;
+   - **Fable** : verdict anti-spam porté par `MtRouted` et `MtOutcome` (spec 05 §5.1, §5.2) ; conditions
+     de crédit sous `billing:topup` (`update-customer-credit-terms`, spec 07 §7.4) ; réponse démasquée
+     auditée (spec 07 §7.5) ; export sans `mask_msisdn`, CSV seul, plafond refusé à la création ;
+     `list-exact-routes` retirée (son keyset porterait le MSISDN) ; table `jobs` (spec 07 §7.1,
+     décision 5) ; `fallback_chain` dérivée par le routeur (spec 03 §3.4, décision 3) ; bornes gardées
+     au contrat ; audit écrit une fois, à l'issue (décision 5 §4.1).
 
 ## Design arrêté
 
