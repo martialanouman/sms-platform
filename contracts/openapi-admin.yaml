@@ -8,17 +8,13 @@ info:
     each request with the signed-in operator's token. Every operation requires exactly the one scope it
     declares.
 
-    - **Lists** are paged by an opaque cursor: pass `next_cursor` back as `cursor`; `null` ends the list.
     - **PATCH** has three states per field: absent leaves it unchanged, `null` clears it, a value replaces
       it.
     - **Subscriber numbers** never travel in a path or a query: searches by number are `POST` requests.
-      In a response, a number is masked unless the caller holds `msisdn:reveal`.
     - **Long operations** answer `202` with a job whose state is read back.
-    - **Errors** are flat (`code`, `message`, `errors[]`); the HTTP status is on the status line only.
 
 servers:
   - url: https://admin-api.example.com
-    description: Example
 
 tags:
   - name: customer-groups
@@ -1021,20 +1017,6 @@ paths:
         '500': { $ref: '#/components/responses/InternalError' }
 
   /admin/exact-routes:
-    get:
-      tags: [exact-routes]
-      summary: List exact routes
-      operationId: list-exact-routes
-      security: [{ OperatorBearer: ['exact-routes:read'] }]
-      parameters:
-        - $ref: '#/components/parameters/Cursor'
-        - $ref: '#/components/parameters/Limit'
-      responses:
-        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/ExactRoutePage' } } } }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '422': { $ref: '#/components/responses/ValidationError' }
-        '500': { $ref: '#/components/responses/InternalError' }
     post:
       tags: [exact-routes]
       summary: Create or replace an exact route
@@ -1769,6 +1751,23 @@ paths:
         '422': { $ref: '#/components/responses/ValidationError' }
         '500': { $ref: '#/components/responses/InternalError' }
 
+  /admin/customers/{id}/billing/credit-terms:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
+    patch:
+      tags: [billing]
+      summary: Update a customer's credit terms
+      description: Whether and how far the customer may send without prepaid credit.
+      operationId: update-customer-credit-terms
+      security: [{ OperatorBearer: ['billing:topup'] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreditTermsUpdate' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/BillingCustomer' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
   /admin/customers/{id}/balances:
     parameters: [{ $ref: '#/components/parameters/Id' }]
     get:
@@ -1997,7 +1996,8 @@ paths:
       summary: Read a stored message body
       description: |
         The audit log records the read, `granted`, `unreadable` or `not_found`, before the body is
-        returned. A message without a stored body, or whose key was destroyed, answers 404.
+        returned. An unknown message, a message without a stored body, or one whose key was destroyed
+        answers `not_found`.
       operationId: get-message-content
       security: [{ OperatorBearer: ['content:read'] }]
       responses:
@@ -2007,7 +2007,7 @@ paths:
           content: { application/json: { schema: { $ref: '#/components/schemas/MessageContent' } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/MessageNotFound' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/ValidationError' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
@@ -2039,11 +2039,13 @@ paths:
         concluded by an attestation.
       operationId: gdpr-erase
       security: [{ OperatorBearer: ['gdpr:erase'] }]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/GdprEraseRequest' } } } }
       responses:
         '202': { description: Accepted, content: { application/json: { schema: { $ref: '#/components/schemas/GdprEraseJob' } } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/IdempotencyConflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
@@ -2071,7 +2073,7 @@ paths:
       operationId: list-audit-log
       security: [{ OperatorBearer: ['audit:read'] }]
       parameters:
-        - { name: operator, in: query, description: Exact match., schema: { type: string } }
+        - { name: operator, in: query, description: Exact match., schema: { type: string, maxLength: 200 } }
         - { name: from_date, in: query, description: 'Inclusive lower bound on `at`.', schema: { type: string, format: date-time } }
         - { name: to_date, in: query, description: 'Exclusive upper bound on `at`.', schema: { type: string, format: date-time } }
         - $ref: '#/components/parameters/Cursor'
@@ -2124,7 +2126,9 @@ paths:
     get:
       tags: [cdr]
       summary: Get a message's timeline
-      description: Its transitions, from the state, then the CDR. A `trace_id` is resolved by `search-messages`. Never carries the body.
+      description: |
+        Within 72 hours of acceptance, every transition from the state. Beyond, only each segment's
+        outcome from the CDR. A `trace_id` is resolved by `search-messages`. Never carries the body.
       operationId: get-message-trace
       security: [{ OperatorBearer: ['cdr:read'] }]
       responses:
@@ -2160,9 +2164,9 @@ paths:
       tags: [cdr]
       summary: Export the CDR
       description: |
-        The filters of `search-messages`. Capped at 100,000 rows: beyond, the job fails rather than
-        truncate. Unmasked numbers (`mask_msisdn` false) require `msisdn:reveal`, else `forbidden_scope`.
-        Never carries the body.
+        CSV, with the filters of `search-messages`. Numbers are masked unless the creator held
+        `msisdn:reveal` at creation. A selection over 100,000 rows is refused at creation
+        (`validation_error`). Never carries the body.
       operationId: create-message-export
       security: [{ OperatorBearer: ['cdr:export_bulk'] }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MessageExportRequest' } } } }
@@ -2181,7 +2185,10 @@ paths:
       operationId: get-message-export
       security: [{ OperatorBearer: ['cdr:export_bulk'] }]
       responses:
-        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/ExportJob' } } } }
+        '200':
+          description: OK
+          headers: { Cache-Control: { $ref: '#/components/headers/NoStore' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/ExportJob' } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -2327,7 +2334,7 @@ paths:
     get:
       tags: [jobs]
       summary: Get a job
-      description: Imports, content erasure and partition extension. Exports and GDPR erasures have their own reads.
+      description: Imports, content erasure and partition extension. Export and GDPR erasure jobs are read by their own operations only, and answer `not_found` here.
       operationId: get-job
       security: [{ OperatorBearer: ['jobs:read'] }]
       responses:
@@ -2347,8 +2354,9 @@ components:
       description: |
         Operator token, issued by the dashboard BFF for the signed-in operator and signed ES256. It lives
         5 minutes. The gateway verifies it against the BFF's internal JWKS; an unknown `kid` is refused.
-        `sub` is the operator ID; the scopes are the union of the operator's roles. There is no service
-        account.
+        `sub` is the operator ID, and the scopes the union of the operator's roles; for stream
+        subscriptions `sub` is the BFF's system identity, holding `stream:read` only. There is no other
+        service account.
 
   headers:
     NoStore:
@@ -2396,7 +2404,7 @@ components:
       name: bind_id
       in: path
       required: true
-      schema: { type: string, minLength: 1 }
+      schema: { type: string, minLength: 1, maxLength: 200 }
     JobId:
       name: job_id
       in: path
@@ -2406,18 +2414,18 @@ components:
       name: request_id
       in: path
       required: true
-      schema: { type: string, minLength: 1 }
+      schema: { type: string, minLength: 1, maxLength: 200 }
     Group:
       name: group
       in: path
       required: true
       description: Consumer group whose dead-letter topic is read.
-      schema: { type: string, minLength: 1 }
+      schema: { type: string, minLength: 1, maxLength: 200 }
     Cursor:
       name: cursor
       in: query
-      description: Opaque cursor from a previous page's `next_cursor`.
-      schema: { type: string }
+      description: Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear.
+      schema: { type: string, maxLength: 1024 }
     Limit:
       name: limit
       in: query
@@ -2491,7 +2499,7 @@ components:
             - internal_error
         message:
           type: string
-          description: Human-readable explanation.
+          description: Human-readable explanation. Never a subscriber number or a message body.
         errors:
           type: array
           description: Per-field problems.
@@ -2499,7 +2507,7 @@ components:
             type: object
             properties:
               field: { type: string }
-              message: { type: string }
+              message: { type: string, description: Never a subscriber number or a message body. }
             required: [field, message]
       required: [code, message]
 
@@ -2528,14 +2536,20 @@ components:
 
     Msisdn:
       type: string
-      description: Subscriber number, E.164. In a response, masked unless the caller holds `msisdn:reveal`.
+      description: 'Subscriber number. In a response, masked unless the caller holds `msisdn:reveal`; an unmasked response is audited.'
+      examples: ["+12025550101"]
+
+    MsisdnInput:
+      type: string
+      description: Subscriber number, E.164.
+      pattern: '^\+[1-9][0-9]{1,14}$'
       examples: ["+12025550101"]
 
     MsisdnRequest:
       type: object
       additionalProperties: false
       properties:
-        msisdn: { $ref: '#/components/schemas/Msisdn' }
+        msisdn: { $ref: '#/components/schemas/MsisdnInput' }
       required: [msisdn]
 
     NextCursor:
@@ -2544,13 +2558,10 @@ components:
 
     Direction: { type: string, enum: [mt, mo] }
     TrafficCategory: { type: string, enum: [otp, transactional, marketing] }
-    DataCoding: { type: string, enum: [gsm7, ucs2, binary] }
     Ingress: { type: string, enum: [rest, smpp] }
     ChargeOn: { type: string, enum: [submit, accept, delivery] }
     OwnerType: { type: string, enum: [customer, account] }
     BindType: { type: string, enum: [transmitter, receiver, transceiver] }
-    LinkStatus: { type: string, enum: [up, reconnecting, down, auth_failed] }
-    BreakerState: { type: string, enum: [closed, open, half_open] }
     ContentStorage: { type: string, enum: [off, stored_encrypted] }
     ActiveStatus: { type: string, enum: [active, disabled] }
     CustomerGroupStatus: { type: string, enum: [active, archived] }
@@ -2631,7 +2642,7 @@ components:
       type: object
       properties:
         job_id: { type: string, format: uuid }
-        kind: { type: string, enum: [exact_route_import, suppression_import, content_erase, partition_extension] }
+        kind: { type: string, enum: [exact_route_import, suppression_import, content_erase, partition_extension, message_export, gdpr_erase] }
         status: { $ref: '#/components/schemas/JobStatus' }
         progress: { type: [number, "null"], minimum: 0, maximum: 1 }
         counts:
@@ -2641,7 +2652,7 @@ components:
             processed: { type: integer, minimum: 0 }
             rejected: { type: integer, minimum: 0 }
           required: [processed, rejected]
-        error: { type: [string, "null"], description: Why a failed job failed. }
+        error: { type: [string, "null"], description: Why a failed job failed. Never a subscriber number or a message body. }
         created_at: { type: string, format: date-time }
         finished_at: { type: [string, "null"], format: date-time }
       required: [job_id, kind, status, progress, counts, error, created_at, finished_at]
@@ -2651,7 +2662,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
-        description: { type: [string, "null"] }
+        description: { type: [string, "null"], maxLength: 1000 }
         status: { $ref: '#/components/schemas/CustomerGroupStatus' }
         member_count: { type: integer, minimum: 0 }
         created_by: { $ref: '#/components/schemas/CreatedBy' }
@@ -2662,15 +2673,15 @@ components:
       type: object
       additionalProperties: false
       properties:
-        name: { type: string, minLength: 1 }
-        description: { type: [string, "null"] }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: [string, "null"], maxLength: 1000 }
       required: [name]
     CustomerGroupUpdate:
       type: object
       additionalProperties: false
       properties:
-        name: { type: string, minLength: 1 }
-        description: { type: [string, "null"] }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: [string, "null"], maxLength: 1000 }
         status: { $ref: '#/components/schemas/CustomerGroupStatus' }
     CustomerGroupPage:
       type: object
@@ -2709,7 +2720,7 @@ components:
       type: object
       additionalProperties: false
       properties:
-        name: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1, maxLength: 200 }
         group_id: { type: [string, "null"], format: uuid }
         max_age_override: { $ref: '#/components/schemas/MaxAgeOverride' }
       required: [name]
@@ -2717,7 +2728,7 @@ components:
       type: object
       additionalProperties: false
       properties:
-        name: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1, maxLength: 200 }
         status: { $ref: '#/components/schemas/CustomerStatus' }
         group_id: { type: [string, "null"], format: uuid }
         max_age_override: { $ref: '#/components/schemas/MaxAgeOverride' }
@@ -2837,7 +2848,7 @@ components:
       additionalProperties: false
       properties:
         customer_id: { type: string, format: uuid }
-        name: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1, maxLength: 200 }
         smpp_enabled: { type: boolean, default: true }
         rest_enabled: { type: boolean, default: true }
         query_sm_enabled: { type: boolean, default: true }
@@ -2849,7 +2860,7 @@ components:
       type: object
       additionalProperties: false
       properties:
-        name: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1, maxLength: 200 }
         status: { $ref: '#/components/schemas/AccountStatus' }
     ChannelsUpdate:
       type: object
@@ -2892,6 +2903,13 @@ components:
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
       required: [id, account_id, event_type, url, status, created_at, updated_at]
+    WebhookUrl:
+      type: string
+      format: uri
+      description: An `https` URL without user information. Loopback, private and link-local addresses are refused at send time.
+      maxLength: 2048
+      pattern: '^https://[^/?#@]+([/?#].*)?$'
+      examples: ["https://hooks.example.com/sms"]
     WebhookWithSecret:
       allOf:
         - $ref: '#/components/schemas/Webhook'
@@ -2904,13 +2922,13 @@ components:
       additionalProperties: false
       properties:
         event_type: { type: string, enum: [mo, dlr] }
-        url: { type: string, format: uri, pattern: '^https://', examples: ["https://hooks.example.com/sms"] }
+        url: { $ref: '#/components/schemas/WebhookUrl' }
       required: [event_type, url]
     WebhookUpdate:
       type: object
       additionalProperties: false
       properties:
-        url: { type: string, format: uri, pattern: '^https://' }
+        url: { $ref: '#/components/schemas/WebhookUrl' }
         status: { $ref: '#/components/schemas/ActiveStatus' }
 
     Credential:
@@ -2958,7 +2976,7 @@ components:
       description: SMPP session parameters of a connector, applied at the next bind.
       additionalProperties: false
       properties:
-        vendor_profile: { type: [string, "null"] }
+        vendor_profile: { type: [string, "null"], maxLength: 64 }
         interface_version: { type: integer, enum: [52, 80], default: 52, description: '52 is SMPP 3.4, 80 is SMPP 5.0.' }
         addr_ton: { type: integer, minimum: 0, maximum: 255, default: 0 }
         addr_npi: { type: integer, minimum: 0, maximum: 255, default: 0 }
@@ -2970,7 +2988,7 @@ components:
         esm_class_default: { type: integer, minimum: 0, maximum: 255, default: 0 }
         registered_delivery_default: { type: integer, minimum: 0, maximum: 255, default: 1 }
         priority_flag_default: { type: integer, minimum: 0, maximum: 3, default: 0, description: Sent for a message of effective priority 0. }
-        validity_period_default: { type: [string, "null"] }
+        validity_period_default: { type: [string, "null"], maxLength: 16 }
         enquire_link_interval_sec: { type: integer, minimum: 1, default: 30 }
         enquire_link_max_missed: { type: integer, minimum: 1, default: 3 }
         bind_timeout_ms: { type: integer, minimum: 1, default: 10000 }
@@ -3012,10 +3030,10 @@ components:
       additionalProperties: false
       description: '`smpp_profile` is required for `smpp`, `http_adapter` for `http`.'
       properties:
-        name: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1, maxLength: 200 }
         protocol: { type: string, enum: [smpp, http] }
         smpp_profile: { $ref: '#/components/schemas/SmppProfile' }
-        http_adapter: { type: string, minLength: 1 }
+        http_adapter: { type: string, minLength: 1, maxLength: 64 }
         priority_tier: { type: integer, minimum: 0, maximum: 2, default: 0 }
         reconnect_policy: { $ref: '#/components/schemas/ReconnectPolicy' }
       required: [name, protocol]
@@ -3023,10 +3041,10 @@ components:
       type: object
       additionalProperties: false
       properties:
-        name: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1, maxLength: 200 }
         status: { $ref: '#/components/schemas/ActiveStatus' }
         smpp_profile: { $ref: '#/components/schemas/SmppProfile' }
-        http_adapter: { type: string, minLength: 1 }
+        http_adapter: { type: string, minLength: 1, maxLength: 64 }
         priority_tier: { type: integer, minimum: 0, maximum: 2 }
     ConnectorPage:
       type: object
@@ -3042,7 +3060,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         connector_id: { type: string, format: uuid }
-        endpoint: { type: string, description: '`host:port` for SMPP, base URL for HTTP.' }
+        endpoint: { type: string, description: '`host:port` for SMPP, `https` base URL for HTTP. Loopback, private and link-local addresses are refused at send time.' }
         throughput_limit_per_sec: { type: integer, minimum: 1 }
         max_binds: { type: [integer, "null"], minimum: 1, description: SMPP. }
         max_in_flight: { type: integer, minimum: 1, description: 'Window per bind for SMPP, concurrent requests for HTTP.' }
@@ -3052,7 +3070,7 @@ components:
             - $ref: '#/components/schemas/BindType'
             - type: "null"
         tls_enabled: { type: boolean }
-        tls_server_name: { type: [string, "null"] }
+        tls_server_name: { type: [string, "null"], maxLength: 253 }
         partition: { type: integer, minimum: 0, description: 'Partition of the account on the routed topics, never reassigned.' }
         status: { $ref: '#/components/schemas/ConnectorAccountStatus' }
         created_at: { type: string, format: date-time }
@@ -3061,33 +3079,40 @@ components:
     ConnectorAccountCredentials:
       type: object
       description: Write-only, sealed at rest. Keys depend on the protocol and adapter, such as `system_id` and `password` for SMPP.
+      writeOnly: true
       minProperties: 1
-      additionalProperties: { type: string }
+      maxProperties: 8
+      additionalProperties: { type: string, maxLength: 256 }
     ConnectorAccountCreate:
       type: object
       additionalProperties: false
       properties:
-        endpoint: { type: string, minLength: 1 }
+        endpoint: { type: string, minLength: 1, maxLength: 1024 }
         credentials: { $ref: '#/components/schemas/ConnectorAccountCredentials' }
         throughput_limit_per_sec: { type: integer, minimum: 1 }
         max_binds: { type: [integer, "null"], minimum: 1 }
         max_in_flight: { type: integer, minimum: 1, default: 10 }
         bind_type: { $ref: '#/components/schemas/BindType' }
         tls_enabled: { type: boolean, default: false }
-        tls_server_name: { type: [string, "null"] }
+        tls_server_name: { type: [string, "null"], maxLength: 253 }
       required: [endpoint, credentials, throughput_limit_per_sec]
     ConnectorAccountUpdate:
       type: object
       additionalProperties: false
+      description: Changing `endpoint`, `tls_enabled` or `tls_server_name` requires `credentials` in the same request, else `validation_error`.
+      dependentRequired:
+        endpoint: [credentials]
+        tls_enabled: [credentials]
+        tls_server_name: [credentials]
       properties:
-        endpoint: { type: string, minLength: 1 }
+        endpoint: { type: string, minLength: 1, maxLength: 1024 }
         credentials: { $ref: '#/components/schemas/ConnectorAccountCredentials' }
         throughput_limit_per_sec: { type: integer, minimum: 1 }
         max_binds: { type: [integer, "null"], minimum: 1 }
         max_in_flight: { type: integer, minimum: 1 }
         bind_type: { $ref: '#/components/schemas/BindType' }
         tls_enabled: { type: boolean }
-        tls_server_name: { type: [string, "null"] }
+        tls_server_name: { type: [string, "null"], maxLength: 253 }
         status: { type: string, enum: [active, draining, disabled] }
     ConnectorAccountCreated:
       type: object
@@ -3109,8 +3134,8 @@ components:
         connector_account_id: { type: string, format: uuid }
         holder: { type: [string, "null"], description: Pod holding the lease. }
         epoch: { type: integer, format: int64 }
-        link_status: { $ref: '#/components/schemas/LinkStatus' }
-        breaker_state: { $ref: '#/components/schemas/BreakerState' }
+        link_status: { type: string, enum: [up, reconnecting, down, auth_failed] }
+        breaker_state: { type: string, enum: [closed, open, half_open] }
         in_flight: { type: integer, format: int64, minimum: 0 }
         lag: { type: integer, format: int64, minimum: 0 }
         observed_at: { type: string, format: date-time }
@@ -3123,10 +3148,6 @@ components:
         accounts: { type: array, items: { $ref: '#/components/schemas/ConnectorAccountState' } }
       required: [connector_id, available, accounts]
 
-    TimeWindowOrNull:
-      oneOf:
-        - $ref: '#/components/schemas/TimeWindow'
-        - type: "null"
 
     RouteTarget:
       type: object
@@ -3144,11 +3165,14 @@ components:
         priority: { type: integer, description: Lower is evaluated first. }
         match_account_id: { type: [string, "null"], format: uuid }
         match_customer_id: { type: [string, "null"], format: uuid }
-        match_sender_pattern: { type: [string, "null"] }
+        match_sender_pattern: { type: [string, "null"], maxLength: 1024 }
         match_dest_pattern: { type: [string, "null"], description: Digit prefix of the E.164 destination. }
         match_mccmnc: { type: [string, "null"], pattern: '^[0-9]{5,6}$' }
-        match_content_pattern: { type: [string, "null"] }
-        match_time_window: { $ref: '#/components/schemas/TimeWindowOrNull' }
+        match_content_pattern: { type: [string, "null"], maxLength: 1024, description: RE2 regex. }
+        match_time_window:
+          oneOf:
+            - $ref: '#/components/schemas/TimeWindow'
+            - type: "null"
         distribution_strategy: { $ref: '#/components/schemas/DistributionStrategy' }
         target_connector_id: { type: [string, "null"], format: uuid, description: 'Set for `static`.' }
         targets: { type: array, description: At least two for any other strategy., items: { $ref: '#/components/schemas/RouteTarget' } }
@@ -3161,15 +3185,18 @@ components:
       type: object
       additionalProperties: false
       properties:
-        name: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1, maxLength: 200 }
         priority: { type: integer, default: 100 }
         match_account_id: { type: [string, "null"], format: uuid }
         match_customer_id: { type: [string, "null"], format: uuid }
-        match_sender_pattern: { type: [string, "null"] }
-        match_dest_pattern: { type: [string, "null"] }
+        match_sender_pattern: { type: [string, "null"], maxLength: 1024 }
+        match_dest_pattern: { type: [string, "null"], maxLength: 1024 }
         match_mccmnc: { type: [string, "null"], pattern: '^[0-9]{5,6}$' }
-        match_content_pattern: { type: [string, "null"] }
-        match_time_window: { $ref: '#/components/schemas/TimeWindowOrNull' }
+        match_content_pattern: { type: [string, "null"], maxLength: 1024, description: RE2 regex. }
+        match_time_window:
+          oneOf:
+            - $ref: '#/components/schemas/TimeWindow'
+            - type: "null"
         distribution_strategy: { $ref: '#/components/schemas/DistributionStrategy' }
         target_connector_id: { type: [string, "null"], format: uuid }
         targets: { type: array, items: { $ref: '#/components/schemas/RouteTarget' } }
@@ -3179,15 +3206,18 @@ components:
       type: object
       additionalProperties: false
       properties:
-        name: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1, maxLength: 200 }
         priority: { type: integer }
         match_account_id: { type: [string, "null"], format: uuid }
         match_customer_id: { type: [string, "null"], format: uuid }
-        match_sender_pattern: { type: [string, "null"] }
-        match_dest_pattern: { type: [string, "null"] }
+        match_sender_pattern: { type: [string, "null"], maxLength: 1024 }
+        match_dest_pattern: { type: [string, "null"], maxLength: 1024 }
         match_mccmnc: { type: [string, "null"], pattern: '^[0-9]{5,6}$' }
-        match_content_pattern: { type: [string, "null"] }
-        match_time_window: { $ref: '#/components/schemas/TimeWindowOrNull' }
+        match_content_pattern: { type: [string, "null"], maxLength: 1024, description: RE2 regex. }
+        match_time_window:
+          oneOf:
+            - $ref: '#/components/schemas/TimeWindow'
+            - type: "null"
         distribution_strategy: { $ref: '#/components/schemas/DistributionStrategy' }
         target_connector_id: { type: [string, "null"], format: uuid }
         targets: { type: array, items: { $ref: '#/components/schemas/RouteTarget' } }
@@ -3221,7 +3251,7 @@ components:
       type: object
       additionalProperties: false
       properties:
-        msisdn: { $ref: '#/components/schemas/Msisdn' }
+        msisdn: { $ref: '#/components/schemas/MsisdnInput' }
         target_type: { $ref: '#/components/schemas/ExactRouteTargetType' }
         target_id: { type: string, format: uuid }
         source:
@@ -3232,17 +3262,11 @@ components:
       type: object
       additionalProperties: false
       properties:
-        msisdn: { $ref: '#/components/schemas/Msisdn' }
+        msisdn: { $ref: '#/components/schemas/MsisdnInput' }
         target_type: { $ref: '#/components/schemas/ExactRouteTargetType' }
         target_id: { type: string, format: uuid }
         source: { $ref: '#/components/schemas/ExactRouteSource' }
       required: [msisdn]
-    ExactRoutePage:
-      type: object
-      properties:
-        data: { type: array, items: { $ref: '#/components/schemas/ExactRoute' } }
-        next_cursor: { $ref: '#/components/schemas/NextCursor' }
-      required: [data, next_cursor]
 
     ScriptStatus: { type: string, enum: [draft, active, disabled] }
     RoutingScript:
@@ -3267,16 +3291,16 @@ components:
       properties:
         scope: { $ref: '#/components/schemas/ScriptScope' }
         scope_id: { type: [string, "null"], format: uuid }
-        name: { type: string, minLength: 1 }
-        source_code: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        source_code: { type: string, minLength: 1, maxLength: 262144 }
         timeout_ms: { type: integer, minimum: 1, maximum: 20, default: 2 }
       required: [scope, name, source_code]
     RoutingScriptUpdate:
       type: object
       additionalProperties: false
       properties:
-        name: { type: string, minLength: 1 }
-        source_code: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        source_code: { type: string, minLength: 1, maxLength: 262144 }
         timeout_ms: { type: integer, minimum: 1, maximum: 20 }
     ScriptAssign:
       type: object
@@ -3313,9 +3337,9 @@ components:
           type: object
           additionalProperties: false
           properties:
-            source_addr: { type: string }
-            dest_addr: { $ref: '#/components/schemas/Msisdn' }
-            content: { type: string, description: 'Sample text, never stored.' }
+            source_addr: { type: string, maxLength: 20 }
+            dest_addr: { $ref: '#/components/schemas/MsisdnInput' }
+            content: { type: string, maxLength: 2000, description: 'Sample text, never stored.' }
             account_id: { type: [string, "null"], format: uuid }
             customer_id: { type: [string, "null"], format: uuid }
           required: [source_addr, dest_addr, content]
@@ -3327,7 +3351,7 @@ components:
         took_ms: { type: number }
         timed_out: { type: boolean }
         error: { type: [string, "null"] }
-        logs: { type: array, items: { type: string } }
+        logs: { type: array, maxItems: 100, items: { type: string, maxLength: 1024 } }
       required: [route_id, took_ms, timed_out, error, logs]
     ScriptVersion:
       type: object
@@ -3378,7 +3402,7 @@ components:
         rule_type: { $ref: '#/components/schemas/AntispamRuleType' }
         scope: { $ref: '#/components/schemas/AntispamScope' }
         scope_id: { type: [string, "null"], format: uuid }
-        config_json: { type: object, additionalProperties: true }
+        config_json: { type: object, maxProperties: 32, additionalProperties: true }
         action: { $ref: '#/components/schemas/AntispamVerdict' }
         status: { $ref: '#/components/schemas/ActiveStatus' }
         created_at: { type: string, format: date-time }
@@ -3393,9 +3417,10 @@ components:
         scope_id: { type: [string, "null"], format: uuid }
         config_json:
           type: object
+          maxProperties: 32
           additionalProperties: true
           description: |
-            Per rule type. `category_mismatch`, every field optional: `otp_code_min_digits` (4) and
+            Per rule type; a pattern is RE2, at most 1024 characters. `category_mismatch`, every field optional: `otp_code_min_digits` (4) and
             `otp_code_max_digits` (8, at most 32) bound the code an otp message must carry;
             `otp_max_length` (160) bounds its body, which holds no link; `promo_markers` ([]) are the
             case-insensitive words a transactional message must not contain.
@@ -3407,7 +3432,7 @@ components:
       type: object
       additionalProperties: false
       properties:
-        config_json: { type: object, additionalProperties: true }
+        config_json: { type: object, maxProperties: 32, additionalProperties: true }
         action: { $ref: '#/components/schemas/AntispamVerdict' }
         status: { $ref: '#/components/schemas/ActiveStatus' }
     AntispamRulePage:
@@ -3425,7 +3450,7 @@ components:
         scope_id: { type: [string, "null"], format: uuid }
         msisdn: { $ref: '#/components/schemas/Msisdn' }
         source: { $ref: '#/components/schemas/SuppressionSource' }
-        reason: { type: [string, "null"] }
+        reason: { type: [string, "null"], maxLength: 1000 }
         created_at: { type: string, format: date-time }
       required: [id, scope, scope_id, msisdn, source, reason, created_at]
     SuppressionCreate:
@@ -3434,9 +3459,9 @@ components:
       properties:
         scope: { $ref: '#/components/schemas/SuppressionScope' }
         scope_id: { type: [string, "null"], format: uuid }
-        msisdn: { $ref: '#/components/schemas/Msisdn' }
+        msisdn: { $ref: '#/components/schemas/MsisdnInput' }
         source: { $ref: '#/components/schemas/SuppressionSource' }
-        reason: { type: [string, "null"] }
+        reason: { type: [string, "null"], maxLength: 1000 }
       required: [scope, msisdn, source]
     SuppressionSearch:
       type: object
@@ -3444,7 +3469,7 @@ components:
       properties:
         scope: { $ref: '#/components/schemas/SuppressionScope' }
         scope_id: { type: string, format: uuid }
-        msisdn: { $ref: '#/components/schemas/Msisdn' }
+        msisdn: { $ref: '#/components/schemas/MsisdnInput' }
     SuppressionImport:
       type: object
       additionalProperties: false
@@ -3452,14 +3477,14 @@ components:
         scope: { $ref: '#/components/schemas/SuppressionScope' }
         scope_id: { type: [string, "null"], format: uuid }
         source: { $ref: '#/components/schemas/SuppressionSource' }
-        msisdns: { type: array, minItems: 1, items: { $ref: '#/components/schemas/Msisdn' } }
+        msisdns: { type: array, minItems: 1, items: { $ref: '#/components/schemas/MsisdnInput' } }
       required: [scope, source, msisdns]
     SuppressionCheck:
       type: object
       additionalProperties: false
       properties:
-        msisdn: { $ref: '#/components/schemas/Msisdn' }
-        sender_addr: { type: [string, "null"] }
+        msisdn: { $ref: '#/components/schemas/MsisdnInput' }
+        sender_addr: { type: [string, "null"], maxLength: 20 }
         account_id: { type: [string, "null"], format: uuid }
       required: [msisdn]
     SuppressionCheckResult:
@@ -3495,14 +3520,14 @@ components:
       type: object
       additionalProperties: false
       properties:
-        keyword: { type: string, minLength: 1 }
+        keyword: { type: string, minLength: 1, maxLength: 64 }
         match_type: { type: string, enum: [exact, prefix], default: exact }
       required: [keyword]
     OptOutKeywordUpdate:
       type: object
       additionalProperties: false
       properties:
-        keyword: { type: string, minLength: 1 }
+        keyword: { type: string, minLength: 1, maxLength: 64 }
         match_type: { type: string, enum: [exact, prefix] }
         status: { $ref: '#/components/schemas/ActiveStatus' }
     OptOutKeywordPage:
@@ -3530,7 +3555,7 @@ components:
       type: object
       additionalProperties: false
       properties:
-        address: { type: string, minLength: 1 }
+        address: { type: string, minLength: 1, maxLength: 20 }
         number_type: { type: string, enum: [shortcode, longcode, alphanumeric] }
         mccmnc: { type: [string, "null"], pattern: '^[0-9]{5,6}$' }
         connector_id: { type: [string, "null"], format: uuid }
@@ -3564,7 +3589,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         inbound_number_id: { type: string, format: uuid }
-        keyword: { type: string }
+        keyword: { type: string, description: 'RE2 regex when `match_type` is `regex`.' }
         match_type: { type: string, enum: [exact, prefix, regex] }
         account_id: { type: string, format: uuid }
         priority: { type: integer }
@@ -3574,7 +3599,7 @@ components:
       type: object
       additionalProperties: false
       properties:
-        keyword: { type: string, minLength: 1 }
+        keyword: { type: string, minLength: 1, maxLength: 1024, description: 'RE2 regex when `match_type` is `regex`.' }
         match_type: { type: string, enum: [exact, prefix, regex], default: prefix }
         account_id: { type: string, format: uuid }
         priority: { type: integer, default: 0 }
@@ -3583,7 +3608,7 @@ components:
       type: object
       additionalProperties: false
       properties:
-        keyword: { type: string, minLength: 1 }
+        keyword: { type: string, minLength: 1, maxLength: 1024 }
         match_type: { type: string, enum: [exact, prefix, regex] }
         account_id: { type: string, format: uuid }
         priority: { type: integer }
@@ -3617,15 +3642,15 @@ components:
         id: { type: string, format: uuid }
         scope: { $ref: '#/components/schemas/RewriteScope' }
         scope_id: { type: [string, "null"], format: uuid }
-        match_sender_pattern: { type: [string, "null"], description: RE2 regex on the whole submitted sender; null matches any. }
-        match_dest_pattern: { type: [string, "null"], description: 'RE2 regex on the whole destination, digits only; null matches any.' }
+        match_sender_pattern: { type: [string, "null"], maxLength: 1024, description: 'RE2 regex on the whole submitted sender; null matches any.' }
+        match_dest_pattern: { type: [string, "null"], maxLength: 1024, description: 'RE2 regex on the whole destination, digits only; null matches any.' }
         rewrite_type: { $ref: '#/components/schemas/RewriteType' }
         rewrite_to: { type: [string, "null"], maxLength: 20, description: 'Set for `static`.' }
         fallback_pool_json: { type: [array, "null"], items: { type: string, maxLength: 20 }, description: 'Set for `fallback_pool`; the sender is picked by hashing the message ID.' }
         max_length: { type: [integer, "null"], minimum: 1, description: 'Set for `truncate`.' }
-        sanitize_charset_json: { type: [object, "null"], additionalProperties: true, description: 'For `sanitize`: `{"allowed": "<characters kept>"}`; null keeps ASCII letters and digits.' }
+        sanitize_charset_json: { type: [object, "null"], maxProperties: 1, additionalProperties: { type: string, maxLength: 1024 }, description: 'For `sanitize`: `{"allowed": "<characters kept>"}`; null keeps ASCII letters and digits.' }
         priority: { type: integer, description: Lower is evaluated first within a scope. }
-        reason: { type: [string, "null"] }
+        reason: { type: [string, "null"], maxLength: 1000 }
         status: { $ref: '#/components/schemas/ActiveStatus' }
         created_by: { $ref: '#/components/schemas/CreatedBy' }
         created_at: { type: string, format: date-time }
@@ -3637,36 +3662,36 @@ components:
       properties:
         scope: { $ref: '#/components/schemas/RewriteScope' }
         scope_id: { type: [string, "null"], format: uuid }
-        match_sender_pattern: { type: [string, "null"] }
-        match_dest_pattern: { type: [string, "null"] }
+        match_sender_pattern: { type: [string, "null"], maxLength: 1024 }
+        match_dest_pattern: { type: [string, "null"], maxLength: 1024 }
         rewrite_type: { $ref: '#/components/schemas/RewriteType' }
         rewrite_to: { type: [string, "null"], maxLength: 20 }
         fallback_pool_json: { type: [array, "null"], minItems: 1, items: { type: string, maxLength: 20 } }
         max_length: { type: [integer, "null"], minimum: 1 }
-        sanitize_charset_json: { type: [object, "null"], additionalProperties: true }
+        sanitize_charset_json: { type: [object, "null"], maxProperties: 1, additionalProperties: { type: string, maxLength: 1024 } }
         priority: { type: integer, default: 100 }
-        reason: { type: [string, "null"] }
+        reason: { type: [string, "null"], maxLength: 1000 }
       required: [scope, rewrite_type]
     SenderRewriteRuleUpdate:
       type: object
       additionalProperties: false
       properties:
-        match_sender_pattern: { type: [string, "null"] }
-        match_dest_pattern: { type: [string, "null"] }
+        match_sender_pattern: { type: [string, "null"], maxLength: 1024 }
+        match_dest_pattern: { type: [string, "null"], maxLength: 1024 }
         rewrite_type: { $ref: '#/components/schemas/RewriteType' }
         rewrite_to: { type: [string, "null"], maxLength: 20 }
         fallback_pool_json: { type: [array, "null"], minItems: 1, items: { type: string, maxLength: 20 } }
         max_length: { type: [integer, "null"], minimum: 1 }
-        sanitize_charset_json: { type: [object, "null"], additionalProperties: true }
+        sanitize_charset_json: { type: [object, "null"], maxProperties: 1, additionalProperties: { type: string, maxLength: 1024 } }
         priority: { type: integer }
-        reason: { type: [string, "null"] }
+        reason: { type: [string, "null"], maxLength: 1000 }
         status: { $ref: '#/components/schemas/ActiveStatus' }
     RewriteTestRequest:
       type: object
       additionalProperties: false
       properties:
-        source_addr: { type: string, description: The sender as submitted. }
-        dest_addr: { $ref: '#/components/schemas/Msisdn' }
+        source_addr: { type: string, maxLength: 20, description: The sender as submitted. }
+        dest_addr: { $ref: '#/components/schemas/MsisdnInput' }
         message_id: { type: string, format: uuid, description: 'Picks the `fallback_pool` sender as for that message; absent, the nil UUID.' }
       required: [source_addr, dest_addr]
     RewriteTestResult:
@@ -3705,15 +3730,19 @@ components:
       type: object
       additionalProperties: false
       properties:
+        charge_on: { $ref: '#/components/schemas/ChargeOn' }
+        rate_plan_id: { type: [string, "null"], format: uuid }
+        mo_billing_floor: { type: [integer, "null"] }
+    CreditTermsUpdate:
+      type: object
+      additionalProperties: false
+      properties:
         billing_enabled: { type: boolean }
         billing_mode: { type: string, enum: [prepaid, postpaid] }
         overdraft_enabled: { type: boolean }
         overdraft_limit: { type: [integer, "null"], minimum: 0 }
         credit_limit: { type: [integer, "null"], minimum: 0 }
         credit_limit_is_hard: { type: boolean }
-        charge_on: { $ref: '#/components/schemas/ChargeOn' }
-        rate_plan_id: { type: [string, "null"], format: uuid }
-        mo_billing_floor: { type: [integer, "null"] }
     BalanceScopeChange:
       type: object
       additionalProperties: false
@@ -3804,7 +3833,7 @@ components:
       type: object
       additionalProperties: false
       properties:
-        name: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1, maxLength: 200 }
         credits_per_segment_mt_json: { type: object, additionalProperties: true }
         credits_per_segment_mo_json: { type: object, additionalProperties: true }
         billing_mode: { type: string, enum: [prepaid, postpaid, either], default: either }
@@ -3813,7 +3842,7 @@ components:
       type: object
       additionalProperties: false
       properties:
-        name: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1, maxLength: 200 }
         credits_per_segment_mt_json: { type: object, additionalProperties: true }
         credits_per_segment_mo_json: { type: object, additionalProperties: true }
         billing_mode: { type: string, enum: [prepaid, postpaid, either] }
@@ -3843,7 +3872,10 @@ components:
       properties:
         content_storage: { $ref: '#/components/schemas/ContentStorage' }
         content_retention_days: { type: integer, minimum: 1 }
-        quiet_hours: { $ref: '#/components/schemas/TimeWindowOrNull' }
+        quiet_hours:
+          oneOf:
+            - $ref: '#/components/schemas/TimeWindow'
+            - type: "null"
         billing_enabled: { type: boolean }
 
     MessageContent:
@@ -3851,7 +3883,7 @@ components:
       description: Exactly one of `text` and `octets` is set.
       properties:
         message_id: { type: string, format: uuid }
-        data_coding: { $ref: '#/components/schemas/DataCoding' }
+        data_coding: { type: string, enum: [gsm7, ucs2, binary] }
         text: { type: [string, "null"], description: 'Body when `data_coding` is gsm7 or ucs2.' }
         octets: { type: [string, "null"], contentEncoding: base64, description: 'Body when `data_coding` is binary.' }
       required: [message_id, data_coding, text, octets]
@@ -3863,30 +3895,41 @@ components:
       properties:
         subject_type: { type: string, enum: [customer, msisdn] }
         customer_id: { type: string, format: uuid }
-        msisdn: { $ref: '#/components/schemas/Msisdn' }
+        msisdn: { $ref: '#/components/schemas/MsisdnInput' }
       required: [subject_type]
-    GdprEraseJob:
+      oneOf:
+        - properties: { subject_type: { const: customer } }
+          required: [customer_id]
+          not: { required: [msisdn] }
+        - properties: { subject_type: { const: msisdn } }
+          required: [msisdn]
+          not: { required: [customer_id] }
+    GdprSubject:
       type: object
       properties:
-        job_id: { type: string, format: uuid }
         subject_type: { type: string, enum: [customer, msisdn] }
         customer_id: { type: [string, "null"], format: uuid }
         msisdn:
           oneOf:
             - $ref: '#/components/schemas/Msisdn'
             - type: "null"
-        status: { $ref: '#/components/schemas/JobStatus' }
-        attestation:
-          description: Set once completed.
-          oneOf:
-            - $ref: '#/components/schemas/Attestation'
-            - type: "null"
-        created_at: { type: string, format: date-time }
-        finished_at: { type: [string, "null"], format: date-time }
-      required: [job_id, subject_type, customer_id, msisdn, status, attestation, created_at, finished_at]
+      required: [subject_type, customer_id, msisdn]
+    GdprEraseJob:
+      allOf:
+        - $ref: '#/components/schemas/Job'
+        - $ref: '#/components/schemas/GdprSubject'
+        - type: object
+          properties:
+            attestation:
+              description: Set once completed.
+              oneOf:
+                - $ref: '#/components/schemas/Attestation'
+                - type: "null"
+          required: [attestation]
     Attestation:
       type: object
       properties:
+        subject: { $ref: '#/components/schemas/GdprSubject' }
         steps:
           type: array
           description: What was erased, in order, each verified after mutation.
@@ -3905,7 +3948,7 @@ components:
               data: { type: string, examples: [audit log] }
               retention: { type: string, examples: [365 days] }
             required: [data, retention]
-      required: [steps, exclusions]
+      required: [subject, steps, exclusions]
 
     AuditEntry:
       type: object
@@ -3915,11 +3958,10 @@ components:
         operation_id: { type: string }
         target: { type: string, description: 'A subscriber number in it is masked unless the caller holds `msisdn:reveal`.' }
         request_id: { type: [string, "null"] }
-        status: { type: [integer, "null"], description: HTTP status; null while the outcome is not recorded. }
+        status: { type: integer, description: HTTP status. }
         outcome: { type: [string, "null"], description: 'For a body read: `granted`, `unreadable` or `not_found`.' }
-        at: { type: string, format: date-time }
-        finished_at: { type: [string, "null"], format: date-time }
-      required: [id, operator, operation_id, target, request_id, status, outcome, at, finished_at]
+        at: { type: string, format: date-time, description: When the outcome was recorded; an entry is written once. }
+      required: [id, operator, operation_id, target, request_id, status, outcome, at]
     AuditEntryPage:
       type: object
       properties:
@@ -3944,14 +3986,6 @@ components:
         next_cursor: { $ref: '#/components/schemas/NextCursor' }
       required: [data, next_cursor]
 
-    ErrorCodeOrNull:
-      oneOf:
-        - $ref: '#/components/schemas/ErrorCode'
-        - type: "null"
-    AntispamVerdictOrNull:
-      oneOf:
-        - $ref: '#/components/schemas/AntispamVerdict'
-        - type: "null"
 
     MessageDetail:
       type: object
@@ -3974,8 +4008,14 @@ components:
             - $ref: '#/components/schemas/TrafficCategory'
             - type: "null"
         route_id: { type: [string, "null"], format: uuid }
-        error_code: { $ref: '#/components/schemas/ErrorCodeOrNull' }
-        antispam_verdict: { $ref: '#/components/schemas/AntispamVerdictOrNull' }
+        error_code:
+          oneOf:
+            - $ref: '#/components/schemas/ErrorCode'
+            - type: "null"
+        antispam_verdict:
+          oneOf:
+            - $ref: '#/components/schemas/AntispamVerdict'
+            - type: "null"
         antispam_rule_id: { type: [string, "null"], format: uuid }
         segments: { type: array, description: Empty until routed., items: { $ref: '#/components/schemas/SegmentState' } }
         source:
@@ -3993,7 +4033,10 @@ components:
         connector_account_id: { type: [string, "null"], format: uuid }
         remote_id: { type: [string, "null"], description: The carrier's message ID. }
         sent_source_addr: { type: [string, "null"], description: 'The sender as sent, after rewriting.' }
-        error_code: { $ref: '#/components/schemas/ErrorCodeOrNull' }
+        error_code:
+          oneOf:
+            - $ref: '#/components/schemas/ErrorCode'
+            - type: "null"
         raw_dlr_status: { type: [string, "null"] }
         credits: { type: integer, format: int64 }
         charge_on:
@@ -4008,6 +4051,7 @@ components:
         trace_id: { type: string, format: uuid }
         transitions:
           type: array
+          description: 'From `state`: every transition. From `history`: one outcome per segment.'
           items:
             type: object
             properties:
@@ -4036,7 +4080,7 @@ components:
         error_code: { $ref: '#/components/schemas/ErrorCode' }
         antispam_verdict: { $ref: '#/components/schemas/AntispamVerdict' }
         msisdn:
-          $ref: '#/components/schemas/Msisdn'
+          $ref: '#/components/schemas/MsisdnInput'
           description: Exact match on either address, never a prefix.
         from_date: { type: string, format: date-time }
         to_date: { type: string, format: date-time }
@@ -4067,8 +4111,14 @@ components:
         connector_account_id: { type: [string, "null"], format: uuid }
         route_id: { type: [string, "null"], format: uuid }
         status: { $ref: '#/components/schemas/MessageStatus' }
-        error_code: { $ref: '#/components/schemas/ErrorCodeOrNull' }
-        antispam_verdict: { $ref: '#/components/schemas/AntispamVerdictOrNull' }
+        error_code:
+          oneOf:
+            - $ref: '#/components/schemas/ErrorCode'
+            - type: "null"
+        antispam_verdict:
+          oneOf:
+            - $ref: '#/components/schemas/AntispamVerdict'
+            - type: "null"
         credits: { type: integer, format: int64 }
         charge_on:
           oneOf:
@@ -4090,20 +4140,16 @@ components:
       additionalProperties: false
       properties:
         filters: { $ref: '#/components/schemas/MessageSearch' }
-        format: { type: string, enum: [csv, jsonl], default: csv }
-        mask_msisdn: { type: boolean, default: true }
       required: [filters]
     ExportJob:
-      type: object
-      properties:
-        job_id: { type: string, format: uuid }
-        status: { $ref: '#/components/schemas/JobStatus' }
-        row_count: { type: [integer, "null"], minimum: 0 }
-        download_url: { type: [string, "null"], format: uri, description: 'Set once completed; expires at `expires_at`.' }
-        expires_at: { type: [string, "null"], format: date-time }
-        error: { type: [string, "null"], description: Why a failed job failed. }
-        created_at: { type: string, format: date-time }
-      required: [job_id, status, row_count, download_url, expires_at, error, created_at]
+      allOf:
+        - $ref: '#/components/schemas/Job'
+        - type: object
+          properties:
+            row_count: { type: [integer, "null"], minimum: 0 }
+            download_url: { type: [string, "null"], format: uri, description: 'Set once completed; expires at `expires_at`.' }
+            expires_at: { type: [string, "null"], format: date-time }
+          required: [row_count, download_url, expires_at]
 
     MetricsSummary:
       type: object
@@ -4199,7 +4245,7 @@ components:
       properties:
         partition: { type: integer, minimum: 0 }
         offset: { type: integer, format: int64, minimum: 0 }
-        dlq_reason: { type: string }
+        dlq_reason: { type: string, description: Never a subscriber number or a message body. }
         dlq_at: { type: string, format: date-time }
         source_topic: { type: string }
         source_partition: { type: integer, minimum: 0 }
