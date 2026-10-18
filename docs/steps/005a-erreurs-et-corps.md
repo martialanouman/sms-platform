@@ -7,8 +7,7 @@ Plan : `docs/plan/socle.md` §005, première des cinq PR. Spec : `docs/spec/09-c
 
 Portées de `go-gateway` (`internal/platform/errors`, `internal/platform/msg`) et adaptées à la spec. Le
 catalogue de go-gateway suit l'ancien guide (`external_billing_unavailable`, statut SMPP propriétaire de
-`insufficient_credit`, `Retryable`) ; la table §9.3 fait foi désormais. Les `enum` des trois contrats sont
-déjà gardés contre §9.3 par `make openapi` (004c).
+`insufficient_credit`, `Retryable`) ; la table §9.3 fait foi désormais.
 
 **Terminé quand** (part de 005a) : le catalogue et le corps ont leurs tests ; la correspondance avec §9.3
 et la garde de `Reveal` ont été prouvées par une mutation.
@@ -30,13 +29,17 @@ La spec tranche le contenu ; ce qui reste est de la forme :
 - **Abandonné de go-gateway** : `Retryable` (la spec n'en dit rien), le statut propriétaire de
   `insufficient_credit` (« — » au §9.3), le mapping inverse SMPP → code (au connecteur), les adaptateurs
   huma et gRPC (avec leurs composants), `Len`, `IsEmpty`, `NewBodyString`.
-- **Corps** : `msg.Body` (`internal/platform/msg`), champ non exporté. `Format` ferme la famille `fmt`
-  pour tous les verbes, struct englobante comprise. `encoding/json` et `log/slog` n'en voient rien
-  (aucun champ exporté, et `slog` texte passe par `fmt`) : aucune méthode de plus. `String` est retiré :
-  aucun consommateur ne le prouve ici ; un attribut de span se teste avec OpenTelemetry (005b).
-- **Garde de `Reveal`** : `forbidigo` (golangci-lint, `analyze-types`) refuse tout appel à
-  `msg.Body.Reveal`. Chaque appel admis est une exclusion de `.golangci.yml` qui nomme son fichier et sa
-  raison : l'audit. Seule exclusion aujourd'hui, le test du paquet.
+- **Corps** : `msg.Body` (`internal/platform/msg`) ne garde qu'un pointeur non exporté vers le clair :
+  `fmt` (et `slog` texte, qui passe par lui) rend un pointeur imbriqué par son adresse, jamais son
+  contenu, champ non exporté d'une struct compris ; `encoding/json` et `slog` JSON ne voient aucun champ
+  exporté. Aucune méthode de rendu.
+- **Garde de `Reveal`** : le clair sort par une fonction, `msg.Reveal(b)`, que `forbidigo` (golangci-lint,
+  `analyze-types`) refuse partout. Une fonction ne se promeut pas par embedding et ne passe pas par une
+  interface, contrairement à une méthode. Chaque appel admis est une exclusion de `.golangci.yml` qui
+  nomme son fichier et sa raison : l'audit. Seule exclusion aujourd'hui, le test du paquet.
+- **Revue, premier tour** : `Format` et une méthode `Reveal` laissaient fuir le clair d'un champ non
+  exporté (`fmt` y descend par réflexion) et contourner la garde par embedding ; d'où le pointeur et la
+  fonction. « — » se lit valeur par valeur. Les replis de `HTTP` et `SMPP` sont des littéraux.
 
 ## Design arrêté
 
@@ -44,9 +47,10 @@ La spec tranche le contenu ; ce qui reste est de la forme :
   remplace `SpecCodes` ; `tools/openapi` en tire les codes.
 - `internal/platform/errors` : `Code`, sentinelles `Err…` de tous les codes de §9.3, statuts SMPP
   nommés, `HTTP(error) (Code, int)`, `SMPP(error) uint32`.
-- `internal/platform/msg` : `Body`, `NewBody([]byte)`, `Reveal() []byte`, `Format`.
-- `.golangci.yml` : `forbidigo` activé, `analyze-types`, motif `msg.Body.Reveal` du paquet, exclusion du
+- `internal/platform/msg` : `Body`, `NewBody([]byte) Body`, `Reveal(Body) []byte`.
+- `.golangci.yml` : `forbidigo` activé, `analyze-types`, motif `msg.Reveal` du paquet, exclusion du
   test du paquet.
 - Vérification du critère : catalogue et §9.3 mutés tour à tour (code, HTTP, SMPP) rouges ; un appel à
-  `Reveal` hors exclusion rend `make lint` rouge ; aucune sortie `fmt`, `slog` (texte, JSON),
-  ni `encoding/json` ne contient le clair.
+  `Reveal` hors exclusion, direct, par valeur de fonction ou par un type qui embarque `Body`, rend
+  `make lint` rouge ; aucune sortie `fmt`, `slog` (texte, JSON) ni `encoding/json` ne contient le clair,
+  `Body` nu, en champ exporté ou non exporté.
