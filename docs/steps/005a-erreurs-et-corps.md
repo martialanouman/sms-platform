@@ -31,9 +31,9 @@ La spec tranche le contenu ; ce qui reste est de la forme :
   `insufficient_credit` (« — » au §9.3), le mapping inverse SMPP → code (au connecteur), les adaptateurs
   huma et gRPC (avec leurs composants), `Len`, `IsEmpty`, `NewBodyString`.
 - **Corps** : `msg.Body` (`internal/platform/msg`), champ non exporté. `Format` ferme la famille `fmt`
-  pour tous les verbes, struct englobante comprise ; `String` sert les consommateurs qui prennent un
-  `fmt.Stringer` sans passer par `fmt`. `encoding/json` et `log/slog` n'en voient rien (aucun champ
-  exporté, et `slog` texte passe par `fmt`) : aucune méthode de plus.
+  pour tous les verbes, struct englobante comprise. `encoding/json` et `log/slog` n'en voient rien
+  (aucun champ exporté, et `slog` texte passe par `fmt`) : aucune méthode de plus. `String` est retiré :
+  aucun consommateur ne le prouve ici ; un attribut de span se teste avec OpenTelemetry (005b).
 - **Garde de `Reveal`** : `forbidigo` (golangci-lint, `analyze-types`) refuse tout appel à
   `msg.Body.Reveal`. Chaque appel admis est une exclusion de `.golangci.yml` qui nomme son fichier et sa
   raison : l'audit. Seule exclusion aujourd'hui, le test du paquet.
@@ -44,9 +44,9 @@ La spec tranche le contenu ; ce qui reste est de la forme :
   remplace `SpecCodes` ; `tools/openapi` en tire les codes.
 - `internal/platform/errors` : `Code`, sentinelles `Err…` de tous les codes de §9.3, statuts SMPP
   nommés, `HTTP(error) (Code, int)`, `SMPP(error) uint32`.
-- `internal/platform/msg` : `Body`, `NewBody([]byte)`, `Reveal() []byte`, `Format`, `String`.
+- `internal/platform/msg` : `Body`, `NewBody([]byte)`, `Reveal() []byte`, `Format`.
 - `.golangci.yml` : `forbidigo` activé, `analyze-types`, motif `msg.Body.Reveal` du paquet, exclusion du
   test du paquet.
 - Vérification du critère : catalogue et §9.3 mutés tour à tour (code, HTTP, SMPP) rouges ; un appel à
   `Reveal` hors exclusion rend `make lint` rouge ; aucune sortie `fmt`, `slog` (texte, JSON),
-  `encoding/json` ni `String` ne contient le clair.
+  ni `encoding/json` ne contient le clair.
