@@ -112,7 +112,7 @@ type DlrRouted struct {
 	OccurredAt    *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`     // décision 2 §3.1
 	SourceAddr    string                 `protobuf:"bytes,9,opt,name=source_addr,json=sourceAddr,proto3" json:"source_addr,omitempty"`     // spec 04 §4.4.1, accusé deliver_sm au client : adresse soumise, posée à la corrélation
 	DestAddr      string                 `protobuf:"bytes,10,opt,name=dest_addr,json=destAddr,proto3" json:"dest_addr,omitempty"`          // spec 04 §4.4.1, idem
-	SubmittedAt   *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=submitted_at,json=submittedAt,proto3" json:"submitted_at,omitempty"` // spec 04 §4.4.1, « submit date » de l'accusé deliver_sm
+	SubmittedAt   *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=submitted_at,json=submittedAt,proto3" json:"submitted_at,omitempty"` // spec 04 §4.4.1, « submit date » de l'accusé : heure de accepted, relevée à la corrélation
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

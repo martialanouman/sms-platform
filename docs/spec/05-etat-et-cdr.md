@@ -103,7 +103,7 @@ Sous `gdpr:erase`, job asynchrone, audité, irréversible, conclu par une **atte
 | `audit_log`, `audit_changes` | Leur rétention | Imputabilité ; immuables |
 | Opt-out | Sans expiration | L'effacer ré-exposerait la personne |
 | Corps et MSISDN en transit (Kafka, garages) | ≤ 96 h après la demande | Rétention bornée des topics (§2.4) |
-| Journal d'état | ≤ 72 h | Partitions purgées ; il porte les adresses (`attrs` de `accepted`, `received`) |
+| Journal d'état | ≤ 72 h | Partitions purgées ; il porte les adresses (`attrs` de `accepted`, `received`, et l'adresse émise après réécriture) |
 | Archives Parquet | Politique de l'exploitant | Hors plateforme |
 
 L'attestation énumère ces exclusions et leur durée.

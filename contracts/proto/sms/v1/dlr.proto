@@ -26,5 +26,5 @@ message DlrRouted {
   google.protobuf.Timestamp occurred_at = 8; // décision 2 §3.1
   string source_addr = 9; // spec 04 §4.4.1, accusé deliver_sm au client : adresse soumise, posée à la corrélation
   string dest_addr = 10; // spec 04 §4.4.1, idem
-  google.protobuf.Timestamp submitted_at = 11; // spec 04 §4.4.1, « submit date » de l'accusé deliver_sm
+  google.protobuf.Timestamp submitted_at = 11; // spec 04 §4.4.1, « submit date » de l'accusé : heure de accepted, relevée à la corrélation
 }
