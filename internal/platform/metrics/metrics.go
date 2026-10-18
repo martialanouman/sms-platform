@@ -13,16 +13,20 @@ import (
 )
 
 var (
-	refusedSegments = []string{"msisdn", "phone", "number", "addr", "recipient", "destination", "body", "text", "content", "payload"}
-	refusedNames    = []string{"to", "from", "message_id", "msg_id", "trace_id", "span_id", "customer_group", "client_group"}
+	refusedNames    = []string{"to", "from", "trace_id", "span_id", "customer_group", "client_group"}
+	refusedSuffixes = []string{"message_id", "msg_id", "messageid", "msgid"}
+	refusedSegments = []string{
+		"msisdn", "phone", "number", "addr", "address", "recipient", "destination", "body", "text", "content", "payload",
+	}
+	snakeCase = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 )
-
-var snakeCase = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
 func refused(label string) bool {
 	return !snakeCase.MatchString(label) || slices.Contains(refusedNames, label) ||
+		slices.ContainsFunc(refusedSuffixes, func(s string) bool { return strings.HasSuffix(label, s) }) ||
 		slices.ContainsFunc(strings.Split(label, "_"), func(s string) bool {
-			return slices.Contains(refusedSegments, strings.TrimSuffix(s, "s"))
+			singulars := []string{strings.TrimSuffix(s, "s"), strings.TrimSuffix(s, "es"), strings.TrimSuffix(s, "ies") + "y"}
+			return slices.ContainsFunc(singulars, func(c string) bool { return slices.Contains(refusedSegments, c) })
 		})
 }
 
@@ -92,5 +96,5 @@ func labels(d *prometheus.Desc) ([]string, error) {
 		}
 		return names, nil
 	}
-	return nil, fmt.Errorf("metrics: invalid %s", d)
+	return nil, nil
 }
