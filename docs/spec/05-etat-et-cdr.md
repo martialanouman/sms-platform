@@ -46,7 +46,7 @@ c'est le **seul écrivain** du CDR. Le rang de cycle de vie et ses écrivains mu
 
 | Table | Contenu | Moteur | Rétention |
 |---|---|---|---|
-| `cdr` | Une ligne par message et par segment : comptes, adresses, connecteur, route, catégorie, canal d'entrée, statut, codes, verdict et règle anti-spam, latence, crédits | `ReplacingMergeTree(version)`, partition par jour de `submitted_at` | 90 j par défaut, configurable |
+| `cdr` | Une ligne par message et par segment : comptes, adresses, connecteur, route, catégorie, canal d'entrée, statut, codes, verdict et règle anti-spam, latence, crédits | `ReplacingMergeTree(version)`, partition par jour de `submitted_at` | 90 j |
 | `cdr_content` | `message_id`, `customer_id`, corps scellé, `content_key_id`, `expires_at` | `MergeTree`, `TTL expires_at` | `content_retention_days` du client |
 
 Le corps est dans sa propre table parce qu'il s'écrit une fois et vit moins longtemps que les

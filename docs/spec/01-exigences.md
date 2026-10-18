@@ -162,7 +162,7 @@ identifiant de bind SMPP et exactement une clé
 | Scalabilité | Horizontale et linéaire des niveaux sans état ; le pool s'étend par comptes opérateur |
 | Facturation | Aucun appel réseau sur le chemin chaud tant qu'une enveloppe couvre ; surcoût nul si désactivée |
 | Sécurité | TLS sur REST et SMPP, identifiants entrants hachés, secrets rejoués scellés, mTLS interne avec allowlist, une identité par service sur chaque magasin |
-| Conformité | RGPD, opt-out, effacement à la demande, rétention configurable (90 j par défaut) |
+| Conformité | RGPD, opt-out, effacement à la demande, rétention des corps configurable, plafonnée à 90 j ; CDR 90 j |
 | Observabilité | Métriques en moins de 5 s, logs structurés, traces ; jamais de corps (**I1**) |
 | Traçage | 100 % des étapes couvertes ; 100 % des messages en échec échantillonnés |
 | Configuration | Propagation p99 < 5 s (décision 7) |

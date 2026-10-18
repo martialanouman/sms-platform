@@ -83,6 +83,11 @@ plateforme (`update-platform-content-policy`, ajoutée : 145 opérations), passe
 tout rôle par défaut sauf `Propriétaire` ; les lectures du réglage restent sous `customers:read` et
 `platform:read`. `content_retention_days` plafonné à 90 jours. Spec 05 §5.3, 07 §7.4 et 08 §8.5 amendées.
 
+**Fable**, second tour de revue : la rétention du CDR est fixe, 90 jours (spec 05 §5.2, 01 : « configurable »
+n'avait ni colonne ni opération) ; l'interrupteur de facturation de la plateforme sort de
+`update-platform-policy` vers `update-platform-billing-policy`, sous `billing:topup` (146 opérations), spec 07
+§7.4 amendée ; `not_found` pour tout introuvable côté Admin.
+
 ## Design arrêté
 
 - `contracts/openapi-admin.yaml` : OpenAPI 3.1, 1.0.0, en anglais, sans commentaire.

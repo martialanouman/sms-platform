@@ -73,7 +73,7 @@ jeton par le JWKS interne du BFF (ADR-0019), puis le scope de l'opération.
   `msisdn:reveal`, `cdr:export_bulk`, `audit:read`, et trois qu'un rôle par défaut sépare de `:write`
   (chapitre 8 §8.5) : `routing-scripts:publish`, `suppressions:delete` (lever un opt-out),
   `billing:topup` (recharger, ajuster, fixer les conditions de crédit : mode, découvert, limite,
-  activation de la facturation d'un client). Plus `stream:read`. Ni joker ni hiérarchie. Un scope qu'aucune opération ne déclare
+  activation de la facturation, d'un client ou de la plateforme). Plus `stream:read`. Ni joker ni hiérarchie. Un scope qu'aucune opération ne déclare
   n'existe pas, sauf `msisdn:reveal`.
 - **Chaque opération déclare exactement un scope.** La liste est générée depuis le contrat et
   consommée par la passerelle, l'éditeur de rôles du BFF et les types de la SPA.
