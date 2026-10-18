@@ -22,6 +22,8 @@ message MessageState {
   repeated SegmentState segments = 13; // spec 05 §5.2, une ligne CDR par segment
   repeated Transition transitions = 14; // décision 2 §3.3.3, horodatage de chaque transition servi avec l'état
   string trace_id = 15; // spec 01 §1.4, servi par l'API publique ; en-tête de accepted ou received
+  AntispamVerdict antispam_verdict = 16; // spec 03 §3.3.5 « le verdict en sort » ; file de revue (spec 01 §1.2)
+  string antispam_rule_id = 17; // spec 03 §3.3.5 « l'identifiant de règle en sort »
 }
 
 // SegmentState is the folded state of one segment. décision 2 §3.3.1

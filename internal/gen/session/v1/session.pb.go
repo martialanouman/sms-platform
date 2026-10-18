@@ -9,6 +9,7 @@ package sessionv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -131,6 +132,8 @@ type Session struct {
 	BindId        string                 `protobuf:"bytes,2,opt,name=bind_id,json=bindId,proto3" json:"bind_id,omitempty"`                                 // spec 04 §4.4.1, le bind ciblé par le deliver_sm
 	BindType      BindType               `protobuf:"varint,3,opt,name=bind_type,json=bindType,proto3,enum=session.v1.BindType" json:"bind_type,omitempty"` // spec 04 §4.4.1
 	PodAddr       string                 `protobuf:"bytes,4,opt,name=pod_addr,json=podAddr,proto3" json:"pod_addr,omitempty"`                              // spec 04 §4.4.1 « le smpp-server-svc qui le tient »
+	ConnectedAt   *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=connected_at,json=connectedAt,proto3" json:"connected_at,omitempty"`                  // spec 01 §1.2, écran des sessions
+	RemoteAddr    string                 `protobuf:"bytes,6,opt,name=remote_addr,json=remoteAddr,proto3" json:"remote_addr,omitempty"`                     // spec 01 §1.2, écran des sessions
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -189,6 +192,20 @@ func (x *Session) GetBindType() BindType {
 func (x *Session) GetPodAddr() string {
 	if x != nil {
 		return x.PodAddr
+	}
+	return ""
+}
+
+func (x *Session) GetConnectedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ConnectedAt
+	}
+	return nil
+}
+
+func (x *Session) GetRemoteAddr() string {
+	if x != nil {
+		return x.RemoteAddr
 	}
 	return ""
 }
@@ -582,13 +599,16 @@ var File_session_v1_session_proto protoreflect.FileDescriptor
 const file_session_v1_session_proto_rawDesc = "" +
 	"\n" +
 	"\x18session/v1/session.proto\x12\n" +
-	"session.v1\"\x8f\x01\n" +
+	"session.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xef\x01\n" +
 	"\aSession\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\tR\taccountId\x12\x17\n" +
 	"\abind_id\x18\x02 \x01(\tR\x06bindId\x121\n" +
 	"\tbind_type\x18\x03 \x01(\x0e2\x14.session.v1.BindTypeR\bbindType\x12\x19\n" +
-	"\bpod_addr\x18\x04 \x01(\tR\apodAddr\"f\n" +
+	"\bpod_addr\x18\x04 \x01(\tR\apodAddr\x12=\n" +
+	"\fconnected_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\vconnectedAt\x12\x1f\n" +
+	"\vremote_addr\x18\x06 \x01(\tR\n" +
+	"remoteAddr\"f\n" +
 	"\x12OpenSessionRequest\x12-\n" +
 	"\asession\x18\x01 \x01(\v2\x13.session.v1.SessionR\asession\x12!\n" +
 	"\fmax_sessions\x18\x02 \x01(\x05R\vmaxSessions\"1\n" +
@@ -657,25 +677,27 @@ var file_session_v1_session_proto_goTypes = []any{
 	(*ListActiveBindsResponse)(nil), // 8: session.v1.ListActiveBindsResponse
 	(*DisconnectRequest)(nil),       // 9: session.v1.DisconnectRequest
 	(*DisconnectResponse)(nil),      // 10: session.v1.DisconnectResponse
+	(*timestamppb.Timestamp)(nil),   // 11: google.protobuf.Timestamp
 }
 var file_session_v1_session_proto_depIdxs = []int32{
 	0,  // 0: session.v1.Session.bind_type:type_name -> session.v1.BindType
-	2,  // 1: session.v1.OpenSessionRequest.session:type_name -> session.v1.Session
-	2,  // 2: session.v1.ListActiveBindsResponse.sessions:type_name -> session.v1.Session
-	1,  // 3: session.v1.DisconnectRequest.scope:type_name -> session.v1.DisconnectScope
-	3,  // 4: session.v1.SessionService.OpenSession:input_type -> session.v1.OpenSessionRequest
-	5,  // 5: session.v1.SessionService.CloseSession:input_type -> session.v1.CloseSessionRequest
-	7,  // 6: session.v1.SessionService.ListActiveBinds:input_type -> session.v1.ListActiveBindsRequest
-	9,  // 7: session.v1.SessionService.Disconnect:input_type -> session.v1.DisconnectRequest
-	4,  // 8: session.v1.SessionService.OpenSession:output_type -> session.v1.OpenSessionResponse
-	6,  // 9: session.v1.SessionService.CloseSession:output_type -> session.v1.CloseSessionResponse
-	8,  // 10: session.v1.SessionService.ListActiveBinds:output_type -> session.v1.ListActiveBindsResponse
-	10, // 11: session.v1.SessionService.Disconnect:output_type -> session.v1.DisconnectResponse
-	8,  // [8:12] is the sub-list for method output_type
-	4,  // [4:8] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	11, // 1: session.v1.Session.connected_at:type_name -> google.protobuf.Timestamp
+	2,  // 2: session.v1.OpenSessionRequest.session:type_name -> session.v1.Session
+	2,  // 3: session.v1.ListActiveBindsResponse.sessions:type_name -> session.v1.Session
+	1,  // 4: session.v1.DisconnectRequest.scope:type_name -> session.v1.DisconnectScope
+	3,  // 5: session.v1.SessionService.OpenSession:input_type -> session.v1.OpenSessionRequest
+	5,  // 6: session.v1.SessionService.CloseSession:input_type -> session.v1.CloseSessionRequest
+	7,  // 7: session.v1.SessionService.ListActiveBinds:input_type -> session.v1.ListActiveBindsRequest
+	9,  // 8: session.v1.SessionService.Disconnect:input_type -> session.v1.DisconnectRequest
+	4,  // 9: session.v1.SessionService.OpenSession:output_type -> session.v1.OpenSessionResponse
+	6,  // 10: session.v1.SessionService.CloseSession:output_type -> session.v1.CloseSessionResponse
+	8,  // 11: session.v1.SessionService.ListActiveBinds:output_type -> session.v1.ListActiveBindsResponse
+	10, // 12: session.v1.SessionService.Disconnect:output_type -> session.v1.DisconnectResponse
+	9,  // [9:13] is the sub-list for method output_type
+	5,  // [5:9] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_session_v1_session_proto_init() }

@@ -19,14 +19,15 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	BillingService_GrantLease_FullMethodName        = "/billing.v1.BillingService/GrantLease"
-	BillingService_CloseLease_FullMethodName        = "/billing.v1.BillingService/CloseLease"
-	BillingService_Topup_FullMethodName             = "/billing.v1.BillingService/Topup"
-	BillingService_Transfer_FullMethodName          = "/billing.v1.BillingService/Transfer"
-	BillingService_Adjust_FullMethodName            = "/billing.v1.BillingService/Adjust"
-	BillingService_SetBalanceScope_FullMethodName   = "/billing.v1.BillingService/SetBalanceScope"
-	BillingService_GetBalances_FullMethodName       = "/billing.v1.BillingService/GetBalances"
-	BillingService_ListLedgerEntries_FullMethodName = "/billing.v1.BillingService/ListLedgerEntries"
+	BillingService_GrantLease_FullMethodName          = "/billing.v1.BillingService/GrantLease"
+	BillingService_CloseLease_FullMethodName          = "/billing.v1.BillingService/CloseLease"
+	BillingService_Topup_FullMethodName               = "/billing.v1.BillingService/Topup"
+	BillingService_Transfer_FullMethodName            = "/billing.v1.BillingService/Transfer"
+	BillingService_Adjust_FullMethodName              = "/billing.v1.BillingService/Adjust"
+	BillingService_SetBalanceScope_FullMethodName     = "/billing.v1.BillingService/SetBalanceScope"
+	BillingService_GetBalances_FullMethodName         = "/billing.v1.BillingService/GetBalances"
+	BillingService_ListLedgerEntries_FullMethodName   = "/billing.v1.BillingService/ListLedgerEntries"
+	BillingService_ListOwnersAtMoFloor_FullMethodName = "/billing.v1.BillingService/ListOwnersAtMoFloor"
 )
 
 // BillingServiceClient is the client API for BillingService service.
@@ -51,6 +52,8 @@ type BillingServiceClient interface {
 	GetBalances(ctx context.Context, in *GetBalancesRequest, opts ...grpc.CallOption) (*GetBalancesResponse, error)
 	// ListLedgerEntries pages an owner's ledger. spec 06 §6.4, spec 07 §7.3 pagination par curseur
 	ListLedgerEntries(ctx context.Context, in *ListLedgerEntriesRequest, opts ...grpc.CallOption) (*ListLedgerEntriesResponse, error)
+	// ListOwnersAtMoFloor pages the owners whose MO balance is at its floor. spec 08 §8.7
+	ListOwnersAtMoFloor(ctx context.Context, in *ListOwnersAtMoFloorRequest, opts ...grpc.CallOption) (*ListOwnersAtMoFloorResponse, error)
 }
 
 type billingServiceClient struct {
@@ -141,6 +144,16 @@ func (c *billingServiceClient) ListLedgerEntries(ctx context.Context, in *ListLe
 	return out, nil
 }
 
+func (c *billingServiceClient) ListOwnersAtMoFloor(ctx context.Context, in *ListOwnersAtMoFloorRequest, opts ...grpc.CallOption) (*ListOwnersAtMoFloorResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListOwnersAtMoFloorResponse)
+	err := c.cc.Invoke(ctx, BillingService_ListOwnersAtMoFloor_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // BillingServiceServer is the server API for BillingService service.
 // All implementations must embed UnimplementedBillingServiceServer
 // for forward compatibility.
@@ -163,6 +176,8 @@ type BillingServiceServer interface {
 	GetBalances(context.Context, *GetBalancesRequest) (*GetBalancesResponse, error)
 	// ListLedgerEntries pages an owner's ledger. spec 06 §6.4, spec 07 §7.3 pagination par curseur
 	ListLedgerEntries(context.Context, *ListLedgerEntriesRequest) (*ListLedgerEntriesResponse, error)
+	// ListOwnersAtMoFloor pages the owners whose MO balance is at its floor. spec 08 §8.7
+	ListOwnersAtMoFloor(context.Context, *ListOwnersAtMoFloorRequest) (*ListOwnersAtMoFloorResponse, error)
 	mustEmbedUnimplementedBillingServiceServer()
 }
 
@@ -196,6 +211,9 @@ func (UnimplementedBillingServiceServer) GetBalances(context.Context, *GetBalanc
 }
 func (UnimplementedBillingServiceServer) ListLedgerEntries(context.Context, *ListLedgerEntriesRequest) (*ListLedgerEntriesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListLedgerEntries not implemented")
+}
+func (UnimplementedBillingServiceServer) ListOwnersAtMoFloor(context.Context, *ListOwnersAtMoFloorRequest) (*ListOwnersAtMoFloorResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListOwnersAtMoFloor not implemented")
 }
 func (UnimplementedBillingServiceServer) mustEmbedUnimplementedBillingServiceServer() {}
 func (UnimplementedBillingServiceServer) testEmbeddedByValue()                        {}
@@ -362,6 +380,24 @@ func _BillingService_ListLedgerEntries_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _BillingService_ListOwnersAtMoFloor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListOwnersAtMoFloorRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).ListOwnersAtMoFloor(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_ListOwnersAtMoFloor_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).ListOwnersAtMoFloor(ctx, req.(*ListOwnersAtMoFloorRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // BillingService_ServiceDesc is the grpc.ServiceDesc for BillingService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -400,6 +436,10 @@ var BillingService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListLedgerEntries",
 			Handler:    _BillingService_ListLedgerEntries_Handler,
+		},
+		{
+			MethodName: "ListOwnersAtMoFloor",
+			Handler:    _BillingService_ListOwnersAtMoFloor_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

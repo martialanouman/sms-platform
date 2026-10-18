@@ -86,3 +86,10 @@ enum DlrStatus {
   DLR_STATUS_REJECTED = 4;
   DLR_STATUS_FAILED = 5;
 }
+
+// AntispamVerdict is what an anti-spam rule decided on a message. spec 03 §3.3.5
+enum AntispamVerdict {
+  ANTISPAM_VERDICT_UNSPECIFIED = 0;
+  ANTISPAM_VERDICT_FLAG = 1;
+  ANTISPAM_VERDICT_BLOCK = 2;
+}

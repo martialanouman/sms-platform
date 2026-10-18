@@ -24,24 +24,26 @@ const (
 
 // MessageState is the payload of message.state, the folded state of a message. topics.yaml, spec 05 §5.2
 type MessageState struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	MessageId     string                 `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`       // spec 05 §5.2, clé
-	Version       int64                  `protobuf:"varint,2,opt,name=version,proto3" json:"version,omitempty"`                           // spec 05 §5.2 « version = nombre de transitions »
-	Direction     Direction              `protobuf:"varint,3,opt,name=direction,proto3,enum=sms.v1.Direction" json:"direction,omitempty"` // décision 2 §3.3.4, MT ou MO
-	AccountId     string                 `protobuf:"bytes,4,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`       // spec 05 §5.2 CDR « comptes »
-	CustomerId    string                 `protobuf:"bytes,5,opt,name=customer_id,json=customerId,proto3" json:"customer_id,omitempty"`    // spec 05 §5.2 CDR « comptes »
-	Status        MessageStatus          `protobuf:"varint,6,opt,name=status,proto3,enum=sms.v1.MessageStatus" json:"status,omitempty"`   // décision 2 §3.3.2, agrégat publié
-	SourceAddr    string                 `protobuf:"bytes,7,opt,name=source_addr,json=sourceAddr,proto3" json:"source_addr,omitempty"`    // spec 05 §5.1 attrs de accepted et received
-	DestAddr      string                 `protobuf:"bytes,8,opt,name=dest_addr,json=destAddr,proto3" json:"dest_addr,omitempty"`          // spec 05 §5.1 attrs de accepted et received
-	Ingress       Ingress                `protobuf:"varint,9,opt,name=ingress,proto3,enum=sms.v1.Ingress" json:"ingress,omitempty"`       // spec 05 §5.2 CDR « canal d'entrée »
-	Category      Category               `protobuf:"varint,10,opt,name=category,proto3,enum=sms.v1.Category" json:"category,omitempty"`   // spec 05 §5.2 CDR « catégorie »
-	RouteId       string                 `protobuf:"bytes,11,opt,name=route_id,json=routeId,proto3" json:"route_id,omitempty"`            // spec 05 §5.2 CDR « route »
-	ErrorCode     string                 `protobuf:"bytes,12,opt,name=error_code,json=errorCode,proto3" json:"error_code,omitempty"`      // spec 05 §5.2 CDR « codes » ; rejet au niveau message
-	Segments      []*SegmentState        `protobuf:"bytes,13,rep,name=segments,proto3" json:"segments,omitempty"`                         // spec 05 §5.2, une ligne CDR par segment
-	Transitions   []*Transition          `protobuf:"bytes,14,rep,name=transitions,proto3" json:"transitions,omitempty"`                   // décision 2 §3.3.3, horodatage de chaque transition servi avec l'état
-	TraceId       string                 `protobuf:"bytes,15,opt,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`            // spec 01 §1.4, servi par l'API publique ; en-tête de accepted ou received
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	MessageId       string                 `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`                                                 // spec 05 §5.2, clé
+	Version         int64                  `protobuf:"varint,2,opt,name=version,proto3" json:"version,omitempty"`                                                                     // spec 05 §5.2 « version = nombre de transitions »
+	Direction       Direction              `protobuf:"varint,3,opt,name=direction,proto3,enum=sms.v1.Direction" json:"direction,omitempty"`                                           // décision 2 §3.3.4, MT ou MO
+	AccountId       string                 `protobuf:"bytes,4,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`                                                 // spec 05 §5.2 CDR « comptes »
+	CustomerId      string                 `protobuf:"bytes,5,opt,name=customer_id,json=customerId,proto3" json:"customer_id,omitempty"`                                              // spec 05 §5.2 CDR « comptes »
+	Status          MessageStatus          `protobuf:"varint,6,opt,name=status,proto3,enum=sms.v1.MessageStatus" json:"status,omitempty"`                                             // décision 2 §3.3.2, agrégat publié
+	SourceAddr      string                 `protobuf:"bytes,7,opt,name=source_addr,json=sourceAddr,proto3" json:"source_addr,omitempty"`                                              // spec 05 §5.1 attrs de accepted et received
+	DestAddr        string                 `protobuf:"bytes,8,opt,name=dest_addr,json=destAddr,proto3" json:"dest_addr,omitempty"`                                                    // spec 05 §5.1 attrs de accepted et received
+	Ingress         Ingress                `protobuf:"varint,9,opt,name=ingress,proto3,enum=sms.v1.Ingress" json:"ingress,omitempty"`                                                 // spec 05 §5.2 CDR « canal d'entrée »
+	Category        Category               `protobuf:"varint,10,opt,name=category,proto3,enum=sms.v1.Category" json:"category,omitempty"`                                             // spec 05 §5.2 CDR « catégorie »
+	RouteId         string                 `protobuf:"bytes,11,opt,name=route_id,json=routeId,proto3" json:"route_id,omitempty"`                                                      // spec 05 §5.2 CDR « route »
+	ErrorCode       string                 `protobuf:"bytes,12,opt,name=error_code,json=errorCode,proto3" json:"error_code,omitempty"`                                                // spec 05 §5.2 CDR « codes » ; rejet au niveau message
+	Segments        []*SegmentState        `protobuf:"bytes,13,rep,name=segments,proto3" json:"segments,omitempty"`                                                                   // spec 05 §5.2, une ligne CDR par segment
+	Transitions     []*Transition          `protobuf:"bytes,14,rep,name=transitions,proto3" json:"transitions,omitempty"`                                                             // décision 2 §3.3.3, horodatage de chaque transition servi avec l'état
+	TraceId         string                 `protobuf:"bytes,15,opt,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`                                                      // spec 01 §1.4, servi par l'API publique ; en-tête de accepted ou received
+	AntispamVerdict AntispamVerdict        `protobuf:"varint,16,opt,name=antispam_verdict,json=antispamVerdict,proto3,enum=sms.v1.AntispamVerdict" json:"antispam_verdict,omitempty"` // spec 03 §3.3.5 « le verdict en sort » ; file de revue (spec 01 §1.2)
+	AntispamRuleId  string                 `protobuf:"bytes,17,opt,name=antispam_rule_id,json=antispamRuleId,proto3" json:"antispam_rule_id,omitempty"`                               // spec 03 §3.3.5 « l'identifiant de règle en sort »
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *MessageState) Reset() {
@@ -175,6 +177,20 @@ func (x *MessageState) GetTransitions() []*Transition {
 func (x *MessageState) GetTraceId() string {
 	if x != nil {
 		return x.TraceId
+	}
+	return ""
+}
+
+func (x *MessageState) GetAntispamVerdict() AntispamVerdict {
+	if x != nil {
+		return x.AntispamVerdict
+	}
+	return AntispamVerdict_ANTISPAM_VERDICT_UNSPECIFIED
+}
+
+func (x *MessageState) GetAntispamRuleId() string {
+	if x != nil {
+		return x.AntispamRuleId
 	}
 	return ""
 }
@@ -377,7 +393,7 @@ var File_sms_v1_state_proto protoreflect.FileDescriptor
 
 const file_sms_v1_state_proto_rawDesc = "" +
 	"\n" +
-	"\x12sms/v1/state.proto\x12\x06sms.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x13sms/v1/common.proto\"\xbb\x04\n" +
+	"\x12sms/v1/state.proto\x12\x06sms.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x13sms/v1/common.proto\"\xa9\x05\n" +
 	"\fMessageState\x12\x1d\n" +
 	"\n" +
 	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x18\n" +
@@ -399,7 +415,9 @@ const file_sms_v1_state_proto_rawDesc = "" +
 	"error_code\x18\f \x01(\tR\terrorCode\x120\n" +
 	"\bsegments\x18\r \x03(\v2\x14.sms.v1.SegmentStateR\bsegments\x124\n" +
 	"\vtransitions\x18\x0e \x03(\v2\x12.sms.v1.TransitionR\vtransitions\x12\x19\n" +
-	"\btrace_id\x18\x0f \x01(\tR\atraceId\"\x9f\x03\n" +
+	"\btrace_id\x18\x0f \x01(\tR\atraceId\x12B\n" +
+	"\x10antispam_verdict\x18\x10 \x01(\x0e2\x17.sms.v1.AntispamVerdictR\x0fantispamVerdict\x12(\n" +
+	"\x10antispam_rule_id\x18\x11 \x01(\tR\x0eantispamRuleId\"\x9f\x03\n" +
 	"\fSegmentState\x12\x1f\n" +
 	"\vsegment_seq\x18\x01 \x01(\rR\n" +
 	"segmentSeq\x12\x18\n" +
@@ -448,9 +466,10 @@ var file_sms_v1_state_proto_goTypes = []any{
 	(MessageStatus)(0),            // 4: sms.v1.MessageStatus
 	(Ingress)(0),                  // 5: sms.v1.Ingress
 	(Category)(0),                 // 6: sms.v1.Category
-	(TransitionKind)(0),           // 7: sms.v1.TransitionKind
-	(ChargeOn)(0),                 // 8: sms.v1.ChargeOn
-	(*timestamppb.Timestamp)(nil), // 9: google.protobuf.Timestamp
+	(AntispamVerdict)(0),          // 7: sms.v1.AntispamVerdict
+	(TransitionKind)(0),           // 8: sms.v1.TransitionKind
+	(ChargeOn)(0),                 // 9: sms.v1.ChargeOn
+	(*timestamppb.Timestamp)(nil), // 10: google.protobuf.Timestamp
 }
 var file_sms_v1_state_proto_depIdxs = []int32{
 	3,  // 0: sms.v1.MessageState.direction:type_name -> sms.v1.Direction
@@ -459,15 +478,16 @@ var file_sms_v1_state_proto_depIdxs = []int32{
 	6,  // 3: sms.v1.MessageState.category:type_name -> sms.v1.Category
 	1,  // 4: sms.v1.MessageState.segments:type_name -> sms.v1.SegmentState
 	2,  // 5: sms.v1.MessageState.transitions:type_name -> sms.v1.Transition
-	7,  // 6: sms.v1.SegmentState.kind:type_name -> sms.v1.TransitionKind
-	8,  // 7: sms.v1.SegmentState.charge_on:type_name -> sms.v1.ChargeOn
-	7,  // 8: sms.v1.Transition.kind:type_name -> sms.v1.TransitionKind
-	9,  // 9: sms.v1.Transition.occurred_at:type_name -> google.protobuf.Timestamp
-	10, // [10:10] is the sub-list for method output_type
-	10, // [10:10] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	7,  // 6: sms.v1.MessageState.antispam_verdict:type_name -> sms.v1.AntispamVerdict
+	8,  // 7: sms.v1.SegmentState.kind:type_name -> sms.v1.TransitionKind
+	9,  // 8: sms.v1.SegmentState.charge_on:type_name -> sms.v1.ChargeOn
+	8,  // 9: sms.v1.Transition.kind:type_name -> sms.v1.TransitionKind
+	10, // 10: sms.v1.Transition.occurred_at:type_name -> google.protobuf.Timestamp
+	11, // [11:11] is the sub-list for method output_type
+	11, // [11:11] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_sms_v1_state_proto_init() }
