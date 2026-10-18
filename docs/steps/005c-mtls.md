@@ -34,8 +34,9 @@ Fable a tranché le 2026-10-18 :
   (REST, SMPP) vient avec le premier composant public, celle des magasins avec leurs bibliothèques, les
   aides gRPC avec le premier serveur gRPC. Le serveur reçoit la liste ALPN complète de l'appelant :
   `GetConfigForClient` remplace `NextProtos`, et net/http ne voit pas la sienne.
-- **Forme** : TLS 1.3 minimum des deux côtés ; l'allowlist dans `VerifyConnection`, appelé aussi sur une
-  session reprise (pas `VerifyPeerCertificate`) ; l'allowlist et la liste ALPN copiées à la construction.
+- **Forme** : TLS 1.3 minimum des deux côtés ; l'allowlist dans `VerifyConnection` (gosec G123) ;
+  l'allowlist et la liste ALPN copiées à la construction. Une allowlist changée est une configuration
+  neuve, donc des clés de ticket neuves : une session reprise ne survit pas à un retrait d'appelant.
 - **Aide de test** : CA et certificats générés au vol, privés au test du paquet ; un second consommateur
   la hissera en sous-paquet.
 - **gosec G304** : les chemins lus sont ceux de la configuration d'infrastructure, jamais une entrée
@@ -48,6 +49,5 @@ Fable a tranché le 2026-10-18 :
   `(Files) Client() (*tls.Config, error)`.
 - `.golangci.yml` : exclusion G304 du paquet.
 - Vérification du critère : allowlist vide et fichiers illisibles refusés à la construction ; un appelant
-  nommé admis, un appelant non nommé, sans certificat ou d'une autre CA refusé, y compris sur une session
-  reprise ; un certificat renouvelé sur disque servi sans redémarrage, côté serveur et côté client ;
+  nommé admis, un appelant non nommé, sans certificat ou d'une autre CA refusé ; un certificat renouvelé sur disque servi sans redémarrage, côté serveur et côté client ;
   TLS 1.2 refusé ; la liste ALPN servie.
