@@ -199,29 +199,31 @@ func (*MtInbound_Octets) isMtInbound_Body() {}
 // MtRouted is the payload of mt.routed.<cat> and mt.reroute-park, one record per segment. topics.yaml, spec 03 §3.3.9
 type MtRouted struct {
 	state                protoimpl.MessageState `protogen:"open.v1"`
-	MessageId            string                 `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`                                     // spec 06 §6.3, clé (message_id, segment_seq) (I4)
-	SegmentSeq           uint32                 `protobuf:"varint,2,opt,name=segment_seq,json=segmentSeq,proto3" json:"segment_seq,omitempty"`                                 // spec 06 §6.3 ; décision 2 §3.1, 1..N
-	SegmentCount         uint32                 `protobuf:"varint,3,opt,name=segment_count,json=segmentCount,proto3" json:"segment_count,omitempty"`                           // décision 3 §6.2, réassemblage HTTP jusqu'à segment_count
-	Attempt              uint32                 `protobuf:"varint,4,opt,name=attempt,proto3" json:"attempt,omitempty"`                                                         // décision 2 §3.1, incrémenté à chaque reroute
-	AccountId            string                 `protobuf:"bytes,5,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`                                     // décision 2 §5.2, inscrit dans dlr_correlation
-	CustomerId           string                 `protobuf:"bytes,6,opt,name=customer_id,json=customerId,proto3" json:"customer_id,omitempty"`                                  // décision 2 §5.2, inscrit dans dlr_correlation
-	SourceAddr           string                 `protobuf:"bytes,7,opt,name=source_addr,json=sourceAddr,proto3" json:"source_addr,omitempty"`                                  // spec 03 §3.4.5, réécrit par le pool ; l'original reste au CDR (spec 01 §1.1)
-	DestAddr             string                 `protobuf:"bytes,8,opt,name=dest_addr,json=destAddr,proto3" json:"dest_addr,omitempty"`                                        // spec 03 §3.3.2, E.164
-	Category             Category               `protobuf:"varint,9,opt,name=category,proto3,enum=sms.v1.Category" json:"category,omitempty"`                                  // spec 03 §3.3.9 ; ADR-0021 §1, topic de republication
-	Priority             uint32                 `protobuf:"varint,10,opt,name=priority,proto3" json:"priority,omitempty"`                                                      // spec 03 §3.3.6, priorité effective
-	ConnectorId          string                 `protobuf:"bytes,11,opt,name=connector_id,json=connectorId,proto3" json:"connector_id,omitempty"`                              // décision 3 §4.2 ; spec 05 §5.1 attrs
-	ConnectorAccountId   string                 `protobuf:"bytes,12,opt,name=connector_account_id,json=connectorAccountId,proto3" json:"connector_account_id,omitempty"`       // décision 3 §4.2 ; spec 03 §3.4
-	RouteId              string                 `protobuf:"bytes,13,opt,name=route_id,json=routeId,proto3" json:"route_id,omitempty"`                                          // spec 05 §5.2, colonne « route » du CDR
-	FallbackConnectorIds []string               `protobuf:"bytes,14,rep,name=fallback_connector_ids,json=fallbackConnectorIds,proto3" json:"fallback_connector_ids,omitempty"` // ADR-0020 §4 (chaîne construite par le routeur) ; spec 03 §3.4
-	DataCoding           DataCoding             `protobuf:"varint,15,opt,name=data_coding,json=dataCoding,proto3,enum=sms.v1.DataCoding" json:"data_coding,omitempty"`         // spec 03 §3.3.7, encodage final, surcharge du connecteur appliquée
-	Udh                  []byte                 `protobuf:"bytes,16,opt,name=udh,proto3" json:"udh,omitempty"`                                                                 // spec 03 §3.3.7, UDH du segment
-	ShortMessage         []byte                 `protobuf:"bytes,17,opt,name=short_message,json=shortMessage,proto3" json:"short_message,omitempty"`                           // I1 : segment du corps, topic clear_bounded (spec 02 §2.4)
-	RegisteredDelivery   *uint32                `protobuf:"varint,18,opt,name=registered_delivery,json=registeredDelivery,proto3,oneof" json:"registered_delivery,omitempty"`  // ADR-0020 §3, absente : *_default du connecteur
-	ValidityPeriod       *timestamppb.Timestamp `protobuf:"bytes,19,opt,name=validity_period,json=validityPeriod,proto3" json:"validity_period,omitempty"`                     // spec 03 §3.6, plafond de max_age au pool
-	LeaseId              string                 `protobuf:"bytes,20,opt,name=lease_id,json=leaseId,proto3" json:"lease_id,omitempty"`                                          // spec 03 §3.3.9 ; spec 06 §6.2.2 ; vide hors enveloppe (non facturable, postpayé à limite souple)
-	Credits              int64                  `protobuf:"varint,21,opt,name=credits,proto3" json:"credits,omitempty"`                                                        // spec 06 §6.2.2, crédits du segment, entiers (spec 06 §6.1) ; 0 = non facturable (spec 06 §6.3)
-	ChargeOn             ChargeOn               `protobuf:"varint,22,opt,name=charge_on,json=chargeOn,proto3,enum=sms.v1.ChargeOn" json:"charge_on,omitempty"`                 // spec 06 §6.2.2, figé dans le fait (décision 1 §6.2)
-	RatePlanVersion      int64                  `protobuf:"varint,23,opt,name=rate_plan_version,json=ratePlanVersion,proto3" json:"rate_plan_version,omitempty"`               // spec 03 §3.3.9 « version du plan » ; décision 1 §6.1
+	MessageId            string                 `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`                                                 // spec 06 §6.3, clé (message_id, segment_seq) (I4)
+	SegmentSeq           uint32                 `protobuf:"varint,2,opt,name=segment_seq,json=segmentSeq,proto3" json:"segment_seq,omitempty"`                                             // spec 06 §6.3 ; décision 2 §3.1, 1..N
+	SegmentCount         uint32                 `protobuf:"varint,3,opt,name=segment_count,json=segmentCount,proto3" json:"segment_count,omitempty"`                                       // décision 3 §6.2, réassemblage HTTP jusqu'à segment_count
+	Attempt              uint32                 `protobuf:"varint,4,opt,name=attempt,proto3" json:"attempt,omitempty"`                                                                     // décision 2 §3.1, incrémenté à chaque reroute
+	AccountId            string                 `protobuf:"bytes,5,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`                                                 // décision 2 §5.2, inscrit dans dlr_correlation
+	CustomerId           string                 `protobuf:"bytes,6,opt,name=customer_id,json=customerId,proto3" json:"customer_id,omitempty"`                                              // décision 2 §5.2, inscrit dans dlr_correlation
+	SourceAddr           string                 `protobuf:"bytes,7,opt,name=source_addr,json=sourceAddr,proto3" json:"source_addr,omitempty"`                                              // spec 03 §3.4.5, réécrit par le pool ; l'original reste au CDR (spec 01 §1.1)
+	DestAddr             string                 `protobuf:"bytes,8,opt,name=dest_addr,json=destAddr,proto3" json:"dest_addr,omitempty"`                                                    // spec 03 §3.3.2, E.164
+	Category             Category               `protobuf:"varint,9,opt,name=category,proto3,enum=sms.v1.Category" json:"category,omitempty"`                                              // spec 03 §3.3.9 ; ADR-0021 §1, topic de republication
+	Priority             uint32                 `protobuf:"varint,10,opt,name=priority,proto3" json:"priority,omitempty"`                                                                  // spec 03 §3.3.6, priorité effective
+	ConnectorId          string                 `protobuf:"bytes,11,opt,name=connector_id,json=connectorId,proto3" json:"connector_id,omitempty"`                                          // décision 3 §4.2 ; spec 05 §5.1 attrs
+	ConnectorAccountId   string                 `protobuf:"bytes,12,opt,name=connector_account_id,json=connectorAccountId,proto3" json:"connector_account_id,omitempty"`                   // décision 3 §4.2 ; spec 03 §3.4
+	RouteId              string                 `protobuf:"bytes,13,opt,name=route_id,json=routeId,proto3" json:"route_id,omitempty"`                                                      // spec 05 §5.2, colonne « route » du CDR
+	FallbackConnectorIds []string               `protobuf:"bytes,14,rep,name=fallback_connector_ids,json=fallbackConnectorIds,proto3" json:"fallback_connector_ids,omitempty"`             // ADR-0020 §4 (chaîne construite par le routeur) ; spec 03 §3.4
+	DataCoding           DataCoding             `protobuf:"varint,15,opt,name=data_coding,json=dataCoding,proto3,enum=sms.v1.DataCoding" json:"data_coding,omitempty"`                     // spec 03 §3.3.7, encodage final, surcharge du connecteur appliquée
+	Udh                  []byte                 `protobuf:"bytes,16,opt,name=udh,proto3" json:"udh,omitempty"`                                                                             // spec 03 §3.3.7, UDH du segment
+	ShortMessage         []byte                 `protobuf:"bytes,17,opt,name=short_message,json=shortMessage,proto3" json:"short_message,omitempty"`                                       // I1 : segment du corps, topic clear_bounded (spec 02 §2.4)
+	RegisteredDelivery   *uint32                `protobuf:"varint,18,opt,name=registered_delivery,json=registeredDelivery,proto3,oneof" json:"registered_delivery,omitempty"`              // ADR-0020 §3, absente : *_default du connecteur
+	ValidityPeriod       *timestamppb.Timestamp `protobuf:"bytes,19,opt,name=validity_period,json=validityPeriod,proto3" json:"validity_period,omitempty"`                                 // spec 03 §3.6, plafond de max_age au pool
+	LeaseId              string                 `protobuf:"bytes,20,opt,name=lease_id,json=leaseId,proto3" json:"lease_id,omitempty"`                                                      // spec 03 §3.3.9 ; spec 06 §6.2.2 ; vide hors enveloppe (non facturable, postpayé à limite souple)
+	Credits              int64                  `protobuf:"varint,21,opt,name=credits,proto3" json:"credits,omitempty"`                                                                    // spec 06 §6.2.2, crédits du segment, entiers (spec 06 §6.1) ; 0 = non facturable (spec 06 §6.3)
+	ChargeOn             ChargeOn               `protobuf:"varint,22,opt,name=charge_on,json=chargeOn,proto3,enum=sms.v1.ChargeOn" json:"charge_on,omitempty"`                             // spec 06 §6.2.2, figé dans le fait (décision 1 §6.2)
+	RatePlanVersion      int64                  `protobuf:"varint,23,opt,name=rate_plan_version,json=ratePlanVersion,proto3" json:"rate_plan_version,omitempty"`                           // spec 03 §3.3.9 « version du plan » ; décision 1 §6.1
+	AntispamVerdict      AntispamVerdict        `protobuf:"varint,24,opt,name=antispam_verdict,json=antispamVerdict,proto3,enum=sms.v1.AntispamVerdict" json:"antispam_verdict,omitempty"` // spec 03 §3.3.5 ; spec 05 §5.1 attrs de routed
+	AntispamRuleId       string                 `protobuf:"bytes,25,opt,name=antispam_rule_id,json=antispamRuleId,proto3" json:"antispam_rule_id,omitempty"`                               // spec 03 §3.3.5 ; spec 05 §5.1 attrs de routed
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -417,21 +419,37 @@ func (x *MtRouted) GetRatePlanVersion() int64 {
 	return 0
 }
 
+func (x *MtRouted) GetAntispamVerdict() AntispamVerdict {
+	if x != nil {
+		return x.AntispamVerdict
+	}
+	return AntispamVerdict_ANTISPAM_VERDICT_UNSPECIFIED
+}
+
+func (x *MtRouted) GetAntispamRuleId() string {
+	if x != nil {
+		return x.AntispamRuleId
+	}
+	return ""
+}
+
 // MtOutcome is the payload of mt.outcome: a router transition or a send outcome. topics.yaml, body: none
 type MtOutcome struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
-	MessageId          string                 `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`                               // topics.yaml, clé message_id
-	SegmentSeq         uint32                 `protobuf:"varint,2,opt,name=segment_seq,json=segmentSeq,proto3" json:"segment_seq,omitempty"`                           // spec 03 §3.3 « segment_seq = 0 » pour les rejets ; 1..N sinon
-	Attempt            uint32                 `protobuf:"varint,3,opt,name=attempt,proto3" json:"attempt,omitempty"`                                                   // décision 2 §3.1, clé primaire du journal
-	Kind               TransitionKind         `protobuf:"varint,4,opt,name=kind,proto3,enum=sms.v1.TransitionKind" json:"kind,omitempty"`                              // décision 2 §3.2 : REJECTED, PARKED, UNPARKED, CANCELLED, SUBMITTED, SUBMIT_FAILED, NOT_SENT
-	ErrorCode          string                 `protobuf:"bytes,5,opt,name=error_code,json=errorCode,proto3" json:"error_code,omitempty"`                               // spec 09 §9.3, code stable ; spec 05 §5.1 attrs error_code
-	OccurredAt         *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`                            // décision 2 §3.1, heure de l'événement source
-	AccountId          string                 `protobuf:"bytes,7,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`                               // décision 2 §5.2, ligne dlr_correlation inscrite à chaque submitted
-	CustomerId         string                 `protobuf:"bytes,8,opt,name=customer_id,json=customerId,proto3" json:"customer_id,omitempty"`                            // décision 2 §5.2, ligne dlr_correlation
-	ConnectorId        string                 `protobuf:"bytes,9,opt,name=connector_id,json=connectorId,proto3" json:"connector_id,omitempty"`                         // spec 05 §5.1 attrs connector_id
-	ConnectorAccountId string                 `protobuf:"bytes,10,opt,name=connector_account_id,json=connectorAccountId,proto3" json:"connector_account_id,omitempty"` // décision 2 §5.2, clé de corrélation
-	RemoteId           string                 `protobuf:"bytes,11,opt,name=remote_id,json=remoteId,proto3" json:"remote_id,omitempty"`                                 // spec 03 §3.4.8 « submitted (avec remote_id) » ; spec 05 §5.1 attrs smsc_msg_id
-	SentSourceAddr     string                 `protobuf:"bytes,12,opt,name=sent_source_addr,json=sentSourceAddr,proto3" json:"sent_source_addr,omitempty"`             // spec 01 §1.1 réécriture « l'original reste sur le CDR » ; spec 03 §3.4.5
+	MessageId          string                 `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`                                                 // topics.yaml, clé message_id
+	SegmentSeq         uint32                 `protobuf:"varint,2,opt,name=segment_seq,json=segmentSeq,proto3" json:"segment_seq,omitempty"`                                             // spec 03 §3.3 « segment_seq = 0 » pour les rejets ; 1..N sinon
+	Attempt            uint32                 `protobuf:"varint,3,opt,name=attempt,proto3" json:"attempt,omitempty"`                                                                     // décision 2 §3.1, clé primaire du journal
+	Kind               TransitionKind         `protobuf:"varint,4,opt,name=kind,proto3,enum=sms.v1.TransitionKind" json:"kind,omitempty"`                                                // décision 2 §3.2 : REJECTED, PARKED, UNPARKED, CANCELLED, SUBMITTED, SUBMIT_FAILED, NOT_SENT
+	ErrorCode          string                 `protobuf:"bytes,5,opt,name=error_code,json=errorCode,proto3" json:"error_code,omitempty"`                                                 // spec 09 §9.3, code stable ; spec 05 §5.1 attrs error_code
+	OccurredAt         *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`                                              // décision 2 §3.1, heure de l'événement source
+	AccountId          string                 `protobuf:"bytes,7,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`                                                 // décision 2 §5.2, ligne dlr_correlation inscrite à chaque submitted
+	CustomerId         string                 `protobuf:"bytes,8,opt,name=customer_id,json=customerId,proto3" json:"customer_id,omitempty"`                                              // décision 2 §5.2, ligne dlr_correlation
+	ConnectorId        string                 `protobuf:"bytes,9,opt,name=connector_id,json=connectorId,proto3" json:"connector_id,omitempty"`                                           // spec 05 §5.1 attrs connector_id
+	ConnectorAccountId string                 `protobuf:"bytes,10,opt,name=connector_account_id,json=connectorAccountId,proto3" json:"connector_account_id,omitempty"`                   // décision 2 §5.2, clé de corrélation
+	RemoteId           string                 `protobuf:"bytes,11,opt,name=remote_id,json=remoteId,proto3" json:"remote_id,omitempty"`                                                   // spec 03 §3.4.8 « submitted (avec remote_id) » ; spec 05 §5.1 attrs smsc_msg_id
+	SentSourceAddr     string                 `protobuf:"bytes,12,opt,name=sent_source_addr,json=sentSourceAddr,proto3" json:"sent_source_addr,omitempty"`                               // spec 01 §1.1 réécriture « l'original reste sur le CDR » ; spec 03 §3.4.5
+	AntispamVerdict    AntispamVerdict        `protobuf:"varint,13,opt,name=antispam_verdict,json=antispamVerdict,proto3,enum=sms.v1.AntispamVerdict" json:"antispam_verdict,omitempty"` // spec 03 §3.3.5 ; spec 05 §5.1 attrs de rejected
+	AntispamRuleId     string                 `protobuf:"bytes,14,opt,name=antispam_rule_id,json=antispamRuleId,proto3" json:"antispam_rule_id,omitempty"`                               // spec 03 §3.3.5 ; spec 05 §5.1 attrs de rejected
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -550,6 +568,20 @@ func (x *MtOutcome) GetSentSourceAddr() string {
 	return ""
 }
 
+func (x *MtOutcome) GetAntispamVerdict() AntispamVerdict {
+	if x != nil {
+		return x.AntispamVerdict
+	}
+	return AntispamVerdict_ANTISPAM_VERDICT_UNSPECIFIED
+}
+
+func (x *MtOutcome) GetAntispamRuleId() string {
+	if x != nil {
+		return x.AntispamRuleId
+	}
+	return ""
+}
+
 var File_sms_v1_mt_proto protoreflect.FileDescriptor
 
 const file_sms_v1_mt_proto_rawDesc = "" +
@@ -576,7 +608,7 @@ const file_sms_v1_mt_proto_rawDesc = "" +
 	"\x0fvalidity_period\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\x0evalidityPeriod\x12)\n" +
 	"\aingress\x18\r \x01(\x0e2\x0f.sms.v1.IngressR\aingressB\x06\n" +
 	"\x04bodyB\x16\n" +
-	"\x14_registered_delivery\"\x86\a\n" +
+	"\x14_registered_delivery\"\xf4\a\n" +
 	"\bMtRouted\x12\x1d\n" +
 	"\n" +
 	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x1f\n" +
@@ -607,8 +639,10 @@ const file_sms_v1_mt_proto_rawDesc = "" +
 	"\blease_id\x18\x14 \x01(\tR\aleaseId\x12\x18\n" +
 	"\acredits\x18\x15 \x01(\x03R\acredits\x12-\n" +
 	"\tcharge_on\x18\x16 \x01(\x0e2\x10.sms.v1.ChargeOnR\bchargeOn\x12*\n" +
-	"\x11rate_plan_version\x18\x17 \x01(\x03R\x0fratePlanVersionB\x16\n" +
-	"\x14_registered_delivery\"\xc9\x03\n" +
+	"\x11rate_plan_version\x18\x17 \x01(\x03R\x0fratePlanVersion\x12B\n" +
+	"\x10antispam_verdict\x18\x18 \x01(\x0e2\x17.sms.v1.AntispamVerdictR\x0fantispamVerdict\x12(\n" +
+	"\x10antispam_rule_id\x18\x19 \x01(\tR\x0eantispamRuleIdB\x16\n" +
+	"\x14_registered_delivery\"\xb7\x04\n" +
 	"\tMtOutcome\x12\x1d\n" +
 	"\n" +
 	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x1f\n" +
@@ -628,7 +662,9 @@ const file_sms_v1_mt_proto_rawDesc = "" +
 	"\x14connector_account_id\x18\n" +
 	" \x01(\tR\x12connectorAccountId\x12\x1b\n" +
 	"\tremote_id\x18\v \x01(\tR\bremoteId\x12(\n" +
-	"\x10sent_source_addr\x18\f \x01(\tR\x0esentSourceAddrB\x90\x01\n" +
+	"\x10sent_source_addr\x18\f \x01(\tR\x0esentSourceAddr\x12B\n" +
+	"\x10antispam_verdict\x18\r \x01(\x0e2\x17.sms.v1.AntispamVerdictR\x0fantispamVerdict\x12(\n" +
+	"\x10antispam_rule_id\x18\x0e \x01(\tR\x0eantispamRuleIdB\x90\x01\n" +
 	"\n" +
 	"com.sms.v1B\aMtProtoP\x01Z@github.com/martialanouman/sms-platform/internal/gen/sms/v1;smsv1\xa2\x02\x03SXX\xaa\x02\x06Sms.V1\xca\x02\x06Sms\\V1\xe2\x02\x12Sms\\V1\\GPBMetadata\xea\x02\aSms::V1b\x06proto3"
 
@@ -654,23 +690,26 @@ var file_sms_v1_mt_proto_goTypes = []any{
 	(Ingress)(0),                  // 5: sms.v1.Ingress
 	(Category)(0),                 // 6: sms.v1.Category
 	(ChargeOn)(0),                 // 7: sms.v1.ChargeOn
-	(TransitionKind)(0),           // 8: sms.v1.TransitionKind
+	(AntispamVerdict)(0),          // 8: sms.v1.AntispamVerdict
+	(TransitionKind)(0),           // 9: sms.v1.TransitionKind
 }
 var file_sms_v1_mt_proto_depIdxs = []int32{
-	3, // 0: sms.v1.MtInbound.data_coding:type_name -> sms.v1.DataCoding
-	4, // 1: sms.v1.MtInbound.validity_period:type_name -> google.protobuf.Timestamp
-	5, // 2: sms.v1.MtInbound.ingress:type_name -> sms.v1.Ingress
-	6, // 3: sms.v1.MtRouted.category:type_name -> sms.v1.Category
-	3, // 4: sms.v1.MtRouted.data_coding:type_name -> sms.v1.DataCoding
-	4, // 5: sms.v1.MtRouted.validity_period:type_name -> google.protobuf.Timestamp
-	7, // 6: sms.v1.MtRouted.charge_on:type_name -> sms.v1.ChargeOn
-	8, // 7: sms.v1.MtOutcome.kind:type_name -> sms.v1.TransitionKind
-	4, // 8: sms.v1.MtOutcome.occurred_at:type_name -> google.protobuf.Timestamp
-	9, // [9:9] is the sub-list for method output_type
-	9, // [9:9] is the sub-list for method input_type
-	9, // [9:9] is the sub-list for extension type_name
-	9, // [9:9] is the sub-list for extension extendee
-	0, // [0:9] is the sub-list for field type_name
+	3,  // 0: sms.v1.MtInbound.data_coding:type_name -> sms.v1.DataCoding
+	4,  // 1: sms.v1.MtInbound.validity_period:type_name -> google.protobuf.Timestamp
+	5,  // 2: sms.v1.MtInbound.ingress:type_name -> sms.v1.Ingress
+	6,  // 3: sms.v1.MtRouted.category:type_name -> sms.v1.Category
+	3,  // 4: sms.v1.MtRouted.data_coding:type_name -> sms.v1.DataCoding
+	4,  // 5: sms.v1.MtRouted.validity_period:type_name -> google.protobuf.Timestamp
+	7,  // 6: sms.v1.MtRouted.charge_on:type_name -> sms.v1.ChargeOn
+	8,  // 7: sms.v1.MtRouted.antispam_verdict:type_name -> sms.v1.AntispamVerdict
+	9,  // 8: sms.v1.MtOutcome.kind:type_name -> sms.v1.TransitionKind
+	4,  // 9: sms.v1.MtOutcome.occurred_at:type_name -> google.protobuf.Timestamp
+	8,  // 10: sms.v1.MtOutcome.antispam_verdict:type_name -> sms.v1.AntispamVerdict
+	11, // [11:11] is the sub-list for method output_type
+	11, // [11:11] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_sms_v1_mt_proto_init() }

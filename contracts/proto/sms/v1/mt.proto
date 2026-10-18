@@ -51,6 +51,8 @@ message MtRouted {
   int64 credits = 21; // spec 06 §6.2.2, crédits du segment, entiers (spec 06 §6.1) ; 0 = non facturable (spec 06 §6.3)
   ChargeOn charge_on = 22; // spec 06 §6.2.2, figé dans le fait (décision 1 §6.2)
   int64 rate_plan_version = 23; // spec 03 §3.3.9 « version du plan » ; décision 1 §6.1
+  AntispamVerdict antispam_verdict = 24; // spec 03 §3.3.5 ; spec 05 §5.1 attrs de routed
+  string antispam_rule_id = 25; // spec 03 §3.3.5 ; spec 05 §5.1 attrs de routed
 }
 
 // MtOutcome is the payload of mt.outcome: a router transition or a send outcome. topics.yaml, body: none
@@ -67,4 +69,6 @@ message MtOutcome {
   string connector_account_id = 10; // décision 2 §5.2, clé de corrélation
   string remote_id = 11; // spec 03 §3.4.8 « submitted (avec remote_id) » ; spec 05 §5.1 attrs smsc_msg_id
   string sent_source_addr = 12; // spec 01 §1.1 réécriture « l'original reste sur le CDR » ; spec 03 §3.4.5
+  AntispamVerdict antispam_verdict = 13; // spec 03 §3.3.5 ; spec 05 §5.1 attrs de rejected
+  string antispam_rule_id = 14; // spec 03 §3.3.5 ; spec 05 §5.1 attrs de rejected
 }

@@ -104,7 +104,7 @@ l'`enum` des contrats OpenAPI concernés et ce tableau, ensemble ; un test garde
 | `recipient_opted_out` | — | — | |
 | `content_blocked` | — | — | Anti-spam |
 | `no_route` | — | — | |
-| `insufficient_credit` | — | — | |
+| `insufficient_credit` | 402 | — | Transfert de solde (Admin) ; en MT, après l'ACK, un état |
 | `billing_unavailable` | — | — | Garage de facturation expiré (chapitre 6) ; remplace `external_billing_unavailable` |
 | `message_expired` | — | — | `max_age` dépassé (I10) |
 | `submit_failed` | — | — | Refus de l'opérateur |

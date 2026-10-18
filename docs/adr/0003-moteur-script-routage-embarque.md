@@ -1,5 +1,7 @@
 # ADR-0003 : Moteur de script de routage embarqué (goja/Lua) vs FaaS
 
+> Amendé par décision humaine du 18/10/2026 (step 004c-2) : JavaScript seul (goja) ; gopher-lua est retiré.
+>
 > Repris de `go-gateway`. Les chemins, steps et fiches `debts/` cités appartiennent à ce dépôt d'origine.
 
 **Status:** Accepted

@@ -71,13 +71,13 @@ peut en détenir plusieurs. La SPA masque ce qui est interdit : confort, jamais 
 | `noc` | `stream:read` et lectures, aucune écriture |
 
 **Hors de tout rôle par défaut sauf `Propriétaire`** : `content:read` (accordé à un opérateur nommé par un
-rôle taillé), `operators:*` et `roles:*` (qui édite les rôles s'accorde tout), `gateway:personal_token`.
+rôle taillé), `content:write` (décider de conserver les corps et pour combien de temps), `operators:*` et `roles:*` (qui édite les rôles s'accorde tout), `gateway:personal_token`.
 Un test bloquant signale tout autre scope ou permission orphelin.
 
 ## 8.6 Temps réel
 
 Le hub de chaque instance s'abonne lui-même aux trois flux de la passerelle (`/admin/stream/metrics`,
-`sessions`, `billing-alerts`, identité système sous `stream:read`) et les sert au navigateur sur **une**
+`sessions`, `connectors`, identité système sous `stream:read`) et les sert au navigateur sur **une**
 WebSocket par opérateur, multiplexée par sujet. Pas de couche pub/sub entre instances : deux ou trois
 instances font six à neuf abonnements, ce que la passerelle absorbe. Mises à jour visibles en 2 à 5 s.
 

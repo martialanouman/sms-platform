@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package session.v1;
 
+import "google/protobuf/timestamp.proto";
+
 // SessionService is the cross-pod registry of client SMPP binds. spec 02 §2.2, spec 09 §9.2 ; appelants smpp-server, delivery, admin-api
 service SessionService {
   // OpenSession registers a bind, refusing it beyond max_sessions. spec 09 §9.2, I6
@@ -28,6 +30,8 @@ message Session {
   string bind_id = 2; // spec 04 §4.4.1, le bind ciblé par le deliver_sm
   BindType bind_type = 3; // spec 04 §4.4.1
   string pod_addr = 4; // spec 04 §4.4.1 « le smpp-server-svc qui le tient »
+  google.protobuf.Timestamp connected_at = 5; // spec 01 §1.2, écran des sessions
+  string remote_addr = 6; // spec 01 §1.2, écran des sessions
 }
 
 message OpenSessionRequest {

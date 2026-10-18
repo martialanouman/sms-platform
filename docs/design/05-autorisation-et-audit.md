@@ -80,7 +80,7 @@ la SPA.
 - Une ligne par mutation et par lecture sous scope sensible ; les lectures ordinaires ne sont pas
   journalisées.
 - Colonnes : `operator` (le `sub` de l'opérateur, ou `service:<nom>`), `operation_id`, `target`,
-  `request_id`, `status`, `outcome`, `at`, `finished_at`. Immuable (step-315).
+  `request_id`, `status`, `outcome`, `at`. Immuable (step-315) : une ligne s'écrit une fois, à l'issue de la décision, avant la réponse.
 - **`content_access_audit` est absorbée** : une lecture de corps est une ligne avec `outcome` à
   `granted`, `unreadable` ou `not_found`, écrite **avant** que le corps soit rendu (step-163).
 
@@ -104,7 +104,7 @@ table non classée.
 | Événement seul | `exact_routes` | Un import de masse fait des millions de lignes : une ligne d'`audit_log` avec le nombre de lignes et l'empreinte du fichier |
 | Événement seul | `suppressions`, `unrouted_mo` | MSISDN : les copier dans un journal irait contre T8 |
 | Exemptée | `balances`, `balance_deltas`, `billing_ledger*`, `billing_idempotency`, `billing_events_outbox`, `credit_leases` (décision 1) | Le grand livre est lui-même le journal de la facturation ; volume du chemin chaud |
-| Exemptée | `gdpr_erase_jobs`, `message_export_jobs`, `cdr_archives`, `connector_account_leases`, `pool_members`, `connector_account_poll_cursors`, `lane_parking` | État d'exécution ; la création d'un job est déjà une ligne d'`audit_log` |
+| Exemptée | `jobs`, `gdpr_erase_jobs`, `message_export_jobs`, `cdr_archives`, `connector_account_leases`, `pool_members`, `connector_account_poll_cursors`, `lane_parking` | État d'exécution ; la création d'un job est déjà une ligne d'`audit_log` |
 | Exemptée | `audit_log`, `audit_changes` | Le journal lui-même |
 
 ### 4.4 Rétention

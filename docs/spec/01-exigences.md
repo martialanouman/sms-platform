@@ -38,7 +38,7 @@ identifiant de bind SMPP et exactement une clé
   (le `source_addr` correspond à un sender ID approuvé et actif du client, numérique compris), opt-out
   bloquant, anti-spam (règles de contenu, vélocité MT et MO, doublons).
 - **Routage en trois niveaux** : (0) numéro exact (portabilité), prioritaire et court-circuitant, mais
-  jamais pour la conformité (**I3**) ; (1) script de routage de l'exploitant (JavaScript ou Lua, isolé,
+  jamais pour la conformité (**I3**) ; (1) script de routage de l'exploitant (JavaScript, isolé,
   borné) ; (2) matching déclaratif (compte, client, sender ID, préfixe ou MCC-MNC, contenu, heure,
   priorité), avec route de repli et chaîne de repli entre connecteurs.
 - **Encodage et segmentation** : GSM-7, UCS-2, 8-bit ; UDH ; surcharge d'encodage par connecteur.
@@ -118,13 +118,13 @@ identifiant de bind SMPP et exactement une clé
   déconnexion forcée, débit et taux d'erreur.
 - **Routes** : constructeur visuel des règles déclaratives (priorité, conditions, stratégie de
   distribution), routage par numéro exact, import en masse.
-- **Scripts de routage** : éditeur (JS, Lua), validation, test contre un payload, versions,
+- **Scripts de routage** : éditeur (JavaScript), validation, test contre un payload, versions,
   publication et retour arrière, affectation, métriques d'exécution.
 - **Réécriture de sender ID** : CRUD par portée, avec test.
 - **Opt-out** : listes de suppression, import en masse, outil « pourquoi ce message a-t-il été
   bloqué ? ».
 - **Numéros entrants et mots-clés** : CRUD, affectation, file des MO non routés.
-- **Sessions en direct** : binds clients et comptes opérateur, déconnexion forcée.
+- **Sessions en direct** : binds clients (depuis quand, d'où) et comptes opérateur, déconnexion forcée.
 - **Trafic temps réel** : compteurs MT et MO, succès et échecs, latences, ventilation par connecteur,
   client, compte, groupe, canal.
 - **CDR** : recherche paginée et filtrée, détail avec chronologie et corps si stocké et autorisé
@@ -162,7 +162,7 @@ identifiant de bind SMPP et exactement une clé
 | Scalabilité | Horizontale et linéaire des niveaux sans état ; le pool s'étend par comptes opérateur |
 | Facturation | Aucun appel réseau sur le chemin chaud tant qu'une enveloppe couvre ; surcoût nul si désactivée |
 | Sécurité | TLS sur REST et SMPP, identifiants entrants hachés, secrets rejoués scellés, mTLS interne avec allowlist, une identité par service sur chaque magasin |
-| Conformité | RGPD, opt-out, effacement à la demande, rétention configurable (90 j par défaut) |
+| Conformité | RGPD, opt-out, effacement à la demande, rétention des corps configurable, plafonnée à 90 j ; CDR 90 j |
 | Observabilité | Métriques en moins de 5 s, logs structurés, traces ; jamais de corps (**I1**) |
 | Traçage | 100 % des étapes couvertes ; 100 % des messages en échec échantillonnés |
 | Configuration | Propagation p99 < 5 s (décision 7) |

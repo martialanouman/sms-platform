@@ -52,7 +52,7 @@ Deux faits manquaient à la spec initiale :
 | `http_adapter` | Nom de l'adaptateur (§6). Requis si `protocol = http` |
 | `priority_tier` | ADR-0020 §4, inchangé |
 
-Les routes, `route_targets` et `fallback_chain` ciblent des connecteurs. Le débit d'un connecteur se
+Les routes et `route_targets` ciblent des connecteurs ; la `fallback_chain` que le routeur en dérive aussi. Le débit d'un connecteur se
 calcule (somme de ses comptes disponibles) et n'est jamais stocké.
 
 ### 3.2 `connector_accounts`
@@ -122,8 +122,8 @@ suivant de la route, comme aujourd'hui pour un connecteur ouvert.
   manuel). La clé reste `message_id` ; le payload porte `connector_account_id` et `connector_id`.
 - **Extension des partitions.** À la création d'un compte, l'Admin API attribue `partition` (séquence)
   et, si elle dépasse le nombre de partitions, étend les trois topics par blocs de 64, de façon
-  idempotente, **avant** de passer le compte à `active`. Un échec répond 503 et laisse le compte en
-  `provisioning`, que le routeur ignore.
+  idempotente, **avant** de passer le compte à `active`. La création répond `202` et un job (spec 07 §7.3) ;
+  un échec fait échouer le job et laisse le compte en `provisioning`, que le routeur ignore.
 - La partition d'un compte supprimé reste orpheline : jamais réattribuée.
 
 ### 4.3 Consommation

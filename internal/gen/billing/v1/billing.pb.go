@@ -1142,9 +1142,10 @@ func (x *GetBalancesResponse) GetMo() int64 {
 
 type ListLedgerEntriesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Owner         *Owner                 `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`   // spec 06 §6.4
-	Cursor        string                 `protobuf:"bytes,2,opt,name=cursor,proto3" json:"cursor,omitempty"` // spec 07 §7.3, keyset
-	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`  // spec 07 §7.3
+	Owner         *Owner                 `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`                                // spec 06 §6.4
+	Cursor        string                 `protobuf:"bytes,2,opt,name=cursor,proto3" json:"cursor,omitempty"`                              // spec 07 §7.3, keyset
+	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`                               // spec 07 §7.3
+	Direction     v1.Direction           `protobuf:"varint,4,opt,name=direction,proto3,enum=sms.v1.Direction" json:"direction,omitempty"` // filtre côté serveur : filtrer une page côté client fausserait la pagination
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1198,6 +1199,13 @@ func (x *ListLedgerEntriesRequest) GetLimit() int32 {
 		return x.Limit
 	}
 	return 0
+}
+
+func (x *ListLedgerEntriesRequest) GetDirection() v1.Direction {
+	if x != nil {
+		return x.Direction
+	}
+	return v1.Direction(0)
 }
 
 // LedgerEntry is one balance movement. spec 06 §6.4
@@ -1321,6 +1329,110 @@ func (x *ListLedgerEntriesResponse) GetNextCursor() string {
 	return ""
 }
 
+type ListOwnersAtMoFloorRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Cursor        string                 `protobuf:"bytes,1,opt,name=cursor,proto3" json:"cursor,omitempty"` // spec 07 §7.3, keyset
+	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`  // spec 07 §7.3
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListOwnersAtMoFloorRequest) Reset() {
+	*x = ListOwnersAtMoFloorRequest{}
+	mi := &file_billing_v1_billing_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListOwnersAtMoFloorRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListOwnersAtMoFloorRequest) ProtoMessage() {}
+
+func (x *ListOwnersAtMoFloorRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_billing_v1_billing_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListOwnersAtMoFloorRequest.ProtoReflect.Descriptor instead.
+func (*ListOwnersAtMoFloorRequest) Descriptor() ([]byte, []int) {
+	return file_billing_v1_billing_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *ListOwnersAtMoFloorRequest) GetCursor() string {
+	if x != nil {
+		return x.Cursor
+	}
+	return ""
+}
+
+func (x *ListOwnersAtMoFloorRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type ListOwnersAtMoFloorResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Owners        []*Owner               `protobuf:"bytes,1,rep,name=owners,proto3" json:"owners,omitempty"`                           // spec 08 §8.7 « l'écran de facturation liste lesquels »
+	NextCursor    string                 `protobuf:"bytes,2,opt,name=next_cursor,json=nextCursor,proto3" json:"next_cursor,omitempty"` // spec 07 §7.3
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListOwnersAtMoFloorResponse) Reset() {
+	*x = ListOwnersAtMoFloorResponse{}
+	mi := &file_billing_v1_billing_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListOwnersAtMoFloorResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListOwnersAtMoFloorResponse) ProtoMessage() {}
+
+func (x *ListOwnersAtMoFloorResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_billing_v1_billing_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListOwnersAtMoFloorResponse.ProtoReflect.Descriptor instead.
+func (*ListOwnersAtMoFloorResponse) Descriptor() ([]byte, []int) {
+	return file_billing_v1_billing_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *ListOwnersAtMoFloorResponse) GetOwners() []*Owner {
+	if x != nil {
+		return x.Owners
+	}
+	return nil
+}
+
+func (x *ListOwnersAtMoFloorResponse) GetNextCursor() string {
+	if x != nil {
+		return x.NextCursor
+	}
+	return ""
+}
+
 var File_billing_v1_billing_proto protoreflect.FileDescriptor
 
 const file_billing_v1_billing_proto_rawDesc = "" +
@@ -1386,11 +1498,12 @@ const file_billing_v1_billing_proto_rawDesc = "" +
 	"\x05owner\x18\x01 \x01(\v2\x11.billing.v1.OwnerR\x05owner\"5\n" +
 	"\x13GetBalancesResponse\x12\x0e\n" +
 	"\x02mt\x18\x01 \x01(\x03R\x02mt\x12\x0e\n" +
-	"\x02mo\x18\x02 \x01(\x03R\x02mo\"q\n" +
+	"\x02mo\x18\x02 \x01(\x03R\x02mo\"\xa2\x01\n" +
 	"\x18ListLedgerEntriesRequest\x12'\n" +
 	"\x05owner\x18\x01 \x01(\v2\x11.billing.v1.OwnerR\x05owner\x12\x16\n" +
 	"\x06cursor\x18\x02 \x01(\tR\x06cursor\x12\x14\n" +
-	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\xba\x01\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12/\n" +
+	"\tdirection\x18\x04 \x01(\x0e2\x11.sms.v1.DirectionR\tdirection\"\xba\x01\n" +
 	"\vLedgerEntry\x124\n" +
 	"\n" +
 	"entry_type\x18\x01 \x01(\x0e2\x15.billing.v1.EntryTypeR\tentryType\x12/\n" +
@@ -1399,6 +1512,13 @@ const file_billing_v1_billing_proto_rawDesc = "" +
 	"\x02at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x02at\"o\n" +
 	"\x19ListLedgerEntriesResponse\x121\n" +
 	"\aentries\x18\x01 \x03(\v2\x17.billing.v1.LedgerEntryR\aentries\x12\x1f\n" +
+	"\vnext_cursor\x18\x02 \x01(\tR\n" +
+	"nextCursor\"J\n" +
+	"\x1aListOwnersAtMoFloorRequest\x12\x16\n" +
+	"\x06cursor\x18\x01 \x01(\tR\x06cursor\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\"i\n" +
+	"\x1bListOwnersAtMoFloorResponse\x12)\n" +
+	"\x06owners\x18\x01 \x03(\v2\x11.billing.v1.OwnerR\x06owners\x12\x1f\n" +
 	"\vnext_cursor\x18\x02 \x01(\tR\n" +
 	"nextCursor*X\n" +
 	"\tOwnerType\x12\x1a\n" +
@@ -1418,7 +1538,7 @@ const file_billing_v1_billing_proto_rawDesc = "" +
 	"\x14ENTRY_TYPE_MO_CHARGE\x10\x05\x12\x14\n" +
 	"\x10ENTRY_TYPE_TOPUP\x10\x06\x12\x17\n" +
 	"\x13ENTRY_TYPE_TRANSFER\x10\a\x12\x19\n" +
-	"\x15ENTRY_TYPE_ADJUSTMENT\x10\b2\xfe\x04\n" +
+	"\x15ENTRY_TYPE_ADJUSTMENT\x10\b2\xe6\x05\n" +
 	"\x0eBillingService\x12K\n" +
 	"\n" +
 	"GrantLease\x12\x1d.billing.v1.GrantLeaseRequest\x1a\x1e.billing.v1.GrantLeaseResponse\x12K\n" +
@@ -1429,7 +1549,8 @@ const file_billing_v1_billing_proto_rawDesc = "" +
 	"\x06Adjust\x12\x19.billing.v1.AdjustRequest\x1a\x1a.billing.v1.AdjustResponse\x12Z\n" +
 	"\x0fSetBalanceScope\x12\".billing.v1.SetBalanceScopeRequest\x1a#.billing.v1.SetBalanceScopeResponse\x12N\n" +
 	"\vGetBalances\x12\x1e.billing.v1.GetBalancesRequest\x1a\x1f.billing.v1.GetBalancesResponse\x12`\n" +
-	"\x11ListLedgerEntries\x12$.billing.v1.ListLedgerEntriesRequest\x1a%.billing.v1.ListLedgerEntriesResponseB\xb1\x01\n" +
+	"\x11ListLedgerEntries\x12$.billing.v1.ListLedgerEntriesRequest\x1a%.billing.v1.ListLedgerEntriesResponse\x12f\n" +
+	"\x13ListOwnersAtMoFloor\x12&.billing.v1.ListOwnersAtMoFloorRequest\x1a'.billing.v1.ListOwnersAtMoFloorResponseB\xb1\x01\n" +
 	"\x0ecom.billing.v1B\fBillingProtoP\x01ZHgithub.com/martialanouman/sms-platform/internal/gen/billing/v1;billingv1\xa2\x02\x03BXX\xaa\x02\n" +
 	"Billing.V1\xca\x02\n" +
 	"Billing\\V1\xe2\x02\x16Billing\\V1\\GPBMetadata\xea\x02\vBilling::V1b\x06proto3"
@@ -1447,81 +1568,87 @@ func file_billing_v1_billing_proto_rawDescGZIP() []byte {
 }
 
 var file_billing_v1_billing_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_billing_v1_billing_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_billing_v1_billing_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_billing_v1_billing_proto_goTypes = []any{
-	(OwnerType)(0),                    // 0: billing.v1.OwnerType
-	(GrantLeaseOutcome)(0),            // 1: billing.v1.GrantLeaseOutcome
-	(EntryType)(0),                    // 2: billing.v1.EntryType
-	(*Owner)(nil),                     // 3: billing.v1.Owner
-	(*Mutation)(nil),                  // 4: billing.v1.Mutation
-	(*RequestKey)(nil),                // 5: billing.v1.RequestKey
-	(*GrantLeaseRequest)(nil),         // 6: billing.v1.GrantLeaseRequest
-	(*GrantLeaseResponse)(nil),        // 7: billing.v1.GrantLeaseResponse
-	(*FenceOffset)(nil),               // 8: billing.v1.FenceOffset
-	(*CloseLeaseRequest)(nil),         // 9: billing.v1.CloseLeaseRequest
-	(*CloseLeaseResponse)(nil),        // 10: billing.v1.CloseLeaseResponse
-	(*TopupRequest)(nil),              // 11: billing.v1.TopupRequest
-	(*TopupResponse)(nil),             // 12: billing.v1.TopupResponse
-	(*TransferRequest)(nil),           // 13: billing.v1.TransferRequest
-	(*TransferResponse)(nil),          // 14: billing.v1.TransferResponse
-	(*AdjustRequest)(nil),             // 15: billing.v1.AdjustRequest
-	(*AdjustResponse)(nil),            // 16: billing.v1.AdjustResponse
-	(*SetBalanceScopeRequest)(nil),    // 17: billing.v1.SetBalanceScopeRequest
-	(*SetBalanceScopeResponse)(nil),   // 18: billing.v1.SetBalanceScopeResponse
-	(*GetBalancesRequest)(nil),        // 19: billing.v1.GetBalancesRequest
-	(*GetBalancesResponse)(nil),       // 20: billing.v1.GetBalancesResponse
-	(*ListLedgerEntriesRequest)(nil),  // 21: billing.v1.ListLedgerEntriesRequest
-	(*LedgerEntry)(nil),               // 22: billing.v1.LedgerEntry
-	(*ListLedgerEntriesResponse)(nil), // 23: billing.v1.ListLedgerEntriesResponse
-	(*durationpb.Duration)(nil),       // 24: google.protobuf.Duration
-	(v1.Direction)(0),                 // 25: sms.v1.Direction
-	(*timestamppb.Timestamp)(nil),     // 26: google.protobuf.Timestamp
+	(OwnerType)(0),                      // 0: billing.v1.OwnerType
+	(GrantLeaseOutcome)(0),              // 1: billing.v1.GrantLeaseOutcome
+	(EntryType)(0),                      // 2: billing.v1.EntryType
+	(*Owner)(nil),                       // 3: billing.v1.Owner
+	(*Mutation)(nil),                    // 4: billing.v1.Mutation
+	(*RequestKey)(nil),                  // 5: billing.v1.RequestKey
+	(*GrantLeaseRequest)(nil),           // 6: billing.v1.GrantLeaseRequest
+	(*GrantLeaseResponse)(nil),          // 7: billing.v1.GrantLeaseResponse
+	(*FenceOffset)(nil),                 // 8: billing.v1.FenceOffset
+	(*CloseLeaseRequest)(nil),           // 9: billing.v1.CloseLeaseRequest
+	(*CloseLeaseResponse)(nil),          // 10: billing.v1.CloseLeaseResponse
+	(*TopupRequest)(nil),                // 11: billing.v1.TopupRequest
+	(*TopupResponse)(nil),               // 12: billing.v1.TopupResponse
+	(*TransferRequest)(nil),             // 13: billing.v1.TransferRequest
+	(*TransferResponse)(nil),            // 14: billing.v1.TransferResponse
+	(*AdjustRequest)(nil),               // 15: billing.v1.AdjustRequest
+	(*AdjustResponse)(nil),              // 16: billing.v1.AdjustResponse
+	(*SetBalanceScopeRequest)(nil),      // 17: billing.v1.SetBalanceScopeRequest
+	(*SetBalanceScopeResponse)(nil),     // 18: billing.v1.SetBalanceScopeResponse
+	(*GetBalancesRequest)(nil),          // 19: billing.v1.GetBalancesRequest
+	(*GetBalancesResponse)(nil),         // 20: billing.v1.GetBalancesResponse
+	(*ListLedgerEntriesRequest)(nil),    // 21: billing.v1.ListLedgerEntriesRequest
+	(*LedgerEntry)(nil),                 // 22: billing.v1.LedgerEntry
+	(*ListLedgerEntriesResponse)(nil),   // 23: billing.v1.ListLedgerEntriesResponse
+	(*ListOwnersAtMoFloorRequest)(nil),  // 24: billing.v1.ListOwnersAtMoFloorRequest
+	(*ListOwnersAtMoFloorResponse)(nil), // 25: billing.v1.ListOwnersAtMoFloorResponse
+	(*durationpb.Duration)(nil),         // 26: google.protobuf.Duration
+	(v1.Direction)(0),                   // 27: sms.v1.Direction
+	(*timestamppb.Timestamp)(nil),       // 28: google.protobuf.Timestamp
 }
 var file_billing_v1_billing_proto_depIdxs = []int32{
 	0,  // 0: billing.v1.Owner.owner_type:type_name -> billing.v1.OwnerType
 	5,  // 1: billing.v1.GrantLeaseRequest.request_key:type_name -> billing.v1.RequestKey
 	3,  // 2: billing.v1.GrantLeaseRequest.owner:type_name -> billing.v1.Owner
 	1,  // 3: billing.v1.GrantLeaseResponse.outcome:type_name -> billing.v1.GrantLeaseOutcome
-	24, // 4: billing.v1.GrantLeaseResponse.ttl:type_name -> google.protobuf.Duration
+	26, // 4: billing.v1.GrantLeaseResponse.ttl:type_name -> google.protobuf.Duration
 	8,  // 5: billing.v1.CloseLeaseRequest.fence_offsets:type_name -> billing.v1.FenceOffset
 	4,  // 6: billing.v1.TopupRequest.mutation:type_name -> billing.v1.Mutation
 	3,  // 7: billing.v1.TopupRequest.owner:type_name -> billing.v1.Owner
-	25, // 8: billing.v1.TopupRequest.direction:type_name -> sms.v1.Direction
+	27, // 8: billing.v1.TopupRequest.direction:type_name -> sms.v1.Direction
 	4,  // 9: billing.v1.TransferRequest.mutation:type_name -> billing.v1.Mutation
 	3,  // 10: billing.v1.TransferRequest.from:type_name -> billing.v1.Owner
 	3,  // 11: billing.v1.TransferRequest.to:type_name -> billing.v1.Owner
 	4,  // 12: billing.v1.AdjustRequest.mutation:type_name -> billing.v1.Mutation
 	3,  // 13: billing.v1.AdjustRequest.owner:type_name -> billing.v1.Owner
-	25, // 14: billing.v1.AdjustRequest.direction:type_name -> sms.v1.Direction
+	27, // 14: billing.v1.AdjustRequest.direction:type_name -> sms.v1.Direction
 	4,  // 15: billing.v1.SetBalanceScopeRequest.mutation:type_name -> billing.v1.Mutation
 	0,  // 16: billing.v1.SetBalanceScopeRequest.balance_scope:type_name -> billing.v1.OwnerType
 	3,  // 17: billing.v1.GetBalancesRequest.owner:type_name -> billing.v1.Owner
 	3,  // 18: billing.v1.ListLedgerEntriesRequest.owner:type_name -> billing.v1.Owner
-	2,  // 19: billing.v1.LedgerEntry.entry_type:type_name -> billing.v1.EntryType
-	25, // 20: billing.v1.LedgerEntry.direction:type_name -> sms.v1.Direction
-	26, // 21: billing.v1.LedgerEntry.at:type_name -> google.protobuf.Timestamp
-	22, // 22: billing.v1.ListLedgerEntriesResponse.entries:type_name -> billing.v1.LedgerEntry
-	6,  // 23: billing.v1.BillingService.GrantLease:input_type -> billing.v1.GrantLeaseRequest
-	9,  // 24: billing.v1.BillingService.CloseLease:input_type -> billing.v1.CloseLeaseRequest
-	11, // 25: billing.v1.BillingService.Topup:input_type -> billing.v1.TopupRequest
-	13, // 26: billing.v1.BillingService.Transfer:input_type -> billing.v1.TransferRequest
-	15, // 27: billing.v1.BillingService.Adjust:input_type -> billing.v1.AdjustRequest
-	17, // 28: billing.v1.BillingService.SetBalanceScope:input_type -> billing.v1.SetBalanceScopeRequest
-	19, // 29: billing.v1.BillingService.GetBalances:input_type -> billing.v1.GetBalancesRequest
-	21, // 30: billing.v1.BillingService.ListLedgerEntries:input_type -> billing.v1.ListLedgerEntriesRequest
-	7,  // 31: billing.v1.BillingService.GrantLease:output_type -> billing.v1.GrantLeaseResponse
-	10, // 32: billing.v1.BillingService.CloseLease:output_type -> billing.v1.CloseLeaseResponse
-	12, // 33: billing.v1.BillingService.Topup:output_type -> billing.v1.TopupResponse
-	14, // 34: billing.v1.BillingService.Transfer:output_type -> billing.v1.TransferResponse
-	16, // 35: billing.v1.BillingService.Adjust:output_type -> billing.v1.AdjustResponse
-	18, // 36: billing.v1.BillingService.SetBalanceScope:output_type -> billing.v1.SetBalanceScopeResponse
-	20, // 37: billing.v1.BillingService.GetBalances:output_type -> billing.v1.GetBalancesResponse
-	23, // 38: billing.v1.BillingService.ListLedgerEntries:output_type -> billing.v1.ListLedgerEntriesResponse
-	31, // [31:39] is the sub-list for method output_type
-	23, // [23:31] is the sub-list for method input_type
-	23, // [23:23] is the sub-list for extension type_name
-	23, // [23:23] is the sub-list for extension extendee
-	0,  // [0:23] is the sub-list for field type_name
+	27, // 19: billing.v1.ListLedgerEntriesRequest.direction:type_name -> sms.v1.Direction
+	2,  // 20: billing.v1.LedgerEntry.entry_type:type_name -> billing.v1.EntryType
+	27, // 21: billing.v1.LedgerEntry.direction:type_name -> sms.v1.Direction
+	28, // 22: billing.v1.LedgerEntry.at:type_name -> google.protobuf.Timestamp
+	22, // 23: billing.v1.ListLedgerEntriesResponse.entries:type_name -> billing.v1.LedgerEntry
+	3,  // 24: billing.v1.ListOwnersAtMoFloorResponse.owners:type_name -> billing.v1.Owner
+	6,  // 25: billing.v1.BillingService.GrantLease:input_type -> billing.v1.GrantLeaseRequest
+	9,  // 26: billing.v1.BillingService.CloseLease:input_type -> billing.v1.CloseLeaseRequest
+	11, // 27: billing.v1.BillingService.Topup:input_type -> billing.v1.TopupRequest
+	13, // 28: billing.v1.BillingService.Transfer:input_type -> billing.v1.TransferRequest
+	15, // 29: billing.v1.BillingService.Adjust:input_type -> billing.v1.AdjustRequest
+	17, // 30: billing.v1.BillingService.SetBalanceScope:input_type -> billing.v1.SetBalanceScopeRequest
+	19, // 31: billing.v1.BillingService.GetBalances:input_type -> billing.v1.GetBalancesRequest
+	21, // 32: billing.v1.BillingService.ListLedgerEntries:input_type -> billing.v1.ListLedgerEntriesRequest
+	24, // 33: billing.v1.BillingService.ListOwnersAtMoFloor:input_type -> billing.v1.ListOwnersAtMoFloorRequest
+	7,  // 34: billing.v1.BillingService.GrantLease:output_type -> billing.v1.GrantLeaseResponse
+	10, // 35: billing.v1.BillingService.CloseLease:output_type -> billing.v1.CloseLeaseResponse
+	12, // 36: billing.v1.BillingService.Topup:output_type -> billing.v1.TopupResponse
+	14, // 37: billing.v1.BillingService.Transfer:output_type -> billing.v1.TransferResponse
+	16, // 38: billing.v1.BillingService.Adjust:output_type -> billing.v1.AdjustResponse
+	18, // 39: billing.v1.BillingService.SetBalanceScope:output_type -> billing.v1.SetBalanceScopeResponse
+	20, // 40: billing.v1.BillingService.GetBalances:output_type -> billing.v1.GetBalancesResponse
+	23, // 41: billing.v1.BillingService.ListLedgerEntries:output_type -> billing.v1.ListLedgerEntriesResponse
+	25, // 42: billing.v1.BillingService.ListOwnersAtMoFloor:output_type -> billing.v1.ListOwnersAtMoFloorResponse
+	34, // [34:43] is the sub-list for method output_type
+	25, // [25:34] is the sub-list for method input_type
+	25, // [25:25] is the sub-list for extension type_name
+	25, // [25:25] is the sub-list for extension extendee
+	0,  // [0:25] is the sub-list for field type_name
 }
 
 func init() { file_billing_v1_billing_proto_init() }
@@ -1535,7 +1662,7 @@ func file_billing_v1_billing_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_billing_v1_billing_proto_rawDesc), len(file_billing_v1_billing_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   21,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

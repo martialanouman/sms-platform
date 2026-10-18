@@ -508,6 +508,56 @@ func (DlrStatus) EnumDescriptor() ([]byte, []int) {
 	return file_sms_v1_common_proto_rawDescGZIP(), []int{7}
 }
 
+// AntispamVerdict is what an anti-spam rule decided on a message. spec 03 §3.3.5
+type AntispamVerdict int32
+
+const (
+	AntispamVerdict_ANTISPAM_VERDICT_UNSPECIFIED AntispamVerdict = 0
+	AntispamVerdict_ANTISPAM_VERDICT_FLAG        AntispamVerdict = 1
+	AntispamVerdict_ANTISPAM_VERDICT_BLOCK       AntispamVerdict = 2
+)
+
+// Enum value maps for AntispamVerdict.
+var (
+	AntispamVerdict_name = map[int32]string{
+		0: "ANTISPAM_VERDICT_UNSPECIFIED",
+		1: "ANTISPAM_VERDICT_FLAG",
+		2: "ANTISPAM_VERDICT_BLOCK",
+	}
+	AntispamVerdict_value = map[string]int32{
+		"ANTISPAM_VERDICT_UNSPECIFIED": 0,
+		"ANTISPAM_VERDICT_FLAG":        1,
+		"ANTISPAM_VERDICT_BLOCK":       2,
+	}
+)
+
+func (x AntispamVerdict) Enum() *AntispamVerdict {
+	p := new(AntispamVerdict)
+	*p = x
+	return p
+}
+
+func (x AntispamVerdict) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (AntispamVerdict) Descriptor() protoreflect.EnumDescriptor {
+	return file_sms_v1_common_proto_enumTypes[8].Descriptor()
+}
+
+func (AntispamVerdict) Type() protoreflect.EnumType {
+	return &file_sms_v1_common_proto_enumTypes[8]
+}
+
+func (x AntispamVerdict) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use AntispamVerdict.Descriptor instead.
+func (AntispamVerdict) EnumDescriptor() ([]byte, []int) {
+	return file_sms_v1_common_proto_rawDescGZIP(), []int{8}
+}
+
 var File_sms_v1_common_proto protoreflect.FileDescriptor
 
 const file_sms_v1_common_proto_rawDesc = "" +
@@ -575,7 +625,11 @@ const file_sms_v1_common_proto_rawDesc = "" +
 	"\x18DLR_STATUS_UNDELIVERABLE\x10\x02\x12\x16\n" +
 	"\x12DLR_STATUS_EXPIRED\x10\x03\x12\x17\n" +
 	"\x13DLR_STATUS_REJECTED\x10\x04\x12\x15\n" +
-	"\x11DLR_STATUS_FAILED\x10\x05B\x94\x01\n" +
+	"\x11DLR_STATUS_FAILED\x10\x05*j\n" +
+	"\x0fAntispamVerdict\x12 \n" +
+	"\x1cANTISPAM_VERDICT_UNSPECIFIED\x10\x00\x12\x19\n" +
+	"\x15ANTISPAM_VERDICT_FLAG\x10\x01\x12\x1a\n" +
+	"\x16ANTISPAM_VERDICT_BLOCK\x10\x02B\x94\x01\n" +
 	"\n" +
 	"com.sms.v1B\vCommonProtoP\x01Z@github.com/martialanouman/sms-platform/internal/gen/sms/v1;smsv1\xa2\x02\x03SXX\xaa\x02\x06Sms.V1\xca\x02\x06Sms\\V1\xe2\x02\x12Sms\\V1\\GPBMetadata\xea\x02\aSms::V1b\x06proto3"
 
@@ -591,16 +645,17 @@ func file_sms_v1_common_proto_rawDescGZIP() []byte {
 	return file_sms_v1_common_proto_rawDescData
 }
 
-var file_sms_v1_common_proto_enumTypes = make([]protoimpl.EnumInfo, 8)
+var file_sms_v1_common_proto_enumTypes = make([]protoimpl.EnumInfo, 9)
 var file_sms_v1_common_proto_goTypes = []any{
-	(Category)(0),       // 0: sms.v1.Category
-	(DataCoding)(0),     // 1: sms.v1.DataCoding
-	(Ingress)(0),        // 2: sms.v1.Ingress
-	(ChargeOn)(0),       // 3: sms.v1.ChargeOn
-	(Direction)(0),      // 4: sms.v1.Direction
-	(TransitionKind)(0), // 5: sms.v1.TransitionKind
-	(MessageStatus)(0),  // 6: sms.v1.MessageStatus
-	(DlrStatus)(0),      // 7: sms.v1.DlrStatus
+	(Category)(0),        // 0: sms.v1.Category
+	(DataCoding)(0),      // 1: sms.v1.DataCoding
+	(Ingress)(0),         // 2: sms.v1.Ingress
+	(ChargeOn)(0),        // 3: sms.v1.ChargeOn
+	(Direction)(0),       // 4: sms.v1.Direction
+	(TransitionKind)(0),  // 5: sms.v1.TransitionKind
+	(MessageStatus)(0),   // 6: sms.v1.MessageStatus
+	(DlrStatus)(0),       // 7: sms.v1.DlrStatus
+	(AntispamVerdict)(0), // 8: sms.v1.AntispamVerdict
 }
 var file_sms_v1_common_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -620,7 +675,7 @@ func file_sms_v1_common_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sms_v1_common_proto_rawDesc), len(file_sms_v1_common_proto_rawDesc)),
-			NumEnums:      8,
+			NumEnums:      9,
 			NumMessages:   0,
 			NumExtensions: 0,
 			NumServices:   0,

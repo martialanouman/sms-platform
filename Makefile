@@ -35,12 +35,17 @@ proto: ## buf lint, puis buf breaking contre origin/main
 		echo "buf breaking : $$base n'a pas de contracts/proto, rien à comparer"; \
 	else go tool buf breaking --against ".git#ref=$$base"; fi
 
-openapi: ## oasdiff validate, puis oasdiff breaking contre origin/main, bloquant sur ERR
+openapi: ## Gardes des contrats, oasdiff validate, puis oasdiff breaking contre origin/main (bloquant pour le public)
+	go run ./tools/openapi
 	go tool oasdiff validate --fail-on WARN contracts/openapi-public.yaml
+	go tool oasdiff validate --fail-on WARN contracts/openapi-admin.yaml
 	@base=$${OPENAPI_BASE:-origin/main}; git rev-parse --verify --quiet "$$base^{commit}" >/dev/null \
 		|| { echo "base $$base introuvable"; exit 1; }; \
-	if [ -z "$$(git ls-tree --name-only "$$base" -- contracts/openapi-public.yaml)" ]; then \
-		echo "oasdiff breaking : $$base n'a pas de contracts/openapi-public.yaml, rien à comparer"; \
-	else go tool oasdiff breaking --fail-on ERR "$$base:contracts/openapi-public.yaml" contracts/openapi-public.yaml; fi
+	for f in contracts/openapi-public.yaml contracts/openapi-admin.yaml; do \
+		if [ -z "$$(git ls-tree --name-only "$$base" -- $$f)" ]; then \
+			echo "oasdiff breaking : $$base n'a pas de $$f, rien à comparer"; continue; fi; \
+		case $$f in *public*) fail="--fail-on ERR";; *) fail="";; esac; \
+		go tool oasdiff breaking $$fail "$$base:$$f" $$f || exit 1; \
+	done
 
 check: lint ciguard check-generated debtguard catalog proto openapi ## Ce que vérifie la CI

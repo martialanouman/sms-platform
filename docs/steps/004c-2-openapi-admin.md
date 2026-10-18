@@ -1,0 +1,101 @@
+# Step 004c-2 — OpenAPI Admin, scopes générés, gardes
+
+Plan : `docs/plan/socle.md` §004, deuxième des trois contrats. Spec : `docs/spec/07-plan-de-controle.md`
+(§7.3, §7.4), `docs/spec/08-dashboard.md` §8.5, `docs/spec/09-contrats.md`. Mode : PR.
+
+## Contexte
+
+L'ancien contrat Admin (136 opérations, scopes `admin:read` et `admin:write`) est repris dans
+`contracts/openapi-admin.yaml`, à l'état des décisions. Son relevé d'écarts compte 129 entrées (71 tranchées par
+la spec, 52 trous, 6 contradictions). Fable a tranché les trous et les contradictions le 2026-10-18, sauf
+une, décidée par l'humain : JavaScript seul. La liste des scopes se génère depuis le contrat, et les gardes
+statiques des contrats naissent avec l'outil qui les lit.
+
+**Terminé quand** (part de 004c-2) : le contrat Admin est à l'état des décisions ; la liste des scopes est
+générée et gardée par `check-generated` ; chaque garde statique est rouge sur un contrat fautif.
+
+## Arbitrages
+
+**Humain** : scripts de routage en JavaScript seul (`language` disparaît) ; spec 01 §1.1 et §1.2 amendées.
+
+**Fable** (relevé et verdicts complets dans les notes de session, non commités) :
+
+- **Scopes** (spec 07 §7.4) : 25 tags kebab-case ; chaque opération déclare exactement un scope,
+  `<tag>:read`, `<tag>:write` ou une action sensible de son tag (`routing-scripts:publish`,
+  `suppressions:delete`, `billing:topup`, `content:erase`, `gdpr:erase`, `cdr:export_bulk`). Seuls les
+  scopes déclarés par une opération existent, plus `msisdn:reveal`, qu'aucune opération ne déclare
+  (spec 08 §8.5 refuse les orphelins) ; spec 07 §7.4 amendée. `smpp-sessions` évite la collision avec la
+  permission BFF `sessions`. `assign-routing-script` et `rollback-routing-script` sous
+  `routing-scripts:publish`, `adjust-balance` sous `billing:topup`, `rotate-content-key` sous
+  `customers:write`.
+- **Surface** : 12 opérations retirées (fournisseurs de facturation, `set-connector-bind-pool`,
+  `stream-billing-alerts`, doublons), 20 ajoutées : 144 opérations (dead-letters et leur rejeu, jobs, comptes opérateur,
+  `stream-connectors`, impact d'une suspension, rotation du secret de webhook, débit du compte,
+  ajustement, propriétaires au plancher MO, fiche message, diff d'audit, retour arrière d'un script).
+- **Conventions** : pagination par curseur opaque partout sauf identifiants et webhooks ; paramètres
+  snake_case ; statut typé par ressource ; PATCH à trois états ; MSISDN hors des URL (recherches en
+  `POST`), schéma `Msisdn` partagé, masqué sauf `msisdn:reveal` ; `servers` sans `/v1` ; sécurité
+  `http bearer` JWT, sans `oauth2` (aucun compte de service).
+- **Codes** : `Error.code` réduit aux 10 codes que l'Admin peut rendre (`not_found` pour tout introuvable, message compris) ; rejeu refusé en 409 `conflict`.
+- **Données** (décisions 1, 3, spec 06, 07) : `account` partout ; `charge_on` sur la facturation du client ;
+  un champ, un écrivain, un scope (facturation et contenu hors de `update-customer`) ;
+  `max_age_override` par client, à la baisse ; `platform_policy.billing_enabled` ; comptes opérateur
+  scindés du connecteur, créés en `202` + job ; secret de webhook généré par la passerelle ; aucune
+  `least_loaded`, aucun `lua`.
+- **Protos** (additifs) : `MessageState.antispam_verdict` et `antispam_rule_id` ; `Session.connected_at` et
+  `remote_addr` ; `ListLedgerEntriesRequest.direction` ; `BillingService.ListOwnersAtMoFloor`.
+- **Amendements** : §9.3 (`insufficient_credit` en 402 sur un transfert de solde Admin) ; spec 07 §7.1 (`max_age_override`, `billing_enabled`) et §7.4 ; spec 08 §8.6 (flux
+  `connectors`) ; décision 3 §4.2 (`202` + job) ; spec 01 (JavaScript seul).
+
+**Outillage** :
+
+1. **Cœur** `internal/openapi` : décode le strict nécessaire d'un contrat (yaml.v3, déjà admis par
+   depguard) ; `Scopes` (liste triée et opération → scope) ; trois gardes ; rendu Go de la liste.
+   `tools/openapi` compose : lit les contrats et la spec, échoue sur une garde, écrit la liste avec `-gen`.
+2. **Gardes** :
+   - Admin : chaque opération a exactement un tag et exactement un scope de son tag (read, write ou action
+     sensible admise) ;
+   - public : chaque opération déclare `BearerApiKey` sans scope, et rien d'autre ;
+   - `Error.code` et `ErrorCode` de chaque contrat ⊆ codes de la table §9.3, lue dans
+     `docs/spec/09-contrats.md`. Le catalogue Go de la step 005 reprendra ce rôle.
+   La validation, l'unicité des `operationId` et les ruptures restent à `oasdiff`.
+3. **Liste générée** : `internal/platform/scopes/scopes.gen.go`, `All` (trié). Pas de constante par
+   scope : aucun consommateur encore. `go:generate` dans `doc.go`.
+4. `make openapi` : la garde, puis `oasdiff validate` des deux contrats ; `oasdiff breaking` bloquant pour
+   le public, informatif pour l'Admin (spec 09).
+5. **Revue, premier tour** (quatre axes) :
+   - outil : opération sans `operationId`, tag non déclaré et contrat sans enum de codes refusés ;
+     `head`, `options`, `trace` lus ; la liste se réduit à `All` (aucun consommateur de l'opération →
+     scope), rendue sans `go/format`, donc sans exception depguard ; le câblage de `tools/openapi` est
+     testé sur des copies fautives des vrais contrats ;
+   - contrat : changer l'`endpoint` ou le TLS d'un compte opérateur exige ses identifiants ; identifiants
+     en écriture seule ; URL de webhook sans userinfo ; `MsisdnInput` E.164 en entrée ; bornes des
+     chaînes, motifs RE2 ; `Idempotency-Key` sur l'effacement RGPD ; schémas de jobs en `allOf` ;
+   - **Fable** : verdict anti-spam porté par `MtRouted` et `MtOutcome` (spec 05 §5.1, §5.2) ; conditions
+     de crédit sous `billing:topup` (`update-customer-credit-terms`, spec 07 §7.4) ; réponse démasquée
+     auditée (spec 07 §7.5) ; export sans `mask_msisdn`, CSV seul, plafond refusé à la création ;
+     `list-exact-routes` retirée (son keyset porterait le MSISDN) ; table `jobs` (spec 07 §7.1,
+     décision 5) ; `fallback_chain` dérivée par le routeur (spec 03 §3.4, décision 3) ; bornes gardées
+     au contrat ; audit écrit une fois, à l'issue (décision 5 §4.1).
+
+**Humain**, après la revue : la politique de contenu, client (`update-customer-content-policy`) et
+plateforme (`update-platform-content-policy`, ajoutée : 145 opérations), passe sous `content:write`, hors de
+tout rôle par défaut sauf `Propriétaire` ; les lectures du réglage restent sous `customers:read` et
+`platform:read`. `content_retention_days` plafonné à 90 jours. Spec 05 §5.3, 07 §7.4 et 08 §8.5 amendées.
+
+**Fable**, second tour de revue : la rétention du CDR est fixe, 90 jours (spec 05 §5.2, 01 : « configurable »
+n'avait ni colonne ni opération) ; l'interrupteur de facturation de la plateforme sort de
+`update-platform-policy` vers `update-platform-billing-policy`, sous `billing:topup` (146 opérations), spec 07
+§7.4 amendée ; `not_found` pour tout introuvable côté Admin.
+
+## Design arrêté
+
+- `contracts/openapi-admin.yaml` : OpenAPI 3.1, 1.0.0, en anglais, sans commentaire.
+- `internal/openapi` : `Parse([]byte) (Contract, error)`, `(Contract) Scopes() ([]string, []error)` qui porte
+  la garde Admin, `(Contract) PublicSecurity() []error`, `(Contract) UnknownCodes([]string) []error`,
+  `SpecCodes([]byte) []string`, `Go([]string) []byte`. Un contrat sans opération est refusé.
+- `tools/openapi` ; `internal/platform/scopes/scopes.gen.go` ; `doc.go`.
+- `Makefile` : `openapi` étendue.
+- Protos et amendements ci-dessus.
+- Vérification du critère : chaque garde rouge sur un contrat muté (tests du cœur) ; la liste régénérée
+  identique ; le contrat Admin validé par `oasdiff` sans avertissement.
