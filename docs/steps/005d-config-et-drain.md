@@ -52,8 +52,9 @@ Fable a tranché le 2026-10-18 ; l'humain, le port ops :
   fn func(context.Context) error)`, `OnDrain(func())`, `Run(context.Context, *slog.Logger) error`,
   `ErrDrainBudgetExceeded`.
 - `internal/platform/ops` : `Check{Name string; Probe func(context.Context) error}` ; `New(addr string,
-  prometheus.Gatherer, ...Check) (*Server, error)`, `(*Server) Drain()`, `(*Server) Run(context.Context)
-  error` (un composant du superviseur), `(*Server) Addr() string`.
+  shutdown time.Duration, prometheus.Gatherer, ...Check) (*Server, error)`, qui écoute dès la
+  construction ; `(*Server) Drain()` ; `(*Server) Run(context.Context) error`, un composant du
+  superviseur qui s'arrête en `SHUTDOWN_TIMEOUT` au plus ; `(*Server) Addr() string`.
 - `.golangci.yml` : forbidigo sur la lecture d'environnement, exclusion du paquet `config`.
 - Vérification du critère : chaque variable lue, défaut appliqué, valeur illisible et règle violée ;
   une lecture d'environnement hors du paquet rend `make lint` rouge ; les rappels avant tout arrêt, le
