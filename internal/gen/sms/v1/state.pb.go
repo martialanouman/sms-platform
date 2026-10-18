@@ -39,6 +39,7 @@ type MessageState struct {
 	ErrorCode     string                 `protobuf:"bytes,12,opt,name=error_code,json=errorCode,proto3" json:"error_code,omitempty"`      // spec 05 §5.2 CDR « codes » ; rejet au niveau message
 	Segments      []*SegmentState        `protobuf:"bytes,13,rep,name=segments,proto3" json:"segments,omitempty"`                         // spec 05 §5.2, une ligne CDR par segment
 	Transitions   []*Transition          `protobuf:"bytes,14,rep,name=transitions,proto3" json:"transitions,omitempty"`                   // décision 2 §3.3.3, horodatage de chaque transition servi avec l'état
+	TraceId       string                 `protobuf:"bytes,15,opt,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`            // spec 01 §1.4, servi par l'API publique ; en-tête de accepted ou received
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -169,6 +170,13 @@ func (x *MessageState) GetTransitions() []*Transition {
 		return x.Transitions
 	}
 	return nil
+}
+
+func (x *MessageState) GetTraceId() string {
+	if x != nil {
+		return x.TraceId
+	}
+	return ""
 }
 
 // SegmentState is the folded state of one segment. décision 2 §3.3.1
@@ -369,7 +377,7 @@ var File_sms_v1_state_proto protoreflect.FileDescriptor
 
 const file_sms_v1_state_proto_rawDesc = "" +
 	"\n" +
-	"\x12sms/v1/state.proto\x12\x06sms.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x13sms/v1/common.proto\"\xa0\x04\n" +
+	"\x12sms/v1/state.proto\x12\x06sms.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x13sms/v1/common.proto\"\xbb\x04\n" +
 	"\fMessageState\x12\x1d\n" +
 	"\n" +
 	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x18\n" +
@@ -390,7 +398,8 @@ const file_sms_v1_state_proto_rawDesc = "" +
 	"\n" +
 	"error_code\x18\f \x01(\tR\terrorCode\x120\n" +
 	"\bsegments\x18\r \x03(\v2\x14.sms.v1.SegmentStateR\bsegments\x124\n" +
-	"\vtransitions\x18\x0e \x03(\v2\x12.sms.v1.TransitionR\vtransitions\"\x9f\x03\n" +
+	"\vtransitions\x18\x0e \x03(\v2\x12.sms.v1.TransitionR\vtransitions\x12\x19\n" +
+	"\btrace_id\x18\x0f \x01(\tR\atraceId\"\x9f\x03\n" +
 	"\fSegmentState\x12\x1f\n" +
 	"\vsegment_seq\x18\x01 \x01(\rR\n" +
 	"segmentSeq\x12\x18\n" +

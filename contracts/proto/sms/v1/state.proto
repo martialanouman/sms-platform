@@ -21,6 +21,7 @@ message MessageState {
   string error_code = 12; // spec 05 §5.2 CDR « codes » ; rejet au niveau message
   repeated SegmentState segments = 13; // spec 05 §5.2, une ligne CDR par segment
   repeated Transition transitions = 14; // décision 2 §3.3.3, horodatage de chaque transition servi avec l'état
+  string trace_id = 15; // spec 01 §1.4, servi par l'API publique ; en-tête de accepted ou received
 }
 
 // SegmentState is the folded state of one segment. décision 2 §3.3.1
