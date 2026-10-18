@@ -21,7 +21,8 @@ Fable a tranché le 2026-10-18, sans amendement de spec :
   variables et constants de chaque `Desc` par `String()` (la seule voie que `client_golang` v1.23
   expose), ancré sur la dernière occurrence de `variableLabels: {`. Il refuse un collecteur qui ne
   décrit rien (invérifiable) et un `Desc` qu'il ne sait pas lire. Un test épingle le format de
-  `String()` : une montée de version qui le change casse au démarrage, bruyamment. Pas de contrôle au
+  `String()` : une montée de version qui le change casse en CI. Le refus d'un `Desc` illisible reste au
+  démarrage, en second rempart ; aucun `Desc` réel ne s'écrit autrement, sa mutation est donc équivalente. Pas de contrôle au
   `Gather` : il ne couvrirait qu'un collecteur maison qui déclare un label et en émet un autre, absent ici.
 - **Liste de refus seule**, sans liste blanche (§10.1). Un nom, en minuscules, est refusé si lui-même ou
   l'un de ses segments `_` est dans la liste. Segments : `msisdn`, `phone`, `number`, `addr`,
