@@ -115,8 +115,7 @@ débit. Le commit de groupe ramène cela à 50 à 100 transactions par seconde.
 
 ### 6.1 Faits et idempotence
 
-billing-svc lit `mt.routed`, toutes catégories, dans un groupe dédié, sans toucher au corps (ce
-que cette décision appelait « en-têtes » sont des champs du payload, step 004b). Il écrit par lots dans `billing_settlements`, avec `INSERT … ON CONFLICT DO NOTHING`.
+billing-svc lit `mt.routed`, toutes catégories, dans un groupe dédié, sans toucher au corps. Il écrit par lots dans `billing_settlements`, avec `INSERT … ON CONFLICT DO NOTHING`.
 
 | Colonne | Contenu |
 |---|---|
@@ -165,7 +164,7 @@ billing-svc. admin-api-svc n'écrit plus le grand livre. `SUM(grand livre) == so
 
 ### 6.4 CDR
 
-billing-svc publie chaque transition sur `billing.events`. Le CDR en projette le statut de
+billing-svc ne publie aucun flux de règlement (spec 06 §6.3). Le CDR déduit des faits le statut de
 règlement : non facturable, en attente, capturé, capturé sans DLR ou libéré. Il en projette aussi
 le montant.
 

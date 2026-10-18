@@ -119,8 +119,7 @@ suivant de la route, comme aujourd'hui pour un connecteur ouvert.
 ### 4.2 Adressage
 
 - Production sur `mt.routed.<catégorie>` avec `Partition = connector_account.partition` (partitionneur
-  manuel). La clé reste `message_id` ; le payload porte `connector_account_id` et `connector_id` (champs,
-  pas en-têtes : step 004b).
+  manuel). La clé reste `message_id` ; le payload porte `connector_account_id` et `connector_id`.
 - **Extension des partitions.** À la création d'un compte, l'Admin API attribue `partition` (séquence)
   et, si elle dépasse le nombre de partitions, étend les trois topics par blocs de 64, de façon
   idempotente, **avant** de passer le compte à `active`. Un échec répond 503 et laisse le compte en

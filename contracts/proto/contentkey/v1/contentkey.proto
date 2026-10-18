@@ -39,17 +39,16 @@ message OpenContentKeyRequest {
 }
 
 message OpenContentKeyResponse {
-  bytes key = 1; // spec 05 §5.2 ; vide si détruite
-  bool destroyed = 2; // spec 05 §5.2 « une clé détruite rend 404 »
+  bytes key = 1; // spec 05 §5.2 ; une clé détruite rend NOT_FOUND
 }
 
 message DestroyContentKeysRequest {
   string customer_id = 1; // spec 05 §5.4
+  string request_id = 2; // spec 07 §7.3 app.request_id ; clé d'idempotence
+  string actor = 3; // I13, spec 05 §5.4 (effacement audité sous gdpr:erase)
 }
 
-message DestroyContentKeysResponse {
-  int32 destroyed_count = 1; // spec 05 §5.4 attestation ; 0 si déjà détruites (idempotent)
-}
+message DestroyContentKeysResponse {}
 
 // ConfigSecretsService seals and opens replayed configuration secrets. spec 07 §7.1, ADR-0016 ; appelants admin-api et tout service qui ouvre un secret
 service ConfigSecretsService {

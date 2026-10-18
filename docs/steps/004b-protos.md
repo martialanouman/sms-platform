@@ -70,7 +70,12 @@ complètent §9.2 ; les colonnes CDR (route, catégorie, canal, crédits, `charg
    n'impose rien, une base introuvable est une erreur.
 10. **Garde des payloads** : `(Catalog) MissingPayloads(known func(string) bool) []error` dans le cœur ;
     `tools/catalog` lui passe le registre protobuf du code généré.
-11. **Report** (T3) : les parties 2..N d'un MO concaténé gardent une ligne `received` seule au journal
+11. **Revue** : `DestroyContentKeys` porte acteur et `request_id` (I13) ; `registered_delivery` devient
+    `optional uint32` (absent = défaut du connecteur, valeurs SMPP) ; `DlrRouted.submitted_at` pour l'accusé ;
+    `raw_status` réduit au jeton `stat` (I1) ; `credits = 0` dit « non facturable » ; la garde des
+    payloads n'accepte qu'un message (`FindMessageByName`) ; `clean: true` supprime un `.pb.go` orphelin.
+    Le chemin de `Disconnect` vers le pod qui tient le bind relève du composant `session-manager-svc`.
+12. **Report** (T3) : les parties 2..N d'un MO concaténé gardent une ligne `received` seule au journal
     et au CDR jusqu'à la purge : issue `debt` dans la PR.
 
 ## Design arrêté

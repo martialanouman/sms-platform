@@ -54,7 +54,7 @@ chaque pod lit tout, `manual` quand un bail assigne les partitions),
 
 **En-têtes communs** : `origin_ts` (posé par le premier producteur, jamais modifié), `trace_id`,
 `replay_count`, `replayed_at`. Ce sont les seuls : toute autre donnée est un champ du payload, versionné
-et gardé par `buf breaking` (step 004b).
+et gardé par `buf breaking`.
 
 **Gardes bloquantes** :
 

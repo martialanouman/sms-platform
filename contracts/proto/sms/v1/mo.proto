@@ -5,6 +5,7 @@ package sms.v1;
 import "google/protobuf/timestamp.proto";
 import "sms/v1/common.proto";
 
+// debt: #83
 // MoInbound is the payload of mo.inbound, one record per received part. topics.yaml, body: clear_bounded
 message MoInbound {
   string message_id = 1; // décision 2 §3.1 (journal clé message_id), transition received
@@ -16,7 +17,6 @@ message MoInbound {
   bytes body = 7; // I1 : corps légitime ici, topic clear_bounded (spec 02 §2.4)
 }
 
-// debt: #83
 // MoRouted is the payload of mo.routed, a reassembled MO resolved to its account. topics.yaml, body: clear_bounded
 message MoRouted {
   string message_id = 1; // spec 04 §4.4, clé de mo.outcome ; identifiant d'événement stable pour le client
@@ -33,7 +33,7 @@ message MoRouted {
 // MoOutcome is the payload of mo.outcome, the delivery outcome of an MO. topics.yaml, spec 04 §4.4
 message MoOutcome {
   string message_id = 1; // spec 04 §4.4, clé message_id
-  TransitionKind kind = 2; // spec 04 §4.4 : DELIVERED_TO_ACCOUNT ou DELIVERY_FAILED
+  TransitionKind kind = 2; // spec 04 §4.4 : DELIVERED_TO_ACCOUNT ou DELIVERY_FAILED ; spec 04 §4.3.4 : UNROUTED (router-svc)
   string error_code = 3; // spec 09 §9.3 ; spec 05 §5.1 attrs error_code
   google.protobuf.Timestamp occurred_at = 4; // décision 2 §3.1
 }

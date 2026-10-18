@@ -1,9 +1,6 @@
 version: v2
 modules:
   - path: contracts/proto
-lint:
-  use:
-    - STANDARD
 breaking:
   use:
     - WIRE_JSON

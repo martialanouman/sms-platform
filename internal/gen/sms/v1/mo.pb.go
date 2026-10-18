@@ -22,6 +22,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// debt: #83
 // MoInbound is the payload of mo.inbound, one record per received part. topics.yaml, body: clear_bounded
 type MoInbound struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
@@ -115,7 +116,6 @@ func (x *MoInbound) GetBody() []byte {
 	return nil
 }
 
-// debt: #83
 // MoRouted is the payload of mo.routed, a reassembled MO resolved to its account. topics.yaml, body: clear_bounded
 type MoRouted struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -229,7 +229,7 @@ func (x *MoRouted) GetStop() bool {
 type MoOutcome struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	MessageId     string                 `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`    // spec 04 §4.4, clé message_id
-	Kind          TransitionKind         `protobuf:"varint,2,opt,name=kind,proto3,enum=sms.v1.TransitionKind" json:"kind,omitempty"`   // spec 04 §4.4 : DELIVERED_TO_ACCOUNT ou DELIVERY_FAILED
+	Kind          TransitionKind         `protobuf:"varint,2,opt,name=kind,proto3,enum=sms.v1.TransitionKind" json:"kind,omitempty"`   // spec 04 §4.4 : DELIVERED_TO_ACCOUNT ou DELIVERY_FAILED ; spec 04 §4.3.4 : UNROUTED (router-svc)
 	ErrorCode     string                 `protobuf:"bytes,3,opt,name=error_code,json=errorCode,proto3" json:"error_code,omitempty"`    // spec 09 §9.3 ; spec 05 §5.1 attrs error_code
 	OccurredAt    *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"` // décision 2 §3.1
 	unknownFields protoimpl.UnknownFields

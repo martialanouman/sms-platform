@@ -28,7 +28,7 @@ type DlrEvent struct {
 	ConnectorAccountId string                 `protobuf:"bytes,1,opt,name=connector_account_id,json=connectorAccountId,proto3" json:"connector_account_id,omitempty"` // spec 04 §4.2.1 ; clé du topic et de la corrélation (décision 2 §5.2)
 	RemoteId           string                 `protobuf:"bytes,2,opt,name=remote_id,json=remoteId,proto3" json:"remote_id,omitempty"`                                 // spec 04 §4.2.1
 	Status             DlrStatus              `protobuf:"varint,3,opt,name=status,proto3,enum=sms.v1.DlrStatus" json:"status,omitempty"`                              // spec 04 §4.2.1
-	RawStatus          string                 `protobuf:"bytes,4,opt,name=raw_status,json=rawStatus,proto3" json:"raw_status,omitempty"`                              // spec 05 §5.1 attrs « statut DLR brut »
+	RawStatus          string                 `protobuf:"bytes,4,opt,name=raw_status,json=rawStatus,proto3" json:"raw_status,omitempty"`                              // spec 05 §5.1 attrs « statut DLR brut » : le jeton stat seul, jamais le reçu entier (son text: porte le corps, I1)
 	OccurredAt         *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`                           // décision 2 §3.1, heure de l'événement source
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
@@ -102,16 +102,17 @@ func (x *DlrEvent) GetOccurredAt() *timestamppb.Timestamp {
 // DlrRouted is the payload of dlr.routed, the correlated and enriched DLR. topics.yaml, spec 04 §4.2.3
 type DlrRouted struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	MessageId     string                 `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`     // spec 04 §4.2.3
-	SegmentSeq    uint32                 `protobuf:"varint,2,opt,name=segment_seq,json=segmentSeq,proto3" json:"segment_seq,omitempty"` // spec 06 §6.3 (règlement par segment) ; 0 = tout le message (spec 04 §4.2.2)
-	Attempt       uint32                 `protobuf:"varint,3,opt,name=attempt,proto3" json:"attempt,omitempty"`                         // décision 2 §5.2, valeur corrélée
-	AccountId     string                 `protobuf:"bytes,4,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`     // spec 04 §4.2.3, clé du topic
-	CustomerId    string                 `protobuf:"bytes,5,opt,name=customer_id,json=customerId,proto3" json:"customer_id,omitempty"`  // spec 04 §4.2.3
-	Status        DlrStatus              `protobuf:"varint,6,opt,name=status,proto3,enum=sms.v1.DlrStatus" json:"status,omitempty"`     // spec 06 §6.3, capture ou libération en mode delivery
-	ErrorCode     string                 `protobuf:"bytes,7,opt,name=error_code,json=errorCode,proto3" json:"error_code,omitempty"`     // spec 09 §9.3 delivery_failed, delivery_expired
-	OccurredAt    *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`  // décision 2 §3.1
-	SourceAddr    string                 `protobuf:"bytes,9,opt,name=source_addr,json=sourceAddr,proto3" json:"source_addr,omitempty"`  // spec 04 §4.4.1, accusé deliver_sm au client : adresse soumise, posée à la corrélation
-	DestAddr      string                 `protobuf:"bytes,10,opt,name=dest_addr,json=destAddr,proto3" json:"dest_addr,omitempty"`       // spec 04 §4.4.1, idem
+	MessageId     string                 `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`        // spec 04 §4.2.3
+	SegmentSeq    uint32                 `protobuf:"varint,2,opt,name=segment_seq,json=segmentSeq,proto3" json:"segment_seq,omitempty"`    // spec 06 §6.3 (règlement par segment) ; 0 = tout le message (spec 04 §4.2.2)
+	Attempt       uint32                 `protobuf:"varint,3,opt,name=attempt,proto3" json:"attempt,omitempty"`                            // décision 2 §5.2, valeur corrélée
+	AccountId     string                 `protobuf:"bytes,4,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`        // spec 04 §4.2.3, clé du topic
+	CustomerId    string                 `protobuf:"bytes,5,opt,name=customer_id,json=customerId,proto3" json:"customer_id,omitempty"`     // spec 04 §4.2.3
+	Status        DlrStatus              `protobuf:"varint,6,opt,name=status,proto3,enum=sms.v1.DlrStatus" json:"status,omitempty"`        // spec 06 §6.3, capture ou libération en mode delivery
+	ErrorCode     string                 `protobuf:"bytes,7,opt,name=error_code,json=errorCode,proto3" json:"error_code,omitempty"`        // spec 09 §9.3 delivery_failed, delivery_expired
+	OccurredAt    *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`     // décision 2 §3.1
+	SourceAddr    string                 `protobuf:"bytes,9,opt,name=source_addr,json=sourceAddr,proto3" json:"source_addr,omitempty"`     // spec 04 §4.4.1, accusé deliver_sm au client : adresse soumise, posée à la corrélation
+	DestAddr      string                 `protobuf:"bytes,10,opt,name=dest_addr,json=destAddr,proto3" json:"dest_addr,omitempty"`          // spec 04 §4.4.1, idem
+	SubmittedAt   *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=submitted_at,json=submittedAt,proto3" json:"submitted_at,omitempty"` // spec 04 §4.4.1, « submit date » de l'accusé deliver_sm
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -216,6 +217,13 @@ func (x *DlrRouted) GetDestAddr() string {
 	return ""
 }
 
+func (x *DlrRouted) GetSubmittedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.SubmittedAt
+	}
+	return nil
+}
+
 var File_sms_v1_dlr_proto protoreflect.FileDescriptor
 
 const file_sms_v1_dlr_proto_rawDesc = "" +
@@ -228,7 +236,7 @@ const file_sms_v1_dlr_proto_rawDesc = "" +
 	"\n" +
 	"raw_status\x18\x04 \x01(\tR\trawStatus\x12;\n" +
 	"\voccurred_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"occurredAt\"\xea\x02\n" +
+	"occurredAt\"\xa9\x03\n" +
 	"\tDlrRouted\x12\x1d\n" +
 	"\n" +
 	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x1f\n" +
@@ -247,7 +255,8 @@ const file_sms_v1_dlr_proto_rawDesc = "" +
 	"\vsource_addr\x18\t \x01(\tR\n" +
 	"sourceAddr\x12\x1b\n" +
 	"\tdest_addr\x18\n" +
-	" \x01(\tR\bdestAddrB\x91\x01\n" +
+	" \x01(\tR\bdestAddr\x12=\n" +
+	"\fsubmitted_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\vsubmittedAtB\x91\x01\n" +
 	"\n" +
 	"com.sms.v1B\bDlrProtoP\x01Z@github.com/martialanouman/sms-platform/internal/gen/sms/v1;smsv1\xa2\x02\x03SXX\xaa\x02\x06Sms.V1\xca\x02\x06Sms\\V1\xe2\x02\x12Sms\\V1\\GPBMetadata\xea\x02\aSms::V1b\x06proto3"
 
@@ -275,11 +284,12 @@ var file_sms_v1_dlr_proto_depIdxs = []int32{
 	3, // 1: sms.v1.DlrEvent.occurred_at:type_name -> google.protobuf.Timestamp
 	2, // 2: sms.v1.DlrRouted.status:type_name -> sms.v1.DlrStatus
 	3, // 3: sms.v1.DlrRouted.occurred_at:type_name -> google.protobuf.Timestamp
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	3, // 4: sms.v1.DlrRouted.submitted_at:type_name -> google.protobuf.Timestamp
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_sms_v1_dlr_proto_init() }

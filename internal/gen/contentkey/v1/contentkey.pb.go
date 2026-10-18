@@ -267,8 +267,7 @@ func (x *OpenContentKeyRequest) GetContentKeyId() string {
 
 type OpenContentKeyResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Key           []byte                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`              // spec 05 §5.2 ; vide si détruite
-	Destroyed     bool                   `protobuf:"varint,2,opt,name=destroyed,proto3" json:"destroyed,omitempty"` // spec 05 §5.2 « une clé détruite rend 404 »
+	Key           []byte                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"` // spec 05 §5.2 ; une clé détruite rend NOT_FOUND
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -310,16 +309,11 @@ func (x *OpenContentKeyResponse) GetKey() []byte {
 	return nil
 }
 
-func (x *OpenContentKeyResponse) GetDestroyed() bool {
-	if x != nil {
-		return x.Destroyed
-	}
-	return false
-}
-
 type DestroyContentKeysRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	CustomerId    string                 `protobuf:"bytes,1,opt,name=customer_id,json=customerId,proto3" json:"customer_id,omitempty"` // spec 05 §5.4
+	RequestId     string                 `protobuf:"bytes,2,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`    // spec 07 §7.3 app.request_id ; clé d'idempotence
+	Actor         string                 `protobuf:"bytes,3,opt,name=actor,proto3" json:"actor,omitempty"`                             // I13, spec 05 §5.4 (effacement audité sous gdpr:erase)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -361,11 +355,24 @@ func (x *DestroyContentKeysRequest) GetCustomerId() string {
 	return ""
 }
 
+func (x *DestroyContentKeysRequest) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *DestroyContentKeysRequest) GetActor() string {
+	if x != nil {
+		return x.Actor
+	}
+	return ""
+}
+
 type DestroyContentKeysResponse struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	DestroyedCount int32                  `protobuf:"varint,1,opt,name=destroyed_count,json=destroyedCount,proto3" json:"destroyed_count,omitempty"` // spec 05 §5.4 attestation ; 0 si déjà détruites (idempotent)
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DestroyContentKeysResponse) Reset() {
@@ -396,13 +403,6 @@ func (x *DestroyContentKeysResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use DestroyContentKeysResponse.ProtoReflect.Descriptor instead.
 func (*DestroyContentKeysResponse) Descriptor() ([]byte, []int) {
 	return file_contentkey_v1_contentkey_proto_rawDescGZIP(), []int{7}
-}
-
-func (x *DestroyContentKeysResponse) GetDestroyedCount() int32 {
-	if x != nil {
-		return x.DestroyedCount
-	}
-	return 0
 }
 
 type SealRequest struct {
@@ -617,15 +617,16 @@ const file_contentkey_v1_contentkey_proto_rawDesc = "" +
 	"\x18RotateContentKeyResponse\x12$\n" +
 	"\x0econtent_key_id\x18\x01 \x01(\tR\fcontentKeyId\"=\n" +
 	"\x15OpenContentKeyRequest\x12$\n" +
-	"\x0econtent_key_id\x18\x01 \x01(\tR\fcontentKeyId\"H\n" +
+	"\x0econtent_key_id\x18\x01 \x01(\tR\fcontentKeyId\"*\n" +
 	"\x16OpenContentKeyResponse\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\fR\x03key\x12\x1c\n" +
-	"\tdestroyed\x18\x02 \x01(\bR\tdestroyed\"<\n" +
+	"\x03key\x18\x01 \x01(\fR\x03key\"q\n" +
 	"\x19DestroyContentKeysRequest\x12\x1f\n" +
 	"\vcustomer_id\x18\x01 \x01(\tR\n" +
-	"customerId\"E\n" +
-	"\x1aDestroyContentKeysResponse\x12'\n" +
-	"\x0fdestroyed_count\x18\x01 \x01(\x05R\x0edestroyedCount\"+\n" +
+	"customerId\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x02 \x01(\tR\trequestId\x12\x14\n" +
+	"\x05actor\x18\x03 \x01(\tR\x05actor\"\x1c\n" +
+	"\x1aDestroyContentKeysResponse\"+\n" +
 	"\vSealRequest\x12\x1c\n" +
 	"\tplaintext\x18\x01 \x01(\fR\tplaintext\"F\n" +
 	"\fSealResponse\x12\x16\n" +

@@ -16,8 +16,9 @@ Détail : décision 2.
   Postgres.
 - **Repli à la lecture**, fonction pure : par segment, dernière `attempt`, premier état terminal par
   `occurred_at`, collant ; par message, les règles publiées de `MessageStatus`. Indépendant de l'ordre.
-- **`attrs`** : `connector_id`, `smsc_msg_id`, `error_code`, statut DLR brut ; `source_addr` et
-  `dest_addr` sur `accepted` et `received`, pour que l'état replié, donc `message.state`, porte tout ce
+- **`attrs`** : `connector_id`, `smsc_msg_id`, `error_code`, statut DLR brut, adresse émise après
+  réécriture ; `source_addr`, `dest_addr`, `ingress` et `category` sur `accepted` et `received` ;
+  `route_id`, `credits` et `charge_on` sur `routed`, pour que l'état replié, donc `message.state`, porte tout ce
   que le CDR projette. **Jamais le corps** (I1).
 
 ### Lectures

@@ -38,12 +38,12 @@ type MtInbound struct {
 	//	*MtInbound_Text
 	//	*MtInbound_Octets
 	Body               isMtInbound_Body       `protobuf_oneof:"body"`
-	DataCoding         DataCoding             `protobuf:"varint,8,opt,name=data_coding,json=dataCoding,proto3,enum=sms.v1.DataCoding" json:"data_coding,omitempty"`   // spec 03 §3.2 « l'encodage déclaré », pour octets seulement
-	Udh                []byte                 `protobuf:"bytes,9,opt,name=udh,proto3" json:"udh,omitempty"`                                                           // step 004b : submit_sm UDHI, un message d'un segment, UDH repassé tel quel (spec 03 §3.3.7)
-	Priority           uint32                 `protobuf:"varint,10,opt,name=priority,proto3" json:"priority,omitempty"`                                               // ADR-0020 §2, priorité demandée (0 = défaut de la catégorie)
-	RegisteredDelivery bool                   `protobuf:"varint,11,opt,name=registered_delivery,json=registeredDelivery,proto3" json:"registered_delivery,omitempty"` // ADR-0020 §3, valeur que le message impose au *_default du connecteur
-	ValidityPeriod     *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=validity_period,json=validityPeriod,proto3" json:"validity_period,omitempty"`              // spec 03 §3.6, plafond de max_age ; spec 04 §4.2 fenêtre DLR
-	Ingress            Ingress                `protobuf:"varint,13,opt,name=ingress,proto3,enum=sms.v1.Ingress" json:"ingress,omitempty"`                             // spec 05 §5.2, canal d'entrée projeté au CDR
+	DataCoding         DataCoding             `protobuf:"varint,8,opt,name=data_coding,json=dataCoding,proto3,enum=sms.v1.DataCoding" json:"data_coding,omitempty"`         // spec 03 §3.2 « l'encodage déclaré », pour octets seulement
+	Udh                []byte                 `protobuf:"bytes,9,opt,name=udh,proto3" json:"udh,omitempty"`                                                                 // step 004b : submit_sm UDHI, un message d'un segment, UDH repassé tel quel (spec 03 §3.3.7)
+	Priority           uint32                 `protobuf:"varint,10,opt,name=priority,proto3" json:"priority,omitempty"`                                                     // ADR-0020 §2, priorité demandée (0 = défaut de la catégorie)
+	RegisteredDelivery *uint32                `protobuf:"varint,11,opt,name=registered_delivery,json=registeredDelivery,proto3,oneof" json:"registered_delivery,omitempty"` // ADR-0020 §3, valeur SMPP imposée par le message ; absente : *_default du connecteur
+	ValidityPeriod     *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=validity_period,json=validityPeriod,proto3" json:"validity_period,omitempty"`                    // spec 03 §3.6, plafond de max_age ; spec 04 §4.2 fenêtre DLR
+	Ingress            Ingress                `protobuf:"varint,13,opt,name=ingress,proto3,enum=sms.v1.Ingress" json:"ingress,omitempty"`                                   // spec 05 §5.2, canal d'entrée projeté au CDR
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -159,11 +159,11 @@ func (x *MtInbound) GetPriority() uint32 {
 	return 0
 }
 
-func (x *MtInbound) GetRegisteredDelivery() bool {
-	if x != nil {
-		return x.RegisteredDelivery
+func (x *MtInbound) GetRegisteredDelivery() uint32 {
+	if x != nil && x.RegisteredDelivery != nil {
+		return *x.RegisteredDelivery
 	}
-	return false
+	return 0
 }
 
 func (x *MtInbound) GetValidityPeriod() *timestamppb.Timestamp {
@@ -209,17 +209,17 @@ type MtRouted struct {
 	DestAddr             string                 `protobuf:"bytes,8,opt,name=dest_addr,json=destAddr,proto3" json:"dest_addr,omitempty"`                                        // spec 03 §3.3.2, E.164
 	Category             Category               `protobuf:"varint,9,opt,name=category,proto3,enum=sms.v1.Category" json:"category,omitempty"`                                  // spec 03 §3.3.9 ; ADR-0021 §1, topic de republication
 	Priority             uint32                 `protobuf:"varint,10,opt,name=priority,proto3" json:"priority,omitempty"`                                                      // spec 03 §3.3.6, priorité effective
-	ConnectorId          string                 `protobuf:"bytes,11,opt,name=connector_id,json=connectorId,proto3" json:"connector_id,omitempty"`                              // décision 3 §4.2 (champ, pas en-tête : step 004b) ; spec 05 §5.1 attrs
+	ConnectorId          string                 `protobuf:"bytes,11,opt,name=connector_id,json=connectorId,proto3" json:"connector_id,omitempty"`                              // décision 3 §4.2 ; spec 05 §5.1 attrs
 	ConnectorAccountId   string                 `protobuf:"bytes,12,opt,name=connector_account_id,json=connectorAccountId,proto3" json:"connector_account_id,omitempty"`       // décision 3 §4.2 ; spec 03 §3.4
 	RouteId              string                 `protobuf:"bytes,13,opt,name=route_id,json=routeId,proto3" json:"route_id,omitempty"`                                          // spec 05 §5.2, colonne « route » du CDR
 	FallbackConnectorIds []string               `protobuf:"bytes,14,rep,name=fallback_connector_ids,json=fallbackConnectorIds,proto3" json:"fallback_connector_ids,omitempty"` // ADR-0020 §4 (chaîne construite par le routeur) ; spec 03 §3.4
 	DataCoding           DataCoding             `protobuf:"varint,15,opt,name=data_coding,json=dataCoding,proto3,enum=sms.v1.DataCoding" json:"data_coding,omitempty"`         // spec 03 §3.3.7, encodage final, surcharge du connecteur appliquée
 	Udh                  []byte                 `protobuf:"bytes,16,opt,name=udh,proto3" json:"udh,omitempty"`                                                                 // spec 03 §3.3.7, UDH du segment
 	ShortMessage         []byte                 `protobuf:"bytes,17,opt,name=short_message,json=shortMessage,proto3" json:"short_message,omitempty"`                           // I1 : segment du corps, topic clear_bounded (spec 02 §2.4)
-	RegisteredDelivery   bool                   `protobuf:"varint,18,opt,name=registered_delivery,json=registeredDelivery,proto3" json:"registered_delivery,omitempty"`        // ADR-0020 §3
+	RegisteredDelivery   *uint32                `protobuf:"varint,18,opt,name=registered_delivery,json=registeredDelivery,proto3,oneof" json:"registered_delivery,omitempty"`  // ADR-0020 §3, absente : *_default du connecteur
 	ValidityPeriod       *timestamppb.Timestamp `protobuf:"bytes,19,opt,name=validity_period,json=validityPeriod,proto3" json:"validity_period,omitempty"`                     // spec 03 §3.6, plafond de max_age au pool
-	LeaseId              string                 `protobuf:"bytes,20,opt,name=lease_id,json=leaseId,proto3" json:"lease_id,omitempty"`                                          // spec 03 §3.3.9 ; spec 06 §6.2.2 ; vide si facturation inactive
-	Credits              int64                  `protobuf:"varint,21,opt,name=credits,proto3" json:"credits,omitempty"`                                                        // spec 06 §6.2.2, crédits du segment, entiers (spec 06 §6.1)
+	LeaseId              string                 `protobuf:"bytes,20,opt,name=lease_id,json=leaseId,proto3" json:"lease_id,omitempty"`                                          // spec 03 §3.3.9 ; spec 06 §6.2.2 ; vide hors enveloppe (non facturable, postpayé à limite souple)
+	Credits              int64                  `protobuf:"varint,21,opt,name=credits,proto3" json:"credits,omitempty"`                                                        // spec 06 §6.2.2, crédits du segment, entiers (spec 06 §6.1) ; 0 = non facturable (spec 06 §6.3)
 	ChargeOn             ChargeOn               `protobuf:"varint,22,opt,name=charge_on,json=chargeOn,proto3,enum=sms.v1.ChargeOn" json:"charge_on,omitempty"`                 // spec 06 §6.2.2, figé dans le fait (décision 1 §6.2)
 	RatePlanVersion      int64                  `protobuf:"varint,23,opt,name=rate_plan_version,json=ratePlanVersion,proto3" json:"rate_plan_version,omitempty"`               // spec 03 §3.3.9 « version du plan » ; décision 1 §6.1
 	unknownFields        protoimpl.UnknownFields
@@ -375,11 +375,11 @@ func (x *MtRouted) GetShortMessage() []byte {
 	return nil
 }
 
-func (x *MtRouted) GetRegisteredDelivery() bool {
-	if x != nil {
-		return x.RegisteredDelivery
+func (x *MtRouted) GetRegisteredDelivery() uint32 {
+	if x != nil && x.RegisteredDelivery != nil {
+		return *x.RegisteredDelivery
 	}
-	return false
+	return 0
 }
 
 func (x *MtRouted) GetValidityPeriod() *timestamppb.Timestamp {
@@ -554,7 +554,7 @@ var File_sms_v1_mt_proto protoreflect.FileDescriptor
 
 const file_sms_v1_mt_proto_rawDesc = "" +
 	"\n" +
-	"\x0fsms/v1/mt.proto\x12\x06sms.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x13sms/v1/common.proto\"\xe4\x03\n" +
+	"\x0fsms/v1/mt.proto\x12\x06sms.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x13sms/v1/common.proto\"\x81\x04\n" +
 	"\tMtInbound\x12\x1d\n" +
 	"\n" +
 	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x1d\n" +
@@ -571,11 +571,12 @@ const file_sms_v1_mt_proto_rawDesc = "" +
 	"dataCoding\x12\x10\n" +
 	"\x03udh\x18\t \x01(\fR\x03udh\x12\x1a\n" +
 	"\bpriority\x18\n" +
-	" \x01(\rR\bpriority\x12/\n" +
-	"\x13registered_delivery\x18\v \x01(\bR\x12registeredDelivery\x12C\n" +
+	" \x01(\rR\bpriority\x124\n" +
+	"\x13registered_delivery\x18\v \x01(\rH\x01R\x12registeredDelivery\x88\x01\x01\x12C\n" +
 	"\x0fvalidity_period\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\x0evalidityPeriod\x12)\n" +
 	"\aingress\x18\r \x01(\x0e2\x0f.sms.v1.IngressR\aingressB\x06\n" +
-	"\x04body\"\xe9\x06\n" +
+	"\x04bodyB\x16\n" +
+	"\x14_registered_delivery\"\x86\a\n" +
 	"\bMtRouted\x12\x1d\n" +
 	"\n" +
 	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x1f\n" +
@@ -600,13 +601,14 @@ const file_sms_v1_mt_proto_rawDesc = "" +
 	"\vdata_coding\x18\x0f \x01(\x0e2\x12.sms.v1.DataCodingR\n" +
 	"dataCoding\x12\x10\n" +
 	"\x03udh\x18\x10 \x01(\fR\x03udh\x12#\n" +
-	"\rshort_message\x18\x11 \x01(\fR\fshortMessage\x12/\n" +
-	"\x13registered_delivery\x18\x12 \x01(\bR\x12registeredDelivery\x12C\n" +
+	"\rshort_message\x18\x11 \x01(\fR\fshortMessage\x124\n" +
+	"\x13registered_delivery\x18\x12 \x01(\rH\x00R\x12registeredDelivery\x88\x01\x01\x12C\n" +
 	"\x0fvalidity_period\x18\x13 \x01(\v2\x1a.google.protobuf.TimestampR\x0evalidityPeriod\x12\x19\n" +
 	"\blease_id\x18\x14 \x01(\tR\aleaseId\x12\x18\n" +
 	"\acredits\x18\x15 \x01(\x03R\acredits\x12-\n" +
 	"\tcharge_on\x18\x16 \x01(\x0e2\x10.sms.v1.ChargeOnR\bchargeOn\x12*\n" +
-	"\x11rate_plan_version\x18\x17 \x01(\x03R\x0fratePlanVersion\"\xc9\x03\n" +
+	"\x11rate_plan_version\x18\x17 \x01(\x03R\x0fratePlanVersionB\x16\n" +
+	"\x14_registered_delivery\"\xc9\x03\n" +
 	"\tMtOutcome\x12\x1d\n" +
 	"\n" +
 	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x1f\n" +
@@ -681,6 +683,7 @@ func file_sms_v1_mt_proto_init() {
 		(*MtInbound_Text)(nil),
 		(*MtInbound_Octets)(nil),
 	}
+	file_sms_v1_mt_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

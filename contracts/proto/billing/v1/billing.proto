@@ -93,9 +93,7 @@ message TopupRequest {
   sms.v1.Direction direction = 4; // spec 06 §6.1 : MT, ou MO pour recréditer le compteur postpayé
 }
 
-message TopupResponse {
-  int64 balance_after = 1; // spec 06 §6.4 SUM(grand livre) == solde (I5)
-}
+message TopupResponse {}
 
 message TransferRequest {
   Mutation mutation = 1; // I13 ; billing_idempotency
@@ -113,21 +111,12 @@ message AdjustRequest {
   int64 delta = 4; // spec 06 §6.4, signé
 }
 
-message AdjustResponse {
-  int64 balance_after = 1; // I5
-}
-
-// BalanceScope is customers.balance_scope. spec 06 §6.1
-enum BalanceScope {
-  BALANCE_SCOPE_UNSPECIFIED = 0;
-  BALANCE_SCOPE_CUSTOMER = 1;
-  BALANCE_SCOPE_ACCOUNT = 2;
-}
+message AdjustResponse {}
 
 message SetBalanceScopeRequest {
   Mutation mutation = 1; // I13
   string customer_id = 2; // spec 06 §6.1
-  BalanceScope balance_scope = 3; // spec 06 §6.1 ; refus FAILED_PRECONDITION si solde ≠ 0 ou enveloppe ouverte
+  OwnerType balance_scope = 3; // spec 06 §6.1 ; refus FAILED_PRECONDITION si solde ≠ 0 ou enveloppe ouverte
 }
 
 message SetBalanceScopeResponse {}

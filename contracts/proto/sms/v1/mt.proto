@@ -21,7 +21,7 @@ message MtInbound {
   DataCoding data_coding = 8; // spec 03 §3.2 « l'encodage déclaré », pour octets seulement
   bytes udh = 9; // step 004b : submit_sm UDHI, un message d'un segment, UDH repassé tel quel (spec 03 §3.3.7)
   uint32 priority = 10; // ADR-0020 §2, priorité demandée (0 = défaut de la catégorie)
-  bool registered_delivery = 11; // ADR-0020 §3, valeur que le message impose au *_default du connecteur
+  optional uint32 registered_delivery = 11; // ADR-0020 §3, valeur SMPP imposée par le message ; absente : *_default du connecteur
   google.protobuf.Timestamp validity_period = 12; // spec 03 §3.6, plafond de max_age ; spec 04 §4.2 fenêtre DLR
   Ingress ingress = 13; // spec 05 §5.2, canal d'entrée projeté au CDR
 }
@@ -38,17 +38,17 @@ message MtRouted {
   string dest_addr = 8; // spec 03 §3.3.2, E.164
   Category category = 9; // spec 03 §3.3.9 ; ADR-0021 §1, topic de republication
   uint32 priority = 10; // spec 03 §3.3.6, priorité effective
-  string connector_id = 11; // décision 3 §4.2 (champ, pas en-tête : step 004b) ; spec 05 §5.1 attrs
+  string connector_id = 11; // décision 3 §4.2 ; spec 05 §5.1 attrs
   string connector_account_id = 12; // décision 3 §4.2 ; spec 03 §3.4
   string route_id = 13; // spec 05 §5.2, colonne « route » du CDR
   repeated string fallback_connector_ids = 14; // ADR-0020 §4 (chaîne construite par le routeur) ; spec 03 §3.4
   DataCoding data_coding = 15; // spec 03 §3.3.7, encodage final, surcharge du connecteur appliquée
   bytes udh = 16; // spec 03 §3.3.7, UDH du segment
   bytes short_message = 17; // I1 : segment du corps, topic clear_bounded (spec 02 §2.4)
-  bool registered_delivery = 18; // ADR-0020 §3
+  optional uint32 registered_delivery = 18; // ADR-0020 §3, absente : *_default du connecteur
   google.protobuf.Timestamp validity_period = 19; // spec 03 §3.6, plafond de max_age au pool
-  string lease_id = 20; // spec 03 §3.3.9 ; spec 06 §6.2.2 ; vide si facturation inactive
-  int64 credits = 21; // spec 06 §6.2.2, crédits du segment, entiers (spec 06 §6.1)
+  string lease_id = 20; // spec 03 §3.3.9 ; spec 06 §6.2.2 ; vide hors enveloppe (non facturable, postpayé à limite souple)
+  int64 credits = 21; // spec 06 §6.2.2, crédits du segment, entiers (spec 06 §6.1) ; 0 = non facturable (spec 06 §6.3)
   ChargeOn charge_on = 22; // spec 06 §6.2.2, figé dans le fait (décision 1 §6.2)
   int64 rate_plan_version = 23; // spec 03 §3.3.9 « version du plan » ; décision 1 §6.1
 }

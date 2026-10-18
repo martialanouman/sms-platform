@@ -10,7 +10,7 @@ message DlrEvent {
   string connector_account_id = 1; // spec 04 §4.2.1 ; clé du topic et de la corrélation (décision 2 §5.2)
   string remote_id = 2; // spec 04 §4.2.1
   DlrStatus status = 3; // spec 04 §4.2.1
-  string raw_status = 4; // spec 05 §5.1 attrs « statut DLR brut »
+  string raw_status = 4; // spec 05 §5.1 attrs « statut DLR brut » : le jeton stat seul, jamais le reçu entier (son text: porte le corps, I1)
   google.protobuf.Timestamp occurred_at = 5; // décision 2 §3.1, heure de l'événement source
 }
 
@@ -26,4 +26,5 @@ message DlrRouted {
   google.protobuf.Timestamp occurred_at = 8; // décision 2 §3.1
   string source_addr = 9; // spec 04 §4.4.1, accusé deliver_sm au client : adresse soumise, posée à la corrélation
   string dest_addr = 10; // spec 04 §4.4.1, idem
+  google.protobuf.Timestamp submitted_at = 11; // spec 04 §4.4.1, « submit date » de l'accusé deliver_sm
 }

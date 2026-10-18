@@ -67,7 +67,7 @@ func baseCatalog() (catalog.Catalog, error) {
 }
 
 func known(name string) bool {
-	_, err := protoregistry.GlobalFiles.FindDescriptorByName(protoreflect.FullName(name))
+	_, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(name))
 	return err == nil
 }
 

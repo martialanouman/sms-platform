@@ -10,8 +10,7 @@ Optionnelle : désactivée, aucun de ces composants n'existe et l'étape de rés
   ne bloque rien : un MO est toujours remis, toujours compté jusqu'à `mo_billing_floor`, puis alerte
   `mo_balance_floor_reached`. Un STOP n'est jamais compté.
 - **Propriétaire** : `customers.balance_scope` = `customer` (défaut, pool partagé par ses comptes) ou
-  `account` (un solde par compte ; `smpp_account` dans les ADR antérieurs). La bascule exige tous les
-  soldes du client à zéro et aucune enveloppe ouverte. En `account`, ni découvert ni limite dure : le plancher est 0.
+  `account` (un solde par compte). La bascule exige tous les soldes du client à zéro et aucune enveloppe ouverte. En `account`, ni découvert ni limite dure : le plancher est 0.
 - **Formule** : `credits = segment_count × credits_per_segment(destination, sender_type)`, depuis le plan
   tarifaire du client. Le routeur l'évalue sur son instantané ; le résultat voyage dans le fait et n'est
   jamais recalculé.
@@ -46,8 +45,7 @@ crédits/s.
 
 ## 6.3 Règlement des segments
 
-`billing-svc` lit `mt.routed.*` sans toucher au corps (bail, crédits, `charge_on` et version du plan
-sont des champs de `MtRouted`) et écrit `billing_settlements`, clé primaire
+`billing-svc` lit `mt.routed.*` sans toucher au corps et écrit `billing_settlements`, clé primaire
 `(message_id, segment_seq)`, `ON CONFLICT DO NOTHING` (I4). Il lit les issues sur `mt.outcome` et,
 en mode `delivery`, sur `dlr.routed` (ADR-0024). Le mode appliqué est celui que le fait a figé.
 
