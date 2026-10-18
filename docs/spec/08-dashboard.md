@@ -8,7 +8,7 @@ L'outil des opérateurs de l'agrégateur. Il **authentifie et accorde** ; la pas
 - **Un binaire Go** (`dashboard`) qui embarque la SPA (`embed.FS`) et porte : session et
   authentification, émission des jetons, proxy vers l'Admin API, hub temps réel, journal d'accès.
 - **SPA** React, TypeScript, Vite, TanStack Router et Query, sans rendu serveur ; pnpm.
-- **Contrat BFF** (`api/openapi-bff.yaml`) : il ne décrit que ce que le BFF possède (authentification,
+- **Contrat BFF** (`contracts/openapi-bff.yaml`) : il ne décrit que ce que le BFF possède (authentification,
   opérateurs, rôles, sessions, journal d'accès, notifications). Les types Go et TypeScript en sont
   générés ; ceux de l'Admin API aussi, depuis son contrat. Une divergence casse la compilation.
 - **DTO explicites** : une réponse est un struct déclaré ; un champ absent ne peut pas sortir (I1, I2).

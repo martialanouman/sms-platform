@@ -50,7 +50,8 @@ Le corps est lu ici pour la longueur et l'encodage déclaré, jamais journalisé
 
 Un consommateur par `mt.inbound.<cat>`, lane du catalogue (décision 4). Chaque record :
 
-1. **Âge.** Plus vieux que son `max_age` (§3.6) : `expired`, terminal, non facturé.
+1. **Âge.** Plus vieux que son `max_age` (§3.6) : `rejected` (`message_expired`), exposé `expired`,
+   terminal, non facturé.
 2. **E.164**, avec l'indicatif du pays de référence.
 3. **Sender ID.** Le `source_addr` soumis, avant réécriture, doit être un sender ID `active` du client,
    numérique compris (ADR-0020). Le routeur **recalcule la catégorie** depuis son instantané ; si un
@@ -88,7 +89,7 @@ bloquer une partition du routeur (I11).
 
 Le détenteur du bail d'un compte opérateur (I8) consomme ses trois partitions (une par catégorie) :
 
-1. **Âge** : expiré, `not_sent` (`expired`), jamais envoyé (I10).
+1. **Âge** : expiré, `not_sent` (`message_expired`), jamais envoyé (I10).
 2. **Ordonnancement** au sein du compte : OTP → transactionnel → marketing, le marketing garde au moins
    `marketing_min_share` (0,4) des envois tant qu'il attend (ADR-0021).
 3. **Seau local** à `throughput_limit_per_sec` ; une file pleine bloque la consommation, le message

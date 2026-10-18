@@ -203,7 +203,7 @@ identiques.
 
 | Emplacement actuel | Devient |
 |---|---|
-| `MessageStatus`, « LATEST PROJECTION… No freshness figure is promised » | Exact dans l'horizon, immédiat après le 202, historique au-delà. Issue de remise MO exposée. L'enum ne change pas : bump mineur du contrat public |
+| `MessageStatus`, « LATEST PROJECTION… No freshness figure is promised » | Exact dans l'horizon, immédiat après le 202, historique au-delà. Issue de remise MO exposée. L'enum ne change pas ; le contrat public part en 1.0.0, première version |
 | `query_sm` | `final_date` renseignée pour tout état terminal |
 | §6.22 « résolu contre le magasin de statut/CDR » | Résolu par `message-state-svc` |
 | Topics | Création de `dlr.routed`, `dlr.uncorrelated`, `dlr.unmatched` et `message.state`. `mt.outcome` porte aussi les transitions de message du routeur |

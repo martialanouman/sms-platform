@@ -44,7 +44,7 @@ sert, la resync reprend au retour.
 
 ## 7.3 Admin API (`admin-api-svc`)
 
-- **Contrat d'abord** : `api/openapi-admin.yaml` (OpenAPI 3.1) est déclaré **avant** l'implémentation,
+- **Contrat d'abord** : `contracts/openapi-admin.yaml` (OpenAPI 3.1) est déclaré **avant** l'implémentation,
   versionné par son paquet ; une rupture est un bump majeur. Le contrat que sert le code (huma) est
   comparé au fichier par un test bloquant.
 - **Seul écrivain** de la configuration (hors STOP par MO et secours). Chaque mutation est une
