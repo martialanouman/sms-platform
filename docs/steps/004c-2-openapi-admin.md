@@ -29,7 +29,7 @@ générée et gardée par `check-generated` ; chaque garde statique est rouge su
   `routing-scripts:publish`, `adjust-balance` sous `billing:topup`, `rotate-content-key` sous
   `customers:write`.
 - **Surface** : 10 opérations retirées (fournisseurs de facturation, `set-connector-bind-pool`,
-  `stream-billing-alerts`, doublons), 19 ajoutées (dead-letters et leur rejeu, jobs, comptes opérateur,
+  `stream-billing-alerts`, doublons), 19 ajoutées : 144 opérations (dead-letters et leur rejeu, jobs, comptes opérateur,
   `stream-connectors`, impact d'une suspension, rotation du secret de webhook, débit du compte,
   ajustement, propriétaires au plancher MO, fiche message, diff d'audit, retour arrière d'un script).
 - **Conventions** : pagination par curseur opaque partout sauf identifiants et webhooks ; paramètres
@@ -44,7 +44,7 @@ générée et gardée par `check-generated` ; chaque garde statique est rouge su
   `least_loaded`, aucun `lua`.
 - **Protos** (additifs) : `MessageState.antispam_verdict` et `antispam_rule_id` ; `Session.connected_at` et
   `remote_addr` ; `ListLedgerEntriesRequest.direction` ; `BillingService.ListOwnersAtMoFloor`.
-- **Amendements** : spec 07 §7.1 (`max_age_override`, `billing_enabled`) et §7.4 ; spec 08 §8.6 (flux
+- **Amendements** : §9.3 (`insufficient_credit` en 402 sur un transfert de solde Admin) ; spec 07 §7.1 (`max_age_override`, `billing_enabled`) et §7.4 ; spec 08 §8.6 (flux
   `connectors`) ; décision 3 §4.2 (`202` + job) ; spec 01 (JavaScript seul).
 
 **Outillage** :
@@ -68,9 +68,9 @@ générée et gardée par `check-generated` ; chaque garde statique est rouge su
 ## Design arrêté
 
 - `contracts/openapi-admin.yaml` : OpenAPI 3.1, 1.0.0, en anglais, sans commentaire.
-- `internal/openapi` : `Parse([]byte) (Contract, error)`, `(Contract) Scopes() (Scopes, error)` qui porte la
-  garde Admin, `(Contract) PublicSecurity() []error`, `(Contract) ErrorCodes() []string`,
-  `SpecCodes([]byte) []string`, `(Scopes) Go() []byte`.
+- `internal/openapi` : `Parse([]byte) (Contract, error)`, `(Contract) Scopes() (Scopes, []error)` qui porte
+  la garde Admin, `(Contract) PublicSecurity() []error`, `(Contract) UnknownCodes([]string) []error`,
+  `SpecCodes([]byte) []string`, `(Scopes) Go() ([]byte, error)`.
 - `tools/openapi` ; `internal/platform/scopes/scopes.gen.go` ; `doc.go`.
 - `Makefile` : `openapi` étendue.
 - Protos et amendements ci-dessus.
