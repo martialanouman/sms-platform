@@ -39,15 +39,18 @@ Fable a tranché le 2026-10-18 :
   neuve, donc des clés de ticket neuves : une session reprise ne survit pas à un retrait d'appelant.
 - **Aide de test** : CA et certificats générés au vol, privés au test du paquet ; un second consommateur
   la hissera en sous-paquet.
-- **gosec G304** : les chemins lus sont ceux de la configuration d'infrastructure, jamais une entrée
-  de requête ; exclusion nommée dans `.golangci.yml`.
+- **gosec G402** : le test dresse un pair en TLS 1.2 pour prouver qu'il est refusé ; exclusion nommée du
+  seul test dans `.golangci.yml`.
+- **Mutation** : `MinVersion` et `NextProtos` de la configuration externe du serveur ne servent pas (seule
+  celle de `GetConfigForClient` est lue) : retirés. La garde d'une chaîne vérifiée absente est
+  inatteignable sous `RequireAndVerifyClientCert` : retirée.
 
 ## Design arrêté
 
 - `internal/platform/mtls` : `Files{Cert, Key, CA string}` ; `(Files) Server(allowed, nextProtos
   []string) (*tls.Config, error)`, qui refuse une allowlist vide et des fichiers illisibles ;
   `(Files) Client() (*tls.Config, error)`.
-- `.golangci.yml` : exclusion G304 du paquet.
+- `.golangci.yml` : exclusion G402 du test.
 - Vérification du critère : allowlist vide et fichiers illisibles refusés à la construction ; un appelant
   nommé admis, un appelant non nommé, sans certificat ou d'une autre CA refusé ; un certificat renouvelé sur disque servi sans redémarrage, côté serveur et côté client ;
-  TLS 1.2 refusé ; la liste ALPN servie.
+  TLS 1.2 refusé des deux côtés ; l'allowlist copiée ; la liste ALPN servie.
