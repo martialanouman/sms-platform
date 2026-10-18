@@ -80,7 +80,7 @@ la SPA.
 - Une ligne par mutation et par lecture sous scope sensible ; les lectures ordinaires ne sont pas
   journalisées.
 - Colonnes : `operator` (le `sub` de l'opérateur, ou `service:<nom>`), `operation_id`, `target`,
-  `request_id`, `status`, `outcome`, `at`. Immuable (step-315) : une ligne s'écrit une fois, à l'issue.
+  `request_id`, `status`, `outcome`, `at`. Immuable (step-315) : une ligne s'écrit une fois, à l'issue de la décision, avant la réponse.
 - **`content_access_audit` est absorbée** : une lecture de corps est une ligne avec `outcome` à
   `granted`, `unreadable` ou `not_found`, écrite **avant** que le corps soit rendu (step-163).
 

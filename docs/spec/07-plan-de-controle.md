@@ -78,7 +78,7 @@ jeton par le JWKS interne du BFF (ADR-0019), puis le scope de l'opération.
 - **Chaque opération déclare exactement un scope.** La liste est générée depuis le contrat et
   consommée par la passerelle, l'éditeur de rôles du BFF et les types de la SPA.
 - **Jetons** : 5 min, émis par le BFF au nom de l'opérateur connecté ; un `kid` inconnu est refusé.
-  Aucun compte de service.
+  Aucun compte de service, hors l'identité système du hub, sous `stream:read` seul (chapitre 8 §8.6).
 
 Gardes bloquantes : chaque opération a un scope ; chaque opération appelée avec tous les scopes sauf le
 sien rend 403 ; le proxy du BFF n'expose que les chemins du contrat ; le BFF n'implémente aucune
@@ -90,7 +90,7 @@ opération de la passerelle.
 
 | Table | Contenu | Écrit par |
 |---|---|---|
-| `audit_log` | Un événement par mutation et par lecture sous scope sensible, y compris toute réponse démasquée par `msisdn:reveal` ; écrit une fois, à l'issue : `operator` (`sub`, `service:<nom>` ou `breakglass:<nom>`), `operation_id`, `target`, `request_id`, `status`, `outcome`, `at` | Middleware de l'Admin API |
+| `audit_log` | Un événement par mutation et par lecture sous scope sensible, y compris toute réponse démasquée par `msisdn:reveal` ; écrit une fois, à l'issue de la décision, avant la réponse : `operator` (`sub`, `service:<nom>` ou `breakglass:<nom>`), `operation_id`, `target`, `request_id`, `status`, `outcome`, `at` | Middleware de l'Admin API |
 | `audit_changes` | `(request_id, actor, table, pk, op, before, after, at)` | Trigger `AFTER INSERT/UPDATE/DELETE`, dans la transaction de la mutation |
 
 - **Acteur obligatoire** : sans `app.actor`, le trigger lève une erreur et l'écriture échoue.

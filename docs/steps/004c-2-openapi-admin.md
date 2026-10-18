@@ -28,15 +28,15 @@ générée et gardée par `check-generated` ; chaque garde statique est rouge su
   permission BFF `sessions`. `assign-routing-script` et `rollback-routing-script` sous
   `routing-scripts:publish`, `adjust-balance` sous `billing:topup`, `rotate-content-key` sous
   `customers:write`.
-- **Surface** : 11 opérations retirées (fournisseurs de facturation, `set-connector-bind-pool`,
-  `stream-billing-alerts`, doublons), 19 ajoutées : 144 opérations (dead-letters et leur rejeu, jobs, comptes opérateur,
+- **Surface** : 12 opérations retirées (fournisseurs de facturation, `set-connector-bind-pool`,
+  `stream-billing-alerts`, doublons), 20 ajoutées : 144 opérations (dead-letters et leur rejeu, jobs, comptes opérateur,
   `stream-connectors`, impact d'une suspension, rotation du secret de webhook, débit du compte,
   ajustement, propriétaires au plancher MO, fiche message, diff d'audit, retour arrière d'un script).
 - **Conventions** : pagination par curseur opaque partout sauf identifiants et webhooks ; paramètres
   snake_case ; statut typé par ressource ; PATCH à trois états ; MSISDN hors des URL (recherches en
   `POST`), schéma `Msisdn` partagé, masqué sauf `msisdn:reveal` ; `servers` sans `/v1` ; sécurité
   `http bearer` JWT, sans `oauth2` (aucun compte de service).
-- **Codes** : `Error.code` réduit aux 11 codes que l'Admin peut rendre ; rejeu refusé en 409 `conflict`.
+- **Codes** : `Error.code` réduit aux 10 codes que l'Admin peut rendre (`not_found` pour tout introuvable, message compris) ; rejeu refusé en 409 `conflict`.
 - **Données** (décisions 1, 3, spec 06, 07) : `account` partout ; `charge_on` sur la facturation du client ;
   un champ, un écrivain, un scope (facturation et contenu hors de `update-customer`) ;
   `max_age_override` par client, à la baisse ; `platform_policy.billing_enabled` ; comptes opérateur
