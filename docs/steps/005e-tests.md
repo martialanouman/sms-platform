@@ -30,6 +30,8 @@ Fable a tranché le 2026-10-18 :
   d'intégration sur `redis:8-alpine`, pingé en TCP brut à travers le proxy : `Cut`, un second client
   direct répond toujours, le client à travers le proxy échoue, `Resume`, il répond de nouveau.
 - **Emplacement** : `internal/platform/tcpproxy` (ADR 0025).
+- **Mutation** : `Close` attend la fin des relais (`sync.WaitGroup`) pour qu'aucun ne survive au test ;
+  l'effet n'est pas observable de dehors, la mutation qui le retire est équivalente.
 - **Pas de build tag** : le saut reste visible et gardé ; la dette #2 n'est pas touchée.
 
 ## Design arrêté
