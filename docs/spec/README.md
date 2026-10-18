@@ -79,7 +79,7 @@ Numérotation unique (décision 9, C4). Le code les cite par leur numéro ; chac
 | Terme | Sens |
 |---|---|
 | **Client** (`customer`) | L'entreprise cliente de l'agrégateur. Porte la facturation, les sender IDs, le groupe |
-| **Compte** (`account`, `account_id`) | Un compte SMPP d'un client : un identifiant de bind et une clé d'API. Porte les débits, les sessions, les webhooks. À l'écran, « compte » |
+| **Compte** (`account`, `account_id`) | Un compte d'un client, sur ses deux canaux : un identifiant de bind SMPP et une clé d'API REST. Porte les débits, les sessions, les webhooks. À l'écran, « compte » |
 | **Connecteur** | Une destination sortante (un opérateur, un agrégateur), cible des routes. Protocole `smpp` ou `http` |
 | **Compte opérateur** (`connector_account_id`) | Un compte contractualisé chez l'opérateur, dans un connecteur : identifiants, débit (~25 SMS/s), binds. Jamais `account_id` |
 | **Tenant** | Ce qui isole une file d'un autre : un compte client sur la voie retour, un compte opérateur au pool |

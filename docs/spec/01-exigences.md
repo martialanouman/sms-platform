@@ -5,7 +5,8 @@
 ### Modèle et provisionnement
 
 - **Client et comptes.** Un **client** (`customers`) détient un ou plusieurs **comptes**
-  (`smpp_accounts`). Chaque compte a exactement un identifiant de bind SMPP et exactement une clé
+  (`accounts` ; `smpp_accounts` dans les ADR antérieurs à la step 004b). Chaque compte a exactement un
+identifiant de bind SMPP et exactement une clé
   d'API. Le client porte la facturation (soldes, plan tarifaire, mode `charge_on`), les sender IDs et
   l'appartenance à un groupe ; le compte porte les plafonds de débit, `max_sessions`, les canaux et le
   webhook.

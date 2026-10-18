@@ -10,7 +10,7 @@ service n'en lit dans son environnement, qui ne porte que l'infrastructure (gard
 | Domaine | Tables |
 |---|---|
 | Clients | `customer_groups`, `customers` (facturation, `balance_scope`, `charge_on`, `content_storage`, `content_retention_days`), `rate_plans` |
-| Comptes | `smpp_accounts` (débits, `max_sessions`, canaux, `query_sm`/`cancel_sm`), `credentials` (une clé d'API et un bind par compte, hachés), `webhooks` (secret scellé) |
+| Comptes | `accounts` (débits, `max_sessions`, canaux, `query_sm`/`cancel_sm`), `credentials` (une clé d'API et un bind par compte, hachés), `webhooks` (secret scellé) |
 | Expéditeurs | `sender_ids` (catégorie, statut), `sender_id_rewrite_rules`, `rate_limits` (sender ID, compte) |
 | Sortie | `connectors`, `connector_accounts` (identifiants scellés, débit, binds, partition) |
 | Routage | `routes`, `route_targets`, `routing_scripts`, `exact_routes` |

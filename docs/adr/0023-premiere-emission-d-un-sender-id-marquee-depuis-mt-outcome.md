@@ -1,5 +1,8 @@
 # ADR-0023 : La première émission d'un sender ID est marquée depuis `mt.outcome`
 
+> Amendé par l'ADR-0026 (§2, §3) : la marque se pose depuis la lane MT du routeur, à `routed`, sans groupe sur
+> `mt.outcome`.
+>
 > Repris de `go-gateway`. Les chemins, steps et fiches `debts/` cités appartiennent à ce dépôt d'origine.
 
 **Status:** Accepted

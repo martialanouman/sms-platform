@@ -47,7 +47,7 @@ topics:
     body: none
     partitions: 128
     retention: 96h
-    producers: [router-svc, connector-pool-svc]
+    producers: [router-svc, connector-pool-svc, smpp-server-svc]
 
   dlr.events:
     key: connector_account_id
@@ -108,7 +108,7 @@ topics:
     body: none
     partitions: 64
     retention: 96h
-    producers: [delivery-svc]
+    producers: [delivery-svc, router-svc]
 
   message.state:
     key: message_id

@@ -115,8 +115,8 @@ débit. Le commit de groupe ramène cela à 50 à 100 transactions par seconde.
 
 ### 6.1 Faits et idempotence
 
-billing-svc lit `mt.routed`, toutes catégories, dans un groupe dédié qui ne décode que les
-en-têtes. Il écrit par lots dans `billing_settlements`, avec `INSERT … ON CONFLICT DO NOTHING`.
+billing-svc lit `mt.routed`, toutes catégories, dans un groupe dédié, sans toucher au corps (ce
+que cette décision appelait « en-têtes » sont des champs du payload, step 004b). Il écrit par lots dans `billing_settlements`, avec `INSERT … ON CONFLICT DO NOTHING`.
 
 | Colonne | Contenu |
 |---|---|

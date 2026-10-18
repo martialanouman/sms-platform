@@ -41,19 +41,20 @@ chaque pod lit tout, `manual` quand un bail assigne les partitions),
 | `mt.billing-wait.<cat>` | `message_id` | aucun | oui | router | router |
 | `mt.routed.<cat>` | manuelle (compte opérateur) | par partition | oui | router, pool | pool, billing, message-state |
 | `mt.reroute-park` | `message_id` | aucun | oui | pool | pool |
-| `mt.outcome` | `message_id` | par clé | non | router, pool | message-state, billing |
+| `mt.outcome` | `message_id` | par clé | non | router, pool, smpp-server (`cancelled`) | message-state, billing |
 | `dlr.events` | `connector_account_id` | par clé | non | pool | message-state |
 | `dlr.uncorrelated`, `dlr.unmatched` | `connector_account_id` | aucun | non | message-state | message-state |
 | `dlr.routed` | `account_id` | par clé | non | message-state | delivery, billing |
 | `mo.inbound` | `connector_account_id` | par clé | oui | pool | router, message-state |
 | `mo.routed` | `account_id` | par clé | oui | router | delivery, billing, message-state |
-| `mo.outcome` | `message_id` | par clé | non | delivery | message-state |
+| `mo.outcome` | `message_id` | par clé | non | delivery, router (`unrouted`) | message-state |
 | `message.state` | `message_id` | par clé | non | message-state | message-state (projection CDR) |
 | `connector.account-status` | `connector_account_id`, compacté | par clé | non | pool | router |
 | `<groupe>.dead-letter` | celle de la source | aucun | selon la source | runtime | `replay-dead-letter` |
 
 **En-têtes communs** : `origin_ts` (posé par le premier producteur, jamais modifié), `trace_id`,
-`replay_count`, `replayed_at`.
+`replay_count`, `replayed_at`. Ce sont les seuls : toute autre donnée est un champ du payload, versionné
+et gardé par `buf breaking` (step 004b).
 
 **Gardes bloquantes** :
 
@@ -73,9 +74,9 @@ chaque pod lit tout, `manual` quand un bail assigne les partitions),
 |---|---|---|
 | `billing-svc` | Octroi et clôture d'enveloppe ; recharge, transfert, ajustement, bascule de `balance_scope` ; lectures | router, admin-api |
 | `message-state-svc` | `GetMessage`, `CheckCancellable`, `IsTerminal` | rest-api, smpp-server, admin-api |
-| `session-manager-svc` | Ouverture et fermeture de session, `max_sessions`, recherche des binds actifs | smpp-server, delivery, admin-api |
+| `session-manager-svc` | Ouverture et fermeture de session, `max_sessions`, recherche des binds actifs, déconnexion forcée | smpp-server, delivery, admin-api |
 | `smpp-server-svc` | Remise d'un `deliver_sm` sur un bind tenu | delivery |
-| `content-key-svc` | Ouverture de la clé d'un client ; scellement et ouverture des secrets (`ConfigSecrets`) ; destruction | message-state, admin-api ; tout service qui ouvre un secret de configuration |
+| `content-key-svc` | Ouverture de la clé d'un client ; provisionnement et rotation (`admin-api-svc` seul) ; scellement et ouverture des secrets (`ConfigSecrets`) ; destruction | message-state, admin-api ; tout service qui ouvre un secret de configuration |
 
 Toujours sous mTLS, appelants nommés (décision 6).
 

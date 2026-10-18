@@ -16,6 +16,7 @@ message MoInbound {
   bytes body = 7; // I1 : corps légitime ici, topic clear_bounded (spec 02 §2.4)
 }
 
+// debt: #83
 // MoRouted is the payload of mo.routed, a reassembled MO resolved to its account. topics.yaml, body: clear_bounded
 message MoRouted {
   string message_id = 1; // spec 04 §4.4, clé de mo.outcome ; identifiant d'événement stable pour le client

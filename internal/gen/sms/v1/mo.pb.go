@@ -115,6 +115,7 @@ func (x *MoInbound) GetBody() []byte {
 	return nil
 }
 
+// debt: #83
 // MoRouted is the payload of mo.routed, a reassembled MO resolved to its account. topics.yaml, body: clear_bounded
 type MoRouted struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`

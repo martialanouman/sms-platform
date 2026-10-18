@@ -13,7 +13,7 @@ Page générée depuis `contracts/topics.yaml` par `go generate` : ne pas l'édi
 | `dlr.unmatched` | `connector_account_id` | none | none | 64 | 96h | `sms.v1.DlrEvent` | message-state-svc | événement |
 | `message.state` | `message_id` | per_key | none | 128 | 96h | `sms.v1.MessageState` | message-state-svc | version de l'état → CDR |
 | `mo.inbound` | `connector_account_id` | per_key | clear_bounded | 64 | 96h | `sms.v1.MoInbound` | connector-pool-svc | événement |
-| `mo.outcome` | `message_id` | per_key | none | 64 | 96h | `sms.v1.MoOutcome` | delivery-svc | transition → clé primaire du journal d'état |
+| `mo.outcome` | `message_id` | per_key | none | 64 | 96h | `sms.v1.MoOutcome` | delivery-svc, router-svc | transition → clé primaire du journal d'état |
 | `mo.routed` | `account_id` | per_key | clear_bounded | 64 | 96h | `sms.v1.MoRouted` | router-svc | événement |
 | `mt.billing-wait.marketing` | `message_id` | none | clear_bounded | 64 | 96h | `sms.v1.MtInbound` | router-svc | message → clé primaire du journal d'état ; SMS en double possible à la frontière du routeur (ADR-0014) |
 | `mt.billing-wait.otp` | `message_id` | none | clear_bounded | 64 | 96h | `sms.v1.MtInbound` | router-svc | message → clé primaire du journal d'état ; SMS en double possible à la frontière du routeur (ADR-0014) |
@@ -21,7 +21,7 @@ Page générée depuis `contracts/topics.yaml` par `go generate` : ne pas l'édi
 | `mt.inbound.marketing` | `message_id` | none | clear_bounded | 64 | 96h | `sms.v1.MtInbound` | rest-api-svc, smpp-server-svc | message → clé primaire du journal d'état ; SMS en double possible à la frontière du routeur (ADR-0014) |
 | `mt.inbound.otp` | `message_id` | none | clear_bounded | 64 | 96h | `sms.v1.MtInbound` | rest-api-svc, smpp-server-svc | message → clé primaire du journal d'état ; SMS en double possible à la frontière du routeur (ADR-0014) |
 | `mt.inbound.transactional` | `message_id` | none | clear_bounded | 64 | 96h | `sms.v1.MtInbound` | rest-api-svc, smpp-server-svc | message → clé primaire du journal d'état ; SMS en double possible à la frontière du routeur (ADR-0014) |
-| `mt.outcome` | `message_id` | per_key | none | 128 | 96h | `sms.v1.MtOutcome` | router-svc, connector-pool-svc | transition → clé primaire du journal d'état |
+| `mt.outcome` | `message_id` | per_key | none | 128 | 96h | `sms.v1.MtOutcome` | router-svc, connector-pool-svc, smpp-server-svc | transition → clé primaire du journal d'état |
 | `mt.reroute-park` | `message_id` | none | clear_bounded | 64 | 96h | `sms.v1.MtRouted` | connector-pool-svc | segment → clé primaire de la facturation (décision 1 §6.1) |
 | `mt.routed.marketing` | `manual` | per_partition | clear_bounded | 384 | 96h | `sms.v1.MtRouted` | router-svc, connector-pool-svc | segment → SMS en double possible à la frontière du pool (décision 3 §6.7) |
 | `mt.routed.otp` | `manual` | per_partition | clear_bounded | 384 | 96h | `sms.v1.MtRouted` | router-svc, connector-pool-svc | segment → SMS en double possible à la frontière du pool (décision 3 §6.7) |
