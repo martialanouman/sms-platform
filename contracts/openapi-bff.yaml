@@ -1,0 +1,1146 @@
+openapi: 3.1.0
+
+info:
+  title: SMS platform — dashboard BFF API
+  version: 1.0.0
+  description: |
+    The surface the browser talks to. It describes only what the BFF owns: authentication, operators, roles,
+    dashboard sessions, the access log and notifications. The signing key of Admin API tokens, the mTLS
+    material and the database stay server-side (I14); every response is a declared DTO (I1, I2).
+
+    **Proxy.** `/api/gw/*` relays the Admin API contract verbatim (`/api/gw/admin/customers` reaches
+    `/admin/customers`) with the operator's token; it is absent from this file, and no path here starts with
+    `/gw`. Before relaying, the proxy refuses with the codes of this file: 401 `unauthenticated`, 403
+    `forbidden_origin` or `mfa_required`, 404 `not_found` for a path absent from the Admin API contract, 415
+    `unsupported_media_type`, 503 `service_unavailable` when the Admin API cannot be reached.
+
+    **Alertmanager** notifies the BFF on an internal listener, never under `/api`; it is not part of this
+    contract.
+
+    **Session.** A sealed `HttpOnly` cookie, never readable by the client. 15 minutes without a gesture close
+    it; only `POST /auth/activity` extends it, never a background request. A `noc` session has no idle
+    timeout. Every session ends 12 hours after login.
+
+    **MFA.** Until its session is elevated by `POST /auth/mfa/verify`, an operator whose roles carry anything
+    beyond ordinary reads (a `:write` scope, a sensitive scope or a BFF permission) reaches `/auth/*` only;
+    anywhere else, the proxy included, the answer is 403 `mfa_required`.
+
+    **Cross-site requests.** Every unsafe method checks `Origin` (403 `forbidden_origin`) and requires an
+    `application/json` content type (415 `unsupported_media_type`), the proxy included. The body of every operation
+    that declares one is capped before decoding (413 `payload_too_large`); the cap does not apply to `/api/gw/*`, the Admin API
+    bounding its own imports.
+
+    **Real time.** The socket is served at `/ws`, outside `/api`: a protocol upgrade has no typed response.
+    The client sends `RealtimeRequest`; the server sends `RealtimeData`, `RealtimeStatus` and
+    `RealtimeRefusal`. Refusals before the upgrade are `Error` bodies: 401 `unauthenticated`, 403
+    `forbidden_origin` or `mfa_required`, 500 `internal_error`. Close codes: 4401 when the session has ended
+    (checked every 30 seconds, never extended by the socket), 1008 when the client let its queue overflow,
+    1011 when the session could not be checked, 1001 when the server stops.
+
+servers:
+  - url: /api
+    description: Relative to the origin that served the SPA.
+
+paths:
+  /health:
+    get:
+      summary: Liveness probe
+      description: The process is alive. It touches neither the database nor the gateway.
+      operationId: health
+      security: []
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Health' } } } }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /auth/login:
+    post:
+      summary: First factor, email and password
+      description: |
+        Opens a first-factor session and returns a single-use second-factor challenge, valid 5 minutes.
+        Unknown email, wrong password and disabled account get the same body in the same time: telling them
+        apart would tell a machine which addresses exist.
+      operationId: login
+      security: []
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LoginRequest' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/MfaChallenge' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/HashingBusy' }
+
+  /auth/access-link:
+    post:
+      summary: Set a password with a single-use access link
+      description: |
+        Public: whoever has no password yet has no session. The 256-bit token is checked before any hashing.
+        The password has at least 12 characters, with an uppercase letter, a lowercase letter, a digit and a
+        special character. Using a `reset` link also removes every factor and closes every session, in the
+        same transaction.
+      operationId: setPasswordFromAccessLink
+      security: []
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AccessLinkUse' } } } }
+      responses:
+        '204': { description: The password is set; the link is spent. }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '410':
+          description: |
+            `access_link_invalid`: the link was used, expired, replaced, or targets a disabled account. One
+            refusal for the four causes.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422':
+          description: |
+            `password_policy`: the password breaks the policy, and the message names what is missing; judged
+            after the token, so the link stays valid. `validation_error`: the body is malformed.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503':
+          description: '`service_unavailable`: every argon2id hashing slot is busy. Nothing was saved and the link stays valid.'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+
+  /auth/me:
+    get:
+      summary: The signed-in operator and what they may do
+      description: |
+        The only place the client learns its rights. The interface renders on permissions, never on a role:
+        no role is returned.
+      operationId: me
+      security: [{ session: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Me' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /auth/activity:
+    post:
+      summary: Report an operator gesture
+      description: |
+        Extends the session by its idle timeout. The SPA calls it on a user interaction, at most once a
+        minute; no other request extends the session.
+      operationId: reportActivity
+      security: [{ session: [] }]
+      responses:
+        '204': { description: The session is extended. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /auth/logout:
+    post:
+      summary: Close the session
+      description: |
+        Deletes the session row and expires the cookie. Same status without a session: the requested state
+        is reached, and a refusal would tell whoever tests a cookie whether it is still worth something.
+      operationId: logout
+      security: []
+      responses:
+        '204': { description: 'The session is closed, whether it existed or not.' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /auth/mfa/totp/enroll:
+    post:
+      summary: Enrol an authenticator app
+      description: |
+        Draws a TOTP secret, encrypts it at rest, and returns once the `otpauth://` URI (the client draws the
+        QR code), the secret for manual entry and ten recovery codes. Nothing is shown again.
+
+        On an account already guarded by a confirmed factor, the enrolment waits for
+        `POST /auth/mfa/totp/confirm` and the factor in place stays the only valid one until then. Replacing a
+        TOTP requires presenting a code of the one replaced, or a recovery code: otherwise a captured elevated
+        cookie would evict the operator for good.
+      operationId: enrollTotp
+      security: [{ session: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TotpEnrollmentRequest' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/TotpEnrollment' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: |
+            `mfa_elevation_required`: only a passkey guards the account and the session is not elevated.
+            `mfa_already_enrolled`: a factor is in place and no proof came with the request.
+            `mfa_replacement_refused`: the proof presented was refused. An enrolment never confirmed does not
+            count as in place.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/HashingBusy' }
+
+  /auth/mfa/totp/confirm:
+    post:
+      summary: Confirm a pending authenticator app
+      description: |
+        Checks the code against the pending secret and, if it matches, makes it active with its codes,
+        removing the previous ones, in one transaction. Requires an elevated session.
+      operationId: confirmTotp
+      security: [{ session: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TotpConfirmation' } } } }
+      responses:
+        '204': { description: The authenticator app is confirmed. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: '`mfa_elevation_required`: the session is not elevated. `mfa_nothing_to_confirm`: no enrolment is pending.'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422':
+          description: |
+            `mfa_code_refused`: the code was not accepted; 422 and not 401, since the session is alive.
+            `validation_error`: the body is malformed.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /auth/mfa/verify:
+    post:
+      summary: Second factor, TOTP code, recovery code or passkey assertion
+      description: |
+        Elevates the session opened by `POST /auth/login` and regenerates its token (session fixation). It
+        requires both the session cookie and the login challenge. The challenge is consumed on success only; a
+        per-operator counter, across logins, bounds the guessing of a code.
+      operationId: verifyMfa
+      security: [{ session: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MfaVerification' } } } }
+      responses:
+        '204': { description: The session is elevated. }
+        '401':
+          description: |
+            `unauthenticated`: the factor was refused, or the challenge is unknown, expired, consumed or another
+            operator's, or no session lives. One body for every cause.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/HashingBusy' }
+
+  /auth/mfa/webauthn/register/begin:
+    post:
+      summary: Open a passkey registration
+      description: |
+        Returns the options for `navigator.credentials.create()` and opens a short-lived challenge bound to
+        the session; calling again replaces it. Passkeys already held are excluded.
+      operationId: beginWebauthnRegistration
+      security: [{ session: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/WebauthnRegistrationOptions' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: '`mfa_elevation_required`: a factor is in place and the session is not elevated.'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /auth/mfa/webauthn/register/finish:
+    post:
+      summary: Register the passkey the device produced
+      description: The challenge is consumed whatever the outcome, since it was signed.
+      operationId: finishWebauthnRegistration
+      security: [{ session: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/WebauthnRegistration' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/WebauthnCredential' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: '`mfa_elevation_required`: a factor was put in place since the ceremony opened, and the session is not elevated.'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422':
+          description: |
+            `webauthn_ceremony_refused`: no open challenge, expired or used, wrong origin, bad signature, or a key
+            already registered here or elsewhere; one body for every cause. `validation_error`: the body is
+            malformed.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /auth/mfa/webauthn/assert/begin:
+    post:
+      summary: Open a passkey assertion
+      description: |
+        Returns the options for `navigator.credentials.get()`. The ceremony ends on `POST /auth/mfa/verify`
+        with `method: webauthn`.
+      operationId: beginWebauthnAssertion
+      security: [{ session: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/WebauthnAssertionOptions' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: '`not_found`: no passkey is registered.'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /auth/mfa/webauthn/passkeys:
+    get:
+      summary: The passkeys of the signed-in operator
+      description: Name and registration date, in registration order. Nothing of the key.
+      operationId: listWebauthnPasskeys
+      security: [{ session: [] }]
+      responses:
+        '200':
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/PasskeySummary' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /auth/mfa/webauthn/passkeys/{passkeyId}:
+    parameters: [{ $ref: '#/components/parameters/PasskeyId' }]
+    delete:
+      summary: Remove one of one's passkeys
+      description: |
+        Self-service, without permission; guarded by elevation. It does not require presenting the passkey
+        removed: one removes it precisely when the device is lost.
+      operationId: deleteWebauthnPasskey
+      security: [{ session: [] }]
+      responses:
+        '204': { description: The passkey is removed. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: '`not_found`: not a passkey of this operator, whether it exists elsewhere or not.'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '409':
+          description: '`mfa_elevation_required`: the session is not elevated. `mfa_last_factor`: removing the last factor would lock the operator out.'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /gateway-token:
+    post:
+      summary: Issue a personal token for the Admin API
+      description: |
+        The token an operator takes outside the dashboard, for a script run by hand. Signed for the operator's
+        `sub`, valid one hour, never renewed. Its scopes are those of the operator's roles, minus
+        `content:read`, `content:erase` and `gdpr:erase`. Returned here only, once, and stored nowhere; its
+        issuance is logged.
+      operationId: issueGatewayToken
+      security: [{ session: ['gateway:personal_token'] }]
+      requestBody: { required: false, content: { application/json: { schema: { $ref: '#/components/schemas/GatewayTokenRequest' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/GatewayToken' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: |
+            `forbidden_origin`, `mfa_required`, or `forbidden_scope`: the operator lacks `gateway:personal_token`,
+            or a requested scope is beyond what the token may carry (not held, excluded, or not an Admin API
+            scope), and the message names it.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /operators:
+    get:
+      summary: List operators, their roles and second-factor state
+      operationId: listOperators
+      security: [{ session: ['operators:read'] }]
+      responses:
+        '200':
+          description: Every operator, active and disabled.
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Operator' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      summary: Create an operator, without role or password
+      description: |
+        The account is born active, without role and without password. An activation link, valid 72 hours, is
+        queued in the same transaction.
+      operationId: createOperator
+      security: [{ session: ['operators:write'] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OperatorCreate' } } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Operator' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: '`email_taken`: an operator already has this address, case-insensitively.'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /operators/{operatorId}:
+    parameters: [{ $ref: '#/components/parameters/OperatorId' }]
+    patch:
+      summary: Disable or re-enable an operator
+      description: Disabling closes all their sessions in the same transaction. An operator is never deleted.
+      operationId: updateOperator
+      security: [{ session: ['operators:write'] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OperatorUpdate' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Operator' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/SelfLockout' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /operators/{operatorId}/roles:
+    parameters: [{ $ref: '#/components/parameters/OperatorId' }]
+    put:
+      summary: Replace an operator's roles
+      operationId: setOperatorRoles
+      security: [{ session: ['operators:write'] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OperatorRoles' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Operator' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/SelfLockout' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /operators/{operatorId}/access-link:
+    parameters: [{ $ref: '#/components/parameters/OperatorId' }]
+    post:
+      summary: Send a single-use access link
+      description: |
+        Queues a link sent by email: `activation` (72 hours) if the account has no password yet, `reset`
+        (1 hour) otherwise. A new link invalidates the previous one. Nothing changes before the link is used.
+      operationId: requestOperatorAccessLink
+      security: [{ session: ['operators:write'] }]
+      responses:
+        '202': { description: The link is queued. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`operator_disabled`: no link goes to a disabled account.'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /roles:
+    get:
+      summary: List roles, their permissions and holders
+      operationId: listRoles
+      security: [{ session: ['roles:read'] }]
+      responses:
+        '200':
+          description: The ten default roles and the custom ones.
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Role' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      summary: Compose a custom role
+      operationId: createRole
+      security: [{ session: ['roles:write'] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RoleCreate' } } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Role' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: '`role_name_taken`: a role already has this name.'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /roles/{roleId}:
+    parameters: [{ $ref: '#/components/parameters/RoleId' }]
+    patch:
+      summary: Replace a custom role's description and permissions
+      operationId: updateRole
+      security: [{ session: ['roles:write'] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RoleUpdate' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Role' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: |
+            `role_is_default`: default roles ship with the product and are re-seeded on every deployment.
+            `self_lockout`: the change would remove `operators:write` or `roles:write` from its author.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    delete:
+      summary: Delete a custom role nobody holds
+      operationId: deleteRole
+      security: [{ session: ['roles:write'] }]
+      responses:
+        '204': { description: The role is deleted. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`role_is_default`: a default role cannot be deleted. `role_held`: the role is held, and the message names its holders.'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /sessions:
+    get:
+      summary: List open dashboard sessions
+      operationId: listSessions
+      security: [{ session: ['sessions:read'] }]
+      responses:
+        '200':
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/DashboardSession' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /sessions/{sessionId}:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }]
+    delete:
+      summary: Close a dashboard session
+      description: The operator is back to login on their next request; their open socket closes with 4401.
+      operationId: deleteSession
+      security: [{ session: ['sessions:write'] }]
+      responses:
+        '204': { description: The session is closed. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /access-log:
+    get:
+      summary: List the dashboard access log, newest first
+      description: The facts of the BFF only; the control-plane audit log is on the Admin API.
+      operationId: listAccessLog
+      security: [{ session: ['audit:read'] }]
+      parameters: [{ $ref: '#/components/parameters/Cursor' }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/AccessLogPage' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /notifications:
+    get:
+      summary: List notifications, newest first
+      description: |
+        Alerts Alertmanager sent to the BFF, for display only; any session sees them. A failover or a database
+        outage may leave a gap.
+      operationId: listNotifications
+      security: [{ session: [] }]
+      parameters: [{ $ref: '#/components/parameters/Cursor' }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/NotificationPage' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /notifications/{notificationId}/read:
+    parameters: [{ $ref: '#/components/parameters/NotificationId' }]
+    post:
+      summary: Mark a notification read for the signed-in operator
+      description: Idempotent.
+      operationId: markNotificationRead
+      security: [{ session: [] }]
+      responses:
+        '204': { description: The notification is read. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: __Host-dashboard_session
+      description: The sealed session cookie, `HttpOnly`, `Secure`, `SameSite=Strict`. The listed value is the permission the operation requires.
+
+  parameters:
+    OperatorId:
+      name: operatorId
+      in: path
+      required: true
+      schema: { type: string }
+    RoleId:
+      name: roleId
+      in: path
+      required: true
+      schema: { type: string }
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema: { type: string }
+    PasskeyId:
+      name: passkeyId
+      in: path
+      required: true
+      description: The ID returned at registration, never the authenticator's own credential ID.
+      schema: { type: string }
+    NotificationId:
+      name: notificationId
+      in: path
+      required: true
+      schema: { type: string }
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque; the `nextCursor` of the previous page.
+      schema: { type: string, maxLength: 256 }
+
+  responses:
+    Unauthorized:
+      description: |
+        `unauthenticated`: no live session. One body whether the cookie is missing, its seal is wrong, or the
+        session expired, idled out, was closed, or its account was disabled.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Forbidden:
+      description: |
+        Refused before the operation. `forbidden_origin`: the request does not come from the dashboard's
+        origin. `mfa_required`: the session is not elevated. `forbidden_scope`: a permission is missing, and
+        the message names it.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    NotFound:
+      description: '`not_found`: no such resource.'
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    SelfLockout:
+      description: '`self_lockout`: the change would lock its author out: disabling oneself, or losing `operators:write` or `roles:write`.'
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    PayloadTooLarge:
+      description: '`payload_too_large`: the request body exceeds the accepted size.'
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    UnsupportedMediaType:
+      description: '`unsupported_media_type`: the request is not announced as `application/json`.'
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    ValidationError:
+      description: '`validation_error`: the request is malformed, or names an unknown role or permission; `errors[]` places each refusal.'
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    RateLimited:
+      description: |
+        `rate_limited`: too many attempts for the submitted email, whether an account has it or not, or from
+        the source address. The message carries the time left, so the operator knows when to retry.
+      headers:
+        Retry-After:
+          description: Seconds left, an integer and never an HTTP date.
+          required: true
+          schema: { type: integer, minimum: 1 }
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    HashingBusy:
+      description: |
+        `service_unavailable`: every argon2id hashing slot is busy. Not a refusal of the credentials; the
+        attempt still counts against the quota, set before hashing.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    ServiceUnavailable:
+      description: '`service_unavailable`: a dependency cannot be reached.'
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    InternalError:
+      description: '`internal_error`.'
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+
+  schemas:
+    Error:
+      type: object
+      description: Flat error body. `code` is the stable code of the cause; the HTTP status is on the status line only.
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          enum:
+            - unauthenticated
+            - forbidden_origin
+            - mfa_required
+            - forbidden_scope
+            - not_found
+            - validation_error
+            - payload_too_large
+            - unsupported_media_type
+            - rate_limited
+            - service_unavailable
+            - internal_error
+            - access_link_invalid
+            - password_policy
+            - mfa_elevation_required
+            - mfa_already_enrolled
+            - mfa_replacement_refused
+            - mfa_code_refused
+            - mfa_nothing_to_confirm
+            - mfa_last_factor
+            - webauthn_ceremony_refused
+            - email_taken
+            - role_name_taken
+            - self_lockout
+            - operator_disabled
+            - role_is_default
+            - role_held
+        message: { type: string, description: Shown to the operator. }
+        errors:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              field: { type: string }
+              message: { type: string }
+            required: [field, message]
+      required: [code, message]
+
+    Permission:
+      type: string
+      description: An Admin API scope or a BFF permission, checked against the generated lists.
+      pattern: '^[a-z-]+:[a-z_]+$'
+      maxLength: 64
+
+    Health:
+      type: object
+      additionalProperties: false
+      properties:
+        status: { type: string, enum: [ok] }
+      required: [status]
+
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        email: { type: string, maxLength: 320 }
+        password: { type: string, minLength: 1, maxLength: 4096, description: Bounded since every attempt costs a 64 MiB argon2id. }
+      required: [email, password]
+
+    MfaChallenge:
+      type: object
+      description: Single-use, revocable, returned once; the server keeps only its digest.
+      additionalProperties: false
+      properties:
+        challenge: { type: string, minLength: 43 }
+        expiresAt: { type: string, format: date-time }
+      required: [challenge, expiresAt]
+
+    AccessLinkUse:
+      type: object
+      additionalProperties: false
+      properties:
+        token: { type: string, maxLength: 64 }
+        password: { type: string, maxLength: 4096 }
+      required: [token, password]
+
+    Me:
+      type: object
+      additionalProperties: false
+      properties:
+        operator: { $ref: '#/components/schemas/CurrentOperator' }
+        permissions:
+          type: array
+          description: The union of the permissions of the roles held, sorted, without duplicates.
+          items: { $ref: '#/components/schemas/Permission' }
+        elevated: { type: boolean, description: The second factor was verified in this session. }
+        secondFactors: { $ref: '#/components/schemas/SecondFactors' }
+        idleTimeoutSeconds: { type: [integer, "null"], minimum: 1, description: 'Null for a `noc` session, which has none.' }
+        absoluteExpiresAt: { type: string, format: date-time, description: An upper bound; the idle timeout often ends the session earlier. }
+      required: [operator, permissions, elevated, secondFactors, idleTimeoutSeconds, absoluteExpiresAt]
+
+    CurrentOperator:
+      type: object
+      additionalProperties: false
+      properties:
+        id: { type: string }
+        email: { type: string }
+        displayName: { type: string }
+      required: [id, email, displayName]
+
+    SecondFactors:
+      type: object
+      description: What the operator holds as second factor, never its value.
+      additionalProperties: false
+      properties:
+        totp: { type: boolean, description: A confirmed authenticator app. }
+        recoveryCodesRemaining: { type: integer, minimum: 0 }
+        passkeys: { type: integer, minimum: 0 }
+      required: [totp, recoveryCodesRemaining, passkeys]
+
+    TotpEnrollmentRequest:
+      type: object
+      description: Nothing on a first enrolment; a proof of the factor in place to replace it.
+      additionalProperties: false
+      properties:
+        method: { type: string, enum: [totp, recovery_code] }
+        code: { type: string, minLength: 1, maxLength: 64 }
+      dependentRequired:
+        method: [code]
+        code: [method]
+
+    TotpConfirmation:
+      type: object
+      additionalProperties: false
+      properties:
+        code: { type: string, minLength: 1, maxLength: 64 }
+      required: [code]
+
+    TotpEnrollment:
+      type: object
+      description: Returned once, at enrolment.
+      additionalProperties: false
+      properties:
+        secret: { type: string, description: 'Base32, the same value the URI carries.' }
+        otpauthUri: { type: string }
+        recoveryCodes: { type: array, items: { type: string } }
+      required: [secret, otpauthUri, recoveryCodes]
+
+    MfaVerification:
+      type: object
+      description: '`code` for `totp` and `recovery_code`, `assertion` for `webauthn`.'
+      additionalProperties: false
+      properties:
+        challenge: { type: string, minLength: 43, maxLength: 64 }
+        method: { type: string, enum: [totp, recovery_code, webauthn] }
+        code: { type: string, minLength: 1, maxLength: 64 }
+        assertion:
+          type: object
+          description: What `navigator.credentials.get()` produced, passed as is; the WebAuthn library parses it.
+          additionalProperties: true
+      required: [challenge, method]
+
+    WebauthnCredentialDescriptor:
+      type: object
+      additionalProperties: false
+      properties:
+        type: { type: string, enum: [public-key] }
+        id: { type: string, description: 'The authenticator''s credential ID, base64url.' }
+        transports: { type: array, items: { type: string } }
+      required: [type, id]
+
+    WebauthnRegistrationOptions:
+      type: object
+      description: Passed as is to `navigator.credentials.create()`. No extension, no attestation preference.
+      additionalProperties: false
+      properties:
+        publicKey:
+          type: object
+          additionalProperties: false
+          properties:
+            rp:
+              type: object
+              additionalProperties: false
+              properties:
+                id: { type: string }
+                name: { type: string }
+              required: [id, name]
+            user:
+              type: object
+              additionalProperties: false
+              properties:
+                id: { type: string, description: 'The operator ID, base64url, never the email.' }
+                name: { type: string }
+                displayName: { type: string }
+              required: [id, name, displayName]
+            challenge: { type: string }
+            pubKeyCredParams:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  type: { type: string, enum: [public-key] }
+                  alg: { type: integer, description: COSE algorithm identifier. }
+                required: [type, alg]
+            timeout: { type: integer }
+            excludeCredentials: { type: array, items: { $ref: '#/components/schemas/WebauthnCredentialDescriptor' } }
+            authenticatorSelection:
+              type: object
+              additionalProperties: false
+              properties:
+                residentKey: { type: string }
+                userVerification: { type: string }
+          required: [rp, user, challenge, pubKeyCredParams]
+      required: [publicKey]
+
+    WebauthnAssertionOptions:
+      type: object
+      description: Passed as is to `navigator.credentials.get()`.
+      additionalProperties: false
+      properties:
+        publicKey:
+          type: object
+          additionalProperties: false
+          properties:
+            challenge: { type: string }
+            timeout: { type: integer }
+            rpId: { type: string }
+            allowCredentials: { type: array, items: { $ref: '#/components/schemas/WebauthnCredentialDescriptor' } }
+            userVerification: { type: string }
+          required: [challenge]
+      required: [publicKey]
+
+    WebauthnRegistration:
+      type: object
+      additionalProperties: false
+      properties:
+        attestation:
+          type: object
+          description: What `navigator.credentials.create()` produced, passed as is.
+          additionalProperties: true
+        name: { type: string, minLength: 1, maxLength: 64, description: How the operator will recognise the key. }
+      required: [attestation, name]
+
+    WebauthnCredential:
+      type: object
+      additionalProperties: false
+      properties:
+        id: { type: string }
+      required: [id]
+
+    PasskeySummary:
+      type: object
+      additionalProperties: false
+      properties:
+        id: { type: string }
+        name: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, name, createdAt]
+
+    GatewayTokenRequest:
+      type: object
+      description: Admin API scopes only. Without `scopes`, the token carries every scope it may.
+      additionalProperties: false
+      properties:
+        scopes: { type: array, minItems: 1, maxItems: 64, items: { $ref: '#/components/schemas/Permission' } }
+
+    GatewayToken:
+      type: object
+      description: 'Set as `Authorization: Bearer` on the Admin API. Shown once.'
+      additionalProperties: false
+      properties:
+        token: { type: string }
+        scopes: { type: array, items: { $ref: '#/components/schemas/Permission' } }
+        expiresAt: { type: string, format: date-time }
+      required: [token, scopes, expiresAt]
+
+    Operator:
+      type: object
+      description: No secret, no hash.
+      additionalProperties: false
+      properties:
+        id: { type: string }
+        email: { type: string }
+        displayName: { type: string }
+        status: { type: string, enum: [active, disabled] }
+        roles: { type: array, items: { $ref: '#/components/schemas/RoleRef' } }
+        secondFactorEnrolled: { type: boolean, description: 'A secret set, even unconfirmed, or a passkey; what a reset link would remove.' }
+        accessLink:
+          description: Null when no link is queued or awaiting use.
+          oneOf:
+            - $ref: '#/components/schemas/AccessLink'
+            - type: "null"
+      required: [id, email, displayName, status, roles, secondFactorEnrolled, accessLink]
+
+    AccessLink:
+      type: object
+      additionalProperties: false
+      properties:
+        kind: { type: string, enum: [activation, reset] }
+        state: { type: string, enum: [queued, sent, failed] }
+      required: [kind, state]
+
+    RoleRef:
+      type: object
+      additionalProperties: false
+      properties:
+        id: { type: string }
+        name: { type: string }
+      required: [id, name]
+
+    OperatorCreate:
+      type: object
+      additionalProperties: false
+      properties:
+        email: { type: string, minLength: 3, maxLength: 320 }
+        displayName: { type: string, minLength: 1, maxLength: 200 }
+      required: [email, displayName]
+
+    OperatorUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        status: { type: string, enum: [active, disabled] }
+      required: [status]
+
+    OperatorRoles:
+      type: object
+      additionalProperties: false
+      properties:
+        roleIds: { type: array, maxItems: 100, items: { type: string, maxLength: 64 } }
+      required: [roleIds]
+
+    Role:
+      type: object
+      additionalProperties: false
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        isDefault: { type: boolean, description: A default role is read-only. }
+        permissions: { type: array, items: { $ref: '#/components/schemas/Permission' } }
+        holders: { type: array, description: The emails of its holders., items: { type: string } }
+      required: [id, name, description, isDefault, permissions, holders]
+
+    RoleCreate:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        description: { type: string, maxLength: 500 }
+        permissions: { type: array, maxItems: 128, items: { $ref: '#/components/schemas/Permission' } }
+      required: [name, description, permissions]
+
+    RoleUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        description: { type: string, maxLength: 500 }
+        permissions: { type: array, maxItems: 128, items: { $ref: '#/components/schemas/Permission' } }
+      required: [description, permissions]
+
+    DashboardSession:
+      type: object
+      additionalProperties: false
+      properties:
+        id: { type: string }
+        operatorId: { type: string }
+        openedAt: { type: string, format: date-time }
+        lastActivityAt: { type: string, format: date-time }
+        noc: { type: boolean, description: 'A `noc` session, without idle timeout.' }
+      required: [id, operatorId, openedAt, lastActivityAt, noc]
+
+    AccessLogEntry:
+      type: object
+      description: '`outcome: failure` on `login` or `mfa` is a failed password or second factor. No IP address in clear.'
+      additionalProperties: false
+      properties:
+        id: { type: string }
+        at: { type: string, format: date-time }
+        actor: { type: [string, "null"], description: 'The operator ID; null when no operator is known, such as a login with an unknown email.' }
+        event:
+          type: string
+          enum: [login, logout, mfa, access_link_requested, access_link_used, factor_enrolled, factor_removed, operator_created, operator_disabled, operator_enabled, roles_changed, role_created, role_updated, role_deleted, session_closed, personal_token_issued, session_refused]
+        target: { type: [string, "null"], description: 'The ID acted upon when not the actor: an operator, the session''s operator for `session_closed`, or the role for `role_*` events.' }
+        outcome: { type: string, enum: [success, failure] }
+      required: [id, at, actor, event, target, outcome]
+
+    AccessLogPage:
+      type: object
+      additionalProperties: false
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/AccessLogEntry' } }
+        nextCursor: { type: [string, "null"] }
+      required: [data, nextCursor]
+
+    Notification:
+      type: object
+      description: An alert Alertmanager sent, as the `notifications` topic broadcasts it.
+      properties:
+        id: { type: string }
+        severity: { type: string, enum: [info, warning, critical] }
+        message: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, severity, message, createdAt]
+
+    NotificationEntry:
+      allOf:
+        - $ref: '#/components/schemas/Notification'
+        - type: object
+          properties:
+            read: { type: boolean, description: Read by the signed-in operator. }
+          required: [read]
+      unevaluatedProperties: false
+
+    NotificationPage:
+      type: object
+      additionalProperties: false
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/NotificationEntry' } }
+        nextCursor: { type: [string, "null"] }
+        unreadCount: { type: integer, minimum: 0 }
+      required: [data, nextCursor, unreadCount]
+
+    RealtimeTopic:
+      type: string
+      description: '`metrics`, `sessions` and `connectors` require `stream:read`; `notifications` any session.'
+      enum: [metrics, sessions, connectors, notifications]
+
+    RealtimeRequest:
+      type: object
+      description: The only message the client sends, 4 KiB at most.
+      additionalProperties: false
+      properties:
+        action: { type: string, enum: [subscribe, unsubscribe] }
+        topics: { type: array, maxItems: 4, items: { $ref: '#/components/schemas/RealtimeTopic' } }
+      required: [action, topics]
+
+    RealtimeData:
+      type: object
+      description: A frame of its topic; gateway frames are those of the Admin API streams.
+      additionalProperties: false
+      properties:
+        topic: { $ref: '#/components/schemas/RealtimeTopic' }
+        ts: { type: string, format: date-time }
+        data:
+          oneOf:
+            - $ref: 'openapi-admin.yaml#/components/schemas/MetricSnapshot'
+            - $ref: 'openapi-admin.yaml#/components/schemas/SessionEvent'
+            - $ref: 'openapi-admin.yaml#/components/schemas/ConnectorSnapshot'
+            - allOf: [{ $ref: '#/components/schemas/Notification' }]
+              unevaluatedProperties: false
+      required: [topic, ts, data]
+
+    RealtimeStatus:
+      type: object
+      description: The state of a topic's stream, sent on subscription and on every change. `since` is null when the stream was never reached.
+      additionalProperties: false
+      properties:
+        topic: { $ref: '#/components/schemas/RealtimeTopic' }
+        status: { type: string, enum: [live, stale] }
+        since: { type: [string, "null"], format: date-time }
+      required: [topic, status, since]
+
+    RealtimeRefusal:
+      type: object
+      description: |
+        A refused message. `validation_error`: unreadable message or unknown topic, `topic` null when the whole
+        message is unreadable. `forbidden_scope`: the topic's permission is missing.
+      additionalProperties: false
+      properties:
+        topic: { type: [string, "null"] }
+        error: { $ref: '#/components/schemas/Error' }
+      required: [topic, error]

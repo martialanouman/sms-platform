@@ -1,4 +1,4 @@
-// Command openapi checks the static rules of the OpenAPI contracts, or writes the Admin API scope list.
+// Command openapi checks the static rules of the OpenAPI contracts, or writes the scope and permission lists.
 package main
 
 import (
@@ -13,11 +13,12 @@ import (
 const (
 	adminPath  = "contracts/openapi-admin.yaml"
 	publicPath = "contracts/openapi-public.yaml"
+	bffPath    = "contracts/openapi-bff.yaml"
 	specPath   = "docs/spec/09-contrats.md"
 )
 
 func main() {
-	gen := flag.String("gen", "", "write the Admin API scope list to this file")
+	gen := flag.String("gen", "", "write the scope and permission lists to this file")
 	flag.Parse()
 	errs := run(".", *gen)
 	for _, err := range errs {
@@ -33,14 +34,20 @@ func run(root, gen string) []error {
 	if err != nil {
 		return []error{err}
 	}
+	bff, err := load(filepath.Join(root, bffPath))
+	if err != nil {
+		return []error{err}
+	}
 	scopes, errs := admin.Scopes()
 	errs = prefix(adminPath, errs)
+	permissions, permErrs := bff.Permissions(scopes)
+	errs = append(errs, prefix(bffPath, permErrs)...)
 
 	if gen != "" {
 		if errs != nil {
 			return errs
 		}
-		if err := os.WriteFile(gen, openapi.Go(scopes), 0o644); err != nil {
+		if err := os.WriteFile(gen, openapi.Go(scopes, permissions), 0o644); err != nil {
 			return []error{err}
 		}
 		return nil
@@ -56,6 +63,7 @@ func run(root, gen string) []error {
 	}
 	codes := openapi.SpecCodes(spec)
 	errs = append(errs, prefix(adminPath, admin.UnknownCodes(codes))...)
+	errs = append(errs, prefix(bffPath, bff.UnknownCodes(codes))...)
 	return append(errs, prefix(publicPath, append(public.PublicSecurity(), public.UnknownCodes(codes)...))...)
 }
 

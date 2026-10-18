@@ -11,7 +11,7 @@ conforme, jamais l'inverse. Tous vivent sous `contracts/`.
 | `openapi-admin.yaml` | BFF et passerelle | `oasdiff` en avertissement seul : déployés ensemble (décision 9, C2) |
 | `openapi-bff.yaml` | SPA et BFF | Idem, servis par le même binaire |
 
-La liste des scopes, les types Go du BFF et les types TypeScript de la SPA sont **générés** depuis ces
+La liste des scopes et des permissions, les types Go du BFF et les types TypeScript de la SPA sont **générés** depuis ces
 fichiers ; `check-generated` échoue sur un écart. Le paquet npm `gateway-api-contracts` et la copie de
 contrat du dashboard disparaissent : il n'y a plus de second dépôt à servir.
 
@@ -90,15 +90,15 @@ l'`enum` des contrats OpenAPI concernés et ce tableau, ensemble ; un test garde
 
 | Code | HTTP | SMPP | Quand |
 |---|---|---|---|
-| `unauthenticated` | 401 | `ESME_RINVPASWD` | Clé ou bind invalide (jamais `ESME_RINVSYSID` : il révélerait les `system_id`) |
+| `unauthenticated` | 401 | `ESME_RINVPASWD` | Clé ou bind invalide (jamais `ESME_RINVSYSID` : il révélerait les `system_id`) ; au BFF, session absente ou identifiants refusés |
 | `account_suspended`, `channel_disabled` | 403 | `ESME_RBINDFAIL` | Compte ou canal fermé |
 | `max_sessions_exceeded` | — | `ESME_RBINDFAIL` | I6 |
-| `rate_limited` | 429 | `ESME_RTHROTTLED` | Débit, avant l'ACK ; lecture REST |
+| `rate_limited` | 429 | `ESME_RTHROTTLED` | Débit, avant l'ACK ; lecture REST ; anti-brute-force du BFF |
 | `quiet_hours` | 403 | `ESME_RSUBMITFAIL` | Marketing dans la fenêtre (chapitre 3) |
-| `payload_too_large` | 413 | `ESME_RINVMSGLEN` | |
+| `payload_too_large` | 413 | `ESME_RINVMSGLEN` | Imports Admin ; au BFF, plafond de corps avant décodage |
 | `validation_error` | 422 | `ESME_RINVMSGLEN` | Requête mal formée |
 | `idempotency_conflict` | 409 | — | Clé réutilisée pour un autre corps, ou encore en cours |
-| `queue_full`, `service_unavailable` | 503 | `ESME_RMSGQFUL`, `ESME_RSYSERR` | ACK impossible |
+| `queue_full`, `service_unavailable` | 503 | `ESME_RMSGQFUL`, `ESME_RSYSERR` | ACK impossible ; au BFF, hachage saturé ou dépendance injoignable |
 | `invalid_destination`, `invalid_source` | — | — | E.164 |
 | `sender_id_not_authorized` | — | — | |
 | `recipient_opted_out` | — | — | |
@@ -115,7 +115,13 @@ l'`enum` des contrats OpenAPI concernés et ce tableau, ensemble ; un test garde
 | `message_not_found` | 404 | `ESME_RINVMSGID` | Inconnu ou d'un autre compte |
 | `cancel_failed` | 409 | `ESME_RCANCELFAIL` | Déjà parti (ADR-0013) |
 | `operation_not_supported` | 405 | `ESME_RINVCMDID` | `query_sm`/`cancel_sm` désactivé |
-| `not_found`, `conflict`, `forbidden_scope` | 404, 409, 403 | — | Admin API |
+| `not_found`, `conflict`, `forbidden_scope` | 404, 409, 403 | — | Admin API ; `not_found` et `forbidden_scope` aussi au BFF |
+| `forbidden_origin`, `mfa_required` | 403 | — | BFF : origine étrangère ; session non élevée d'un opérateur qui porte une écriture, un scope sensible ou une permission du BFF |
+| `unsupported_media_type` | 415 | — | BFF : méthode non sûre sans `application/json` |
+| `access_link_invalid` | 410 | — | BFF : lien d'accès servi, expiré, remplacé, ou vers un compte désactivé |
+| `password_policy`, `mfa_code_refused`, `webauthn_ceremony_refused` | 422 | — | BFF : contenu refusé sur une requête bien formée |
+| `mfa_elevation_required`, `mfa_already_enrolled`, `mfa_replacement_refused`, `mfa_nothing_to_confirm`, `mfa_last_factor` | 409 | — | BFF : état des facteurs |
+| `email_taken`, `role_name_taken`, `self_lockout`, `operator_disabled`, `role_is_default`, `role_held` | 409 | — | BFF : opérateurs et rôles |
 | `internal_error` | 500 | `ESME_RSYSERR` | |
 
 Les codes après l'ACK ne sont jamais une réponse synchrone : ils sont lus par `GET /messages/{id}` ou
