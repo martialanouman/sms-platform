@@ -3,6 +3,7 @@ version: "2"
 linters:
   enable:
     - depguard
+    - gosec
     - revive
   settings:
     depguard:
@@ -42,6 +43,20 @@ linters:
     revive:
       rules:
         - name: exported
+
+  exclusions:
+    rules:
+      # G304, G703 : les outils lisent et écrivent des chemins du dépôt, fixés par eux ou par la recette ; aucune
+      # entrée non fiable.
+      - path: ^tools/(catalog|openapi)/
+        text: "G304:|G703:"
+        linters:
+          - gosec
+      # G204, G702 : git reçoit une liste d'arguments, sans shell ; la référence vient du développeur ou de la CI.
+      - path: ^tools/(catalog|openapi)/
+        text: "G204:|G702:"
+        linters:
+          - gosec
 
 formatters:
   enable:

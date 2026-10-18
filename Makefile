@@ -1,12 +1,15 @@
 SHELL := /bin/bash -o pipefail
 
-.PHONY: help lint test ciguard check-generated debtguard catalog proto openapi check
+.PHONY: help lint vuln test ciguard check-generated debtguard catalog proto openapi check
 
 help: ## Liste les cibles
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "%-16s %s\n", $$1, $$2}'
 
 lint: ## golangci-lint, gofmt compris
 	go tool golangci-lint run ./...
+
+vuln: ## govulncheck : une vulnérabilité connue atteinte par le code échoue
+	go tool govulncheck ./...
 
 test: ## Tests avec -race ; un test peut sauter
 	go test -race ./...
@@ -49,4 +52,4 @@ openapi: ## Gardes des contrats, oasdiff validate, puis oasdiff breaking contre 
 		go tool oasdiff breaking $$fail "$$base:$$f" $$f || exit 1; \
 	done
 
-check: lint ciguard check-generated debtguard catalog proto openapi ## Ce que vérifie la CI
+check: lint vuln ciguard check-generated debtguard catalog proto openapi ## Ce que vérifie la CI
