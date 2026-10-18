@@ -90,10 +90,10 @@ l'`enum` des contrats OpenAPI concernés et ce tableau, ensemble ; un test garde
 
 | Code | HTTP | SMPP | Quand |
 |---|---|---|---|
-| `unauthenticated` | 401 | `ESME_RINVPASWD` | Clé ou bind invalide (jamais `ESME_RINVSYSID` : il révélerait les `system_id`) |
+| `unauthenticated` | 401 | `ESME_RINVPASWD` | Clé ou bind invalide (jamais `ESME_RINVSYSID` : il révélerait les `system_id`) ; session absente au BFF |
 | `account_suspended`, `channel_disabled` | 403 | `ESME_RBINDFAIL` | Compte ou canal fermé |
 | `max_sessions_exceeded` | — | `ESME_RBINDFAIL` | I6 |
-| `rate_limited` | 429 | `ESME_RTHROTTLED` | Débit, avant l'ACK ; lecture REST |
+| `rate_limited` | 429 | `ESME_RTHROTTLED` | Débit, avant l'ACK ; lecture REST ; anti-brute-force du BFF |
 | `quiet_hours` | 403 | `ESME_RSUBMITFAIL` | Marketing dans la fenêtre (chapitre 3) |
 | `payload_too_large` | 413 | `ESME_RINVMSGLEN` | |
 | `validation_error` | 422 | `ESME_RINVMSGLEN` | Requête mal formée |
@@ -115,7 +115,13 @@ l'`enum` des contrats OpenAPI concernés et ce tableau, ensemble ; un test garde
 | `message_not_found` | 404 | `ESME_RINVMSGID` | Inconnu ou d'un autre compte |
 | `cancel_failed` | 409 | `ESME_RCANCELFAIL` | Déjà parti (ADR-0013) |
 | `operation_not_supported` | 405 | `ESME_RINVCMDID` | `query_sm`/`cancel_sm` désactivé |
-| `not_found`, `conflict`, `forbidden_scope` | 404, 409, 403 | — | Admin API |
+| `not_found`, `conflict`, `forbidden_scope` | 404, 409, 403 | — | Admin API ; `not_found` et `forbidden_scope` aussi au BFF |
+| `forbidden_origin`, `mfa_required` | 403 | — | BFF : origine étrangère ; session non élevée d'un opérateur qui porte une écriture |
+| `unsupported_media_type` | 415 | — | BFF : méthode non sûre sans `application/json` |
+| `access_link_invalid` | 410 | — | BFF : lien d'accès servi, expiré, remplacé, ou vers un compte désactivé |
+| `password_policy`, `mfa_code_refused`, `webauthn_ceremony_refused` | 422 | — | BFF : contenu refusé sur une session vivante |
+| `mfa_elevation_required`, `mfa_already_enrolled`, `mfa_replacement_refused`, `mfa_nothing_to_confirm`, `mfa_last_factor` | 409 | — | BFF : état des facteurs |
+| `email_taken`, `role_name_taken`, `self_lockout`, `operator_disabled`, `role_is_default`, `role_held` | 409 | — | BFF : opérateurs et rôles |
 | `internal_error` | 500 | `ESME_RSYSERR` | |
 
 Les codes après l'ACK ne sont jamais une réponse synchrone : ils sont lus par `GET /messages/{id}` ou

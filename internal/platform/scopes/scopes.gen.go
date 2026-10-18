@@ -59,4 +59,11 @@ var All = []string{
 
 // Permissions is every permission of the dashboard BFF, sorted.
 var Permissions = []string{
+	"gateway:personal_token",
+	"operators:read",
+	"operators:write",
+	"roles:read",
+	"roles:write",
+	"sessions:read",
+	"sessions:write",
 }

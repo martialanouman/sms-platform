@@ -39,9 +39,10 @@ openapi: ## Gardes des contrats, oasdiff validate, puis oasdiff breaking contre 
 	go run ./tools/openapi
 	go tool oasdiff validate --fail-on WARN contracts/openapi-public.yaml
 	go tool oasdiff validate --fail-on WARN contracts/openapi-admin.yaml
+	go tool oasdiff validate --fail-on WARN contracts/openapi-bff.yaml
 	@base=$${OPENAPI_BASE:-origin/main}; git rev-parse --verify --quiet "$$base^{commit}" >/dev/null \
 		|| { echo "base $$base introuvable"; exit 1; }; \
-	for f in contracts/openapi-public.yaml contracts/openapi-admin.yaml; do \
+	for f in contracts/openapi-public.yaml contracts/openapi-admin.yaml contracts/openapi-bff.yaml; do \
 		if [ -z "$$(git ls-tree --name-only "$$base" -- $$f)" ]; then \
 			echo "oasdiff breaking : $$base n'a pas de $$f, rien à comparer"; continue; fi; \
 		case $$f in *public*) fail="--fail-on ERR";; *) fail="";; esac; \
