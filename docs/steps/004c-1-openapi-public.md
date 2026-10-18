@@ -46,7 +46,7 @@ valide le contrat et compare au contrat de la base, bloquant sur une rupture `ER
 - **Webhooks** : `X-Signature = hex(HMAC_SHA256(secret, X-Timestamp + "." + raw_body))`, tolérance 5 min,
   en-têtes déclarés ; DLR sur l'enum `DlrStatus`, par segment, dédoublonné par
   `(message_id, segment_seq, status)` ; MO avec `stop`, corps en `text` ou `octets` (base64).
-- **Exemples** : numéros de la plage fictive NANP (`+1555010…`) ; `servers` en `example.com`.
+- **Exemples** : numéros de la plage fictive NANP (`+12025550101`) ; `servers` en `example.com`.
 - **Version** : `1.0.0` ; décision 2 §10 amendée.
 - **Emplacement** : `contracts/` ; spec 07 §7.3 et 08 §8.1 amendées.
 - **Génération** : en 004c, seule la liste des scopes et des permissions (004c-2, 004c-3). huma ne génère
@@ -57,11 +57,25 @@ valide le contrat et compare au contrat de la base, bloquant sur une rupture `ER
 
 4. `oasdiff` par la directive `tool`. `oasdiff validate --fail-on WARN` tient lieu de validation : aucun
    code à nous.
-5. `make openapi` dans `check` : validation de chaque `contracts/openapi-*.yaml`, puis `oasdiff breaking`
+5. `make openapi` dans `check` : validation du contrat public, puis `oasdiff breaking`
    contre `OPENAPI_BASE` (défaut `origin/main`), `--fail-on ERR` pour le public. Une base sans le fichier
    n'impose rien, une base introuvable est une erreur (même logique que `proto`).
 6. Les gardes statiques (un scope par opération, sécurité du public, `Error.code` ⊆ §9.3) naissent en
    004c-2 avec l'outil qui lit les contrats : une garde du public seul n'aurait qu'un cas.
+7. **Revue** :
+   - `Error` et ses `errors[]` fermés : l'erreur par défaut de huma renvoie la valeur refusée (I1) ;
+   - idempotence : seul le `202` est gardé, une clé en cours répond `idempotency_conflict` ;
+   - signature `v1=<hex>`, une valeur par secret valide pendant une rotation, re-signée à chaque
+     tentative ; redirection non suivie ;
+   - `from` et la clé d'idempotence bornés ; `validity_period` ne fait que raccourcir ;
+   - retirés : tags, licence, descriptions redites, adresses et `accepted_at` du DLR, `segment_count`
+     du MO.
+   - **Fable** : aucun accusé pour un rejet, la promesse retirée de spec 03 §3.1 et §9.3 ; `source`
+     (`state`, `history`) sur `Message`, spec 05 §5.5 ; colonne SMPP de §9.3 à « — » pour les codes
+     d'après l'ACK et `submit_failed` ; sender ID lu parmi ceux du client du compte, spec 03 §3.2.
+   - Écartés : schémas de réponse fermés (la comparaison du contrat servi au fichier attrape un champ
+     non déclaré, et fermer interdirait l'ajout compatible) ; forme de la clé d'API et frein avant
+     l'authentification (implémentation).
 
 ## Design arrêté
 

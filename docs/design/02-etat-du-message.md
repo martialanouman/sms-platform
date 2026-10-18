@@ -75,8 +75,8 @@ au run 14).
 1. **Par segment.** On retient la dernière `attempt`. Le **premier état terminal par
    `occurred_at`** gagne et reste collant ; une égalité se départage par une précédence fixe des
    `kind`. Le résultat ne dépend jamais de l'ordre de consommation.
-2. **Par message.** On agrège selon les règles **déjà publiées** dans `MessageStatus` (contrat
-   public), sans changement. `rejected` et `cancelled` excluent tout segment `routed`.
+2. **Par message.** On agrège selon les règles publiées dans `MessageStatus` (contrat public
+   1.0.0). `rejected` et `cancelled` excluent tout segment `routed`.
 3. **L'horodatage de chaque transition** est servi avec l'état.
 4. **MO.** `delivered_to_account` est exposé comme `delivered`, `delivery_failed` comme `failed`.
 

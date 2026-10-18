@@ -12,8 +12,8 @@ conforme, jamais l'inverse. Tous vivent sous `contracts/`.
 | `openapi-bff.yaml` | SPA et BFF | Idem, servis par le même binaire |
 
 La liste des scopes, les types Go du BFF et les types TypeScript de la SPA sont **générés** depuis ces
-fichiers, chacun avec son consommateur ; `check-generated` échoue sur un écart. Le paquet npm `gateway-api-contracts` et la copie de contrat du dashboard
-disparaissent : il n'y a plus de second dépôt à servir.
+fichiers ; `check-generated` échoue sur un écart. Le paquet npm `gateway-api-contracts` et la copie de
+contrat du dashboard disparaissent : il n'y a plus de second dépôt à servir.
 
 Le contrat que servent `rest-api-svc` et `admin-api-svc` (huma) est comparé au fichier par un test
 bloquant ; le BFF génère son serveur depuis le sien (oapi-codegen strict-server). Toute opération déclarée
@@ -93,21 +93,21 @@ l'`enum` des contrats OpenAPI concernés et ce tableau, ensemble ; un test garde
 | `unauthenticated` | 401 | `ESME_RINVPASWD` | Clé ou bind invalide (jamais `ESME_RINVSYSID` : il révélerait les `system_id`) |
 | `account_suspended`, `channel_disabled` | 403 | `ESME_RBINDFAIL` | Compte ou canal fermé |
 | `max_sessions_exceeded` | — | `ESME_RBINDFAIL` | I6 |
-| `rate_limited` | 429 | `ESME_RTHROTTLED` | Débit, avant l'ACK |
+| `rate_limited` | 429 | `ESME_RTHROTTLED` | Débit, avant l'ACK ; lecture REST |
 | `quiet_hours` | 403 | `ESME_RSUBMITFAIL` | Marketing dans la fenêtre (chapitre 3) |
 | `payload_too_large` | 413 | `ESME_RINVMSGLEN` | |
 | `validation_error` | 422 | `ESME_RINVMSGLEN` | Requête mal formée |
-| `idempotency_conflict` | 409 | — | Clé réutilisée pour un autre corps |
+| `idempotency_conflict` | 409 | — | Clé réutilisée pour un autre corps, ou encore en cours |
 | `queue_full`, `service_unavailable` | 503 | `ESME_RMSGQFUL`, `ESME_RSYSERR` | ACK impossible |
-| `invalid_destination`, `invalid_source` | — | `ESME_RINVDSTADR`, `ESME_RINVSRCADR` | E.164 |
-| `sender_id_not_authorized` | — | `ESME_RINVSRCADR` | |
-| `recipient_opted_out` | — | `ESME_RSUBMITFAIL` | |
-| `content_blocked` | — | `ESME_RSUBMITFAIL` | Anti-spam |
-| `no_route` | — | `ESME_RINVDSTADR` | |
-| `insufficient_credit` | — | `0x400` | |
+| `invalid_destination`, `invalid_source` | — | — | E.164 |
+| `sender_id_not_authorized` | — | — | |
+| `recipient_opted_out` | — | — | |
+| `content_blocked` | — | — | Anti-spam |
+| `no_route` | — | — | |
+| `insufficient_credit` | — | — | |
 | `billing_unavailable` | — | — | Garage de facturation expiré (chapitre 6) ; remplace `external_billing_unavailable` |
 | `message_expired` | — | — | `max_age` dépassé (I10) |
-| `submit_failed` | — | `ESME_RSUBMITFAIL` | Refus de l'opérateur |
+| `submit_failed` | — | — | Refus de l'opérateur |
 | `ambiguous_submit` | — | — | Délai dépassé après émission HTTP, sans idempotence |
 | `incomplete_message` | — | — | Segments manquants à l'adaptateur HTTP |
 | `fallback_exhausted`, `retries_exhausted` | — | — | Repli ou retentatives épuisés |
@@ -118,5 +118,5 @@ l'`enum` des contrats OpenAPI concernés et ce tableau, ensemble ; un test garde
 | `not_found`, `conflict`, `forbidden_scope` | 404, 409, 403 | — | Admin API |
 | `internal_error` | 500 | `ESME_RSYSERR` | |
 
-Les codes après l'ACK ne sont jamais une réponse synchrone : ils sont lus par DLR, par
-`GET /messages/{id}` ou dans le CDR.
+Les codes après l'ACK ne sont jamais une réponse synchrone : ils sont lus par `GET /messages/{id}`,
+`query_sm` ou dans le CDR ; seuls `delivery_failed` et `delivery_expired` arrivent aussi par l'accusé.

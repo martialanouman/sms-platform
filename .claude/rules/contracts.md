@@ -5,8 +5,8 @@ paths:
 
 # Contrats
 
-**Le contrat se déclare avant l'implémentation**, et le code s'y conforme. Types Go, TypeScript et
-scopes en sont générés ; `check-generated` échoue sur un écart.
+**Le contrat se déclare avant l'implémentation**, et le code s'y conforme. La liste des scopes,
+les types Go du BFF et les types TypeScript de la SPA en sont générés ; `check-generated` échoue sur un écart.
 
 - `openapi-public.yaml` : une rupture classée `ERR` par `oasdiff` exige une version majeure — les
   clients ne se déploient pas avec nous.
@@ -16,9 +16,8 @@ scopes en sont générés ; `check-generated` échoue sur un écart.
   rester lisible.
 - **OpenAPI** : 3.1, **en anglais**, descriptions comprises ; aucun commentaire YAML. Nullable par
   `type: [T, "null"]` ; erreur plate `{ code, message, errors[] }`, le statut HTTP sur la ligne de
-  statut seule ; `operationId` kebab-case ; champs et paramètres snake_case ; un MSISDN n'entre jamais
-  dans une URL ni un curseur.
-- `make openapi` : `oasdiff validate`, puis `oasdiff breaking` contre `origin/main`.
+  statut seule ; un MSISDN n'entre jamais dans une URL ni un curseur. Public : `operationId`
+  kebab-case, champs et paramètres snake_case.
 - Une opération pas encore servie publie déjà ses schémas : durcir un champ ensuite est une rupture.
 - `make generate` efface un commentaire écrit à la main dans un fichier généré.
 - Deux PR parallèles prennent la même version : vérifier `main` avant de pousser.

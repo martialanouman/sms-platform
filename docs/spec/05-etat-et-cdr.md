@@ -112,7 +112,7 @@ L'attestation énumère ces exclusions et leur durée.
 
 | Panne | Effet |
 |---|---|
-| Postgres `message_state` | Envoi intact ; les événements attendent dans Kafka ; lectures sur le CDR, marquées « possiblement en retard » ; `cancel_sm` → `ESME_RSYSERR` |
+| Postgres `message_state` | Envoi intact ; les événements attendent dans Kafka ; lectures sur le CDR, marquées `source = history` sur `GET` (`query_sm_resp` n'a pas de champ pour le dire) ; `cancel_sm` → `ESME_RSYSERR` |
 | Perte du magasin d'état | Reconstruction par rejeu des topics sur 72 h (rétention ≥ 96 h) |
 | ClickHouse | Projection en retard, rattrapée depuis `message.state` ; recherche et fiches historiques indisponibles |
 | `content-key-svc` | Scellement en attente (`blocking`) : la projection du contenu prend du retard, jamais le clair n'est écrit |

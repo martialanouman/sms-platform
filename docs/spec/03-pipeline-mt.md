@@ -25,7 +25,7 @@ Le chemin d'un message de la soumission à l'opérateur. Deux entrées (REST, SM
 | 15 | État et CDR | message-state | — |
 
 - **Avant l'ACK, rien n'est écrit** : un refus est une réponse synchrone. **Après l'ACK, un refus est un
-  état** (`rejected`, publié sur `mt.outcome`) : le client le lit par DLR ou par `GET /messages/{id}`.
+  état** (`rejected`, publié sur `mt.outcome`) : le client le lit par `GET /messages/{id}` ou `query_sm`.
 - **Le débit se refuse avant l'ACK, jamais après.** Au-delà, le plafond du compte opérateur ralentit
   l'envoi.
 - **Le court-circuit « numéro exact » saute l'étape 9, jamais les étapes 5 à 8** (I3).
@@ -34,10 +34,11 @@ Le chemin d'un message de la soumission à l'opérateur. Deux entrées (REST, SM
 
 1. **Authentification.** REST : clé d'API hachée. SMPP : le bind authentifie la session, `max_sessions`
    la borne (I6), l'anti-brute-force la protège.
-2. **Débit.** Seaux `redis-state` atomiques, sender ID puis compte (ADR-0021). En panne de Redis :
+2. **Débit.** Seaux `redis-state` atomiques, sender ID du client du compte puis compte (ADR-0021). En panne de Redis :
    plafond local par pod, fail-closed.
-3. **Catégorie et quiet hours.** La catégorie du `source_addr` se **lit** dans l'instantané de
-   `sender_ids` ; un expéditeur inconnu part en `marketing` et le routeur le rejettera. Si les quiet
+3. **Catégorie et quiet hours.** La catégorie du `source_addr` se **lit** dans l'instantané des
+   `sender_ids` du client du compte ; un expéditeur qui n'y figure pas part en `marketing`, sans seau
+   propre, et le routeur le rejettera. Si les quiet
    hours sont actives (`platform_policy`) et qu'un message `marketing` tombe dans la fenêtre, à l'heure
    du pays de référence : refus `quiet_hours`, jamais différé.
 4. **Idempotence REST** : une clé `Idempotency-Key` rejouée sous 24 h rend la réponse d'origine.

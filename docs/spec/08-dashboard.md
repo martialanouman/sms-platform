@@ -10,7 +10,7 @@ L'outil des opérateurs de l'agrégateur. Il **authentifie et accorde** ; la pas
 - **SPA** React, TypeScript, Vite, TanStack Router et Query, sans rendu serveur ; pnpm.
 - **Contrat BFF** (`contracts/openapi-bff.yaml`) : il ne décrit que ce que le BFF possède (authentification,
   opérateurs, rôles, sessions, journal d'accès, notifications). Les types Go et TypeScript en sont
-  générés ; ceux de l'Admin API aussi, depuis son contrat. Une divergence casse la compilation.
+  générés ; les types TypeScript de l'Admin API aussi, depuis son contrat. Une divergence casse la compilation.
 - **DTO explicites** : une réponse est un struct déclaré ; un champ absent ne peut pas sortir (I1, I2).
 - **≥ 2 instances** derrière un répartiteur avec affinité WebSocket. Base Postgres `dashboard`.
 
