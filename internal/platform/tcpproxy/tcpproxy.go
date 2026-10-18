@@ -17,7 +17,6 @@ type Proxy struct {
 	mu      sync.Mutex
 	cut     bool
 	clients map[net.Conn]struct{}
-	wg      sync.WaitGroup
 }
 
 // New starts a proxy to upstream on a local port; it is closed when the test ends.
@@ -28,7 +27,7 @@ func New(t testing.TB, upstream string) *Proxy {
 		t.Fatalf("tcpproxy: %v", err)
 	}
 	p := &Proxy{ln: ln, upstream: upstream, clients: map[net.Conn]struct{}{}}
-	p.wg.Go(p.accept)
+	go p.accept()
 	t.Cleanup(p.Close)
 	return p
 }
@@ -59,11 +58,10 @@ func (p *Proxy) Resume() {
 	p.mu.Unlock()
 }
 
-// Close stops accepting, closes every connection and waits for the relays to end.
+// Close stops accepting and closes every connection.
 func (p *Proxy) Close() {
 	_ = p.ln.Close()
 	p.Cut()
-	p.wg.Wait()
 }
 
 func (p *Proxy) accept() {
@@ -80,7 +78,7 @@ func (p *Proxy) accept() {
 		}
 		p.clients[client] = struct{}{}
 		p.mu.Unlock()
-		p.wg.Go(func() { p.relay(client) })
+		go p.relay(client)
 	}
 }
 

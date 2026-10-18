@@ -3,6 +3,7 @@ package tcpproxy_test
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -28,17 +29,14 @@ func ping(addr string) error {
 		return err
 	}
 	if line != "+PONG\r\n" {
-		return &net.AddrError{Err: "unexpected reply " + line, Addr: addr}
+		return fmt.Errorf("unexpected reply %q", line)
 	}
 	return nil
 }
 
 func TestCuttingRedisIsSeenThroughTheProxyOnly(t *testing.T) {
+	testcontainers.SkipIfProviderIsNotHealthy(t)
 	ctx := context.Background()
-	provider, err := testcontainers.NewDockerProvider()
-	if err != nil || provider.Health(ctx) != nil {
-		t.Skip("no Docker: export DOCKER_HOST and TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE (.claude/rules/tests.md)")
-	}
 	redis, err := testcontainers.Run(ctx, "redis:8-alpine",
 		testcontainers.WithExposedPorts("6379/tcp"),
 		testcontainers.WithWaitStrategy(wait.ForListeningPort("6379/tcp")),

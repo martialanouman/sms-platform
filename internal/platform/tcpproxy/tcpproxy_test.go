@@ -72,8 +72,8 @@ func TestCutDropsLiveAndNewConnectionsUntilResume(t *testing.T) {
 		t.Fatal(err)
 	}
 	p.Cut()
-	if _, err := live.Read(make([]byte, 1)); err == nil {
-		t.Error("a live connection survived Cut")
+	if _, err := live.Read(make([]byte, 1)); !errors.Is(err, io.EOF) {
+		t.Errorf("read = %v: a live connection survived Cut", err)
 	}
 	if err := roundTrip(dial(t, p.Addr())); err == nil {
 		t.Error("a new connection crossed a cut proxy")
@@ -97,8 +97,8 @@ func TestCloseReleasesEverything(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("Close did not return with a live connection")
 	}
-	if _, err := live.Read(make([]byte, 1)); err == nil {
-		t.Error("a live connection survived Close")
+	if _, err := live.Read(make([]byte, 1)); !errors.Is(err, io.EOF) {
+		t.Errorf("read = %v: a live connection survived Close", err)
 	}
 	if c, err := net.Dial("tcp", p.Addr()); err == nil {
 		_ = c.Close()
