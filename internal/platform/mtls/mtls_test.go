@@ -23,8 +23,6 @@ import (
 	"github.com/martialanouman/sms-platform/internal/platform/mtls"
 )
 
-var issued int
-
 type authority struct {
 	cert *x509.Certificate
 	key  *ecdsa.PrivateKey
@@ -60,13 +58,8 @@ func newAuthority(t *testing.T) authority {
 func (a authority) issue(t *testing.T, dir string, names ...string) mtls.Files {
 	t.Helper()
 	f := mtls.Files{Cert: filepath.Join(dir, "tls.crt"), Key: filepath.Join(dir, "tls.key"), CA: filepath.Join(dir, "ca.crt")}
-	var key *ecdsa.PrivateKey
-	if pemKey, err := os.ReadFile(f.Key); err == nil {
-		block, _ := pem.Decode(pemKey)
-		if key, err = x509.ParseECPrivateKey(block.Bytes); err != nil {
-			t.Fatal(err)
-		}
-	} else if key, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader); err != nil {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
 		t.Fatal(err)
 	}
 	serial, err := rand.Int(rand.Reader, big.NewInt(1<<62))
@@ -89,14 +82,11 @@ func (a authority) issue(t *testing.T, dir string, names ...string) mtls.Files {
 	if err != nil {
 		t.Fatal(err)
 	}
-	files := map[string][]byte{
+	for path, data := range map[string][]byte{
 		f.Cert: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}),
 		f.Key:  pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER}),
-	}
-	if _, err := os.Stat(f.CA); err != nil {
-		files[f.CA] = a.pem
-	}
-	for path, data := range files {
+		f.CA:   a.pem,
+	} {
 		write(t, path, data)
 	}
 	return f
@@ -105,11 +95,6 @@ func (a authority) issue(t *testing.T, dir string, names ...string) mtls.Files {
 func write(t *testing.T, path string, data []byte) {
 	t.Helper()
 	if err := os.WriteFile(path, data, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	issued++
-	later := time.Now().Add(time.Duration(issued) * time.Minute)
-	if err := os.Chtimes(path, later, later); err != nil {
 		t.Fatal(err)
 	}
 }

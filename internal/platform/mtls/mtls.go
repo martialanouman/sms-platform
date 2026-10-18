@@ -76,52 +76,40 @@ type generation struct {
 type loader struct {
 	files Files
 	mu    sync.Mutex
-	stamp string
 	cur   *generation
 }
 
 func newLoader(f Files) (*loader, error) {
 	l := &loader{files: f}
-	g, stamp, err := l.read()
+	g, err := l.read()
 	if err != nil {
 		return nil, err
 	}
-	l.cur, l.stamp = g, stamp
+	l.cur = g
 	return l, nil
 }
 
 func (l *loader) latest() *generation {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if g, stamp, err := l.read(); err == nil {
-		l.cur, l.stamp = g, stamp
+	if g, err := l.read(); err == nil {
+		l.cur = g
 	}
 	return l.cur
 }
 
-func (l *loader) read() (*generation, string, error) {
-	var stamp string
-	for _, p := range []string{l.files.Cert, l.files.CA} {
-		fi, err := os.Stat(p)
-		if err != nil {
-			return nil, "", fmt.Errorf("mtls: %w", err)
-		}
-		stamp += fmt.Sprintf("%d/%d;", fi.Size(), fi.ModTime().UnixNano())
-	}
-	if l.cur != nil && l.stamp == stamp {
-		return l.cur, stamp, nil
-	}
+func (l *loader) read() (*generation, error) {
 	cert, err := tls.LoadX509KeyPair(l.files.Cert, l.files.Key)
 	if err != nil {
-		return nil, "", fmt.Errorf("mtls: %w", err)
+		return nil, fmt.Errorf("mtls: %w", err)
 	}
 	ca, err := os.ReadFile(l.files.CA)
 	if err != nil {
-		return nil, "", fmt.Errorf("mtls: %w", err)
+		return nil, fmt.Errorf("mtls: %w", err)
 	}
 	pool := x509.NewCertPool()
 	if !pool.AppendCertsFromPEM(ca) {
-		return nil, "", fmt.Errorf("mtls: %s holds no certificate", l.files.CA)
+		return nil, fmt.Errorf("mtls: %s holds no certificate", l.files.CA)
 	}
-	return &generation{cert, pool}, stamp, nil
+	return &generation{cert, pool}, nil
 }
