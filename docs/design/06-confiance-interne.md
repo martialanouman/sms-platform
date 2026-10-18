@@ -54,6 +54,9 @@ assumé : exploiter OpenBao même dans le cloud, contre un seul chemin de KMS, t
   `dashboard` seul. Vide : le démarrage échoue. L'admission implicite de toute la CA disparaît.
   L'allowlist est comparée aux SAN DNS du certificat (nom de service nu, colonne « appelants admis » du
   chapitre 2 §2.2), jamais au CN, qui reste le principal Kafka (§5.2).
+- **Port ops** (`/healthz`, `/readyz`, `/metrics`) : le seul écouteur interne hors mTLS, en clair, borné
+  par la NetworkPolicy au kubelet et à Prometheus. Le kubelet ne présente pas de certificat ; le port
+  n'expose ni corps ni secret (labels gardés, I1). Décision humaine du 2026-10-18.
 - **NetworkPolicy** *deny* par défaut sur chaque namespace ; les flux permis sont générés depuis les
   allowlists et le catalogue de la décision 4.
 
