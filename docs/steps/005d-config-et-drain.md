@@ -38,13 +38,16 @@ Fable a tranché le 2026-10-18 ; l'humain, le port ops :
   drain"`), les rappels `OnDrain`, puis `DRAIN_DELAY`, puis l'arrêt des composants **dans l'ordre inverse
   de leur ajout**, un à la fois, sous `DRAIN_BUDGET` ; au-delà, le composant attendu est nommé et les
   suivants sont annulés sans attente. `Run` rend la première erreur, sinon `ErrDrainBudgetExceeded`,
-  sinon nil. Amendé : spec 10 §10.2 (« dans l'ordre inverse de leur enregistrement »). Les gardes de
+  sinon nil. Un composant qui rend `context.Canceled` à l'arrêt s'est arrêté proprement. Amendé : spec
+  10 §10.2 (« dans l'ordre inverse de leur enregistrement »). Les gardes de
   go-gateway sur les `cmd/` viennent avec le premier `cmd/` : elles ne garderaient rien ici.
 - **Serveur ops** (`internal/platform/ops`) : HTTP en clair sur `OPS_ADDR`, hors mTLS, borné par la
   NetworkPolicy au kubelet et à Prometheus (décision humaine ; amendé : décision 6 §4, spec 02 §2.5).
   `/healthz` (200 tant que le processus vit), `/readyz` (503 `draining` dès le drain, sans sonder ; sinon
   les sondes vitales en parallèle sous un délai de 2 s, 503 et le nom de la sonde en échec), `/metrics`
-  depuis le registre gardé. Une sonde : `ops.Check{Name, Probe}`, nom unique et non vide. Pas de `pprof`.
+  depuis le registre gardé ; le corps d'un refus nomme les sondes, jamais leur erreur, qui peut porter un
+  hôte. Une sonde : `ops.Check{Name, Probe}`, nom unique et non vide. L'arrêt laisse finir les requêtes en
+  vol, en `SHUTDOWN_TIMEOUT` au plus. Pas de `pprof`.
 
 ## Design arrêté
 
