@@ -124,7 +124,7 @@ identifiant de bind SMPP et exactement une clé
 - **Opt-out** : listes de suppression, import en masse, outil « pourquoi ce message a-t-il été
   bloqué ? ».
 - **Numéros entrants et mots-clés** : CRUD, affectation, file des MO non routés.
-- **Sessions en direct** : binds clients et comptes opérateur, déconnexion forcée.
+- **Sessions en direct** : binds clients (depuis quand, d'où) et comptes opérateur, déconnexion forcée.
 - **Trafic temps réel** : compteurs MT et MO, succès et échecs, latences, ventilation par connecteur,
   client, compte, groupe, canal.
 - **CDR** : recherche paginée et filtrée, détail avec chronologie et corps si stocké et autorisé

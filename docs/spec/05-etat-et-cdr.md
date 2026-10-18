@@ -18,7 +18,8 @@ Détail : décision 2.
   `occurred_at`, collant ; par message, les règles publiées de `MessageStatus`. Indépendant de l'ordre.
 - **`attrs`** : `connector_id`, `smsc_msg_id`, `error_code`, statut DLR brut, adresse émise après
   réécriture ; `source_addr`, `dest_addr`, `ingress` et `category` sur `accepted` et `received` ;
-  `route_id`, `credits` et `charge_on` sur `routed`, pour que l'état replié, donc `message.state`, porte tout ce
+  `route_id`, `credits` et `charge_on` sur `routed` ; `antispam_verdict` et `antispam_rule_id` sur
+  `routed` et `rejected`, pour que l'état replié, donc `message.state`, porte tout ce
   que le CDR projette. **Jamais le corps** (I1).
 
 ### Lectures
@@ -45,7 +46,7 @@ c'est le **seul écrivain** du CDR. Le rang de cycle de vie et ses écrivains mu
 
 | Table | Contenu | Moteur | Rétention |
 |---|---|---|---|
-| `cdr` | Une ligne par message et par segment : comptes, adresses, connecteur, route, catégorie, canal d'entrée, statut, codes, latence, crédits | `ReplacingMergeTree(version)`, partition par jour de `submitted_at` | 90 j par défaut, configurable |
+| `cdr` | Une ligne par message et par segment : comptes, adresses, connecteur, route, catégorie, canal d'entrée, statut, codes, verdict et règle anti-spam, latence, crédits | `ReplacingMergeTree(version)`, partition par jour de `submitted_at` | 90 j par défaut, configurable |
 | `cdr_content` | `message_id`, `customer_id`, corps scellé, `content_key_id`, `expires_at` | `MergeTree`, `TTL expires_at` | `content_retention_days` du client |
 
 Le corps est dans sa propre table parce qu'il s'écrit une fois et vit moins longtemps que les

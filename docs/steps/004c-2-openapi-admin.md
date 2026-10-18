@@ -28,7 +28,7 @@ générée et gardée par `check-generated` ; chaque garde statique est rouge su
   permission BFF `sessions`. `assign-routing-script` et `rollback-routing-script` sous
   `routing-scripts:publish`, `adjust-balance` sous `billing:topup`, `rotate-content-key` sous
   `customers:write`.
-- **Surface** : 10 opérations retirées (fournisseurs de facturation, `set-connector-bind-pool`,
+- **Surface** : 11 opérations retirées (fournisseurs de facturation, `set-connector-bind-pool`,
   `stream-billing-alerts`, doublons), 19 ajoutées : 144 opérations (dead-letters et leur rejeu, jobs, comptes opérateur,
   `stream-connectors`, impact d'une suspension, rotation du secret de webhook, débit du compte,
   ajustement, propriétaires au plancher MO, fiche message, diff d'audit, retour arrière d'un script).

@@ -104,7 +104,8 @@ Le détenteur du bail d'un compte opérateur (I8) consomme ses trois partitions 
 8. **Issue** sur `mt.outcome` : `submitted` (avec `remote_id`), `submit_failed`, `not_sent`.
 
 Le disjoncteur est par compte. Un compte en panne avec backlog republie vers un compte frère, puis vers
-le connecteur suivant de `fallback_chain`, par `mt.reroute-park` ; chaîne épuisée : dead-letter.
+le connecteur suivant de `fallback_chain` (`fallback_connector_ids` du record, construite par le
+routeur depuis les autres cibles de la route puis celles de sa route de repli), par `mt.reroute-park` ; chaîne épuisée : dead-letter.
 
 ## 3.5 Doublons
 

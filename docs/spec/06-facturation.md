@@ -1,7 +1,8 @@
 # 6. Facturation
 
 Optionnelle : désactivée, aucun de ces composants n'existe et l'étape de réservation est un no-op
-(drapeau global, puis `customers.billing_enabled`). Détail : décision 1.
+(`platform_policy.billing_enabled`, puis `customers.billing_enabled` ; l'un ou l'autre se bascule
+à chaud). Détail : décision 1.
 
 ## 6.1 Modèle
 

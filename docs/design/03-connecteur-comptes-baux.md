@@ -52,7 +52,7 @@ Deux faits manquaient à la spec initiale :
 | `http_adapter` | Nom de l'adaptateur (§6). Requis si `protocol = http` |
 | `priority_tier` | ADR-0020 §4, inchangé |
 
-Les routes, `route_targets` et `fallback_chain` ciblent des connecteurs. Le débit d'un connecteur se
+Les routes et `route_targets` ciblent des connecteurs ; la `fallback_chain` que le routeur en dérive aussi. Le débit d'un connecteur se
 calcule (somme de ses comptes disponibles) et n'est jamais stocké.
 
 ### 3.2 `connector_accounts`

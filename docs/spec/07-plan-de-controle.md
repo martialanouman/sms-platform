@@ -18,6 +18,7 @@ service n'en lit dans son environnement, qui ne porte que l'infrastructure (gard
 | Entrée | `inbound_numbers`, `inbound_keywords` |
 | Plateforme | `platform_policy` (une ligne : politique de contenu par défaut, `quiet_hours` nullable, `billing_enabled`) |
 | Contenu | `content_keys` (clé enveloppée par client, `active` / `retired` / `destroyed`) |
+| Exécution | `jobs` (imports, effacement de contenu, extension de partitions), `message_export_jobs`, `gdpr_erase_jobs` |
 
 Les secrets rejoués (bind sortant, clé d'API d'un fournisseur, secret de webhook) sont **scellés** par
 `content-key-svc` (ADR-0016) et ouverts à l'usage, jamais gardés dans un instantané partagé. Un secret
@@ -51,7 +52,8 @@ sert, la resync reprend au retour.
   transaction qui pose `SET LOCAL app.actor` et `app.request_id`.
 - **Seul appelant admis** : le BFF (`dashboard`). Le navigateur ne l'atteint jamais (I14).
 - **Pagination** par curseur (keyset), jamais par offset.
-- **Opérations longues** (import en masse, export CDR, effacement RGPD, extension de partitions) :
+- **Opérations longues** (import en masse, export CDR, effacement de contenu, effacement RGPD, extension de
+  partitions) :
   `202` et un job dont on lit l'état.
 - **Flux temps réel** `/admin/stream/*` (WebSocket) : instantanés agrégés de trafic, de sessions et de
   connecteurs, sous `stream:read`.
@@ -65,12 +67,13 @@ sert, la resync reprend au retour.
 **La passerelle décide, seule** (I12). Elle n'authentifie aucun humain : elle vérifie la signature du
 jeton par le JWKS interne du BFF (ADR-0019), puis le scope de l'opération.
 
-- **Scopes** : chaque tag du contrat donne `<tag>:read` et `<tag>:write` (`routes:read`,
-  `connectors:write`…). Plus neuf scopes sensibles : `content:read`, `content:erase`, `gdpr:erase`,
+- **Scopes** : un tag du contrat donne `<tag>:read` à ses lectures et `<tag>:write` à ses écritures
+  (`routes:read`, `connectors:write`…). Plus neuf scopes sensibles : `content:read`, `content:erase`, `gdpr:erase`,
   `msisdn:reveal`, `cdr:export_bulk`, `audit:read`, et trois qu'un rôle par défaut sépare de `:write`
   (chapitre 8 §8.5) : `routing-scripts:publish`, `suppressions:delete` (lever un opt-out),
-  `billing:topup`. Plus `stream:read`. Ni joker ni hiérarchie. Un scope qu'aucune opération ne déclare
-  n'existe pas, sauf `msisdn:reveal`, qui démasque les MSISDN de toute réponse.
+  `billing:topup` (recharger, ajuster, fixer les conditions de crédit : mode, découvert, limite,
+  activation de la facturation d'un client). Plus `stream:read`. Ni joker ni hiérarchie. Un scope qu'aucune opération ne déclare
+  n'existe pas, sauf `msisdn:reveal`.
 - **Chaque opération déclare exactement un scope.** La liste est générée depuis le contrat et
   consommée par la passerelle, l'éditeur de rôles du BFF et les types de la SPA.
 - **Jetons** : 5 min, émis par le BFF au nom de l'opérateur connecté ; un `kid` inconnu est refusé.
@@ -86,7 +89,7 @@ opération de la passerelle.
 
 | Table | Contenu | Écrit par |
 |---|---|---|
-| `audit_log` | Un événement par mutation et par lecture sous scope sensible : `operator` (`sub`, `service:<nom>` ou `breakglass:<nom>`), `operation_id`, `target`, `request_id`, `status`, `outcome`, `at` | Middleware de l'Admin API |
+| `audit_log` | Un événement par mutation et par lecture sous scope sensible, y compris toute réponse démasquée par `msisdn:reveal` ; écrit une fois, à l'issue : `operator` (`sub`, `service:<nom>` ou `breakglass:<nom>`), `operation_id`, `target`, `request_id`, `status`, `outcome`, `at` | Middleware de l'Admin API |
 | `audit_changes` | `(request_id, actor, table, pk, op, before, after, at)` | Trigger `AFTER INSERT/UPDATE/DELETE`, dans la transaction de la mutation |
 
 - **Acteur obligatoire** : sans `app.actor`, le trigger lève une erreur et l'écriture échoue.
