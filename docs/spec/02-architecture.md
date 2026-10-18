@@ -88,7 +88,8 @@ Résumé de la décision 6 ; chaque règle a un test bloquant.
 - **Une CA interne**, émise par cert-manager, signe tout : services, BFF, Jobs.
 - **Chaque serveur nomme ses appelants** (colonne « appelants admis » du §2.2). Une allowlist vide
   fait échouer le démarrage. Elle est comparée aux SAN DNS du certificat (nom de service nu), jamais au
-  CN, qui reste le principal Kafka.
+  CN, qui reste le principal Kafka. Seul le port ops (`/healthz`, `/readyz`, `/metrics`) est en clair,
+  borné par la NetworkPolicy au kubelet et à Prometheus.
 - **Une identité par service sur chaque magasin** : rôle Postgres, principal Kafka (CN du certificat),
   utilisateur Redis. Les droits sont générés depuis les déclarations ; un droit non déclaré est refusé.
   Le rôle `migrator` possède les schémas ; aucun service ne les possède.
