@@ -9,12 +9,14 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"io"
 	"math/big"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -345,11 +347,56 @@ func TestAnAddedAuthorityIsAdmittedWithoutRestart(t *testing.T) {
 	}
 	client.RootCAs.AppendCertsFromPEM(ca.pem)
 	client.ServerName = "admin-api-svc"
-	if _, _, serr, _ := handshake(t, server, client); serr == nil {
-		t.Fatal("a caller of the next authority was admitted before the rotation")
+	if _, _, serr, _ := handshake(t, server, client); serr == nil || !strings.Contains(serr.Error(), "unknown authority") {
+		t.Fatalf("before the rotation: server error = %v, want an unknown authority", serr)
 	}
 	write(t, sf.CA, append(append([]byte{}, ca.pem...), next.pem...))
 	if _, _, serr, cerr := handshake(t, server, client); serr != nil || cerr != nil {
 		t.Errorf("after the rotation: server %v, client %v", serr, cerr)
+	}
+}
+
+func TestARemovedAuthorityIsRefusedWithoutRestart(t *testing.T) {
+	ca, next := newAuthority(t), newAuthority(t)
+	server, _, sf, _ := pair(t, ca, "admin-api-svc", "dashboard", "dashboard")
+	write(t, sf.CA, append(append([]byte{}, ca.pem...), next.pem...))
+	client, err := next.issue(t, t.TempDir(), "dashboard").Client()
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.RootCAs.AppendCertsFromPEM(ca.pem)
+	client.ServerName = "admin-api-svc"
+	client.ClientSessionCache = tls.NewLRUClientSessionCache(1)
+	if _, _, serr, cerr := handshake(t, server, client); serr != nil || cerr != nil {
+		t.Fatalf("first handshake: %v, %v", serr, cerr)
+	}
+	if _, cs, serr, cerr := handshake(t, server, client); serr != nil || cerr != nil || !cs.DidResume {
+		t.Fatalf("resumed handshake: %v, %v, resumed %v", serr, cerr, cs.DidResume)
+	}
+	write(t, sf.CA, ca.pem)
+	if _, _, serr, _ := handshake(t, server, client); serr == nil || !strings.Contains(serr.Error(), "unknown authority") {
+		t.Errorf("after the removal: server error = %v, want an unknown authority", serr)
+	}
+}
+
+func TestConcurrentHandshakesDuringARotation(t *testing.T) {
+	ca := newAuthority(t)
+	server, client, sf, _ := pair(t, ca, "admin-api-svc", "dashboard", "dashboard")
+	var wg sync.WaitGroup
+	errs := make(chan error, 16)
+	for range 8 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if _, _, serr, cerr := handshake(t, server, client.Clone()); serr != nil || cerr != nil {
+				errs <- fmt.Errorf("server %v, client %v", serr, cerr)
+			}
+		}()
+	}
+	ca.issue(t, filepath.Dir(sf.Cert), "admin-api-svc")
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Error(err)
 	}
 }

@@ -23,8 +23,9 @@ Fable a tranché le 2026-10-18 :
   (colonne « appelants admis » du §2.2), jamais au CN, qui reste le principal Kafka. Amendé : décision 6
   §4, spec 02 §2.5. Les `dnsNames` des certificats sont l'affaire du déploiement (007) ; le client fixe
   `ServerName` au nom nu du serveur.
-- **Rotation à chaud** : les fichiers sont relus à chaque handshake, derrière un cache (taille et date de
-  modification du certificat et de la CA ; une clé neuve vient toujours avec un certificat neuf) : `GetConfigForClient` côté serveur (`ClientCAs` ne se rafraîchit pas
+- **Rotation à chaud** : les fichiers sont relus à chaque handshake, sans cache (revu par Fable au
+  deuxième tour : le gain mesuré est inférieur à 10 % d'un handshake, et une empreinte taille et date
+  masque une réécriture à l'identique) : `GetConfigForClient` côté serveur (`ClientCAs` ne se rafraîchit pas
   autrement), `GetClientCertificate` côté client. Sans elle, un renouvellement de cert-manager exige un
   redémarrage. Le client garde `RootCAs` figé : `crypto/tls` n'a pas de rappel pour lui, une rotation de
   CA est un redémarrage (runbook, 007). Pas d'avertissement d'expiration (l'alerte cert-manager à 7 jours,
@@ -54,6 +55,7 @@ Fable a tranché le 2026-10-18 :
 - Vérification du critère : allowlist vide et fichiers illisibles refusés à la construction ; un appelant
   nommé admis, y compris par un SAN qui n'est pas le premier ; un appelant non nommé (même si son CN
   l'est), sans certificat ou d'une autre CA refusé pour cette raison ; une relecture qui échoue sert la
-  génération précédente ; une CA ajoutée sur disque admise par le serveur sans redémarrage ; un
-  certificat renouvelé (clé et CA inchangées) servi sans redémarrage, côté serveur et côté client ;
+  génération précédente ; une CA ajoutée sur disque admise, une CA retirée refusée, y compris sur une
+  session reprise, sans redémarrage ; un certificat renouvelé servi sans redémarrage, côté serveur et
+  côté client ; des handshakes concurrents pendant une rotation ;
   TLS 1.2 refusé des deux côtés ; l'allowlist copiée ; la liste ALPN servie.
