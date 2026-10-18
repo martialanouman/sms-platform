@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package sms.v1;
+
+import "google/protobuf/timestamp.proto";
+import "sms/v1/common.proto";
+
+// MtInbound is the payload of mt.inbound.<cat> and mt.billing-wait.<cat>. topics.yaml, body: clear_bounded
+message MtInbound {
+  string message_id = 1; // spec 03 §3.2.5, UUIDv7 attribué à l'ingestion
+  string account_id = 2; // spec 05 §5.1 / décision 2 §3.1, renseigné sur accepted ; tenant du routeur (topics.yaml)
+  string customer_id = 3; // décision 2 §3.1, renseigné sur accepted ; propriétaire du solde (spec 06 §6.1)
+  string source_addr = 4; // spec 03 §3.3.3 (sender ID soumis, avant réécriture) ; spec 05 §5.1 attrs de accepted
+  string dest_addr = 5; // spec 03 §3.3.2 (normalisé E.164 au routeur) ; spec 05 §5.1 attrs de accepted
+  // I1 : corps légitime ici seulement, topic clear_bounded (spec 02 §2.4). Le routeur l'encode une seule fois
+  // (spec 03 §3.3.7, spec 01 §1.4) : REST soumet du texte, SMPP des octets.
+  oneof body {
+    string text = 6; // REST, UTF-8
+    bytes octets = 7; // SMPP, encodés selon data_coding
+  }
+  DataCoding data_coding = 8; // spec 03 §3.2 « l'encodage déclaré », pour octets seulement
+  bytes udh = 9; // step 004b : submit_sm UDHI, un message d'un segment, UDH repassé tel quel (spec 03 §3.3.7)
+  uint32 priority = 10; // ADR-0020 §2, priorité demandée (0 = défaut de la catégorie)
+  bool registered_delivery = 11; // ADR-0020 §3, valeur que le message impose au *_default du connecteur
+  google.protobuf.Timestamp validity_period = 12; // spec 03 §3.6, plafond de max_age ; spec 04 §4.2 fenêtre DLR
+  Ingress ingress = 13; // spec 05 §5.2, canal d'entrée projeté au CDR
+}
+
+// MtRouted is the payload of mt.routed.<cat> and mt.reroute-park, one record per segment. topics.yaml, spec 03 §3.3.9
+message MtRouted {
+  string message_id = 1; // spec 06 §6.3, clé (message_id, segment_seq) (I4)
+  uint32 segment_seq = 2; // spec 06 §6.3 ; décision 2 §3.1, 1..N
+  uint32 segment_count = 3; // décision 3 §6.2, réassemblage HTTP jusqu'à segment_count
+  uint32 attempt = 4; // décision 2 §3.1, incrémenté à chaque reroute
+  string account_id = 5; // décision 2 §5.2, inscrit dans dlr_correlation
+  string customer_id = 6; // décision 2 §5.2, inscrit dans dlr_correlation
+  string source_addr = 7; // spec 03 §3.4.5, réécrit par le pool ; l'original reste au CDR (spec 01 §1.1)
+  string dest_addr = 8; // spec 03 §3.3.2, E.164
+  Category category = 9; // spec 03 §3.3.9 ; ADR-0021 §1, topic de republication
+  uint32 priority = 10; // spec 03 §3.3.6, priorité effective
+  string connector_id = 11; // décision 3 §4.2 (champ, pas en-tête : step 004b) ; spec 05 §5.1 attrs
+  string connector_account_id = 12; // décision 3 §4.2 ; spec 03 §3.4
+  string route_id = 13; // spec 05 §5.2, colonne « route » du CDR
+  repeated string fallback_connector_ids = 14; // ADR-0020 §4 (chaîne construite par le routeur) ; spec 03 §3.4
+  DataCoding data_coding = 15; // spec 03 §3.3.7, encodage final, surcharge du connecteur appliquée
+  bytes udh = 16; // spec 03 §3.3.7, UDH du segment
+  bytes short_message = 17; // I1 : segment du corps, topic clear_bounded (spec 02 §2.4)
+  bool registered_delivery = 18; // ADR-0020 §3
+  google.protobuf.Timestamp validity_period = 19; // spec 03 §3.6, plafond de max_age au pool
+  string lease_id = 20; // spec 03 §3.3.9 ; spec 06 §6.2.2 ; vide si facturation inactive
+  int64 credits = 21; // spec 06 §6.2.2, crédits du segment, entiers (spec 06 §6.1)
+  ChargeOn charge_on = 22; // spec 06 §6.2.2, figé dans le fait (décision 1 §6.2)
+  int64 rate_plan_version = 23; // spec 03 §3.3.9 « version du plan » ; décision 1 §6.1
+}
+
+// MtOutcome is the payload of mt.outcome: a router transition or a send outcome. topics.yaml, body: none
+message MtOutcome {
+  string message_id = 1; // topics.yaml, clé message_id
+  uint32 segment_seq = 2; // spec 03 §3.3 « segment_seq = 0 » pour les rejets ; 1..N sinon
+  uint32 attempt = 3; // décision 2 §3.1, clé primaire du journal
+  TransitionKind kind = 4; // décision 2 §3.2 : REJECTED, PARKED, UNPARKED, CANCELLED, SUBMITTED, SUBMIT_FAILED, NOT_SENT
+  string error_code = 5; // spec 09 §9.3, code stable ; spec 05 §5.1 attrs error_code
+  google.protobuf.Timestamp occurred_at = 6; // décision 2 §3.1, heure de l'événement source
+  string account_id = 7; // décision 2 §5.2, ligne dlr_correlation inscrite à chaque submitted
+  string customer_id = 8; // décision 2 §5.2, ligne dlr_correlation
+  string connector_id = 9; // spec 05 §5.1 attrs connector_id
+  string connector_account_id = 10; // décision 2 §5.2, clé de corrélation
+  string remote_id = 11; // spec 03 §3.4.8 « submitted (avec remote_id) » ; spec 05 §5.1 attrs smsc_msg_id
+  string sent_source_addr = 12; // spec 01 §1.1 réécriture « l'original reste sur le CDR » ; spec 03 §3.4.5
+}

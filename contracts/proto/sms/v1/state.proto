@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package sms.v1;
+
+import "google/protobuf/timestamp.proto";
+import "sms/v1/common.proto";
+
+// MessageState is the payload of message.state, the folded state of a message. topics.yaml, spec 05 §5.2
+message MessageState {
+  string message_id = 1; // spec 05 §5.2, clé
+  int64 version = 2; // spec 05 §5.2 « version = nombre de transitions »
+  Direction direction = 3; // décision 2 §3.3.4, MT ou MO
+  string account_id = 4; // spec 05 §5.2 CDR « comptes »
+  string customer_id = 5; // spec 05 §5.2 CDR « comptes »
+  MessageStatus status = 6; // décision 2 §3.3.2, agrégat publié
+  string source_addr = 7; // spec 05 §5.1 attrs de accepted et received
+  string dest_addr = 8; // spec 05 §5.1 attrs de accepted et received
+  Ingress ingress = 9; // spec 05 §5.2 CDR « canal d'entrée »
+  Category category = 10; // spec 05 §5.2 CDR « catégorie »
+  string route_id = 11; // spec 05 §5.2 CDR « route »
+  string error_code = 12; // spec 05 §5.2 CDR « codes » ; rejet au niveau message
+  repeated SegmentState segments = 13; // spec 05 §5.2, une ligne CDR par segment
+  repeated Transition transitions = 14; // décision 2 §3.3.3, horodatage de chaque transition servi avec l'état
+}
+
+// SegmentState is the folded state of one segment. décision 2 §3.3.1
+message SegmentState {
+  uint32 segment_seq = 1; // décision 2 §3.1
+  uint32 attempt = 2; // décision 2 §3.3.1, dernière attempt retenue
+  TransitionKind kind = 3; // décision 2 §3.3.1, premier terminal collant
+  string connector_id = 4; // spec 05 §5.1 attrs ; CDR « connecteur »
+  string connector_account_id = 5; // décision 3 (compte opérateur), CDR
+  string remote_id = 6; // spec 05 §5.1 attrs smsc_msg_id
+  string sent_source_addr = 7; // spec 01 §1.1, original et réécrit au CDR
+  string error_code = 8; // spec 05 §5.1 attrs error_code
+  string raw_dlr_status = 9; // spec 05 §5.1 attrs statut DLR brut
+  int64 credits = 10; // spec 05 §5.2 CDR « crédits »
+  ChargeOn charge_on = 11; // spec 06 §6.3, statut de règlement déduit par la projection
+}
+
+// Transition is one journal entry served with the state. décision 2 §3.3.3
+message Transition {
+  TransitionKind kind = 1; // décision 2 §3.1
+  uint32 segment_seq = 2; // décision 2 §3.1
+  uint32 attempt = 3; // décision 2 §3.1
+  google.protobuf.Timestamp occurred_at = 4; // décision 2 §3.1 ; CDR « latence » (spec 05 §5.2)
+}

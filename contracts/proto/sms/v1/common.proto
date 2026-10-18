@@ -1,0 +1,88 @@
+syntax = "proto3";
+
+package sms.v1;
+
+// Category is the traffic category carried by a sender ID. spec 03 §3.2, ADR-0020 §1, ADR-0021 §1
+enum Category {
+  CATEGORY_UNSPECIFIED = 0;
+  CATEGORY_OTP = 1;
+  CATEGORY_TRANSACTIONAL = 2;
+  CATEGORY_MARKETING = 3;
+}
+
+// DataCoding is the encoding of a body or segment. spec 01 §1.1 « GSM-7, UCS-2, 8-bit », spec 03 §3.3.7
+enum DataCoding {
+  DATA_CODING_UNSPECIFIED = 0;
+  DATA_CODING_GSM7 = 1;
+  DATA_CODING_UCS2 = 2;
+  DATA_CODING_BINARY = 3;
+}
+
+// Ingress is the entry channel of an MT. spec 05 §5.2 (colonne « canal d'entrée » du CDR)
+enum Ingress {
+  INGRESS_UNSPECIFIED = 0;
+  INGRESS_REST = 1;
+  INGRESS_SMPP = 2;
+}
+
+// ChargeOn is the settlement mode frozen in the consumption fact. spec 06 §6.1, décision 1 D5
+enum ChargeOn {
+  CHARGE_ON_UNSPECIFIED = 0;
+  CHARGE_ON_SUBMIT = 1;
+  CHARGE_ON_ACCEPT = 2;
+  CHARGE_ON_DELIVERY = 3;
+}
+
+// Direction separates MT from MO. spec 06 §6.1, ADR-0002
+enum Direction {
+  DIRECTION_UNSPECIFIED = 0;
+  DIRECTION_MT = 1;
+  DIRECTION_MO = 2;
+}
+
+// TransitionKind is a journal transition kind. décision 2 §3.2, spec 05 §5.1
+enum TransitionKind {
+  TRANSITION_KIND_UNSPECIFIED = 0;
+  TRANSITION_KIND_ACCEPTED = 1; // décision 2 §3.2, mt.inbound.*
+  TRANSITION_KIND_REJECTED = 2; // décision 2 §3.2, mt.outcome segment_seq = 0
+  TRANSITION_KIND_PARKED = 3; // décision 2 §3.2, garage de facturation
+  TRANSITION_KIND_UNPARKED = 4; // décision 2 §3.2
+  TRANSITION_KIND_CANCELLED = 5; // décision 2 §3.2, spec 03 §3.7
+  TRANSITION_KIND_ROUTED = 6; // décision 2 §3.2, mt.routed.*
+  TRANSITION_KIND_SUBMITTED = 7; // spec 03 §3.4.8
+  TRANSITION_KIND_SUBMIT_FAILED = 8; // spec 03 §3.4.8
+  TRANSITION_KIND_NOT_SENT = 9; // spec 03 §3.4.8
+  TRANSITION_KIND_DELIVERED = 10; // décision 2 §3.2, DLR corrélé
+  TRANSITION_KIND_UNDELIVERABLE = 11; // décision 2 §3.2
+  TRANSITION_KIND_EXPIRED = 12; // décision 2 §3.2
+  TRANSITION_KIND_DLR_WINDOW_CLOSED = 13; // spec 04 §4.2
+  TRANSITION_KIND_OUTCOME_MISSING = 14; // décision 2 §3.2, spec 05 §5.5
+  TRANSITION_KIND_RECEIVED = 15; // décision 2 §3.2, mo.inbound
+  TRANSITION_KIND_ROUTED_TO_ACCOUNT = 16; // décision 2 §3.2, mo.routed
+  TRANSITION_KIND_UNROUTED = 17; // spec 04 §4.3.4
+  TRANSITION_KIND_DELIVERED_TO_ACCOUNT = 18; // spec 04 §4.4, mo.outcome
+  TRANSITION_KIND_DELIVERY_FAILED = 19; // spec 04 §4.4, mo.outcome
+}
+
+// MessageStatus is the public lifecycle of a message, values of the former public contract. décision 2 §3.3.2, §10
+enum MessageStatus {
+  MESSAGE_STATUS_UNSPECIFIED = 0;
+  MESSAGE_STATUS_ACCEPTED = 1;
+  MESSAGE_STATUS_ENROUTE = 2;
+  MESSAGE_STATUS_DELIVERED = 3;
+  MESSAGE_STATUS_FAILED = 4;
+  MESSAGE_STATUS_EXPIRED = 5;
+  MESSAGE_STATUS_REJECTED = 6;
+  MESSAGE_STATUS_REROUTED = 7;
+  MESSAGE_STATUS_CANCELLED = 8;
+}
+
+// DlrStatus is the normalized DLR status. spec 04 §4.2.1
+enum DlrStatus {
+  DLR_STATUS_UNSPECIFIED = 0;
+  DLR_STATUS_DELIVERED = 1;
+  DLR_STATUS_UNDELIVERABLE = 2;
+  DLR_STATUS_EXPIRED = 3;
+  DLR_STATUS_REJECTED = 4;
+  DLR_STATUS_FAILED = 5;
+}

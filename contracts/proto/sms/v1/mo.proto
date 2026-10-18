@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package sms.v1;
+
+import "google/protobuf/timestamp.proto";
+import "sms/v1/common.proto";
+
+// MoInbound is the payload of mo.inbound, one record per received part. topics.yaml, body: clear_bounded
+message MoInbound {
+  string message_id = 1; // décision 2 §3.1 (journal clé message_id), transition received
+  string connector_account_id = 2; // spec 04 §4.1, clé du topic
+  string source_addr = 3; // spec 04 §4.3.2, émetteur ; spec 05 §5.1 attrs de received
+  string dest_addr = 4; // spec 04 §4.3.4, numéro entrant ; spec 05 §5.1 attrs de received
+  DataCoding data_coding = 5; // spec 04 §4.3.3, lecture du premier token
+  bytes udh = 6; // spec 04 §4.3.1, réassemblage par référence UDH
+  bytes body = 7; // I1 : corps légitime ici, topic clear_bounded (spec 02 §2.4)
+}
+
+// MoRouted is the payload of mo.routed, a reassembled MO resolved to its account. topics.yaml, body: clear_bounded
+message MoRouted {
+  string message_id = 1; // spec 04 §4.4, clé de mo.outcome ; identifiant d'événement stable pour le client
+  string account_id = 2; // spec 04 §4.3.5, clé du topic
+  string customer_id = 3; // spec 06 §6.1, propriétaire du solde MO
+  string source_addr = 4; // spec 04 §4.3.2, E.164
+  string dest_addr = 5; // spec 04 §4.3.4
+  DataCoding data_coding = 6; // spec 04 §4.4, deliver_sm ou webhook
+  bytes body = 7; // I1 : quitte la plateforme à la remise seulement (spec 04 §4.4)
+  uint32 segment_count = 8; // spec 04 §4.3, segment_count × credits_per_segment_mo
+  bool stop = 9; // spec 06 §6.1 « Un STOP n'est jamais compté »
+}
+
+// MoOutcome is the payload of mo.outcome, the delivery outcome of an MO. topics.yaml, spec 04 §4.4
+message MoOutcome {
+  string message_id = 1; // spec 04 §4.4, clé message_id
+  TransitionKind kind = 2; // spec 04 §4.4 : DELIVERED_TO_ACCOUNT ou DELIVERY_FAILED
+  string error_code = 3; // spec 09 §9.3 ; spec 05 §5.1 attrs error_code
+  google.protobuf.Timestamp occurred_at = 4; // décision 2 §3.1
+}

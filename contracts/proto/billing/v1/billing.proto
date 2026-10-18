@@ -1,0 +1,174 @@
+syntax = "proto3";
+
+package billing.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "sms/v1/common.proto";
+
+// BillingService is the sole authority of balances. spec 06 §6.1, spec 09 §9.2 ; appelants router-svc, admin-api-svc
+service BillingService {
+  // GrantLease grants a pre-debited credit lease to a router pod. spec 06 §6.2.1
+  rpc GrantLease(GrantLeaseRequest) returns (GrantLeaseResponse);
+  // CloseLease declares the end of consumption of a lease. spec 06 §6.2.3
+  rpc CloseLease(CloseLeaseRequest) returns (CloseLeaseResponse);
+  // Topup credits a balance. spec 06 §6.4, spec 07 §7.4 billing:topup
+  rpc Topup(TopupRequest) returns (TopupResponse);
+  // Transfer moves MT credits between two accounts of one customer in balance_scope account. spec 06 §6.4, step 004b
+  rpc Transfer(TransferRequest) returns (TransferResponse);
+  // Adjust writes a signed correction to a balance. spec 06 §6.4
+  rpc Adjust(AdjustRequest) returns (AdjustResponse);
+  // SetBalanceScope switches a customer's balance owner. spec 06 §6.1
+  rpc SetBalanceScope(SetBalanceScopeRequest) returns (SetBalanceScopeResponse);
+  // GetBalances reads an owner's MT and MO balances. spec 09 §9.2 « lectures », spec 01 §1.1 plan de contrôle
+  rpc GetBalances(GetBalancesRequest) returns (GetBalancesResponse);
+  // ListLedgerEntries pages an owner's ledger. spec 06 §6.4, spec 07 §7.3 pagination par curseur
+  rpc ListLedgerEntries(ListLedgerEntriesRequest) returns (ListLedgerEntriesResponse);
+}
+
+// OwnerType is decided by customers.balance_scope. spec 06 §6.1
+enum OwnerType {
+  OWNER_TYPE_UNSPECIFIED = 0;
+  OWNER_TYPE_CUSTOMER = 1;
+  OWNER_TYPE_ACCOUNT = 2;
+}
+
+// Owner keys a balance. décision 1 §4.1 owner_type, owner_id
+message Owner {
+  OwnerType owner_type = 1; // décision 1 §4.1
+  string owner_id = 2; // décision 1 §4.1
+}
+
+// Mutation attributes an out-of-flow write and makes it idempotent. I13 ; décision 5 §4.3 billing_idempotency
+message Mutation {
+  string request_id = 1; // spec 07 §7.3 app.request_id ; clé d'idempotence (billing_idempotency)
+  string actor = 2; // I13, spec 07 §7.5 operator (sub, service:, breakglass:)
+}
+
+// RequestKey makes a grant idempotent. décision 1 §4.1 request_key (pod, epoch, n° de demande)
+message RequestKey {
+  string pod = 1; // décision 1 §4.1 holder_pod
+  int64 epoch = 2; // décision 1 §4.1 holder_epoch
+  int64 seq = 3; // décision 1 §4.1 n° de demande
+}
+
+message GrantLeaseRequest {
+  RequestKey request_key = 1; // spec 06 §6.2.1, idempotent par request_key
+  Owner owner = 2; // décision 1 §4.1, direction mt
+  int64 requested = 3; // spec 06 §6.2 taille S calculée par le pod
+}
+
+// GrantLeaseOutcome separates a business refusal from a transport fault. décision 1 §4.2.2
+enum GrantLeaseOutcome {
+  GRANT_LEASE_OUTCOME_UNSPECIFIED = 0;
+  GRANT_LEASE_OUTCOME_GRANTED = 1;
+  GRANT_LEASE_OUTCOME_INSUFFICIENT_CREDIT = 2; // spec 03 §3.3.8, rejeté insufficient_credit
+}
+
+message GrantLeaseResponse {
+  GrantLeaseOutcome outcome = 1; // décision 1 §4.2.2 ; facturation injoignable = erreur gRPC (garage, spec 06 §6.5)
+  string lease_id = 2; // spec 06 §6.2.2
+  int64 granted = 3; // décision 1 §4.1 ; ≤ requested, rétréci sous P × S (spec 06 §6.2)
+  google.protobuf.Duration ttl = 4; // spec 06 §6.2.1 « bail rendu en durée (30 s) »
+}
+
+// FenceOffset is the mt.routed position a clean close waits for. décision 1 §4.1 fence_offsets
+message FenceOffset {
+  string topic = 1; // décision 1 §4.1, offsets de mt.routed (trois topics, ADR-0021)
+  int32 partition = 2; // décision 1 §4.1 « par partition »
+  int64 offset = 3; // décision 1 §4.1
+}
+
+message CloseLeaseRequest {
+  string lease_id = 1; // spec 06 §6.2.3
+  repeated FenceOffset fence_offsets = 2; // spec 06 §6.2.3
+}
+
+message CloseLeaseResponse {}
+
+message TopupRequest {
+  Mutation mutation = 1; // I13 ; billing_idempotency
+  Owner owner = 2; // spec 06 §6.4 topup
+  int64 credits = 3; // spec 06 §6.1, crédits entiers, > 0
+  sms.v1.Direction direction = 4; // spec 06 §6.1 : MT, ou MO pour recréditer le compteur postpayé
+}
+
+message TopupResponse {
+  int64 balance_after = 1; // spec 06 §6.4 SUM(grand livre) == solde (I5)
+}
+
+message TransferRequest {
+  Mutation mutation = 1; // I13 ; billing_idempotency
+  Owner from = 2; // spec 06 §6.4 transfer ; owner_type account, même client que to
+  Owner to = 3; // spec 06 §6.4 transfer
+  int64 credits = 4; // spec 06 §6.1, > 0
+}
+
+message TransferResponse {}
+
+message AdjustRequest {
+  Mutation mutation = 1; // I13 ; billing_idempotency
+  Owner owner = 2; // spec 06 §6.4 adjustment
+  sms.v1.Direction direction = 3; // spec 06 §6.1, soldes MT et MO distincts
+  int64 delta = 4; // spec 06 §6.4, signé
+}
+
+message AdjustResponse {
+  int64 balance_after = 1; // I5
+}
+
+// BalanceScope is customers.balance_scope. spec 06 §6.1
+enum BalanceScope {
+  BALANCE_SCOPE_UNSPECIFIED = 0;
+  BALANCE_SCOPE_CUSTOMER = 1;
+  BALANCE_SCOPE_ACCOUNT = 2;
+}
+
+message SetBalanceScopeRequest {
+  Mutation mutation = 1; // I13
+  string customer_id = 2; // spec 06 §6.1
+  BalanceScope balance_scope = 3; // spec 06 §6.1 ; refus FAILED_PRECONDITION si solde ≠ 0 ou enveloppe ouverte
+}
+
+message SetBalanceScopeResponse {}
+
+message GetBalancesRequest {
+  Owner owner = 1; // spec 06 §6.1
+}
+
+message GetBalancesResponse {
+  int64 mt = 1; // spec 06 §6.1, solde MT
+  int64 mo = 2; // spec 06 §6.1, compteur MO
+}
+
+message ListLedgerEntriesRequest {
+  Owner owner = 1; // spec 06 §6.4
+  string cursor = 2; // spec 07 §7.3, keyset
+  int32 limit = 3; // spec 07 §7.3
+}
+
+// EntryType is a ledger movement. spec 06 §6.4
+enum EntryType {
+  ENTRY_TYPE_UNSPECIFIED = 0;
+  ENTRY_TYPE_LEASE_GRANT = 1;
+  ENTRY_TYPE_LEASE_REFUND = 2;
+  ENTRY_TYPE_LATE_RELEASE = 3;
+  ENTRY_TYPE_CHARGE = 4;
+  ENTRY_TYPE_MO_CHARGE = 5;
+  ENTRY_TYPE_TOPUP = 6;
+  ENTRY_TYPE_TRANSFER = 7;
+  ENTRY_TYPE_ADJUSTMENT = 8;
+}
+
+// LedgerEntry is one balance movement. spec 06 §6.4
+message LedgerEntry {
+  EntryType entry_type = 1; // spec 06 §6.4
+  sms.v1.Direction direction = 2; // spec 06 §6.1
+  int64 credits = 3; // spec 06 §6.1, signé
+  google.protobuf.Timestamp at = 4; // spec 06 §6.4, partitionné par jour
+}
+
+message ListLedgerEntriesResponse {
+  repeated LedgerEntry entries = 1; // spec 06 §6.4
+  string next_cursor = 2; // spec 07 §7.3
+}
