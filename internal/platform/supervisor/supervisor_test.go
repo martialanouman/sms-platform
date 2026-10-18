@@ -149,3 +149,50 @@ func TestErrorsWhileStopping(t *testing.T) {
 		})
 	}
 }
+
+func stopsIn(d time.Duration) func(context.Context) error {
+	return func(ctx context.Context) error {
+		<-ctx.Done()
+		time.Sleep(d)
+		return nil
+	}
+}
+
+func TestTheBudgetCoversTheWholeDrainAfterTheDelay(t *testing.T) {
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	whole := supervisor.Ordered{DrainBudget: 150 * time.Millisecond}
+	whole.Add("a", stopsIn(100*time.Millisecond))
+	whole.Add("b", stopsIn(100*time.Millisecond))
+	if err := whole.Run(cancelled, quiet); !errors.Is(err, supervisor.ErrDrainBudgetExceeded) {
+		t.Errorf("two 100ms stops under a 150ms budget: Run = %v, want the budget exceeded", err)
+	}
+	afterDelay := supervisor.Ordered{DrainDelay: 150 * time.Millisecond, DrainBudget: 150 * time.Millisecond}
+	afterDelay.Add("a", stopsIn(100*time.Millisecond))
+	if err := afterDelay.Run(cancelled, quiet); err != nil {
+		t.Errorf("a 100ms stop under a 150ms budget after a 150ms delay: Run = %v", err)
+	}
+}
+
+func TestTheFirstErrorWins(t *testing.T) {
+	release := make(chan struct{})
+	defer close(release)
+	o := supervisor.Ordered{DrainBudget: 100 * time.Millisecond}
+	o.Add("stuck", func(context.Context) error { <-release; return nil })
+	o.Add("consumer", func(context.Context) error { return errors.New("broker gone") })
+	if err := o.Run(context.Background(), quiet); err == nil || !strings.Contains(err.Error(), "consumer: broker gone") {
+		t.Errorf("Run = %v, want the consumer's error before the overrun", err)
+	}
+
+	failing := func(name string) func(context.Context) error {
+		return func(ctx context.Context) error { <-ctx.Done(); return errors.New(name + " failed") }
+	}
+	two := supervisor.Ordered{DrainBudget: time.Second}
+	two.Add("exporter", failing("exporter"))
+	two.Add("listener", failing("listener"))
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := two.Run(cancelled, quiet); err == nil || !strings.Contains(err.Error(), "listener: listener failed") {
+		t.Errorf("Run = %v, want the error of the first component stopped", err)
+	}
+}

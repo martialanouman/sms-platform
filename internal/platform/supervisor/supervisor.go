@@ -26,7 +26,7 @@ type Ordered struct {
 	hooks      []func()
 }
 
-// Add registers a component, which runs until its context is cancelled and then returns nil.
+// Add registers a component, which runs until its context is cancelled and then returns nil or context.Canceled.
 func (o *Ordered) Add(name string, run func(context.Context) error) {
 	o.components = append(o.components, component{name, run})
 }
