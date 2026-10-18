@@ -26,7 +26,7 @@ La frontière de confiance interne est plate :
 |---|---|
 | D1 | **Portabilité.** La plateforme se déploie sur Kubernetes autohébergé comme sur un cloud managé. Seules des briques identiques dans les deux sont retenues ; ce qui varie vit dans leur configuration, jamais dans notre code. |
 | D2 | **Une CA interne unique**, émise par cert-manager, pour tous les certificats, BFF compris. |
-| D3 | **Chaque serveur interne nomme ses appelants.** Une allowlist vide fait échouer le démarrage en production. |
+| D3 | **Chaque serveur interne nomme ses appelants.** Une allowlist vide fait échouer le démarrage. |
 | D4 | **Une identité par service sur chaque magasin** (rôle Postgres, principal Kafka, utilisateur Redis), droits **générés** depuis ce que le service déclare. |
 | D5 | **Un Secret par service** ; la KEK sort du cluster applicatif, dans **OpenBao Transit**, seule implémentation de l'interface `KMS` (ADR-0011). |
 | D6 | **JWKS interne** ; scope **`stream:read`** pour le hub ; **aucun compte de service** (ADR-0019). |
@@ -51,8 +51,9 @@ assumé : exploiter OpenBao même dans le cloud, contre un seul chemin de KMS, t
 
 - **cert-manager signe tout** depuis une seule CA interne : passerelle, BFF (`dashboard`), Jobs.
 - **Allowlists** : chaque serveur gRPC ou HTTP interne déclare `TLS_ALLOWED_CLIENTS`. `admin-api` admet
-  `dashboard` seul. Vide en production : le démarrage échoue. L'admission implicite de toute la CA
-  disparaît.
+  `dashboard` seul. Vide : le démarrage échoue. L'admission implicite de toute la CA disparaît.
+  L'allowlist est comparée aux SAN DNS du certificat (nom de service nu, colonne « appelants admis » du
+  chapitre 2 §2.2), jamais au CN, qui reste le principal Kafka (§5.2).
 - **NetworkPolicy** *deny* par défaut sur chaque namespace ; les flux permis sont générés depuis les
   allowlists et le catalogue de la décision 4.
 
@@ -108,7 +109,7 @@ de jetons, c'est-à-dire sans seconde clé capable de tout fabriquer. La procéd
 
 ## 9. Tests bloquants
 
-- Une allowlist vide fait échouer le démarrage en production.
+- Une allowlist vide fait échouer le démarrage.
 - Chaque serveur refuse un appelant absent de son allowlist.
 - Les ACL Kafka générées correspondent exactement au catalogue.
 - Aucun service n'a de GRANT au-delà de sa déclaration.
