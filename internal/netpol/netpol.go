@@ -19,7 +19,7 @@ import (
 // File is the generated file, beside the manifests it is rendered from.
 const File = "networkpolicies.yaml"
 
-var broker = regexp.MustCompile(`^([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)-kafka-bootstrap\.([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.svc:([0-9]{1,5})$`)
+var broker = regexp.MustCompile(`^([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)-kafka-bootstrap\.([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.svc:([0-9]+)$`)
 
 type labels struct {
 	MatchLabels map[string]string `yaml:"matchLabels,omitempty"`
@@ -127,6 +127,11 @@ func flows(fsys fs.FS, file string) (policy, error) {
 	if err != nil {
 		return p, err
 	}
+	add := func(f egress) {
+		if !slices.ContainsFunc(p.Spec.Egress, func(e egress) bool { return reflect.DeepEqual(e, f) }) {
+			p.Spec.Egress = append(p.Spec.Egress, f)
+		}
+	}
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	for {
 		var w workload
@@ -134,11 +139,6 @@ func flows(fsys fs.FS, file string) (policy, error) {
 			return p, nil
 		} else if err != nil {
 			return p, fmt.Errorf("%s: %w", file, err)
-		}
-		add := func(f egress) {
-			if !slices.ContainsFunc(p.Spec.Egress, func(e egress) bool { return reflect.DeepEqual(e, f) }) {
-				p.Spec.Egress = append(p.Spec.Egress, f)
-			}
 		}
 		for _, c := range append(w.Spec.Template.Spec.InitContainers, w.Spec.Template.Spec.Containers...) {
 			for _, e := range c.Env {

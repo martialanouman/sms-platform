@@ -89,16 +89,16 @@ Fable a tranché le 2026-10-19 (N1, N2, N4, A1, A2, A3 tenues ; N3, N5 amendées
   documents, init containers, aucun besoin, broker ou port refusé, nom réservé) et l'ordre des politiques
   vus tomber ; `check-generated` tient le fichier des deux Jobs réels (une mutation du générateur le fait
   différer).
-- Tests promtool : l'alerte part juste après une hausse et neuf minutes après, se tait onze minutes après et
-  sur un compteur immobile.
+- Tests promtool : l'alerte part juste après une hausse et huit minutes après, se tait neuf minutes après
+  (la fenêtre, ouverte à gauche, tenue à la minute près) et sur un compteur immobile.
 
 ## Revue
 
 **Tour 1** (trois axes, aucun bloquant) :
 
 - Retenus : la fenêtre `[10m]` de l'alerte n'était tenue que par sa borne basse (`[30m]` survivait) ;
-  `internal/netpol` ne lisait ni le second document d'un manifest, ni les `initContainers` que la garde
-  admet ; un élément vide de `KAFKA_BROKERS`, que `config` ignore, était refusé ; port non borné ; un
+  `internal/netpol` ne lisait pas les `initContainers` que la garde admet, et la lecture de plusieurs
+  documents n'avait pas de test ; un élément vide de `KAFKA_BROKERS`, que `config` ignore, était refusé ; port non borné ; un
   workload nommé `dns` écrasait une politique fixe ; dédoublonnage de Kafka seul ; l'ordre des politiques
   et un `Job` après une vraie politique sans test ; groupes capturants superflus, branche `Atoi` morte,
   boucle de stabilité spéculative, `!ok` mort et ordre aléatoire dans la garde des alertes, message d'erreur
@@ -106,3 +106,7 @@ Fable a tranché le 2026-10-19 (N1, N2, N4, A1, A2, A3 tenues ; N3, N5 amendées
 - Écartés : un test de sortie exacte des deux Jobs réels recopierait le fichier que `check-generated` tient
   déjà (design amendé) ; `> 0` contre `>= 0.5` : un compteur entier n'a pas d'accroissement entre les deux ;
   un échec au tout premier scrape d'un pod (série née à 1) reste muet, un échec qui dure incrémente et part.
+
+**Tour 2** (un axe sur les correctifs, trois mineurs, aucun bloquant) : borne haute de la fenêtre tenue à
+trois minutes près (le cas muet passe de 13 à 10 minutes) ; `[0-9]{1,5}` redondant avec la borne du port ;
+fermeture recréée à chaque document.

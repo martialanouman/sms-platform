@@ -30,7 +30,7 @@ tests:
             exp_annotations:
               summary: Un service sert /metrics partiellement
               description: Une collecte de /metrics a échoué ; les séries du collecteur en faute manquent au scrape.
-      - eval_time: 13m
+      - eval_time: 10m
         alertname: MetricsGatheredPartially
         exp_alerts: []
   - interval: 1m
