@@ -4,6 +4,7 @@ package schema
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"strings"
 
 	"go.yaml.in/yaml/v3"
@@ -48,4 +49,35 @@ func ParseClassification(data []byte) (Classification, error) {
 		}
 	}
 	return c, nil
+}
+
+// Observed is what the database says of one of its tables.
+type Observed struct {
+	Captured      bool
+	HasPrimaryKey bool
+}
+
+// Check returns, sorted, every disagreement between the classification and the tables of the database.
+func (c Classification) Check(tables map[string]Observed) []string {
+	var problems []string
+	for name, o := range tables {
+		t, ok := c[name]
+		switch {
+		case !ok:
+			problems = append(problems, fmt.Sprintf("%q: not classified", name))
+		case t.Audit == Diff && !o.Captured:
+			problems = append(problems, fmt.Sprintf("%q: diff without audit_capture", name))
+		case t.Audit == Diff && !o.HasPrimaryKey:
+			problems = append(problems, fmt.Sprintf("%q: diff without a primary key", name))
+		case t.Audit != Diff && o.Captured:
+			problems = append(problems, fmt.Sprintf("%q: %s but carries audit_capture", name, t.Audit))
+		}
+	}
+	for name := range c {
+		if _, ok := tables[name]; !ok {
+			problems = append(problems, fmt.Sprintf("%q: classified but absent", name))
+		}
+	}
+	slices.Sort(problems)
+	return problems
 }
