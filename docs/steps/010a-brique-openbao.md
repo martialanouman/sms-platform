@@ -45,8 +45,9 @@ Fable, 2026-10-19, sauf le point 3 tranché par l'humain.
    racine et le mot de passe d'`openbao` passent par l'entrée standard, jamais par un argument ; le jeton
    est révoqué en fin de script. `deploy.sh` attend le pod `Running`, pas le descellement : un timer
    bloqué sur un OpenBao scellé retiendrait toutes les releases.
-9. **Alerte** `OpenBaoSealed` : `vault_core_unsealed == 0`, et `absent` parce qu'un OpenBao scellé rend 503
-   sur ses métriques. Elle entre avec la brique qui émet la métrique ; le nom se vérifie sur le VPS.
+9. **Alerte** `OpenBaoSealed` : `vault_core_unsealed == 0`, et `absent` pour un OpenBao arrêté ou
+   injoignable. Elle entre avec la brique qui émet la métrique. Amendé sur le VPS : scellé, OpenBao sert
+   ses métriques (200, `vault_core_unsealed{cluster=""} 0`) ; Fable le supposait muet.
 10. **Dettes** : droits de `breakglass` (014a) ; authentification humaine à OpenBao pour lire
     `database/creds/breakglass` (`go-live`) ; snapshot chiffré d'OpenBao (10 §10.3, `go-live`). #108 :
     reportée, hors territoire.
