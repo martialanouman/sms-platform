@@ -42,10 +42,7 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger) error {
 		return fmt.Errorf("open control_plane: %w", err)
 	}
 	defer func() { _ = db.Close() }()
-	dial, cancel := context.WithTimeout(ctx, pgdial.Bound)
-	err = pgdial.Retry(dial, log, db.PingContext)
-	cancel()
-	if err != nil {
+	if err := pgdial.Retry(ctx, log, db.PingContext); err != nil {
 		return fmt.Errorf("reach control_plane: %w", err)
 	}
 	locker, err := lock.NewPostgresSessionLocker()

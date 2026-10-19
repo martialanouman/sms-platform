@@ -77,8 +77,6 @@ metadata:
 spec:
   secretName: catalog-apply-tls
   commonName: catalog-apply
-  dnsNames:
-    - catalog-apply
   usages:
     - client auth
   issuerRef:

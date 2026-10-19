@@ -56,13 +56,11 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger) error {
 		return fmt.Errorf("kafka mTLS: %w", err)
 	}
 	var conn *pgx.Conn
-	dial, cancel := context.WithTimeout(ctx, pgdial.Bound)
-	err = pgdial.Retry(dial, log, func(ctx context.Context) error {
+	err = pgdial.Retry(ctx, log, func(ctx context.Context) error {
 		var err error
 		conn, err = pgx.Connect(ctx, infra.PostgresURL)
 		return err
 	})
-	cancel()
 	if err != nil {
 		return fmt.Errorf("connect to control_plane: %w", err)
 	}

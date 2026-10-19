@@ -49,7 +49,9 @@ assumé : exploiter OpenBao même dans le cloud, contre un seul chemin de KMS, t
 
 ## 4. Transport
 
-- **cert-manager signe tout** depuis une seule CA interne : passerelle, BFF (`dashboard`), Jobs.
+- **cert-manager signe tout** depuis une seule CA interne : passerelle, BFF (`dashboard`), Jobs. Sa clé ne
+  quitte jamais le namespace de cert-manager ; les vérificateurs, Kafka compris, reçoivent le certificat seul
+  (amendé en 007d-1).
 - **Allowlists** : chaque serveur gRPC ou HTTP interne déclare `TLS_ALLOWED_CLIENTS`. `admin-api` admet
   `dashboard` seul. Vide : le démarrage échoue. L'admission implicite de toute la CA disparaît.
   L'allowlist est comparée aux SAN DNS du certificat (nom de service nu, colonne « appelants admis » du

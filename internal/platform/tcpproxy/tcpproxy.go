@@ -26,9 +26,14 @@ func New(t testing.TB, upstream string) *Proxy {
 	if err != nil {
 		t.Fatalf("tcpproxy: %v", err)
 	}
+	p := start(ln, upstream)
+	t.Cleanup(p.Close)
+	return p
+}
+
+func start(ln net.Listener, upstream string) *Proxy {
 	p := &Proxy{ln: ln, upstream: upstream, clients: map[net.Conn]struct{}{}}
 	go p.accept()
-	t.Cleanup(p.Close)
 	return p
 }
 
@@ -55,10 +60,10 @@ func Later(t testing.TB, upstream string, delay time.Duration) string {
 		}
 		ln, err := net.Listen("tcp", addr)
 		if err != nil {
+			t.Errorf("tcpproxy: the reserved address was taken meanwhile: %v", err)
 			return
 		}
-		p = &Proxy{ln: ln, upstream: upstream, clients: map[net.Conn]struct{}{}}
-		go p.accept()
+		p = start(ln, upstream)
 	})
 	t.Cleanup(func() {
 		timer.Stop()

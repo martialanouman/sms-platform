@@ -11,6 +11,9 @@ spec:
   valuesContent: |-
     crds:
       enabled: true
+    global:
+      rbac:
+        aggregateClusterRoles: false
 ---
 apiVersion: helm.cattle.io/v1
 kind: HelmChart

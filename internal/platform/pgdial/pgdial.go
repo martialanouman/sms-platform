@@ -11,16 +11,20 @@ import (
 
 const interval = time.Second
 
-// Bound is how long a cmd/ waits for the network to admit it: a new pod's egress falls under default-deny until the
-// policy controller admits its address, a matter of seconds; waiting for a store to start is the deployment's job.
-const Bound = 60 * time.Second
+// A new pod's egress falls under default-deny until the policy controller admits its address, a matter of seconds;
+// waiting for a store to start is the deployment's job, not this bound's.
+const bound = 60 * time.Second
 
-// Retry calls attempt until it succeeds, fails on anything but the network, or ctx ends; then it returns the last error.
+// Retry calls attempt until it succeeds, fails on anything but a dial, or ctx or a minute ends; then it returns the
+// last error. A
+// refusal, a dial timeout or an unresolved name is replayed; a TLS alert, a read or a write cut is not.
 func Retry(ctx context.Context, log *slog.Logger, attempt func(context.Context) error) error {
+	ctx, cancel := context.WithTimeout(ctx, bound)
+	defer cancel()
 	for {
 		err := attempt(ctx)
-		var netErr net.Error
-		if err == nil || !errors.As(err, &netErr) {
+		var opErr *net.OpError
+		if err == nil || !errors.As(err, &opErr) || opErr.Op != "dial" {
 			return err
 		}
 		log.Info("postgres unreachable, retrying", "error", err)

@@ -45,9 +45,9 @@ VPS) :
   (`HelmChart` n'en a pas ; Helm vérifie le digest de l'index ou de l'OCI). Les CR ne s'appliquent qu'après
   les Jobs `helm-install-*` : l'ordre vit dans la procédure, puis dans le déploiement de 007d-2. Le
   helm-controller de k3s ne se désactive pas.
-- **B2 — Postgres** (amendée) : `instances: 1`, sans `synchronous` : sur une VM à un nœud, trois instances
-  partagent hôte et disque, et 10 §10.3 protège `control_plane` par PITR, pas par réplication synchrone ;
-  trois instances avec le premier environnement à plusieurs nœuds. `bootstrap.initdb` (`control_plane`,
+- **B2 — Postgres** (amendée) : une instance par nœud, sans `synchronous` : sur une VM à un nœud, trois
+  instances partagent hôte et disque, et 10 §10.3 protège `control_plane` par PITR, pas par réplication
+  synchrone. Le nombre d'instances est une valeur d'environnement, comme la mémoire des JVM. `bootstrap.initdb` (`control_plane`,
   propriétaire `migrator`) et `managed.roles` (`migrator`, `LOGIN CREATEROLE`, même Secret). `openbao` et
   `breakglass` entrent avec la brique OpenBao, que rien n'exerce avant elle (un rôle géré sans Secret naît à
   mot de passe NULL) ; `managed.roles` tiendra alors « créés sous un autre rôle que `migrator` ». Séquencement,
@@ -102,6 +102,26 @@ tard, « cluster already matches the catalog ». Aucune lecture périmée ne pro
 0. Rejeté : une retentative de `read` sur un seul code d'erreur, qui ne couvre qu'une issue sur quatre. Plafond :
 un refus déterministe du plan tourne trois fois ; `podFailurePolicy` l'en distinguera si cela coûte un jour.
 
+Arbitrage de la revue (Fable, 2026-10-19) :
+
+- **Qui demande un certificat** : `global.rbac.aggregateClusterRoles: false` dans le chart de cert-manager ;
+  plus aucun `edit` ni `admin` ne porte `certificates`. Aujourd'hui seul l'administrateur de la VM applique :
+  rien à différer. Approver-policy entre avec le premier compte qui reçoit `edit` (règle `ci-deploy.md`).
+- **La clé racine ne quitte jamais `cert-manager`** (B3 amendée) : une CA intermédiaire ne bornerait rien,
+  tout vérificateur qui fait confiance à la racine accepterait un certificat forgé sous elle. Le listener
+  9093 passe en authentification `custom` (`ssl.client.auth: required`, magasin de confiance PEM monté depuis
+  le Secret `kafka/internal-ca-cert`, certificat seul) ; le principal reste `User:CN=catalog-apply`
+  (`DefaultKafkaPrincipalBuilder`). Plus de `clientsCa` fournie ; 06 §4 amendée.
+- **`pgdial.Retry`** ne rejoue qu'un `*net.OpError` de `dial` (refus, délai, nom non résolu, comme
+  `isAnyDialErr` de franz-go) ; une alerte TLS du serveur, une lecture ou une écriture coupée sortent au
+  premier essai. La borne d'une minute est interne à `Retry`.
+- **Images** : la version du chart épingle le tag de release, que les registres des projets ne réécrivent pas ;
+  `spec.kafka.version` fixe l'image Kafka. Le digest reste à Postgres, dont le tag majeur couvre plusieurs builds.
+- **Alertes et rotation** : `CertificateNotReady` (`certmanager_certificate_ready_status{condition="False"}`,
+  `for: 10m`) couvre un certificat jamais émis ; les copies du certificat racine (`kafka/internal-ca-cert`,
+  `sms/internal-ca`) passent par `apply` à chaque `secrets.sh`, donc à chaque déploiement. Reste au runbook :
+  un rolling update de Kafka pour relire son magasin de confiance après un renouvellement de la racine.
+
 ## Design arrêté
 
 - Namespace de la plateforme : `sms`.
@@ -112,25 +132,33 @@ un refus déterministe du plan tourne trois fois ; `podFailurePolicy` l'en disti
     `oci://quay.io/strimzi-helm/strimzi-kafka-operator` 1.3.0 (namespace `kafka`, qu'il surveille) ;
   - `ca.yaml` : `ClusterIssuer` autosigné, `Certificate` racine `internal-ca` (`cert-manager`), `ClusterIssuer`
     `internal-ca` ; feuilles `postgres-server` (`postgres`), `kafka-listener` (`kafka`), `catalog-apply-tls`
-    (`sms`) ;
-  - `postgres.yaml` : `Namespace` `postgres`, `Cluster` `postgres` (image par digest, une instance,
+    (`sms`, CN seul, `client auth`) ;
+  - `namespaces.yaml` : `sms` et `postgres` ;
+  - `postgres.yaml` : `Cluster` `postgres` (image par digest, une instance,
     `initdb`, `managed.roles`, certificats serveur), `NetworkPolicy` d'entrée : 5432 depuis `sms`, 5432 depuis
     le cluster, 8000 depuis l'opérateur ;
-  - `kafka.yaml` : `KafkaNodePool` et `Kafka` `kafka` (B4), `networkPolicyPeers` vers `sms` ;
+  - `kafka.yaml` : `KafkaNodePool` et `Kafka` `kafka` (B4), listener en authentification `custom` contre la
+    racine montée, `networkPolicyPeers` vers `sms` ;
   - `secrets.sh` (valeurs sans saut de ligne final) : `postgres/migrator` (basic-auth), `sms/migrate` et `sms/catalog-apply` (`postgres-url`),
-    `sms/<service>` (`postgres-password`) par fichier de `contracts/grants/`, `kafka/kafka-clients-ca-cert` et
-    `kafka/kafka-clients-ca` depuis la racine, ConfigMap `sms/internal-ca`.
+    `sms/<service>` (`postgres-password`) par fichier de `contracts/grants/` ; chaque valeur vérifiée non vide
+    et passée par l'entrée standard ; le certificat racine seul, par `apply`, dans `kafka/internal-ca-cert`
+    et le ConfigMap `sms/internal-ca`.
 - `deploy/k8s/migrate.yaml` : la racine montée en `/tls` depuis le ConfigMap `internal-ca`.
 - `deploy/k8s/catalog-apply.yaml` : `backoffLimit: 2`.
-- `internal/platform/pgdial` : `Retry(ctx, func(context.Context) error) error` ; chaque retentative
-  journalisée sans URL. `catalog-apply` enveloppe `pgx.Connect`, `migrate` un `db.PingContext` avant goose,
-  dans `context.WithTimeout` de 60 s. Tests : un port fermé rejoué jusqu'au succès, une `PgError` et une
-  erreur x509 rendues au premier essai, un contexte expiré rend la dernière erreur réseau.
-- `.claude/rules/ci-deploy.md` : la course de k3s ; un `/readyz` ne dépend jamais d'un dial unique au démarrage.
+- `internal/platform/pgdial` : `Retry(ctx, *slog.Logger, func(context.Context) error) error`, borné à une
+  minute ; chaque retentative journalisée sans URL. `catalog-apply` enveloppe `pgx.Connect`, `migrate` un
+  `db.PingContext` avant goose. Tests : un port fermé et un nom non résolu rejoués jusqu'au succès, une
+  `PgError`, une erreur x509 et une alerte TLS distante rendues au premier essai, un contexte expiré rend la
+  dernière erreur de dial ; dans chaque `cmd/`, une base derrière `tcpproxy.Later` (refus pendant deux
+  secondes, puis relais) atteinte.
+- `.claude/rules/ci-deploy.md` : la course de k3s et le `/readyz` ; la métadonnée Kafka et le rejeu entier ;
+  qui demande un certificat ; l'épinglage des images de brique.
 - `deploy/guard_test.go` : `deploy/bricks/` nomme ce que supposent `internal/netpol` et `catalog-apply` :
-  `Cluster` `postgres` en `postgres`, `Kafka` `kafka` en `kafka`, listener 9093 `tls`, `superUsers`
-  `CN=catalog-apply`, sans `entityOperator` ; cas faussés.
-- `deploy/alerts/certs.yaml` (`CertificateExpiresSoon`, échéance à moins de 7 jours) et `certs_test.yaml`.
+  `Cluster` `postgres` en `postgres`, `Kafka` `kafka` en `kafka`, listener 9093 TLS à certificat client
+  exigé, autorisation `simple` et `superUsers` `CN=catalog-apply`, ni `entityOperator` ni `clientsCa` ; un cas
+  faussé par règle.
+- `deploy/alerts/certs.yaml` (`CertificateExpiresSoon`, échéance à moins de 7 jours ; `CertificateNotReady`)
+  et `certs_test.yaml`.
 - Plan §007d-1 : `openbao` et `breakglass` avec la brique OpenBao. Issue `debt` + `go-live` : PITR.
 - Procédure (section suivante), jouée sur `contabo169`, résultats consignés avant la PR.
 

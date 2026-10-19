@@ -56,7 +56,8 @@ func TestRetryReplaysARefusedDialUntilItSucceeds(t *testing.T) {
 }
 
 func TestRetryReturnsAnythingButTheNetworkAtOnce(t *testing.T) {
-	for _, fault := range []error{&pgconn.PgError{Code: "28P01"}, x509.UnknownAuthorityError{}} {
+	for _, fault := range []error{&pgconn.PgError{Code: "28P01"}, x509.UnknownAuthorityError{},
+		&net.OpError{Op: "remote error", Net: "tcp", Err: errors.New("tls: bad certificate")}} {
 		attempts := 0
 		err := pgdial.Retry(context.Background(), slog.New(slog.DiscardHandler), func(context.Context) error {
 			attempts++
@@ -80,5 +81,18 @@ func TestRetryStopsWithTheContextOnTheLastNetworkError(t *testing.T) {
 	var netErr net.Error
 	if !errors.As(err, &netErr) || attempts != 2 {
 		t.Errorf("Retry = %v after %d attempts, want the network error after two", err, attempts)
+	}
+}
+
+func TestRetryReplaysAnUnresolvedName(t *testing.T) {
+	attempts := 0
+	err := pgdial.Retry(context.Background(), slog.New(slog.DiscardHandler), func(context.Context) error {
+		if attempts++; attempts < 2 {
+			return &net.OpError{Op: "dial", Net: "tcp", Err: &net.DNSError{Err: "no such host", Name: "postgres-rw.postgres.svc", IsNotFound: true}}
+		}
+		return nil
+	})
+	if err != nil || attempts != 2 {
+		t.Errorf("Retry = %v after %d attempts, want success on the second", err, attempts)
 	}
 }

@@ -19,6 +19,11 @@ paths:
 - La métadonnée Kafka est éventuellement cohérente par broker : `catalog-apply` échoue bruyamment sur une
   lecture périmée et se rejoue entier (`backoffLimit: 2`), jamais par une retentative partielle de
   l'adaptateur.
+- **Qui demande un certificat** : cert-manager n'agrège pas `certificates` aux rôles `edit` et `admin` ;
+  le premier compte ou outil qui reçoit `edit` ou `admin` sur un namespace apporte approver-policy (ou un
+  `Issuer` par namespace) dans sa PR. La clé racine ne quitte jamais `cert-manager`.
+- **Une image de brique** est épinglée par la version de son chart ou de sa release ; par digest quand le
+  tag n'est pas une release (Postgres).
 - **Une alerte** vit dans `deploy/alerts/<groupe>.yaml`, avec un cas qui la fait partir et un qui la laisse
   muette dans `<groupe>_test.yaml` ; elle entre avec le composant qui émet sa métrique.
 - `exit 139` d'un conteneur en CI vient de `fs.aio-max-nr`, jamais de la mémoire : faire parler le

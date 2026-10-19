@@ -37,7 +37,12 @@ spec:
         type: internal
         tls: true
         authentication:
-          type: tls
+          type: custom
+          sasl: false
+          listenerConfig:
+            ssl.client.auth: required
+            ssl.truststore.location: /mnt/internal-ca/ca.crt
+            ssl.truststore.type: PEM
         configuration:
           brokerCertChainAndKey:
             secretName: kafka-listener
@@ -51,6 +56,16 @@ spec:
       type: simple
       superUsers:
         - CN=catalog-apply
+    template:
+      pod:
+        volumes:
+          - name: internal-ca
+            secret:
+              secretName: internal-ca-cert
+      kafkaContainer:
+        volumeMounts:
+          - name: internal-ca
+            mountPath: /mnt/internal-ca
     config:
       auto.create.topics.enable: false
       default.replication.factor: 3
@@ -58,5 +73,3 @@ spec:
       offsets.topic.replication.factor: 3
       transaction.state.log.replication.factor: 3
       transaction.state.log.min.isr: 2
-  clientsCa:
-    generateCertificateAuthority: false
