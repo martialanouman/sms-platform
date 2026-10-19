@@ -2,6 +2,12 @@
 BEGIN;
 
 DO $$ BEGIN
+  IF current_user <> 'migrator' THEN
+    RAISE EXCEPTION 'grants are applied as migrator, not %, whose roles they would retire', current_user;
+  END IF;
+END $$;
+
+DO $$ BEGIN
   IF EXISTS (SELECT FROM pg_catalog.pg_roles r WHERE r.rolname = 'admin_api_svc'
       AND (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolbypassrls
         OR r.rolreplication OR EXISTS (SELECT FROM pg_catalog.pg_auth_members m WHERE m.member = r.oid)
@@ -27,7 +33,7 @@ DO $$ DECLARE r text; BEGIN
     EXECUTE format('REVOKE ALL ON ALL TABLES IN SCHEMA control_plane FROM %I', r);
     EXECUTE format('REVOKE ALL ON SCHEMA control_plane FROM %I', r);
     EXECUTE format('REVOKE ALL ON DATABASE control_plane FROM %I', r);
-    EXECUTE format('ALTER ROLE %I NOLOGIN', r);
+    EXECUTE format('ALTER ROLE %I NOLOGIN PASSWORD NULL', r);
   END LOOP;
 END $$;
 

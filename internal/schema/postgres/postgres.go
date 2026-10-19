@@ -37,7 +37,9 @@ func Apply(ctx context.Context, conn *pgx.Conn, grants []byte, secrets fs.FS) ([
 		if err != nil {
 			return nil, fmt.Errorf("role %s: %w", role, err)
 		}
-		if verifiers[i], err = schema.SCRAMVerifier(string(secret), []byte(rand.Text())[:16]); err != nil {
+		salt := make([]byte, 16)
+		_, _ = rand.Read(salt)
+		if verifiers[i], err = schema.SCRAMVerifier(string(secret), salt); err != nil {
 			return nil, fmt.Errorf("role %s: %w", role, err)
 		}
 	}

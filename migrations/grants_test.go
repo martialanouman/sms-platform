@@ -165,7 +165,7 @@ func TestARetiredRoleLosesItsRightsAndItsLogin(t *testing.T) {
 	migrator := connect(t, pg.As("migrator"))
 	exec(t, connect(t, pg.As("postgres")), `CREATE ROLE foreign_svc NOLOGIN`, `GRANT foreign_svc TO migrator`)
 	exec(t, migrator,
-		`CREATE ROLE retired_svc LOGIN`,
+		`CREATE ROLE retired_svc LOGIN PASSWORD 'old secret of a retired role'`,
 		`GRANT CREATE ON DATABASE control_plane TO retired_svc`,
 		`GRANT USAGE, CREATE ON SCHEMA control_plane TO retired_svc`,
 		`GRANT SELECT ON control_plane.audit_log TO retired_svc, foreign_svc`,
@@ -186,5 +186,23 @@ func TestARetiredRoleLosesItsRightsAndItsLogin(t *testing.T) {
 	}
 	if !slices.Contains(got, "foreign_svc audit_log select") {
 		t.Errorf("a role migrator does not administer lost its rights: %q", got)
+	}
+	var password bool
+	if err := connect(t, pg.As("postgres")).QueryRow(context.Background(),
+		`SELECT rolpassword IS NOT NULL FROM pg_authid WHERE rolname = 'retired_svc'`).Scan(&password); err != nil || password {
+		t.Errorf("retired_svc keeps a password (%v, %v): declared again, it would log in with it", password, err)
+	}
+}
+
+func TestTheGrantsRefuseAnyRoleButMigrator(t *testing.T) {
+	pg := pgtest.ControlPlane(t)
+	super := connect(t, pg.As("postgres"))
+	if _, err := super.Exec(context.Background(), grantsFile(t)); sqlState(err) != "P0001" {
+		t.Fatalf("grants as postgres: err = %v, want P0001", err)
+	}
+	exec(t, super, `ROLLBACK`)
+	var exists bool
+	if err := super.QueryRow(context.Background(), `SELECT EXISTS (SELECT FROM pg_roles WHERE rolname = 'admin_api_svc')`).Scan(&exists); err != nil || exists {
+		t.Errorf("admin_api_svc exists (%v, %v) after a refused application", exists, err)
 	}
 }

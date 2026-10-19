@@ -138,7 +138,8 @@ Deux PR (Fable, 2026-10-18) : 006a pour goose, l'audit et le classement ; 006b p
 GRANT, qui lisent le classement.
 
 - **goose** en bibliothèque, un répertoire par base. Seule `control_plane` naît ici ; `message_state`,
-  `dashboard` et `cdr` (avec le câblage goose de ClickHouse) arrivent avec leur premier composant.
+  `dashboard` et `cdr` (avec le câblage goose de ClickHouse) arrivent avec leur premier composant ; la
+  migration qui crée une base révoque `CONNECT` de `PUBLIC` et ne l'accorde qu'à ses rôles (007b-2).
   up/down/up prouvé en CI par un test d'intégration, sous `migrator` ; le Job `migrate` arrive en 007.
 - **Rôles** : `migrator` propriétaire des schémas ; un rôle par service ; GRANT **générés** depuis un
   fichier de déclaration par service (décision 6). Une garde refuse un droit non déclaré.
@@ -169,8 +170,10 @@ test tiré par la VM.
   entrent les règles dont la métrique source existe ; **une règle entre avec le composant qui émet sa
   métrique**, le tableau de la spec 10 §10.1 sert de liste de contrôle.
 - **007d-1** : les briques de l'environnement de test (opérateur Postgres, Strimzi, cert-manager),
-  versions épinglées, TLS vers Postgres ; le Secret `postgres-password` de chaque service déclaré et le
-  Secret `catalog-apply` (URL sous `migrator`), avant tout service.
+  versions épinglées, TLS vers Postgres ; le Secret `postgres-password` de chaque service déclaré (32
+  caractères ASCII imprimables au moins, tirés au hasard) et le Secret `catalog-apply` (URL sous
+  `migrator`), avant tout service ; `breakglass` et le rôle `CREATEROLE` d'OpenBao créés sous un autre rôle
+  que `migrator`, qui ne crée que les rôles de service (007b-2).
 - **007d-2** : **environnement de test** k3s : GoReleaser pousse les images sur GHCR avec le
   `GITHUB_TOKEN`, la VM tire le SHA de `main` et pose le tag des images ; chaque Job est borné dans le
   temps ; aucun secret de déploiement dans GitHub ; retour arrière par `git revert`.

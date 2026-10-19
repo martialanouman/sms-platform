@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -55,7 +56,9 @@ func TestRunRefusesAnyMissingSettingBeforeConnecting(t *testing.T) {
 func TestRunGrantsPostgresThenDialsKafkaOverTLS(t *testing.T) {
 	pg := pgtest.ControlPlane(t)
 	dir := t.TempDir()
-	secret := rand.Text()
+	b := make([]byte, 24)
+	_, _ = rand.Read(b)
+	secret := base64.RawURLEncoding.EncodeToString(b)
 	if err := os.WriteFile(filepath.Join(dir, "admin_api_svc"), []byte(secret), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +99,7 @@ func TestRunGrantsPostgresThenDialsKafkaOverTLS(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Error("run never wrote to the broker")
 	}
-	svc, err := pgx.Connect(context.Background(), strings.Replace(pg.As("admin_api_svc"), "admin_api_svc:admin_api_svc@", "admin_api_svc:"+secret+"@", 1))
+	svc, err := pgx.Connect(context.Background(), pg.AsWith("admin_api_svc", secret))
 	if err != nil {
 		t.Fatalf("admin_api_svc cannot log in with its secret: %v", err)
 	}

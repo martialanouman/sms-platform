@@ -102,7 +102,9 @@ la décision 7.
 Quand le BFF est tombé ou sa clé révoquée :
 
 1. L'exploitant obtient d'OpenBao des identifiants **dynamiques** du rôle `breakglass`, valables une
-   heure ; OpenBao audite l'émission.
+   heure ; OpenBao audite l'émission. OpenBao les crée sous son propre rôle `CREATEROLE`, jamais sous
+   `migrator`, qui ne crée que les rôles de service et retire ceux qu'il ne déclare plus (amendé en
+   007b-2).
 2. Il écrit sur `control_plane` en SQL, sous `SET LOCAL app.actor = 'breakglass:<nom>'` : le trigger
    de la décision 5 refuse toute écriture sans acteur.
 3. La propagation est automatique : le trigger notifie au commit (décision 7).

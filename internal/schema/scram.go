@@ -9,13 +9,16 @@ import (
 	"fmt"
 )
 
-const scramIterations = 4096
+const (
+	scramIterations = 4096
+	minSecretLength = 32
+)
 
 // SCRAMVerifier is the SCRAM-SHA-256 verifier Postgres stores for password, so that the clear text never reaches the
-// server; a secret outside printable ASCII is refused, SASLprep would change it.
+// server; a secret shorter than 32 characters or outside printable ASCII is refused, SASLprep would change it.
 func SCRAMVerifier(password string, salt []byte) (string, error) {
-	if password == "" {
-		return "", errors.New("empty secret")
+	if len(password) < minSecretLength {
+		return "", fmt.Errorf("secret shorter than %d characters", minSecretLength)
 	}
 	for _, c := range []byte(password) {
 		if c < 0x20 || c > 0x7e {

@@ -65,6 +65,24 @@ Fable a tranché le 2026-10-19 (P1, P4, P5 tenues ; P2, P6, P7, P8 amendées ; P
   serveur sous `log_statement = 'all'` qui porte l'`ALTER ROLE` et pas le secret : la présence de
   l'instruction prouve que le journal capture.
 
+Second arbitrage de Fable (2026-10-19), sur la revue :
+
+- Un rôle retiré perd aussi son mot de passe (`NOLOGIN PASSWORD NULL`) : re-déclaré, il recevrait sinon
+  `LOGIN` avec un ancien secret, et y resterait si `Apply` échouait après le fichier. Un rôle adopté qui a
+  déjà un mot de passe le garde jusqu'au vérificateur : résiduel accepté, l'adoption suit un geste
+  délibéré de superutilisateur ; effacer le mot de passe à chaque passage couperait les reconnexions des
+  services en marche.
+- La marque « `ADMIN OPTION` de `migrator` » vaut parce que `migrator` ne crée aucun rôle hors du fichier
+  généré, migrations comprises ; `breakglass` et le rôle d'OpenBao naissent sous un autre rôle (06 §8,
+  plan §007d-1). Le fichier refuse de s'appliquer sous un autre rôle que `migrator` : sous le maître d'un
+  RDS, il retirerait tout ce que ce maître a créé.
+- Un secret fait 32 caractères au moins : sous `log_statement = 'ddl'`, le vérificateur est journalisé, et
+  un secret court se casse hors ligne.
+- Les droits de `PUBLIC` sur la base (`CONNECT`, `TEMP`) restent : `CONNECT` est celui qu'une déclaration
+  implique, `TEMP` ne touche aucune donnée ; la migration qui créera une deuxième base révoquera `CONNECT`
+  de `PUBLIC` (plan §006).
+- Rejeté : un `ROLLBACK` avant de relâcher le verrou ; l'appelant ferme la connexion sur toute erreur.
+
 Amendé ici : comme `ALTER ROLE` exige l'`ADMIN OPTION`, un rôle existant n'est adopté que si `migrator` la
 détient ; le test d'adoption de 006b, qui crée le rôle sous `postgres`, la lui accorde (`INHERIT FALSE,
 SET FALSE`, que la garde d'adoption admet) comme le ferait un superutilisateur qui lui confie un rôle ; son
@@ -76,11 +94,12 @@ circulaire.
 - `internal/schema` :
   - `GrantsSQL` : `ALTER ROLE … LOGIN` par rôle déclaré ; un bloc
     final qui, pour chaque rôle dont `migrator` a l'`ADMIN OPTION` et que le fichier ne nomme pas, révoque
-    ses droits sur les tables, le schéma et la base `control_plane` et pose `NOLOGIN` ;
-  - `SCRAMVerifier(password string, salt []byte) (string, error)` : refuse un secret vide ou hors ASCII
-    imprimable.
+    ses droits sur les tables, le schéma et la base `control_plane` et pose `NOLOGIN PASSWORD NULL` ; en
+    tête, un refus si `current_user` n'est pas `migrator` ;
+  - `SCRAMVerifier(password string, salt []byte) (string, error)` : refuse un secret de moins de 32
+    caractères ou hors ASCII imprimable.
 - `migrations/grants/control_plane.sql` régénéré ; `migrations.Grants() []byte` l'embarque.
-- `internal/schema/postgres` : `Apply(ctx, *pgx.Conn, sql []byte, secrets fs.FS) error` exécute le
+- `internal/schema/postgres` : `Apply(ctx, *pgx.Conn, sql []byte, secrets fs.FS) ([]string, error)` exécute le
   fichier, liste les rôles gérés qui ont `LOGIN`, lit tous les secrets puis pose les vérificateurs (sel tiré
   par `crypto/rand`), sous `pg_advisory_lock` en session ; rend la liste des rôles traités.
 - `internal/platform/config` : `POSTGRES_ROLE_SECRETS_DIR` → `Infra.PostgresRoleSecretsDir`, sans défaut.
@@ -92,7 +111,7 @@ circulaire.
   `contracts/grants/`, chacune `<svc>` / `postgres-password` / `<rôle>`.
 - `.claude/rules/contracts.md` : le couplage `grants/` → volume de `catalog-apply`. Plan §007d-1 : le Secret
   `postgres-password` de chaque service déclaré et le Secret `catalog-apply`.
-- `internal/platform/pgtest` : `DB.Logs(t)` rend le journal du serveur.
+- `internal/platform/pgtest` : `DB.Logs(t)` rend le journal du serveur ; `DB.AsWith(role, password)`.
 - Tests :
   - unitaire : forme du vérificateur, refus d'un secret vide ou hors ASCII imprimable ; sa justesse a pour
     oracle Postgres lui-même (une connexion avec le secret passe, une autre rend 28P01) ;
@@ -107,3 +126,19 @@ circulaire.
     garde de livraison tombe sur une source manquante, en trop, sous une autre clé ou un autre chemin.
 - `.golangci.yml` : G101 exclu du test de la configuration, qui donne un chemin à
   `POSTGRES_ROLE_SECRETS_DIR`.
+
+## Revue
+
+**Tour 1** (trois axes, aucun bloquant ; deux majeurs de justesse au second arbitrage de Fable, ci-dessus) :
+
+- Retenus : un rôle retiré gardait son mot de passe ; la marque `ADMIN OPTION` visait tout rôle créé par
+  `migrator`, et le fichier s'appliquait sous n'importe quel rôle ; aucune entropie exigée du secret ;
+  sel de 80 bits (`rand.Text`) au lieu de 16 octets ; `Apply` sans test pour un rôle retiré ou étranger
+  (un filtre de sa requête survivait), pour l'ordre « lire tous les secrets, puis poser » (une seule
+  déclaration ne le montrait pas), pour le sel tiré ; DEL admis sans test ; le test du journal supposait le
+  rechargement de configuration et le vidage des journaux faits ; signature d'`Apply` fausse au design ;
+  helpers de connexion recopiés (`pgtest.DB.AsWith`).
+- Écartés : la garde ne vérifie pas le montage du volume des secrets (un montage faux échoue bruyamment au
+  premier passage, et le design ne l'exige pas) ; `roleSecrets` relit le manifest que `checkManifest` a
+  décodé (deux lignes, un seul document) ; `ROLLBACK` avant de relâcher le verrou (arbitrage) ; aucune borne
+  de temps sur le verrou (Job borné en 007d-2, plan).

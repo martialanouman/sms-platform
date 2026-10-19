@@ -39,7 +39,12 @@ func (db DB) Logs(t *testing.T) string {
 
 // As is the connection string of the database as role.
 func (db DB) As(role string) string {
-	return fmt.Sprintf("postgres://%s:%s@%s/control_plane?sslmode=disable", role, role, db.endpoint)
+	return db.AsWith(role, role)
+}
+
+// AsWith is the connection string of the database as role, logging in with password.
+func (db DB) AsWith(role, password string) string {
+	return fmt.Sprintf("postgres://%s:%s@%s/control_plane?sslmode=disable", role, password, db.endpoint)
 }
 
 // ControlPlane starts a Postgres whose control_plane database is migrated to the latest version.

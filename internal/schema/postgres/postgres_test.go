@@ -3,6 +3,7 @@ package postgres_test
 import (
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"os"
 	"path/filepath"
@@ -10,11 +11,13 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/martialanouman/sms-platform/internal/platform/pgtest"
+	"github.com/martialanouman/sms-platform/internal/schema"
 	"github.com/martialanouman/sms-platform/internal/schema/postgres"
 	"github.com/martialanouman/sms-platform/migrations"
 )
@@ -29,18 +32,32 @@ func connect(t *testing.T, dsn string) *pgx.Conn {
 	return conn
 }
 
+func strong() string {
+	b := make([]byte, 24)
+	_, _ = rand.Read(b)
+	return base64.RawURLEncoding.EncodeToString(b)
+}
+
 func secrets(t *testing.T) (string, string) {
 	t.Helper()
 	dir := t.TempDir()
-	secret := rand.Text()
+	secret := strong()
 	if err := os.WriteFile(filepath.Join(dir, "admin_api_svc"), []byte(secret), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return dir, secret
 }
 
-func as(pg pgtest.DB, role, password string) string {
-	return strings.Replace(pg.As(role), role+":"+role+"@", role+":"+password+"@", 1)
+func verifier(t *testing.T, pg pgtest.DB, role string) string {
+	t.Helper()
+	var v *string
+	if err := connect(t, pg.As("postgres")).QueryRow(context.Background(), `SELECT rolpassword FROM pg_authid WHERE rolname = $1`, role).Scan(&v); err != nil {
+		t.Fatal(err)
+	}
+	if v == nil {
+		return ""
+	}
+	return *v
 }
 
 func apply(t *testing.T, pg pgtest.DB, dir string) []string {
@@ -54,17 +71,31 @@ func apply(t *testing.T, pg pgtest.DB, dir string) []string {
 
 func TestApplyLetsEachDeclaredRoleLogInWithItsSecretOnly(t *testing.T) {
 	pg := pgtest.ControlPlane(t)
+	exec := func(conn *pgx.Conn, s string) {
+		if _, err := conn.Exec(context.Background(), s); err != nil {
+			t.Fatalf("%s: %v", s, err)
+		}
+	}
+	exec(connect(t, pg.As("migrator")), `CREATE ROLE retired_svc LOGIN`)
+	super := connect(t, pg.As("postgres"))
+	exec(super, `CREATE ROLE foreign_svc LOGIN`)
+	exec(super, `GRANT foreign_svc TO migrator`)
 	dir, secret := secrets(t)
+	var verifiers []string
 	for range 2 {
 		if roles := apply(t, pg, dir); !reflect.DeepEqual(roles, []string{"admin_api_svc"}) {
 			t.Fatalf("Apply provisioned %v, want admin_api_svc", roles)
 		}
-		svc := connect(t, as(pg, "admin_api_svc", secret))
+		svc := connect(t, pg.AsWith("admin_api_svc", secret))
 		if _, err := svc.Exec(context.Background(), `SELECT count(*) FROM control_plane.audit_log`); err != nil {
 			t.Fatal(err)
 		}
+		verifiers = append(verifiers, verifier(t, pg, "admin_api_svc"))
 	}
-	_, err := pgx.Connect(context.Background(), as(pg, "admin_api_svc", "wrong"))
+	if verifiers[0] == verifiers[1] {
+		t.Error("two applications set the same verifier: the salt is not drawn")
+	}
+	_, err := pgx.Connect(context.Background(), pg.AsWith("admin_api_svc", "wrong"))
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) || pgErr.Code != "28P01" {
 		t.Errorf("login with another secret: %v, want 28P01", err)
@@ -73,14 +104,17 @@ func TestApplyLetsEachDeclaredRoleLogInWithItsSecretOnly(t *testing.T) {
 
 func TestApplyRefusesAMissingSecretWithoutSettingAny(t *testing.T) {
 	pg := pgtest.ControlPlane(t)
-	_, err := postgres.Apply(context.Background(), connect(t, pg.As("migrator")), migrations.Grants(), os.DirFS(t.TempDir()))
-	if err == nil || !strings.Contains(err.Error(), "admin_api_svc") {
-		t.Fatalf("Apply = %v, want a refusal naming admin_api_svc", err)
+	dir, _ := secrets(t)
+	two := schema.GrantsSQL([]schema.Grants{
+		{Service: "admin-api-svc", Tables: map[string][]string{"audit_log": {"select"}}},
+		{Service: "billing-svc", Tables: map[string][]string{"audit_log": {"select"}}},
+	})
+	_, err := postgres.Apply(context.Background(), connect(t, pg.As("migrator")), two, os.DirFS(dir))
+	if err == nil || !strings.Contains(err.Error(), "billing_svc") {
+		t.Fatalf("Apply = %v, want a refusal naming billing_svc", err)
 	}
-	var set bool
-	if err := connect(t, pg.As("postgres")).QueryRow(context.Background(),
-		`SELECT rolpassword IS NOT NULL FROM pg_authid WHERE rolname = 'admin_api_svc'`).Scan(&set); err != nil || set {
-		t.Errorf("password set %v, %v; want none", set, err)
+	if v := verifier(t, pg, "admin_api_svc"); v != "" {
+		t.Errorf("admin_api_svc got its verifier before the missing secret of billing_svc was seen")
 	}
 }
 
@@ -104,6 +138,13 @@ func TestTwoSimultaneousAppliesBothSucceed(t *testing.T) {
 	}
 }
 
+func eventually(t *testing.T, ok func() bool) {
+	t.Helper()
+	for deadline := time.Now().Add(10 * time.Second); !ok() && time.Now().Before(deadline); {
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
 func TestTheServerNeverReceivesTheSecret(t *testing.T) {
 	pg := pgtest.ControlPlane(t)
 	super := connect(t, pg.As("postgres"))
@@ -112,9 +153,17 @@ func TestTheServerNeverReceivesTheSecret(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	eventually(t, func() bool {
+		var level string
+		return connect(t, pg.As("migrator")).QueryRow(context.Background(), `SHOW log_statement`).Scan(&level) == nil && level == "all"
+	})
 	dir, secret := secrets(t)
 	apply(t, pg, dir)
-	logs := pg.Logs(t)
+	var logs string
+	eventually(t, func() bool {
+		logs = pg.Logs(t)
+		return strings.Contains(logs, `ALTER ROLE "admin_api_svc" PASSWORD '`)
+	})
 	if !strings.Contains(logs, `ALTER ROLE "admin_api_svc" PASSWORD '`) {
 		t.Fatalf("the server log does not capture the statement, the absence of the secret proves nothing:\n%s", logs)
 	}
