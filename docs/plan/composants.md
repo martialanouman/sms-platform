@@ -14,7 +14,7 @@ une autre peut s'ajouter au démarrage d'une step, comme au socle.
 | Step | Livre | Phase |
 |---|---|---|
 | 008a | Runtime de lane : lane `group`, dead-letter, gardes | Fondations |
-| 008b | Runtime de lane : garages, `per_tenant` | Fondations |
+| 008b | Runtime de lane : garage global, `per_tenant` | Fondations |
 | 009 | Instantané de configuration | Fondations |
 | 010 | OpenBao et `content-key-svc` | Fondations |
 | 011a | Dashboard : BFF, SPA, activation, mot de passe, sessions, journal d'accès | Fondations |
@@ -41,6 +41,7 @@ une autre peut s'ajouter au démarrage d'une step, comme au socle.
 | 028 | Voie retour : DLR | Voie retour |
 | 029a | Voie retour : réception des MO au pool | Voie retour |
 | 029b | Voie retour : lane MO, MO non routés | Voie retour |
+| 029c | Runtime de lane : garage par tenant | Voie retour |
 | 030 | `delivery-svc` | Voie retour |
 | 031a | Facturation : enveloppes, règlement | Tranche |
 | 031b | Facturation : grand livre, écran | Tranche |
@@ -74,11 +75,11 @@ par tenant (table `lane_parking` du service) ou global (topic), expiration depui
 dead-letter, rejeu, commits. Les gardes du catalogue qui lisent le code (1 à 3, 6) entrent ici.
 
 - **008a** : lane `group`, dépendances `blocking` et `fail_open`, âge, dead-letter, producteur, gardes.
-- **008b** : `park_by_tenant`, `park_global`, `per_tenant` ; le critère I11 se ferme ici.
+- **008b** : `park_global`, `per_tenant`. Le garage par tenant passe en 029c, avec son consommateur
+  (humain, 2026-10-19).
 
-**Terminé quand** : un poison part en dead-letter sans bloquer sa partition ; une dépendance propre à un
-tenant gare ce tenant et laisse passer les autres (I11) ; chaque garde est rouge sur un consommateur
-fautif.
+**Terminé quand** : un poison part en dead-letter sans bloquer sa partition ; un client lent ne retarde
+que sa file ; chaque garde est rouge sur un consommateur fautif.
 
 ## 009 — Instantané de configuration
 
@@ -210,6 +211,9 @@ archivé ; un rejeu repasse par toutes les étapes, et un message expiré ou ter
   durable.
 - **029b — Lane MO** : réassemblage, STOP, résolution du compte (cœur de 020), file des MO non routés à
   l'écran.
+- **029c — Garage par tenant** : `park_by_tenant` du runtime de lane (`lane_parking`, disjoncteur, sonde,
+  vidange sous `SKIP LOCKED`), conçu contre le traitement de `delivery-svc` ; le critère I11 se ferme ici :
+  une dépendance propre à un tenant gare ce tenant et laisse passer les autres.
 - **030 — `delivery-svc`** : remise par webhook et par bind, garage par tenant (I11), dead-letter à
   24 h.
 

@@ -59,7 +59,7 @@ Fable, 2026-10-19, sauf les deux points tranchés par l'humain.
 - **Catalogue** : `Dependency.Park` (`yaml:"park"`) et ses validations (arbitrage 2) ; `contracts/topics.yaml`,
   les trois `router-svc` `mt.inbound.<cat>` déclarent leur `park` ; page générée si elle montre les dépendances.
 - **`internal/lane`** : `Policy` accepte `park_global` et `per_tenant`, refuse `park_by_tenant` (029c) ;
-  `Park(dep)`, `MaxInFlight()`, `PerTenant()`.
+  `Park(dep)`, `MaxInFlight()` (positif pour un groupe `per_tenant`, que le catalogue l'impose).
 - **`internal/lane/kafka`** :
   - `Handlers.Tenant`, exigé pour `per_tenant`.
   - Un seul règlement d'issue par record, partagé par les deux modes : `Ok`, `Refuse`, `Degraded` comptés ;
@@ -67,7 +67,9 @@ Fable, 2026-10-19, sauf les deux points tranchés par l'humain.
     rupture de contrat → arrêt après commit du fait.
   - `per_partition` : la boucle de 008a, inchangée hors règlement.
   - `per_tenant` : une goroutine de lecture et un coordinateur ; fenêtre de 1 024 ; commit du préfixe contigu
-    terminé après chaque tour ; au drain, attente des workers puis commit détaché.
+    terminé après chaque tour ; au drain, attente des workers puis commit détaché. Une rupture de contrat, une
+    faute de lecture ou de commit annule les workers en vol, rendus non terminés : la lane s'arrête même quand un
+    autre tenant rejoue en place.
   - `lane_records_total{outcome="parked"}`.
 - **Garde 1** : le `park` d'un groupe consommé compte comme produit par son service.
 - **Spec et décisions** : spec 09 §9.1 (`park`), décision 4 §3.2, décision 1 §7 (clé) ; plan §008 et §029c.
@@ -82,3 +84,26 @@ Fable, 2026-10-19, sauf les deux points tranchés par l'humain.
   - `blocking` sous `per_tenant` : rejeu en place sans commit au-delà ;
   - refus de construction : `park_by_tenant` (029c), `per_tenant` sans `Tenant` ; catalogue : `park` absent,
     superflu, topic inconnu, service non producteur, payload différent.
+
+## Revue
+
+Trois axes en lecture seule : correction et concurrence, conformité à la spec, code en trop. Un tour.
+
+**Corrigé** (rouge lu, mutation tuée) :
+
+- une rupture de contrat, une faute de lecture ou de commit n'arrêtait pas une lane `per_tenant` tant qu'un autre
+  tenant rejouait en place : les workers sont annulés à la rupture (relevé par deux axes, prouvé par exécution) ;
+- trouvé au TDD : la fenêtre ne bornait que des lots entiers, un seul fetch pouvait en dépasser la taille ; un lot
+  est admis record par record ;
+- le test de drain prouve aussi que ce qui est fait avant le record non terminé est commité ;
+- supprimés : le compteur `running` (redondant avec `inFlight`), deux garages de la fixture de la garde, une
+  assertion contre la valeur zéro, un test fondu dans celui des traitements requis, des copies de traitement ;
+- la marque `debt: #33` posée sur `send`, où vit le report ; le commentaire `ponytail:` cite l'arbitrage 6, pas
+  la décision 4 §5.3 ; le renvoi de 008a vers 029c.
+
+**Laissé, avec sa raison** :
+
+- *La décision 4 §5.3 promet qu'« un client lent ne ralentit que sa file »* ; la fenêtre de 1 024 records non
+  commités la borne : au-delà, le pod entier attend le client lent. Une fenêtre sans borne garderait en mémoire
+  tout l'arriéré d'un client lent. Point remonté à l'humain dans la PR.
+- *La garde de `pctx.Err()` du lecteur doublonne le `select`* : elle évite un tour à vide, gain nul à la couper.
