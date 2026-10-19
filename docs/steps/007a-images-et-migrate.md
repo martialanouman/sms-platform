@@ -112,7 +112,8 @@ téléchargée à chaque scan.
 - Retenus : garde sans conteneur ni sorte fermée (bloquant), `.yml` non gardé, cas `initContainers`,
   `CGO_ENABLED=0` non gardé, mot de passe non cherché dans le journal, `seccompProfile` absent, aucun
   verrou entre deux `migrate`, `scan` sur un snapshot périmé, boucle de copie de l'arbre dupliquée, `USER`
-  redit, `GOTOOLCHAIN=auto` sans raison (retiré : c'est déjà le défaut de Go), contrôles de la garde et
+  redit, `GOTOOLCHAIN=auto` sans raison (gardé avec sa raison : setup-go pose `GOTOOLCHAIN=local` en CI, où Go
+  1.26 refuse GoReleaser, qui exige 1.27 ; le retirer a cassé la CI de la PR), contrôles de la garde et
   `pgtest.Empty` absents du design, phrase « exactement N images » du plan.
 - Écartés : un test qui relit les options du `Makefile` (`--fail-on low`) comparerait à la constante
   testée ; le comportement est prouvé par exécution (base `alpine:3.10` rouge, snapshot vide rouge).

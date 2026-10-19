@@ -2,8 +2,9 @@ SHELL := /bin/bash -o pipefail
 
 .PHONY: help lint vuln test ciguard check-generated debtguard catalog proto openapi image scan check
 
-# Hors de la directive tool (décision 9, C1) : une version ici, la seule.
-GORELEASER := go run github.com/goreleaser/goreleaser/v2@v2.18.3
+# Hors de la directive tool (décision 9, C1) : une version ici, la seule. GoReleaser exige Go 1.27 ; setup-go pose
+# GOTOOLCHAIN=local en CI.
+GORELEASER := GOTOOLCHAIN=auto go run github.com/goreleaser/goreleaser/v2@v2.18.3
 GRYPE := go run github.com/anchore/grype/cmd/grype@v0.120.1
 
 help: ## Liste les cibles
