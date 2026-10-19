@@ -3,8 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -56,9 +54,7 @@ func TestRunRefusesAnyMissingSettingBeforeConnecting(t *testing.T) {
 func TestRunGrantsPostgresThenDialsKafkaOverTLS(t *testing.T) {
 	pg := pgtest.ControlPlane(t)
 	dir := t.TempDir()
-	b := make([]byte, 24)
-	_, _ = rand.Read(b)
-	secret := base64.RawURLEncoding.EncodeToString(b)
+	secret := pgtest.Secret()
 	if err := os.WriteFile(filepath.Join(dir, "admin_api_svc"), []byte(secret), 0o600); err != nil {
 		t.Fatal(err)
 	}

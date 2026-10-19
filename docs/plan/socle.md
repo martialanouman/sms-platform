@@ -138,8 +138,9 @@ Deux PR (Fable, 2026-10-18) : 006a pour goose, l'audit et le classement ; 006b p
 GRANT, qui lisent le classement.
 
 - **goose** en bibliothèque, un répertoire par base. Seule `control_plane` naît ici ; `message_state`,
-  `dashboard` et `cdr` (avec le câblage goose de ClickHouse) arrivent avec leur premier composant ; la
-  migration qui crée une base révoque `CONNECT` de `PUBLIC` et ne l'accorde qu'à ses rôles (007b-2).
+  `dashboard` et `cdr` (avec le câblage goose de ClickHouse) arrivent avec leur premier composant ; avec
+  la deuxième base, `CONNECT` est révoqué de `PUBLIC` sur chaque base, `control_plane` comprise, et
+  accordé aux seuls rôles qui y sont déclarés (007b-2).
   up/down/up prouvé en CI par un test d'intégration, sous `migrator` ; le Job `migrate` arrive en 007.
 - **Rôles** : `migrator` propriétaire des schémas ; un rôle par service ; GRANT **générés** depuis un
   fichier de déclaration par service (décision 6). Une garde refuse un droit non déclaré.

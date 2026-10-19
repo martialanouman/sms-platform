@@ -3,6 +3,8 @@ package pgtest
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"database/sql"
 	"fmt"
 	"io"
@@ -45,6 +47,13 @@ func (db DB) As(role string) string {
 // AsWith is the connection string of the database as role, logging in with password.
 func (db DB) AsWith(role, password string) string {
 	return fmt.Sprintf("postgres://%s:%s@%s/control_plane?sslmode=disable", role, password, db.endpoint)
+}
+
+// Secret is a random service-role secret of 32 printable ASCII characters, safe in a connection string.
+func Secret() string {
+	b := make([]byte, 24)
+	_, _ = rand.Read(b)
+	return base64.RawURLEncoding.EncodeToString(b)
 }
 
 // ControlPlane starts a Postgres whose control_plane database is migrated to the latest version.

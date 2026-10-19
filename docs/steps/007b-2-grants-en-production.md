@@ -113,14 +113,18 @@ circulaire.
   `postgres-password` de chaque service déclaré et le Secret `catalog-apply`.
 - `internal/platform/pgtest` : `DB.Logs(t)` rend le journal du serveur ; `DB.AsWith(role, password)`.
 - Tests :
-  - unitaire : forme du vérificateur, refus d'un secret vide ou hors ASCII imprimable ; sa justesse a pour
+  - unitaire : forme du vérificateur, refus d'un secret de moins de 32 caractères ou hors ASCII imprimable
+    (DEL compris) ; sa justesse a pour
     oracle Postgres lui-même (une connexion avec le secret passe, une autre rend 28P01) ;
   - intégration (`internal/schema/postgres`, Postgres réel) : droits exacts et `LOGIN` du rôle déclaré,
     connexion avec son secret et refus avec un autre ; un rôle géré retiré n'a plus ni droit ni `LOGIN` ;
-    deux `Apply` simultanés derrière une barrière, sur une base sans le rôle, réussissent tous les deux ;
-    une seconde passe ne change pas les droits ; un secret absent fait échouer `Apply` sans toucher au
-    mot de passe ; sous `log_statement = 'all'`, le journal porte l'`ALTER ROLE` et pas le secret ;
-  - `migrations` : les tests de 006b passent sur le fichier régénéré ;
+    `Apply` ignore un rôle retiré et un rôle étranger, et tire un sel neuf à chaque passage ; deux `Apply`
+    simultanés derrière une barrière, sur une base sans le rôle, réussissent tous les deux ;
+    une seconde passe ne change pas les droits ; le secret absent d'un second rôle fait échouer `Apply`
+    avant qu'aucun vérificateur ne soit posé ; sous `log_statement = 'all'`, le journal porte l'`ALTER ROLE` et pas le secret ;
+  - `migrations` : les tests de 006b passent sur le fichier régénéré ; chaque rôle déclaré a `LOGIN` ; un
+    rôle retiré perd droits, `LOGIN` et mot de passe, un rôle que `migrator` n'administre pas garde les
+    siens ; le fichier appliqué sous `postgres` rend P0001 sans rien créer ;
   - `run` refuse chaque manque sans connexion ; sur un Postgres réel, il pose le secret (le rôle se connecte)
     et journalise le rôle sans secret ni URL, puis parle TLS à Kafka ; un secret absent le fait échouer ; la
     garde de livraison tombe sur une source manquante, en trop, sous une autre clé ou un autre chemin.
@@ -142,3 +146,8 @@ circulaire.
   premier passage, et le design ne l'exige pas) ; `roleSecrets` relit le manifest que `checkManifest` a
   décodé (deux lignes, un seul document) ; `ROLLBACK` avant de relâcher le verrou (arbitrage) ; aucune borne
   de temps sur le verrou (Job borné en 007d-2, plan).
+
+**Tour 2** (un axe sur les correctifs, quatre mineurs, aucun bloquant) : génération de secret de test
+recopiée (`pgtest.Secret`) ; liste des tests du design en retard ; plan §006 : `CONNECT` révoqué de `PUBLIC`
+sur chaque base dès la deuxième, sans présumer du mécanisme (goose ne crée pas de base) ;
+`.claude/rules/migrations.md` : aucune migration ne crée de rôle, `migrator` retirerait celui-là.

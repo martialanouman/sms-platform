@@ -2,8 +2,6 @@ package postgres_test
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"errors"
 	"os"
 	"path/filepath"
@@ -32,16 +30,10 @@ func connect(t *testing.T, dsn string) *pgx.Conn {
 	return conn
 }
 
-func strong() string {
-	b := make([]byte, 24)
-	_, _ = rand.Read(b)
-	return base64.RawURLEncoding.EncodeToString(b)
-}
-
 func secrets(t *testing.T) (string, string) {
 	t.Helper()
 	dir := t.TempDir()
-	secret := strong()
+	secret := pgtest.Secret()
 	if err := os.WriteFile(filepath.Join(dir, "admin_api_svc"), []byte(secret), 0o600); err != nil {
 		t.Fatal(err)
 	}
