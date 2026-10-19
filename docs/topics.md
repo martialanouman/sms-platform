@@ -23,9 +23,9 @@ Page générée depuis `contracts/topics.yaml` par `go generate` : ne pas l'édi
 | `mt.inbound.transactional` | `message_id` | none | clear_bounded | 64 | 96h | `sms.v1.MtInbound` | rest-api-svc, smpp-server-svc | message → clé primaire du journal d'état ; SMS en double possible à la frontière du routeur (ADR-0014) |
 | `mt.outcome` | `message_id` | per_key | none | 128 | 96h | `sms.v1.MtOutcome` | router-svc, connector-pool-svc, smpp-server-svc | transition → clé primaire du journal d'état |
 | `mt.reroute-park` | `message_id` | none | clear_bounded | 64 | 96h | `sms.v1.MtRouted` | connector-pool-svc | segment → clé primaire de la facturation (décision 1 §6.1) |
-| `mt.routed.marketing` | `manual` | per_partition | clear_bounded | 384 | 96h | `sms.v1.MtRouted` | router-svc, connector-pool-svc | segment → SMS en double possible à la frontière du pool (décision 3 §6.7) |
-| `mt.routed.otp` | `manual` | per_partition | clear_bounded | 384 | 96h | `sms.v1.MtRouted` | router-svc, connector-pool-svc | segment → SMS en double possible à la frontière du pool (décision 3 §6.7) |
-| `mt.routed.transactional` | `manual` | per_partition | clear_bounded | 384 | 96h | `sms.v1.MtRouted` | router-svc, connector-pool-svc | segment → SMS en double possible à la frontière du pool (décision 3 §6.7) |
+| `mt.routed.marketing` | `manual` | per_partition | clear_bounded | 384 (initial) | 96h | `sms.v1.MtRouted` | router-svc, connector-pool-svc | segment → SMS en double possible à la frontière du pool (décision 3 §6.7) |
+| `mt.routed.otp` | `manual` | per_partition | clear_bounded | 384 (initial) | 96h | `sms.v1.MtRouted` | router-svc, connector-pool-svc | segment → SMS en double possible à la frontière du pool (décision 3 §6.7) |
+| `mt.routed.transactional` | `manual` | per_partition | clear_bounded | 384 (initial) | 96h | `sms.v1.MtRouted` | router-svc, connector-pool-svc | segment → SMS en double possible à la frontière du pool (décision 3 §6.7) |
 
 ## Groupes
 
@@ -114,3 +114,149 @@ Dérivées de chaque groupe : clé et corps de la source, ordre `none`.
 | `router-svc.mt.inbound.marketing.dead-letter` | clear_bounded | 8 | 96h |
 | `router-svc.mt.inbound.otp.dead-letter` | clear_bounded | 8 | 96h |
 | `router-svc.mt.inbound.transactional.dead-letter` | clear_bounded | 8 | 96h |
+
+## ACL
+
+Dérivées des producteurs et des groupes, appliquées telles quelles par `catalog-apply` : toute autre ACL du cluster est retirée.
+
+| Principal | Ressource | Nom | Opération |
+|---|---|---|---|
+| `User:CN=billing-svc` | GROUP | `billing-svc.dlr.routed` | READ |
+| `User:CN=billing-svc` | GROUP | `billing-svc.mo.routed` | READ |
+| `User:CN=billing-svc` | GROUP | `billing-svc.mt.outcome` | READ |
+| `User:CN=billing-svc` | GROUP | `billing-svc.mt.routed.marketing` | READ |
+| `User:CN=billing-svc` | GROUP | `billing-svc.mt.routed.otp` | READ |
+| `User:CN=billing-svc` | GROUP | `billing-svc.mt.routed.transactional` | READ |
+| `User:CN=billing-svc` | TOPIC | `billing-svc.dlr.routed.dead-letter` | WRITE |
+| `User:CN=billing-svc` | TOPIC | `billing-svc.mo.routed.dead-letter` | WRITE |
+| `User:CN=billing-svc` | TOPIC | `billing-svc.mt.outcome.dead-letter` | WRITE |
+| `User:CN=billing-svc` | TOPIC | `billing-svc.mt.routed.marketing.dead-letter` | WRITE |
+| `User:CN=billing-svc` | TOPIC | `billing-svc.mt.routed.otp.dead-letter` | WRITE |
+| `User:CN=billing-svc` | TOPIC | `billing-svc.mt.routed.transactional.dead-letter` | WRITE |
+| `User:CN=billing-svc` | TOPIC | `dlr.routed` | READ |
+| `User:CN=billing-svc` | TOPIC | `mo.routed` | READ |
+| `User:CN=billing-svc` | TOPIC | `mt.outcome` | READ |
+| `User:CN=billing-svc` | TOPIC | `mt.routed.marketing` | READ |
+| `User:CN=billing-svc` | TOPIC | `mt.routed.otp` | READ |
+| `User:CN=billing-svc` | TOPIC | `mt.routed.transactional` | READ |
+| `User:CN=connector-pool-svc` | GROUP | `connector-pool-svc.mt.reroute-park` | READ |
+| `User:CN=connector-pool-svc` | GROUP | `connector-pool-svc.mt.routed.marketing` | READ |
+| `User:CN=connector-pool-svc` | GROUP | `connector-pool-svc.mt.routed.otp` | READ |
+| `User:CN=connector-pool-svc` | GROUP | `connector-pool-svc.mt.routed.transactional` | READ |
+| `User:CN=connector-pool-svc` | TOPIC | `connector-pool-svc.mt.reroute-park.dead-letter` | WRITE |
+| `User:CN=connector-pool-svc` | TOPIC | `connector-pool-svc.mt.routed.marketing.dead-letter` | WRITE |
+| `User:CN=connector-pool-svc` | TOPIC | `connector-pool-svc.mt.routed.otp.dead-letter` | WRITE |
+| `User:CN=connector-pool-svc` | TOPIC | `connector-pool-svc.mt.routed.transactional.dead-letter` | WRITE |
+| `User:CN=connector-pool-svc` | TOPIC | `connector.account-status` | WRITE |
+| `User:CN=connector-pool-svc` | TOPIC | `dlr.events` | WRITE |
+| `User:CN=connector-pool-svc` | TOPIC | `mo.inbound` | WRITE |
+| `User:CN=connector-pool-svc` | TOPIC | `mt.outcome` | WRITE |
+| `User:CN=connector-pool-svc` | TOPIC | `mt.reroute-park` | READ |
+| `User:CN=connector-pool-svc` | TOPIC | `mt.reroute-park` | WRITE |
+| `User:CN=connector-pool-svc` | TOPIC | `mt.routed.marketing` | READ |
+| `User:CN=connector-pool-svc` | TOPIC | `mt.routed.marketing` | WRITE |
+| `User:CN=connector-pool-svc` | TOPIC | `mt.routed.otp` | READ |
+| `User:CN=connector-pool-svc` | TOPIC | `mt.routed.otp` | WRITE |
+| `User:CN=connector-pool-svc` | TOPIC | `mt.routed.transactional` | READ |
+| `User:CN=connector-pool-svc` | TOPIC | `mt.routed.transactional` | WRITE |
+| `User:CN=delivery-svc` | GROUP | `delivery-svc.dlr.routed` | READ |
+| `User:CN=delivery-svc` | GROUP | `delivery-svc.mo.routed` | READ |
+| `User:CN=delivery-svc` | TOPIC | `delivery-svc.dlr.routed.dead-letter` | WRITE |
+| `User:CN=delivery-svc` | TOPIC | `delivery-svc.mo.routed.dead-letter` | WRITE |
+| `User:CN=delivery-svc` | TOPIC | `dlr.routed` | READ |
+| `User:CN=delivery-svc` | TOPIC | `mo.outcome` | WRITE |
+| `User:CN=delivery-svc` | TOPIC | `mo.routed` | READ |
+| `User:CN=message-state-svc` | GROUP | `message-state-svc.dlr.events` | READ |
+| `User:CN=message-state-svc` | GROUP | `message-state-svc.dlr.uncorrelated` | READ |
+| `User:CN=message-state-svc` | GROUP | `message-state-svc.dlr.unmatched` | READ |
+| `User:CN=message-state-svc` | GROUP | `message-state-svc.mo.inbound` | READ |
+| `User:CN=message-state-svc` | GROUP | `message-state-svc.mo.outcome` | READ |
+| `User:CN=message-state-svc` | GROUP | `message-state-svc.mo.routed` | READ |
+| `User:CN=message-state-svc` | GROUP | `message-state-svc.mt.inbound.marketing` | READ |
+| `User:CN=message-state-svc` | GROUP | `message-state-svc.mt.inbound.otp` | READ |
+| `User:CN=message-state-svc` | GROUP | `message-state-svc.mt.inbound.transactional` | READ |
+| `User:CN=message-state-svc` | GROUP | `message-state-svc.mt.outcome` | READ |
+| `User:CN=message-state-svc` | GROUP | `message-state-svc.mt.routed.marketing` | READ |
+| `User:CN=message-state-svc` | GROUP | `message-state-svc.mt.routed.otp` | READ |
+| `User:CN=message-state-svc` | GROUP | `message-state-svc.mt.routed.transactional` | READ |
+| `User:CN=message-state-svc` | GROUP | `message-state-svc.projection.message.state` | READ |
+| `User:CN=message-state-svc` | GROUP | `message-state-svc.projection.mo.inbound` | READ |
+| `User:CN=message-state-svc` | GROUP | `message-state-svc.projection.mt.inbound.marketing` | READ |
+| `User:CN=message-state-svc` | GROUP | `message-state-svc.projection.mt.inbound.otp` | READ |
+| `User:CN=message-state-svc` | GROUP | `message-state-svc.projection.mt.inbound.transactional` | READ |
+| `User:CN=message-state-svc` | TOPIC | `dlr.events` | READ |
+| `User:CN=message-state-svc` | TOPIC | `dlr.routed` | WRITE |
+| `User:CN=message-state-svc` | TOPIC | `dlr.uncorrelated` | READ |
+| `User:CN=message-state-svc` | TOPIC | `dlr.uncorrelated` | WRITE |
+| `User:CN=message-state-svc` | TOPIC | `dlr.unmatched` | READ |
+| `User:CN=message-state-svc` | TOPIC | `dlr.unmatched` | WRITE |
+| `User:CN=message-state-svc` | TOPIC | `message-state-svc.dlr.events.dead-letter` | WRITE |
+| `User:CN=message-state-svc` | TOPIC | `message-state-svc.dlr.uncorrelated.dead-letter` | WRITE |
+| `User:CN=message-state-svc` | TOPIC | `message-state-svc.dlr.unmatched.dead-letter` | WRITE |
+| `User:CN=message-state-svc` | TOPIC | `message-state-svc.mo.inbound.dead-letter` | WRITE |
+| `User:CN=message-state-svc` | TOPIC | `message-state-svc.mo.outcome.dead-letter` | WRITE |
+| `User:CN=message-state-svc` | TOPIC | `message-state-svc.mo.routed.dead-letter` | WRITE |
+| `User:CN=message-state-svc` | TOPIC | `message-state-svc.mt.inbound.marketing.dead-letter` | WRITE |
+| `User:CN=message-state-svc` | TOPIC | `message-state-svc.mt.inbound.otp.dead-letter` | WRITE |
+| `User:CN=message-state-svc` | TOPIC | `message-state-svc.mt.inbound.transactional.dead-letter` | WRITE |
+| `User:CN=message-state-svc` | TOPIC | `message-state-svc.mt.outcome.dead-letter` | WRITE |
+| `User:CN=message-state-svc` | TOPIC | `message-state-svc.mt.routed.marketing.dead-letter` | WRITE |
+| `User:CN=message-state-svc` | TOPIC | `message-state-svc.mt.routed.otp.dead-letter` | WRITE |
+| `User:CN=message-state-svc` | TOPIC | `message-state-svc.mt.routed.transactional.dead-letter` | WRITE |
+| `User:CN=message-state-svc` | TOPIC | `message-state-svc.projection.message.state.dead-letter` | WRITE |
+| `User:CN=message-state-svc` | TOPIC | `message-state-svc.projection.mo.inbound.dead-letter` | WRITE |
+| `User:CN=message-state-svc` | TOPIC | `message-state-svc.projection.mt.inbound.marketing.dead-letter` | WRITE |
+| `User:CN=message-state-svc` | TOPIC | `message-state-svc.projection.mt.inbound.otp.dead-letter` | WRITE |
+| `User:CN=message-state-svc` | TOPIC | `message-state-svc.projection.mt.inbound.transactional.dead-letter` | WRITE |
+| `User:CN=message-state-svc` | TOPIC | `message.state` | READ |
+| `User:CN=message-state-svc` | TOPIC | `message.state` | WRITE |
+| `User:CN=message-state-svc` | TOPIC | `mo.inbound` | READ |
+| `User:CN=message-state-svc` | TOPIC | `mo.outcome` | READ |
+| `User:CN=message-state-svc` | TOPIC | `mo.routed` | READ |
+| `User:CN=message-state-svc` | TOPIC | `mt.inbound.marketing` | READ |
+| `User:CN=message-state-svc` | TOPIC | `mt.inbound.otp` | READ |
+| `User:CN=message-state-svc` | TOPIC | `mt.inbound.transactional` | READ |
+| `User:CN=message-state-svc` | TOPIC | `mt.outcome` | READ |
+| `User:CN=message-state-svc` | TOPIC | `mt.routed.marketing` | READ |
+| `User:CN=message-state-svc` | TOPIC | `mt.routed.otp` | READ |
+| `User:CN=message-state-svc` | TOPIC | `mt.routed.transactional` | READ |
+| `User:CN=rest-api-svc` | TOPIC | `mt.inbound.marketing` | WRITE |
+| `User:CN=rest-api-svc` | TOPIC | `mt.inbound.otp` | WRITE |
+| `User:CN=rest-api-svc` | TOPIC | `mt.inbound.transactional` | WRITE |
+| `User:CN=router-svc` | GROUP | `router-svc.connector.account-status` | READ |
+| `User:CN=router-svc` | GROUP | `router-svc.mo.inbound` | READ |
+| `User:CN=router-svc` | GROUP | `router-svc.mt.billing-wait.marketing` | READ |
+| `User:CN=router-svc` | GROUP | `router-svc.mt.billing-wait.otp` | READ |
+| `User:CN=router-svc` | GROUP | `router-svc.mt.billing-wait.transactional` | READ |
+| `User:CN=router-svc` | GROUP | `router-svc.mt.inbound.marketing` | READ |
+| `User:CN=router-svc` | GROUP | `router-svc.mt.inbound.otp` | READ |
+| `User:CN=router-svc` | GROUP | `router-svc.mt.inbound.transactional` | READ |
+| `User:CN=router-svc` | TOPIC | `connector.account-status` | READ |
+| `User:CN=router-svc` | TOPIC | `mo.inbound` | READ |
+| `User:CN=router-svc` | TOPIC | `mo.outcome` | WRITE |
+| `User:CN=router-svc` | TOPIC | `mo.routed` | WRITE |
+| `User:CN=router-svc` | TOPIC | `mt.billing-wait.marketing` | READ |
+| `User:CN=router-svc` | TOPIC | `mt.billing-wait.marketing` | WRITE |
+| `User:CN=router-svc` | TOPIC | `mt.billing-wait.otp` | READ |
+| `User:CN=router-svc` | TOPIC | `mt.billing-wait.otp` | WRITE |
+| `User:CN=router-svc` | TOPIC | `mt.billing-wait.transactional` | READ |
+| `User:CN=router-svc` | TOPIC | `mt.billing-wait.transactional` | WRITE |
+| `User:CN=router-svc` | TOPIC | `mt.inbound.marketing` | READ |
+| `User:CN=router-svc` | TOPIC | `mt.inbound.otp` | READ |
+| `User:CN=router-svc` | TOPIC | `mt.inbound.transactional` | READ |
+| `User:CN=router-svc` | TOPIC | `mt.outcome` | WRITE |
+| `User:CN=router-svc` | TOPIC | `mt.routed.marketing` | WRITE |
+| `User:CN=router-svc` | TOPIC | `mt.routed.otp` | WRITE |
+| `User:CN=router-svc` | TOPIC | `mt.routed.transactional` | WRITE |
+| `User:CN=router-svc` | TOPIC | `router-svc.connector.account-status.dead-letter` | WRITE |
+| `User:CN=router-svc` | TOPIC | `router-svc.mo.inbound.dead-letter` | WRITE |
+| `User:CN=router-svc` | TOPIC | `router-svc.mt.billing-wait.marketing.dead-letter` | WRITE |
+| `User:CN=router-svc` | TOPIC | `router-svc.mt.billing-wait.otp.dead-letter` | WRITE |
+| `User:CN=router-svc` | TOPIC | `router-svc.mt.billing-wait.transactional.dead-letter` | WRITE |
+| `User:CN=router-svc` | TOPIC | `router-svc.mt.inbound.marketing.dead-letter` | WRITE |
+| `User:CN=router-svc` | TOPIC | `router-svc.mt.inbound.otp.dead-letter` | WRITE |
+| `User:CN=router-svc` | TOPIC | `router-svc.mt.inbound.transactional.dead-letter` | WRITE |
+| `User:CN=smpp-server-svc` | TOPIC | `mt.inbound.marketing` | WRITE |
+| `User:CN=smpp-server-svc` | TOPIC | `mt.inbound.otp` | WRITE |
+| `User:CN=smpp-server-svc` | TOPIC | `mt.inbound.transactional` | WRITE |
+| `User:CN=smpp-server-svc` | TOPIC | `mt.outcome` | WRITE |

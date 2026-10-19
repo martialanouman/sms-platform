@@ -255,3 +255,157 @@ func TestMissingPayloadsNamesEveryUnknownMessage(t *testing.T) {
 		t.Errorf("MissingPayloads with every message known = %v", errs)
 	}
 }
+
+func acl(service, resource, name, operation string) catalog.ACL {
+	return catalog.ACL{Principal: "User:CN=" + service, Resource: resource, Name: name, Pattern: "LITERAL", Operation: operation, Permission: "ALLOW", Host: "*"}
+}
+
+func TestACLsDeriveFromProducersAndGroups(t *testing.T) {
+	want := []catalog.ACL{
+		acl("connector-pool-svc", "TOPIC", "connector.account-status", "WRITE"),
+		acl("delivery-svc", "GROUP", "delivery-svc.mt.outcome", "READ"),
+		acl("delivery-svc", "TOPIC", "delivery-svc.mt.outcome.dead-letter", "WRITE"),
+		acl("delivery-svc", "TOPIC", "mt.outcome", "READ"),
+		acl("rest-api-svc", "TOPIC", "mt.inbound.marketing", "WRITE"),
+		acl("rest-api-svc", "TOPIC", "mt.inbound.otp", "WRITE"),
+		acl("router-svc", "GROUP", "router-svc.connector.account-status", "READ"),
+		acl("router-svc", "GROUP", "router-svc.mt.inbound.otp", "READ"),
+		acl("router-svc", "GROUP", "router-svc.seal.mt.inbound.otp", "READ"),
+		acl("router-svc", "TOPIC", "connector.account-status", "READ"),
+		acl("router-svc", "TOPIC", "mt.inbound.otp", "READ"),
+		acl("router-svc", "TOPIC", "mt.outcome", "WRITE"),
+		acl("router-svc", "TOPIC", "mt.routed.otp", "WRITE"),
+		acl("router-svc", "TOPIC", "router-svc.connector.account-status.dead-letter", "WRITE"),
+		acl("router-svc", "TOPIC", "router-svc.mt.inbound.otp.dead-letter", "WRITE"),
+		acl("router-svc", "TOPIC", "router-svc.seal.mt.inbound.otp.dead-letter", "WRITE"),
+	}
+	if got := parse(t).ACLs(); !reflect.DeepEqual(got, want) {
+		t.Errorf("ACLs() =\n%v\nwant\n%v", got, want)
+	}
+}
+
+func TestConfigsSetTheCleanupPolicyAndTheRetentionOfADeletedTopic(t *testing.T) {
+	c := parse(t)
+	if got, want := c.Topics["mt.outcome"].Configs(), map[string]string{"cleanup.policy": "delete", "retention.ms": "345600000"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("mt.outcome Configs() = %v, want %v", got, want)
+	}
+	if got, want := c.Topics["connector.account-status"].Configs(), map[string]string{"cleanup.policy": "compact"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("connector.account-status Configs() = %v, want %v", got, want)
+	}
+}
+
+func applied(c catalog.Catalog) catalog.State {
+	s := catalog.State{Topics: map[string]catalog.Live{}, ACLs: c.ACLs()}
+	for _, topics := range []map[string]catalog.Topic{c.Topics, c.DeadLetters()} {
+		for name, t := range topics {
+			s.Topics[name] = catalog.Live{Partitions: t.Partitions, Configs: t.Configs()}
+		}
+	}
+	return s
+}
+
+func TestPlanOfAnEmptyClusterCreatesEverything(t *testing.T) {
+	c := parse(t)
+	p, err := c.Plan(catalog.State{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := applied(c)
+	if len(p.Create) != len(want.Topics) {
+		t.Errorf("creates %d topics, want %d", len(p.Create), len(want.Topics))
+	}
+	for name, live := range want.Topics {
+		if got := p.Create[name]; got.Partitions != live.Partitions || !reflect.DeepEqual(got.Configs(), live.Configs) {
+			t.Errorf("create %s = %+v, want %+v", name, got, live)
+		}
+	}
+	if !reflect.DeepEqual(p.Add, c.ACLs()) || len(p.Remove)+len(p.Extend)+len(p.Configure) > 0 {
+		t.Errorf("plan = %+v, want every ACL added and nothing else", p)
+	}
+}
+
+func TestPlanOfAnAppliedClusterIsEmpty(t *testing.T) {
+	c := parse(t)
+	s := applied(c)
+	s.Topics["mt.outcome"].Configs["min.insync.replicas"] = "2"
+	s.Topics["mt.routed.otp"] = catalog.Live{Partitions: 448, Configs: s.Topics["mt.routed.otp"].Configs}
+	p, err := c.Plan(s)
+	if err != nil || !p.Empty() {
+		t.Errorf("Plan = %+v, %v; want an empty plan", p, err)
+	}
+}
+
+func TestEmptyIsAPlanThatWritesNothing(t *testing.T) {
+	a := []catalog.ACL{acl("router-svc", "TOPIC", "mt.outcome", "WRITE")}
+	for _, p := range []catalog.Plan{
+		{Create: map[string]catalog.Topic{"t": {}}},
+		{Extend: map[string]int{"t": 1}},
+		{Configure: map[string]map[string]string{"t": {}}},
+		{Add: a},
+		{Remove: a},
+	} {
+		if p.Empty() {
+			t.Errorf("%+v is empty", p)
+		}
+	}
+	if !(catalog.Plan{Unmanaged: []string{"legacy"}}).Empty() {
+		t.Error("a plan that only reports an unmanaged topic is not empty")
+	}
+}
+
+func TestPlanExtendsAndAlignsWhatTheCatalogDemands(t *testing.T) {
+	c := parse(t)
+	s := applied(c)
+	for _, name := range []string{"mt.routed.otp", "mt.inbound.otp", "router-svc.mt.inbound.otp.dead-letter"} {
+		s.Topics[name] = catalog.Live{Partitions: 4, Configs: s.Topics[name].Configs}
+	}
+	s.Topics["mt.outcome"] = catalog.Live{Partitions: 128, Configs: map[string]string{"cleanup.policy": "delete", "retention.ms": "1000"}}
+	s.Topics["connector.account-status"] = catalog.Live{Partitions: 8, Configs: map[string]string{"cleanup.policy": "delete", "retention.ms": "1000"}}
+	stray := acl("router-svc", "TOPIC", "mt.routed.otp", "READ")
+	s.ACLs = append(s.ACLs[1:], stray)
+	s.Topics["legacy"] = catalog.Live{Partitions: 1}
+	p, err := c.Plan(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := catalog.Plan{
+		Extend:    map[string]int{"mt.routed.otp": 384, "mt.inbound.otp": 64, "router-svc.mt.inbound.otp.dead-letter": 8},
+		Configure: map[string]map[string]string{"mt.outcome": {"retention.ms": "345600000"}, "connector.account-status": {"cleanup.policy": "compact"}},
+		Add:       c.ACLs()[:1],
+		Remove:    []catalog.ACL{stray},
+		Unmanaged: []string{"legacy"},
+	}
+	if !reflect.DeepEqual(p, want) {
+		t.Errorf("Plan =\n%+v\nwant\n%+v", p, want)
+	}
+}
+
+func TestPlanRefusesEveryPartitionCountKafkaCannotReach(t *testing.T) {
+	c := parse(t)
+	s := applied(c)
+	for name, partitions := range map[string]int{"mt.outcome": 64, "connector.account-status": 16, "mt.inbound.otp": 65, "router-svc.mt.inbound.otp.dead-letter": 9} {
+		s.Topics[name] = catalog.Live{Partitions: partitions, Configs: s.Topics[name].Configs}
+	}
+	delete(s.Topics, "mt.inbound.marketing")
+	s.Topics["mt.routed.otp"] = catalog.Live{Partitions: 4}
+	s.Topics["legacy"] = catalog.Live{Partitions: 1}
+	s.ACLs = nil
+	p, err := c.Plan(s)
+	if err == nil || !reflect.DeepEqual(p, catalog.Plan{}) {
+		t.Fatalf("Plan = %+v, %v; want a refusal and no plan", p, err)
+	}
+	for _, name := range []string{"mt.outcome", "connector.account-status", "mt.inbound.otp:", "router-svc.mt.inbound.otp.dead-letter"} {
+		if !strings.Contains(err.Error(), name) {
+			t.Errorf("refusal does not name %s: %v", name, err)
+		}
+	}
+}
+
+func TestMarkdownListsTheACLsAndTheInitialSizeOfAManualTopic(t *testing.T) {
+	page := string(parse(t).Markdown())
+	for _, s := range []string{"| 384 (initial) |", "| `User:CN=router-svc` | TOPIC | `mt.routed.otp` | WRITE |"} {
+		if !strings.Contains(page, s) {
+			t.Errorf("page lacks %q", s)
+		}
+	}
+}
