@@ -110,9 +110,10 @@ qui fait déployer ce code avec les vraies images `:v0.1.0` de 007d-2a.
   - Déploiement en échec (marqueur `v0.0.0`, quota `pods=0` dans `sms`) : `migrate` en `Failed`
     `DeadlineExceeded` à 300 s, « le Job migrate a échoué », `exit-code` ; le marqueur reste `v0.0.0` (le tick
     suivant redéploie).
-  - Quota retiré et `sync.sh` de l'arbre rendu imparsable : le tick suivant converge (« v0.1.0 déployé »,
-    marqueur `v0.1.0`), puis `bash -n` refuse la copie (`exit-code`, « syntax error ») : la copie installée reste
-    celle du commit.
+  - Quota retiré : le tick suivant converge (« v0.1.0 déployé », marqueur `v0.1.0`).
+  - `sync.sh` de l'arbre du tag rendu imparsable (marqueur `v0.0.0`, après le tour 2) : deux ticks en
+    `exit-code`, « la copie de v0.1.0 ne se lit pas » ; marqueur et Jobs intacts, copie installée inchangée ;
+    arbre rétabli, le tick suivant déploie.
   - Marqueur égal au dernier tag : `success`, rien.
 - **`deploy.sh` à la main** : `v0.1.0` rejoué en 40 s (« cluster already matches the catalog ») ; `not-a-tag`
   refusé ; `v9.9.9` : `migrate` `DeadlineExceeded` à 300 s, la séquence s'arrête, `catalog-apply` reste à
