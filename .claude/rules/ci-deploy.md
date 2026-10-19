@@ -13,6 +13,12 @@ paths:
 - **Chaque `cmd/` neuf** entre dans GoReleaser et `deploy/k8s/` dans la même PR, son pod porte
   `app.kubernetes.io/name: <cmd>` ; `go generate` régénère `deploy/k8s/networkpolicies.yaml`. Un `cmd/` qui
   pose `TLS_ALLOWED_CLIENTS`, sert `OPS_ADDR` ou lit une dépendance neuve étend `internal/netpol` dans sa PR.
+- **Déploiement de l'environnement de test** : la VM tire le dernier tag de release (`deploy/test-env/sync.sh`,
+  timer systemd) et joue `deploy/test-env/deploy.sh <tag>`. Un `cmd/` neuf y entre à sa place dans la séquence
+  (`migrate`, `catalog-apply`, puis les services ; la garde exige chaque `cmd/` une fois dans la boucle des
+  Jobs, pas l'ordre, et sera revue avec le premier service) ; chaque Job porte `activeDeadlineSeconds`.
+  `sync.sh` ne déploie qu'un tag ancêtre de `main` ; il tourne depuis sa copie, que seul `bootstrap.sh`
+  rejoué répare (`docs/steps/007d-2b-deploiement-par-tag.md`, « Reprise »).
 - **k3s (kube-router)** n'admet un pod neuf qu'après quelques secondes : sa sortie tombe d'abord sous
   `default-deny` (REJECT, « connection refused »). Un `cmd/` qui dial Postgres au démarrage passe par
   `pgdial.Retry` ; franz-go rejoue de lui-même. Un `/readyz` ne dépend jamais d'un dial unique au démarrage.

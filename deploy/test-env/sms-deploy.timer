@@ -1,0 +1,9 @@
+[Unit]
+Description=Tire le dernier tag de release de sms-platform chaque minute
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=1min
+
+[Install]
+WantedBy=timers.target
