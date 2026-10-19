@@ -298,7 +298,7 @@ func applied(c catalog.Catalog) catalog.State {
 	s := catalog.State{Topics: map[string]catalog.Live{}, ACLs: c.ACLs()}
 	for _, topics := range []map[string]catalog.Topic{c.Topics, c.DeadLetters()} {
 		for name, t := range topics {
-			s.Topics[name] = catalog.Live{Partitions: t.Partitions, Configs: t.Configs()}
+			s.Topics[name] = catalog.Live{Partitions: int(t.Partitions), Configs: t.Configs()}
 		}
 	}
 	return s
@@ -315,7 +315,7 @@ func TestPlanOfAnEmptyClusterCreatesEverything(t *testing.T) {
 		t.Errorf("creates %d topics, want %d", len(p.Create), len(want.Topics))
 	}
 	for name, live := range want.Topics {
-		if got := p.Create[name]; got.Partitions != live.Partitions || !reflect.DeepEqual(got.Configs(), live.Configs) {
+		if got := p.Create[name]; int(got.Partitions) != live.Partitions || !reflect.DeepEqual(got.Configs(), live.Configs) {
 			t.Errorf("create %s = %+v, want %+v", name, got, live)
 		}
 	}

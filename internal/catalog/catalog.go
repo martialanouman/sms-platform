@@ -33,7 +33,7 @@ type Topic struct {
 	DuplicateUnit string        `yaml:"duplicate_unit"`
 	Payload       string        `yaml:"payload"`
 	Body          string        `yaml:"body"`
-	Partitions    int           `yaml:"partitions"`
+	Partitions    int32         `yaml:"partitions"`
 	Retention     time.Duration `yaml:"retention"`
 	Compacted     bool          `yaml:"compacted"`
 	Producers     []string      `yaml:"producers"`
@@ -321,15 +321,15 @@ func (c Catalog) Plan(s State) (Plan, error) {
 			}
 			p.Create[name] = t
 			continue
-		case t.Order == "per_key" && live.Partitions != t.Partitions:
+		case t.Order == "per_key" && live.Partitions != int(t.Partitions):
 			errs = append(errs, fmt.Errorf("topic %s: %d partitions, per_key frozen at %d", name, live.Partitions, t.Partitions))
-		case live.Partitions > t.Partitions && t.Key != "manual":
+		case live.Partitions > int(t.Partitions) && t.Key != "manual":
 			errs = append(errs, fmt.Errorf("topic %s: %d partitions, the catalog says %d and Kafka cannot remove any", name, live.Partitions, t.Partitions))
-		case live.Partitions < t.Partitions:
+		case live.Partitions < int(t.Partitions):
 			if p.Extend == nil {
 				p.Extend = map[string]int{}
 			}
-			p.Extend[name] = t.Partitions
+			p.Extend[name] = int(t.Partitions)
 		}
 		for k, v := range t.Configs() {
 			if live.Configs[k] != v {
@@ -372,7 +372,7 @@ func (c Catalog) Markdown() []byte {
 	b.WriteString("## Topics\n\n| Topic | Clé | Ordre | Corps | Partitions | Rétention | Payload | Producteurs | Doublon |\n|---|---|---|---|---|---|---|---|---|\n")
 	for _, name := range sortedKeys(c.Topics) {
 		t := c.Topics[name]
-		partitions := strconv.Itoa(t.Partitions)
+		partitions := strconv.Itoa(int(t.Partitions))
 		if t.Key == "manual" {
 			partitions += " (initial)"
 		}
