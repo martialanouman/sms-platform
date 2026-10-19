@@ -44,7 +44,10 @@ Fable a tranché le 2026-10-19 (P1, P4, P5 tenues ; P2, P6, P7, P8 amendées ; P
   007d-1 crée le Secret de chaque service déclaré avant tout service (séquencement porté au plan), rien
   n'est différé.
 - **P4 — Une seule fois à la fois** : `pg_advisory_xact_lock` après le `BEGIN` du fichier généré ; ses deux
-  appelants le prennent, le `CREATE ROLE` conditionnel ne court plus.
+  appelants le prennent, le `CREATE ROLE` conditionnel ne court plus. Amendé en TDD : les `ALTER ROLE …
+  PASSWORD`, hors de la transaction du fichier, couraient encore (`tuple concurrently updated`) ; `Apply`
+  prend `pg_advisory_lock` en session autour de tout, et le verrou du fichier, devenu sans appelant
+  concurrent, est retiré.
 - **P5 — Première erreur** : le fichier s'exécute tel quel, une transaction, protocole simple ; une erreur
   l'annule entier et aucun mot de passe n'est touché.
 - **P6 — Rôle retiré** (amendée) : la marque d'un rôle géré est l'`ADMIN OPTION` de `migrator` sur lui, que
@@ -52,7 +55,8 @@ Fable a tranché le 2026-10-19 (P1, P4, P5 tenues ; P2, P6, P7, P8 amendées ; P
   commenter (vérifié sur Postgres 18). Rôles retirés = gérés moins nommés : le fichier leur révoque tables,
   schéma et base de `control_plane` et pose `NOLOGIN`. Ni `COMMENT ON ROLE`, ni motif de nom, ni rôle de
   groupe ; pas de `DROP ROLE` (réversible ; un objet possédé ailleurs ferait échouer le fichier).
-- **P7 — Câblage** (amendée) : un Job pour Kafka et Postgres (02 §2.2), Postgres après Kafka. Le fichier
+- **P7 — Câblage** (amendée) : un Job pour Kafka et Postgres (02 §2.2), l'ordre indifférent ; Postgres
+  d'abord, pour qu'un test de `run` construise le câblage Postgres réel avant que Kafka échoue faute de broker. Le fichier
   pose `LOGIN` à chaque rôle déclaré (sans mot de passe, SCRAM refuse la connexion : fenêtre sûre) ; `Go`
   liste ensuite les rôles gérés qui ont `LOGIN` et leur pose leur vérificateur depuis `<dir>/<rôle>` : une
   seule source de vérité, le fichier commité. `run` refuse tout manque (brokers, mTLS, `POSTGRES_URL`,
@@ -63,23 +67,25 @@ Fable a tranché le 2026-10-19 (P1, P4, P5 tenues ; P2, P6, P7, P8 amendées ; P
 
 Amendé ici : comme `ALTER ROLE` exige l'`ADMIN OPTION`, un rôle existant n'est adopté que si `migrator` la
 détient ; le test d'adoption de 006b, qui crée le rôle sous `postgres`, la lui accorde (`INHERIT FALSE,
-SET FALSE`, que la garde d'adoption admet) comme le ferait un superutilisateur qui lui confie un rôle.
+SET FALSE`, que la garde d'adoption admet) comme le ferait un superutilisateur qui lui confie un rôle ; son
+cas « membre d'un autre rôle » passe par `pg_read_all_data`, `GRANT migrator TO admin_api_svc` devenant
+circulaire.
 
 ## Design arrêté
 
 - `internal/schema` :
-  - `GrantsSQL` : `pg_advisory_xact_lock` après `BEGIN` ; `ALTER ROLE … LOGIN` par rôle déclaré ; un bloc
+  - `GrantsSQL` : `ALTER ROLE … LOGIN` par rôle déclaré ; un bloc
     final qui, pour chaque rôle dont `migrator` a l'`ADMIN OPTION` et que le fichier ne nomme pas, révoque
     ses droits sur les tables, le schéma et la base `control_plane` et pose `NOLOGIN` ;
   - `SCRAMVerifier(password string, salt []byte) (string, error)` : refuse un secret vide ou hors ASCII
     imprimable.
 - `migrations/grants/control_plane.sql` régénéré ; `migrations.Grants() []byte` l'embarque.
 - `internal/schema/postgres` : `Apply(ctx, *pgx.Conn, sql []byte, secrets fs.FS) error` exécute le
-  fichier, liste les rôles gérés qui ont `LOGIN`, lit chaque secret, pose le vérificateur (sel tiré par
-  `crypto/rand`) ; rend la liste des rôles traités.
+  fichier, liste les rôles gérés qui ont `LOGIN`, lit tous les secrets puis pose les vérificateurs (sel tiré
+  par `crypto/rand`), sous `pg_advisory_lock` en session ; rend la liste des rôles traités.
 - `internal/platform/config` : `POSTGRES_ROLE_SECRETS_DIR` → `Infra.PostgresRoleSecretsDir`, sans défaut.
 - `cmd/catalog-apply` : `run` refuse brokers vides, `POSTGRES_URL` vide, `POSTGRES_ROLE_SECRETS_DIR` vide,
-  mTLS absent, avant toute connexion ; Kafka puis Postgres sous `migrator` ; journalise les rôles dont le
+  mTLS absent, avant toute connexion ; Postgres sous `migrator` puis Kafka ; journalise les rôles dont le
   secret est posé, sans secret.
 - `deploy/k8s/catalog-apply.yaml` : `POSTGRES_URL` par le Secret `catalog-apply` ; volume `projected` des
   secrets de rôle. `deploy/guard_test.go` : les sources de ce volume sont exactement les déclarations de
@@ -88,12 +94,16 @@ SET FALSE`, que la garde d'adoption admet) comme le ferait un superutilisateur q
   `postgres-password` de chaque service déclaré et le Secret `catalog-apply`.
 - `internal/platform/pgtest` : `DB.Logs(t)` rend le journal du serveur.
 - Tests :
-  - unitaire : vérificateur conforme au RFC 7677 sur un vecteur connu, refus d'un secret vide ou non ASCII ;
+  - unitaire : forme du vérificateur, refus d'un secret vide ou hors ASCII imprimable ; sa justesse a pour
+    oracle Postgres lui-même (une connexion avec le secret passe, une autre rend 28P01) ;
   - intégration (`internal/schema/postgres`, Postgres réel) : droits exacts et `LOGIN` du rôle déclaré,
     connexion avec son secret et refus avec un autre ; un rôle géré retiré n'a plus ni droit ni `LOGIN` ;
     deux `Apply` simultanés derrière une barrière, sur une base sans le rôle, réussissent tous les deux ;
     une seconde passe ne change pas les droits ; un secret absent fait échouer `Apply` sans toucher au
     mot de passe ; sous `log_statement = 'all'`, le journal porte l'`ALTER ROLE` et pas le secret ;
   - `migrations` : les tests de 006b passent sur le fichier régénéré ;
-  - `run` refuse chaque manque sans connexion ; la garde de livraison tombe sur une source manquante ou en
-    trop.
+  - `run` refuse chaque manque sans connexion ; sur un Postgres réel, il pose le secret (le rôle se connecte)
+    et journalise le rôle sans secret ni URL, puis parle TLS à Kafka ; un secret absent le fait échouer ; la
+    garde de livraison tombe sur une source manquante, en trop, sous une autre clé ou un autre chemin.
+- `.golangci.yml` : G101 exclu du test de la configuration, qui donne un chemin à
+  `POSTGRES_ROLE_SECRETS_DIR`.
