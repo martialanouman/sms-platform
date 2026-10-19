@@ -4,6 +4,7 @@ metadata:
   name: catalog-apply
 spec:
   backoffLimit: 2
+  activeDeadlineSeconds: 900
   template:
     metadata:
       labels:

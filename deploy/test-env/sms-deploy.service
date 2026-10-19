@@ -1,0 +1,11 @@
+[Unit]
+Description=Déploie le dernier tag de release de sms-platform
+After=k3s.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/opt/sms-platform/deploy/test-env/sync.sh
+TimeoutStartSec=1h

@@ -55,7 +55,8 @@ type container struct {
 type workload struct {
 	Kind string `yaml:"kind"`
 	Spec struct {
-		Template struct {
+		ActiveDeadlineSeconds int `yaml:"activeDeadlineSeconds"`
+		Template              struct {
 			Metadata struct {
 				Labels map[string]string `yaml:"labels"`
 			} `yaml:"metadata"`
@@ -238,6 +239,9 @@ func checkManifest(path, name string) []error {
 			errs = append(errs, fmt.Errorf("%s: kind %q is not guarded", name, w.Kind))
 			continue
 		}
+		if w.Spec.ActiveDeadlineSeconds <= 0 {
+			errs = append(errs, fmt.Errorf("%s: no activeDeadlineSeconds, a stuck Job would hold the deployment", name))
+		}
 		if got := w.Spec.Template.Metadata.Labels["app.kubernetes.io/name"]; got != name {
 			errs = append(errs, fmt.Errorf("%s: pod label app.kubernetes.io/name %q, want %q", name, got, name))
 		}
@@ -315,6 +319,7 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 		{"Job behind a network policy", "deploy/k8s/networkpolicies.yaml", "DO NOT EDIT.\n", "DO NOT EDIT.\nkind: NetworkPolicy\n---\nkind: Job\n---\n", "networkpolicies.yaml: kind \"Job\""},
 		{"pod without its label", "deploy/k8s/migrate.yaml", "app.kubernetes.io/name: migrate", "app.kubernetes.io/part-of: migrate", "label app.kubernetes.io/name"},
 		{"pod labelled for another", "deploy/k8s/migrate.yaml", "app.kubernetes.io/name: migrate", "app.kubernetes.io/name: other", "label app.kubernetes.io/name"},
+		{"unbounded Job", "deploy/k8s/migrate.yaml", "  activeDeadlineSeconds: 300\n", "", "activeDeadlineSeconds"},
 		{"envFrom", "deploy/k8s/migrate.yaml", "          env:\n", "          envFrom:\n            - configMapRef: {name: x}\n          env:\n", "envFrom"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

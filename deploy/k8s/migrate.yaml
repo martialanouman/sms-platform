@@ -4,6 +4,7 @@ metadata:
   name: migrate
 spec:
   backoffLimit: 0
+  activeDeadlineSeconds: 300
   template:
     metadata:
       labels:
