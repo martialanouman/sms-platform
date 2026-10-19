@@ -61,7 +61,7 @@ partie rejeté) :
 - **A7 — Manifests** : YAML brut, un fichier par service ou Job, image sans tag (posé en 007d-2). La
   garde vérifie chaque conteneur : `runAsNonRoot`, `readOnlyRootFilesystem`, image
   `ghcr.io/martialanouman/sms-platform/<nom du fichier>`, aucune variable hors de celles que lit
-  `config`, et `POSTGRES_URL` par `secretKeyRef`. `config` expose la liste qu'il consomme : la garde ne
+  `config`, ni `envFrom` qui les cacherait, et `POSTGRES_URL` par `secretKeyRef`. `config` expose la liste qu'il consomme : la garde ne
   recopie pas les noms. Pas de kubeconform : le schéma est prouvé par l'application réelle en 007d-2.
 - **A8 — Hors 007a** : les gardes de go-gateway sur les `cmd/` supervisés (rappel de drain, composants
   lancés) arrivent avec le premier service supervisé : `migrate` n'en est pas un. Le TLS vers Postgres
@@ -86,8 +86,8 @@ téléchargée à chaque scan.
 - `deploy/k8s/migrate.yaml` : un Job, `restartPolicy: Never`, `backoffLimit: 0`, non-root, système de
   fichiers en lecture seule, `allowPrivilegeEscalation: false`, capacités retirées, `POSTGRES_URL` depuis
   le Secret `migrate`.
-- `deploy/guard_test.go` : la garde A6–A7, appliquée à l'arbre et à des arbres fautifs de
-  `deploy/testdata/`, un par règle.
+- `deploy/guard_test.go` : la garde A6–A7, appliquée à l'arbre, puis à une copie de l'arbre faussée
+  par règle (un remplacement dans un fichier réel).
 - Tests d'intégration de `cmd/migrate` (pgtest) : `up` applique toutes les migrations sous `migrator`, et
   une seconde fois n'applique rien ; une URL vide est refusée avant toute connexion.
 - `docs/design/09-conventions-du-socle.md` C1 : l'exception GoReleaser et grype.
