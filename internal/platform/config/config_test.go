@@ -42,33 +42,35 @@ func TestLoadAppliesTheDefaults(t *testing.T) {
 
 func TestLoadReadsEveryVariable(t *testing.T) {
 	env(t, map[string]string{
-		"LOG_LEVEL":           "debug",
-		"OPS_ADDR":            "127.0.0.1:9191",
-		"DRAIN_DELAY":         "0s",
-		"DRAIN_BUDGET":        "2m",
-		"SHUTDOWN_TIMEOUT":    "1m",
-		"TLS_CERT_FILE":       "/tls/tls.crt",
-		"TLS_KEY_FILE":        "/tls/tls.key",
-		"TLS_CA_FILE":         "/tls/ca.crt",
-		"TLS_ALLOWED_CLIENTS": "dashboard, admin-api-svc",
-		"TRACE_SAMPLE_RATIO":  "0.25",
-		"POSTGRES_URL":        "postgres://migrator@pg:5432/control_plane",
-		"KAFKA_BROKERS":       "kafka-0:9093, kafka-1:9093",
+		"LOG_LEVEL":                 "debug",
+		"OPS_ADDR":                  "127.0.0.1:9191",
+		"DRAIN_DELAY":               "0s",
+		"DRAIN_BUDGET":              "2m",
+		"SHUTDOWN_TIMEOUT":          "1m",
+		"TLS_CERT_FILE":             "/tls/tls.crt",
+		"TLS_KEY_FILE":              "/tls/tls.key",
+		"TLS_CA_FILE":               "/tls/ca.crt",
+		"TLS_ALLOWED_CLIENTS":       "dashboard, admin-api-svc",
+		"TRACE_SAMPLE_RATIO":        "0.25",
+		"POSTGRES_URL":              "postgres://migrator@pg:5432/control_plane",
+		"KAFKA_BROKERS":             "kafka-0:9093, kafka-1:9093",
+		"POSTGRES_ROLE_SECRETS_DIR": "/secrets/postgres",
 	})
 	got, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := config.Infra{
-		LogLevel:          slog.LevelDebug,
-		OpsAddr:           "127.0.0.1:9191",
-		DrainBudget:       2 * time.Minute,
-		ShutdownTimeout:   time.Minute,
-		TLS:               mtls.Files{Cert: "/tls/tls.crt", Key: "/tls/tls.key", CA: "/tls/ca.crt"},
-		TLSAllowedClients: []string{"dashboard", "admin-api-svc"},
-		TraceSampleRatio:  0.25,
-		PostgresURL:       "postgres://migrator@pg:5432/control_plane",
-		KafkaBrokers:      []string{"kafka-0:9093", "kafka-1:9093"},
+		LogLevel:               slog.LevelDebug,
+		OpsAddr:                "127.0.0.1:9191",
+		DrainBudget:            2 * time.Minute,
+		ShutdownTimeout:        time.Minute,
+		TLS:                    mtls.Files{Cert: "/tls/tls.crt", Key: "/tls/tls.key", CA: "/tls/ca.crt"},
+		TLSAllowedClients:      []string{"dashboard", "admin-api-svc"},
+		TraceSampleRatio:       0.25,
+		PostgresURL:            "postgres://migrator@pg:5432/control_plane",
+		KafkaBrokers:           []string{"kafka-0:9093", "kafka-1:9093"},
+		PostgresRoleSecretsDir: "/secrets/postgres",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Load() = %+v, want %+v", got, want)
@@ -77,7 +79,7 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 
 func TestVariablesIsTheClosedListLoadReads(t *testing.T) {
 	want := []string{
-		"DRAIN_BUDGET", "DRAIN_DELAY", "KAFKA_BROKERS", "LOG_LEVEL", "OPS_ADDR", "POSTGRES_URL", "SHUTDOWN_TIMEOUT",
+		"DRAIN_BUDGET", "DRAIN_DELAY", "KAFKA_BROKERS", "LOG_LEVEL", "OPS_ADDR", "POSTGRES_ROLE_SECRETS_DIR", "POSTGRES_URL", "SHUTDOWN_TIMEOUT",
 		"TLS_ALLOWED_CLIENTS", "TLS_CA_FILE", "TLS_CERT_FILE", "TLS_KEY_FILE", "TRACE_SAMPLE_RATIO",
 	}
 	if got := config.Variables(); !reflect.DeepEqual(got, want) {
