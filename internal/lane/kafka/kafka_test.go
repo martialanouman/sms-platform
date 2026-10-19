@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -90,6 +91,7 @@ type world struct {
 	topic   string
 	group   string
 	dl      string
+	park    string
 	service string
 }
 
@@ -99,13 +101,15 @@ func newWorld(t *testing.T, groupFields string) world {
 	w := world{topic: n + ".mt.inbound.otp", service: n + "-svc"}
 	w.group = w.service + "." + w.topic
 	w.dl = w.group + ".dead-letter"
+	w.park = n + ".mt.billing-wait.otp"
 	c, err := catalog.Parse(fmt.Appendf(nil, `
 topics:
   %[1]s: {key: message_id, order: none, duplicate_unit: m, payload: sms.v1.MtInbound, body: clear_bounded, partitions: 1, retention: 96h, producers: [%[2]s]}
+  %[5]s: {key: message_id, order: none, duplicate_unit: m, payload: sms.v1.MtInbound, body: clear_bounded, partitions: 1, retention: 96h, producers: [%[2]s]}
   other: {key: message_id, order: none, duplicate_unit: m, payload: sms.v1.MtInbound, body: none, partitions: 2, retention: 96h, producers: [someone-else]}
 groups:
   - {topic: %[1]s, service: %[2]s, tenant: none, concurrency: per_partition, dead_letter: %[3]s, start: earliest, %[4]s}
-`, w.topic, w.service, w.dl, groupFields))
+`, w.topic, w.service, w.dl, strings.ReplaceAll(groupFields, "$park", w.park), w.park))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +117,7 @@ groups:
 		t.Fatal(errs)
 	}
 	w.cat = c
-	createTopics(t, 1, w.topic, w.dl)
+	createTopics(t, 1, w.topic, w.dl, w.park)
 	return w
 }
 

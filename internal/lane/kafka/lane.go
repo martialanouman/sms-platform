@@ -28,10 +28,11 @@ var records = prometheus.NewCounterVec(prometheus.CounterOpts{
 }, []string{"group", "outcome"})
 
 var outcomeLabels = map[lane.Kind]string{
-	lane.KindOk:       "ok",
-	lane.KindRefuse:   "refused",
-	lane.KindDegraded: "degraded",
-	lane.KindPoison:   "poison",
+	lane.KindOk:        "ok",
+	lane.KindRefuse:    "refused",
+	lane.KindDegraded:  "degraded",
+	lane.KindPoison:    "poison",
+	lane.KindTransient: "parked",
 }
 
 // Register adds the metrics of the lanes to r.
@@ -138,10 +139,17 @@ func (l *Lane) handle(ctx context.Context, krs []*kgo.Record) (int, failure, err
 				return i, failure{dep: "kafka", code: code(err)}, nil
 			}
 		case lane.KindTransient:
-			if l.policy.Mode(out.Dependency()) != "blocking" {
+			switch l.policy.Mode(out.Dependency()) {
+			case "blocking":
+				return i, failure{dep: out.Dependency(), code: code(out.Err())}, nil
+			case "park_global":
+				park := &kgo.Record{Topic: l.policy.Park(out.Dependency()), Key: kr.Key, Value: kr.Value, Headers: kr.Headers}
+				if err := l.cl.ProduceSync(ctx, park).FirstErr(); err != nil {
+					return i, failure{dep: "kafka", code: code(err)}, nil
+				}
+			default:
 				return i, failure{}, l.breach(kr, out)
 			}
-			return i, failure{dep: out.Dependency(), code: code(out.Err())}, nil
 		}
 		label := outcomeLabels[out.Kind()]
 		if expired && out.Kind() == lane.KindOk {

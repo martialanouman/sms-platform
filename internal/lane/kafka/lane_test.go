@@ -417,6 +417,68 @@ func TestAGroupStartingLatestSkipsWhatPrecedesIt(t *testing.T) {
 	}
 }
 
+func TestATransientOnAParkGlobalDependencyParksTheRecordAndMovesOn(t *testing.T) {
+	w := newWorld(t, "dependencies: {kafka: {mode: blocking}, billing: {mode: park_global, park: $park}}")
+	origin := time.Now().UTC().Truncate(time.Microsecond)
+	send(t, w.topic, rec("a", origin), rec("wait", origin), rec("c", origin))
+	s := newSeen()
+	r := start(t, w, kafka.Handlers{
+		Handle: func(_ context.Context, rc lane.Record) lane.Outcome {
+			s.add(&s.handled, string(rc.Value))
+			if string(rc.Value) == "wait" {
+				return lane.Transient("billing", errors.New("no envelope"))
+			}
+			return lane.Ok()
+		},
+		Expired: func(context.Context, lane.Record) lane.Outcome { return lane.Ok() },
+	})
+	s.wait(t, 3)
+	parked := readAll(t, w.park, 1)
+	if err := r.stop(t); err != nil {
+		t.Fatal(err)
+	}
+	if handled, _ := s.snapshot(); strings.Join(handled, ",") != "a,wait,c" {
+		t.Errorf("handled %v, want a, wait, c", handled)
+	}
+	if got := committed(t, w); got != 3 {
+		t.Errorf("committed offset %d, want 3", got)
+	}
+	var raw []lane.Header
+	for _, x := range parked[0].Headers {
+		raw = append(raw, lane.Header{Key: x.Key, Value: x.Value})
+	}
+	h, err := lane.ParseHeaders(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(parked[0].Value) != "wait" || string(parked[0].Key) != "k" || !h.OriginTS.Equal(origin) || h.TraceID != "tr" || h.ReplayCount != 3 {
+		t.Errorf("parked %q under %q with %+v, want the source record", parked[0].Value, parked[0].Key, h)
+	}
+}
+
+func TestARecordIsNeverCommittedBeforeItIsParked(t *testing.T) {
+	w := newWorld(t, "dependencies: {kafka: {mode: blocking}, billing: {mode: park_global, park: $park}}")
+	if _, err := kadm.NewClient(client(t)).DeleteTopics(context.Background(), w.park); err != nil {
+		t.Fatal(err)
+	}
+	send(t, w.topic, rec("wait", time.Now().UTC()))
+	s := newSeen()
+	r := start(t, w, kafka.Handlers{
+		Handle: func(_ context.Context, rc lane.Record) lane.Outcome {
+			s.add(&s.handled, string(rc.Value))
+			return lane.Transient("billing", errors.New("no envelope"))
+		},
+		Expired: func(context.Context, lane.Record) lane.Outcome { return lane.Ok() },
+	})
+	s.wait(t, 2)
+	if got := committed(t, w); got != -1 {
+		t.Fatalf("committed offset %d before the record is parked, want none", got)
+	}
+	if !strings.Contains(r.log.String(), `"dependency":"kafka"`) {
+		t.Errorf("the failed park is not replayed as a kafka failure: %s", r.log)
+	}
+}
+
 func TestAPoisonIsNeverCommittedBeforeItsDeadLetterIsWritten(t *testing.T) {
 	w := newWorld(t, "dependencies: {kafka: {mode: blocking}}")
 	adm := kadm.NewClient(client(t))
@@ -455,10 +517,10 @@ func TestEveryOutcomeIsCountedUnderItsGroup(t *testing.T) {
 	if err := kafka.Register(reg); err != nil {
 		t.Fatal(err)
 	}
-	w := newWorld(t, "dependencies: {kafka: {mode: blocking}, cancel: {mode: fail_open, justification: j}}, max_age: category")
+	w := newWorld(t, "dependencies: {kafka: {mode: blocking}, cancel: {mode: fail_open, justification: j}, billing: {mode: park_global, park: $park}}, max_age: category")
 	now := time.Now().UTC()
 	send(t, w.topic, rec("ok", now), rec("refused", now), rec("degraded", now), rec("poison", now), rec("old", now.Add(-time.Hour)),
-		rec("rotten", now.Add(-time.Hour)))
+		rec("rotten", now.Add(-time.Hour)), rec("wait", now))
 	s := newSeen()
 	r := start(t, w, kafka.Handlers{
 		Handle: func(_ context.Context, rc lane.Record) lane.Outcome {
@@ -470,6 +532,8 @@ func TestEveryOutcomeIsCountedUnderItsGroup(t *testing.T) {
 				return lane.Degraded("cancel")
 			case "poison":
 				return lane.Poison("unreadable_payload")
+			case "wait":
+				return lane.Transient("billing", errors.New("no envelope"))
 			}
 			return lane.Ok()
 		},
@@ -481,8 +545,9 @@ func TestEveryOutcomeIsCountedUnderItsGroup(t *testing.T) {
 			return lane.Ok()
 		},
 	})
-	s.wait(t, 6)
+	s.wait(t, 7)
 	readAll(t, w.dl, 2)
+	readAll(t, w.park, 1)
 	if err := r.stop(t); err != nil {
 		t.Fatal(err)
 	}
@@ -502,7 +567,7 @@ func TestEveryOutcomeIsCountedUnderItsGroup(t *testing.T) {
 			}
 		}
 	}
-	want := map[string]float64{"ok": 1, "refused": 1, "degraded": 1, "poison": 2, "expired": 1}
+	want := map[string]float64{"ok": 1, "refused": 1, "degraded": 1, "poison": 2, "expired": 1, "parked": 1}
 	if !maps.Equal(got, want) {
 		t.Errorf("lane_records_total = %v, want %v", got, want)
 	}
