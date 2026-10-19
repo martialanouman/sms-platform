@@ -3,6 +3,7 @@ package migrations_test
 import (
 	"context"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -132,6 +133,33 @@ func TestAnAttributedWriteNotifiesItsKeyAtCommit(t *testing.T) {
 	}
 	if n.Payload != `probe:{"id": 7}` {
 		t.Fatalf("payload = %q", n.Payload)
+	}
+}
+
+func TestAKeyChangeNotifiesTheOldKeyAndTheNewOne(t *testing.T) {
+	pg, writer := probe(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	write := func(statement string) {
+		exec(t, writer, `BEGIN`, `SET LOCAL app.actor = 'sub-1'`, statement, `COMMIT`)
+	}
+	write(`INSERT INTO control_plane.probe (id) VALUES (7)`)
+	listener := connect(t, pg.As("migrator"))
+	exec(t, listener, `LISTEN config`)
+	write(`UPDATE control_plane.probe SET id = 8 WHERE id = 7`)
+	write(`UPDATE control_plane.probe SET name = 'n' WHERE id = 8`)
+	var got []string
+	for range 3 {
+		n, err := listener.WaitForNotification(ctx)
+		if err != nil {
+			t.Fatalf("after %v: %v", got, err)
+		}
+		got = append(got, n.Payload)
+	}
+	slices.Sort(got[:2])
+	want := []string{`probe:{"id": 7}`, `probe:{"id": 8}`, `probe:{"id": 8}`}
+	if !slices.Equal(got, want) {
+		t.Fatalf("payloads = %q, want %q", got, want)
 	}
 }
 
