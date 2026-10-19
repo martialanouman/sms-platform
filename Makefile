@@ -1,11 +1,14 @@
 SHELL := /bin/bash -o pipefail
 
-.PHONY: help lint vuln test ciguard check-generated debtguard catalog proto openapi image scan check
+.PHONY: help lint vuln test ciguard check-generated debtguard catalog proto openapi alerts image scan check
 
 # Hors de la directive tool (décision 9, C1) : une version ici, la seule. GoReleaser exige Go 1.27 ; setup-go pose
 # GOTOOLCHAIN=local en CI.
 GORELEASER := GOTOOLCHAIN=auto go run github.com/goreleaser/goreleaser/v2@v2.18.3
 GRYPE := go run github.com/anchore/grype/cmd/grype@v0.120.1
+# Le module de Prometheus porte des replace, que go run refuse : son image officielle, épinglée par digest.
+PROMTOOL := docker run --rm -v $(CURDIR)/deploy/alerts:/alerts:ro -w /alerts --entrypoint promtool \
+	prom/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
 
 help: ## Liste les cibles
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "%-16s %s\n", $$1, $$2}'
@@ -58,6 +61,10 @@ openapi: ## Gardes des contrats, oasdiff validate, puis oasdiff breaking contre 
 		go tool oasdiff breaking $$fail "$$base:$$f" $$f || exit 1; \
 	done
 
+alerts: ## promtool : chaque fichier de règles se charge, chaque test de règles passe
+	$(PROMTOOL) check rules $(notdir $(filter-out %_test.yaml,$(wildcard deploy/alerts/*.yaml)))
+	$(PROMTOOL) test rules $(notdir $(wildcard deploy/alerts/*_test.yaml))
+
 image: ## Images de chaque cmd/, en snapshot, sans push
 	$(GORELEASER) release --snapshot --clean
 
@@ -66,4 +73,4 @@ scan: image ## grype sur chaque image du snapshot : une vulnérabilité connue �
 	[ -n "$$images" ] || { echo "aucune image à scanner"; exit 1; }; \
 	for i in $$images; do $(GRYPE) --fail-on low "docker:$$i" || exit 1; done
 
-check: lint vuln ciguard check-generated debtguard catalog proto openapi scan ## Ce que vérifie la CI
+check: lint vuln ciguard check-generated debtguard catalog proto openapi alerts scan ## Ce que vérifie la CI

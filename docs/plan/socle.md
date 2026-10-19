@@ -167,7 +167,8 @@ test tiré par la VM.
   première erreur ; il pose `LOGIN` et le secret de chaque rôle de service, et retire les droits d'un rôle
   sorti des déclarations, que le fichier généré ne nomme plus.
 - **007c** : NetworkPolicy **générées** dans `deploy/k8s/` depuis les déclarations, sous
-  `check-generated` ; **`deploy/alerts/`** : règles Prometheus, `promtool test rules` en CI. Seules
+  `check-generated` ; **un flux entre avec le workload qui le déclare** (allowlists et port ops avec le
+  premier service) ; **`deploy/alerts/`** : règles Prometheus, `promtool test rules` en CI. Seules
   entrent les règles dont la métrique source existe ; **une règle entre avec le composant qui émet sa
   métrique**, le tableau de la spec 10 §10.1 sert de liste de contrôle.
 - **007d-1** : les briques de l'environnement de test (opérateur Postgres, Strimzi, cert-manager),

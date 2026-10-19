@@ -14,7 +14,7 @@ dettes aux règles opposées, 35 numéros de steps en collision, deux `go.mod`, 
 
 | # | Sujet | Règle |
 |---|---|---|
-| C1 | Module Go | **Un seul `go.mod`.** Les types sont générés une fois et partagés (décision 5). `contract_copy_test.go` est supprimé : il n'y a plus de copie. Les outils passent par la directive `tool`, sauf GoReleaser et grype, lancés par `go run <module>@vX.Y.Z` à version figée dans le `Makefile` : la directive tirerait dans `go.mod` les SDK des registres et des magasins qu'ils savent publier ou lire (amendé en 007a) |
+| C1 | Module Go | **Un seul `go.mod`.** Les types sont générés une fois et partagés (décision 5). `contract_copy_test.go` est supprimé : il n'y a plus de copie. Les outils passent par la directive `tool`, sauf GoReleaser et grype, lancés par `go run <module>@vX.Y.Z` à version figée dans le `Makefile` : la directive tirerait dans `go.mod` les SDK des registres et des magasins qu'ils savent publier ou lire (amendé en 007a) ; promtool, dont le module porte des `replace` qui interdisent `go run`, par son image officielle épinglée par digest (amendé en 007c) |
 | C2 | Version et release | **Une version pour tout le dépôt** ; toutes les images partent ensemble (13 avec le dashboard). Déploiement par SHA. Ni tags préfixés, ni filtres `paths:` |
 | C3 | CI | **Un seul workflow** qui lance tout : agrégateur, actions épinglées par SHA, `ciguard` (un test sauté échoue), `check-generated` partout (sqlc, buf, oapi-codegen, catalogue de topics, scopes, ACL, GRANT). Des filtres `paths:` viendront sur une durée de CI mesurée |
 | C4 | Invariants | **Numérotation unique `I1…In`**, citée par le code ; chacun a un test bloquant. La liste reprend les invariants de la passerelle et du dashboard, plus ceux des décisions 1 à 8 |

@@ -5,6 +5,9 @@ metadata:
 spec:
   backoffLimit: 0
   template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: catalog-apply
     spec:
       restartPolicy: Never
       automountServiceAccountToken: false
@@ -21,7 +24,7 @@ spec:
               type: RuntimeDefault
           env:
             - name: KAFKA_BROKERS
-              value: kafka-kafka-bootstrap:9093
+              value: kafka-kafka-bootstrap.kafka.svc:9093
             - name: TLS_CERT_FILE
               value: /tls/tls.crt
             - name: TLS_KEY_FILE

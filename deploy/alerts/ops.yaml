@@ -1,0 +1,8 @@
+groups:
+  - name: ops
+    rules:
+      - alert: MetricsGatheredPartially
+        expr: increase(ops_metrics_gather_errors_total[10m]) > 0
+        annotations:
+          summary: Un service sert /metrics partiellement
+          description: Une collecte de /metrics a échoué ; les séries du collecteur en faute manquent au scrape.
