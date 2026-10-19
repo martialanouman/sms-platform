@@ -54,3 +54,15 @@ func TestRole(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestGrantsSQLIsStable(t *testing.T) {
+	g := []schema.Grants{{Service: "svc", Tables: map[string][]schema.Privilege{
+		"a": {schema.Select}, "b": {schema.Select}, "c": {schema.Select}, "d": {schema.Select},
+	}}}
+	first := string(schema.GrantsSQL(g))
+	for range 20 {
+		if got := string(schema.GrantsSQL(g)); got != first {
+			t.Fatalf("two renderings differ:\n%s\n%s", first, got)
+		}
+	}
+}
