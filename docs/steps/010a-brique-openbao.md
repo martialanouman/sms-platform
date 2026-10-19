@@ -42,9 +42,13 @@ Fable, 2026-10-19, sauf le point 3 tranché par l'humain.
    n'en demande pas).
 8. **Init et configuration à la main** : `bao operator init`, parts Shamir et jeton racine hors dépôt ;
    descellement manuel (10 §10.4). `deploy/bricks/openbao.sh`, idempotent, joué par l'humain : le jeton
-   racine et le mot de passe d'`openbao` passent par l'entrée standard, jamais par un argument ; le jeton
-   est révoqué en fin de script. `deploy.sh` attend le pod `Running`, pas le descellement : un timer
-   bloqué sur un OpenBao scellé retiendrait toutes les releases.
+   racine et le mot de passe d'`openbao` passent par l'entrée standard, jamais par un argument.
+   `deploy.sh` attend le pod `Running`, pas le descellement : un timer bloqué sur un OpenBao scellé
+   retiendrait toutes les releases. Amendé sur le VPS (humain, 2026-10-20) : le script ne révoque plus le
+   jeton, l'humain le révoque son travail fini. Depuis OpenBao 2.5.3, `generate-root` exige un jeton
+   (`disable_unauthed_generate_root_endpoints`, vrai par défaut) : révoquer le dernier fermait OpenBao à
+   toute administration. Secours d'un jeton perdu : rouvrir l'endpoint sur le listener, redémarrer,
+   desceller, `generate-root`, refermer.
 9. **Alerte** `OpenBaoSealed` : `vault_core_unsealed == 0`, et `absent` pour un OpenBao arrêté ou
    injoignable. Elle entre avec la brique qui émet la métrique. Amendé sur le VPS : scellé, OpenBao sert
    ses métriques (200, `vault_core_unsealed{cluster=""} 0`) ; Fable le supposait muet.
@@ -67,7 +71,7 @@ Fable, 2026-10-19, sauf le point 3 tranché par l'humain.
   (`update` sur `transit/encrypt/config-secrets` et `transit/decrypt/config-secrets`) ; auth `kubernetes` et
   son rôle ; moteur `database`, connexion `control_plane` sous `openbao` en `verify-full`, rôle
   `breakglass` (`CREATE ROLE "{{name}}" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}' IN
-  ROLE breakglass`, 1 h) ; `CREATE ROLE breakglass NOLOGIN` sous `SET ROLE openbao` ; révocation du jeton.
+  ROLE breakglass`, 1 h) ; `CREATE ROLE breakglass NOLOGIN` sous `SET ROLE openbao`.
 - **`deploy/test-env/deploy.sh`** : `openbao.yaml` après les certificats ; attente du Job
   `helm-install-openbao` et du pod `openbao-0` `Running`.
 - **`deploy/alerts/openbao.yaml`** et `openbao_test.yaml` : part sur 0, part sur absence, muette sur 1.

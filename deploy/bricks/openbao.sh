@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Joué à la main, après `bao operator init` et le descellement. Le jeton racine se lit au terminal ; lui et le mot de
-# passe d'openbao n'atteignent le pod que par l'entrée standard. Le jeton est révoqué en fin de passage.
+# passe d'openbao n'atteignent le pod que par l'entrée standard. Le jeton n'est pas révoqué ici : depuis OpenBao 2.5.3,
+# generate-root exige un jeton, et révoquer le dernier ferme OpenBao à toute administration.
 set -euo pipefail
 
 password=$(kubectl -n postgres get secret openbao -o 'jsonpath={.data.password}' | base64 -d)
@@ -44,8 +45,6 @@ printf "%s" "$pg" | bao write database/config/control_plane plugin_name=postgres
   username=openbao password=- allowed_roles=breakglass
 bao write database/roles/breakglass db_name=control_plane default_ttl=1h max_ttl=1h \
   creation_statements="CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '"'"'{{password}}'"'"' VALID UNTIL '"'"'{{expiration}}'"'"' IN ROLE breakglass;"
-
-bao token revoke -self
 ' <<<"$token
 $password"
-echo "openbao.sh: OpenBao configuré, jeton révoqué" >&2
+echo "openbao.sh: OpenBao configuré ; révoquer le jeton racine (bao token revoke -self) une fois le travail fini" >&2
