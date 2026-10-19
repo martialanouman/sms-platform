@@ -53,6 +53,7 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 		"TLS_ALLOWED_CLIENTS": "dashboard, admin-api-svc",
 		"TRACE_SAMPLE_RATIO":  "0.25",
 		"POSTGRES_URL":        "postgres://migrator@pg:5432/control_plane",
+		"KAFKA_BROKERS":       "kafka-0:9093, kafka-1:9093",
 	})
 	got, err := config.Load()
 	if err != nil {
@@ -67,6 +68,7 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 		TLSAllowedClients: []string{"dashboard", "admin-api-svc"},
 		TraceSampleRatio:  0.25,
 		PostgresURL:       "postgres://migrator@pg:5432/control_plane",
+		KafkaBrokers:      []string{"kafka-0:9093", "kafka-1:9093"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Load() = %+v, want %+v", got, want)
@@ -75,7 +77,7 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 
 func TestVariablesIsTheClosedListLoadReads(t *testing.T) {
 	want := []string{
-		"DRAIN_BUDGET", "DRAIN_DELAY", "LOG_LEVEL", "OPS_ADDR", "POSTGRES_URL", "SHUTDOWN_TIMEOUT",
+		"DRAIN_BUDGET", "DRAIN_DELAY", "KAFKA_BROKERS", "LOG_LEVEL", "OPS_ADDR", "POSTGRES_URL", "SHUTDOWN_TIMEOUT",
 		"TLS_ALLOWED_CLIENTS", "TLS_CA_FILE", "TLS_CERT_FILE", "TLS_KEY_FILE", "TRACE_SAMPLE_RATIO",
 	}
 	if got := config.Variables(); !reflect.DeepEqual(got, want) {
