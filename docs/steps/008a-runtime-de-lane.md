@@ -64,7 +64,7 @@ Fable, 2026-10-19 ; aucun désaccord laissé à l'humain.
 - **`contracts/proto/sms/v1/deadletter.proto`** : `DeadLetter { bytes payload; repeated Header headers; string
   reason; google.protobuf.Timestamp at; string topic; int32 partition; int64 offset }`, `Header { string key; bytes
   value }`. `internal/catalog` : `DeadLetters()` pose `Payload: "sms.v1.DeadLetter"` ; `MissingPayloads` les couvre ;
-  `docs/topics.md` régénérée ; spec 09 §9.1 nomme le payload.
+  spec 09 §9.1 nomme le payload (`docs/topics.md` ne montre pas les payloads, elle ne change pas).
 - **`internal/lane`** (cœur, sans I/O) :
   - `Outcome` et ses constructeurs `Ok()`, `Refuse(code errors.Code)`, `Transient(dep string, err error)`,
     `Poison(reason string)`, `Degraded(dep string)` (`fail_open` : fait, sans la dépendance, compté).
@@ -90,7 +90,7 @@ Fable, 2026-10-19 ; aucun désaccord laissé à l'humain.
   - `Register(prometheus.Registerer)` : `lane_records_total{group,outcome}`, compté quand un record est fait ; le
     service l'enregistre sous `metrics.Guard`.
 - **Gardes** : `internal/lane/kafka/guard_test.go` (1 et 2, AST sur `cmd/` et `internal/`, appels `NewLane` et
-  `NewProducer` à arguments littéraux ou familles `catalog.Category(…)`) ; garde 6 dans `deploy/guard_test.go`.
+  `NewProducer` à arguments littéraux ou familles `"préfixe." + catégorie`, résolues en trois noms) ; garde 6 dans `deploy/guard_test.go`.
 - **Alerte** : `deploy/alerts/lanes.yaml`, `LaneDeadLetterReceiving` sur
   `sum by (group) (increase(lane_records_total{outcome="poison"}[5m])) > 0`, et son test promtool.
 - **Plan** : §008 coupée en 008a et 008b, `internal/lane` ; §022 nomme `broadcast`, §023a `manual` et `fail_open`.
@@ -99,3 +99,34 @@ Fable, 2026-10-19 ; aucun désaccord laissé à l'humain.
   jamais traité ; une dépendance `blocking` en échec rejoue en place sans commit ; un drain commite ce qui est fait ;
   aucun corps dans le journal, la raison ni l'erreur (I1) ; chaque refus de construction et chaque rupture de
   contrat.
+
+## Revue
+
+Trois axes en lecture seule : correction et concurrence, conformité à la spec, code en trop. Un tour.
+
+**Corrigé** (rouge lu, mutation tuée) :
+
+- un `Poison` rendu par `Expired` était compté `expired` et laissait muette `LaneDeadLetterReceiving` ;
+- une rupture de contrat jetait le préfixe fait, dead-letters comprises, qui se seraient réécrites à chaque
+  redémarrage : le préfixe est commité, puis la lane s'arrête ;
+- `NewLane` exige `Handle` et `Expired` (un record trop vieux paniquait sans `Expired`) ;
+- l'attente entre deux essais sans progrès est prouvée dans `Run`, plus seulement par `replayDelay` ;
+- supprimés : `Policy.Service`, `Outcome.Code` (`Refuse` est compté `refused`, son code est publié par le traitement),
+  `RequiredAcks(AllISRAcks)` (défaut de franz-go), le filtre d'annulation de `next` (l'annulation sort avant), des
+  commentaires qui redisaient le code ;
+- la description de l'alerte (un poison n'est pas seulement illisible), deux phrases fausses du design.
+
+**Laissé, avec sa raison** :
+
+- *Un ancien propriétaire qui rejoue en place commite après un rebalance et fait reculer l'offset du nouveau* : c'est
+  la dette #69, reportée (sa marque suit le rejeu porté).
+- *Garde 1 contournable* : un `NewLane` compte pour le service qui possède le groupe, où qu'il soit appelé. Un autre
+  service ne peut pas rejoindre ce groupe : les ACL générées (garde 7) ne l'accordent qu'à son service.
+- *`Poison` prend une chaîne libre* : la typer en `errors.Code` forcerait le catalogue d'erreurs et les `enum` des
+  contrats pour des raisons internes au runtime ; la règle I1 et le test du marqueur la gardent.
+- *`ErrDataLoss` de franz-go arrête la lane* : le redémarrage repart de l'offset de reprise ; rien ne se perd.
+
+**À trancher par l'humain** : la garde 3 de la spec 09 §9.1 dit « le runtime ne fournit son client qu'à travers
+[la déclaration] ». 008a ne fournit aucun client : le traitement tient les siens, et seule une issue (`Transient`,
+`Degraded`) sur une dépendance non déclarée ou d'un autre mode arrête la lane. Une dépendance appelée sans être
+déclarée, puis rendue `Ok`, passe.

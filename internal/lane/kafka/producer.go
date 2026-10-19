@@ -27,7 +27,7 @@ func NewProducer(c catalog.Catalog, service string, topics []string, opts ...kgo
 			return nil, fmt.Errorf("lane: %s is not a producer of %s", service, t)
 		}
 	}
-	cl, err := kgo.NewClient(append(opts, kgo.RequiredAcks(kgo.AllISRAcks()))...)
+	cl, err := kgo.NewClient(opts...)
 	if err != nil {
 		return nil, fmt.Errorf("lane: producer: %w", err)
 	}

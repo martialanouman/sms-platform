@@ -18,7 +18,7 @@ tests:
               group: router-svc.mt.inbound.otp
             exp_annotations:
               summary: Une lane envoie des records en dead-letter
-              description: "Le groupe router-svc.mt.inbound.otp a écarté des records illisibles ; ils attendent un rejeu dans sa dead-letter."
+              description: "Le groupe router-svc.mt.inbound.otp a écarté des records qu'il ne peut pas traiter ; ils attendent un rejeu dans sa dead-letter."
       - eval_time: 10m
         alertname: LaneDeadLetterReceiving
         exp_alerts: []

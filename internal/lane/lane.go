@@ -29,7 +29,6 @@ const (
 // Outcome is the verdict of a handler on one record.
 type Outcome struct {
 	kind   Kind
-	code   perrors.Code
 	dep    string
 	reason string
 	err    error
@@ -39,7 +38,7 @@ type Outcome struct {
 func Ok() Outcome { return Outcome{kind: KindOk} }
 
 // Refuse is a definitive business refusal the handler has already published.
-func Refuse(code perrors.Code) Outcome { return Outcome{kind: KindRefuse, code: code} }
+func Refuse(_ perrors.Code) Outcome { return Outcome{kind: KindRefuse} }
 
 // Transient is a failure of dep; the runtime applies the mode the catalog declares for it.
 func Transient(dep string, err error) Outcome {
@@ -54,9 +53,6 @@ func Degraded(dep string) Outcome { return Outcome{kind: KindDegraded, dep: dep}
 
 // Kind returns what the record became.
 func (o Outcome) Kind() Kind { return o.kind }
-
-// Code returns the code of a refusal.
-func (o Outcome) Code() perrors.Code { return o.code }
 
 // Dependency returns the dependency of a transient or degraded outcome.
 func (o Outcome) Dependency() string { return o.dep }
@@ -209,9 +205,6 @@ func (p Policy) Topic() string { return p.group.Topic }
 
 // DeadLetter returns the dead-letter topic of the group.
 func (p Policy) DeadLetter() string { return p.group.DeadLetter }
-
-// Service returns the service the group belongs to.
-func (p Policy) Service() string { return p.group.Service }
 
 // StartsFromEnd reports whether a group with no committed offset begins at the end of its topic.
 func (p Policy) StartsFromEnd() bool { return p.group.Start == "latest" }

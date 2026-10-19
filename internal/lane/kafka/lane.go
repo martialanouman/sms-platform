@@ -39,7 +39,6 @@ func Register(r prometheus.Registerer) error { return r.Register(records) }
 
 // Handlers is the business side of a lane.
 type Handlers struct {
-	// Handle handles one record.
 	Handle func(context.Context, lane.Record) lane.Outcome
 	// Expired handles a record older than its max_age, which is never handled.
 	Expired func(context.Context, lane.Record) lane.Outcome
@@ -59,6 +58,9 @@ type Lane struct {
 
 // NewLane joins group, refusing a group the runtime cannot serve; opts carry the brokers and the transport.
 func NewLane(c catalog.Catalog, group string, h Handlers, log *slog.Logger, opts ...kgo.Opt) (*Lane, error) {
+	if h.Handle == nil || h.Expired == nil {
+		return nil, fmt.Errorf("lane: group %s: Handle and Expired are required", group)
+	}
 	p, err := lane.NewPolicy(c, group, h.Category)
 	if err != nil {
 		return nil, err
@@ -72,7 +74,6 @@ func NewLane(c catalog.Catalog, group string, h Handlers, log *slog.Logger, opts
 		kgo.ConsumeTopics(p.Topic()),
 		kgo.DisableAutoCommit(),
 		kgo.ConsumeResetOffset(reset),
-		kgo.RequiredAcks(kgo.AllISRAcks()),
 	)...)
 	if err != nil {
 		return nil, fmt.Errorf("lane: group %s: %w", group, err)
@@ -92,10 +93,7 @@ func (l *Lane) Run(ctx context.Context) error {
 			return err
 		}
 		for attempt := 0; len(krs) > 0; {
-			done, failed, err := l.handle(ctx, krs)
-			if err != nil {
-				return err
-			}
+			done, failed, breach := l.handle(ctx, krs)
 			if done > 0 {
 				if err := l.commit(ctx, krs[:done]...); err != nil {
 					if ctx.Err() != nil {
@@ -103,6 +101,9 @@ func (l *Lane) Run(ctx context.Context) error {
 					}
 					return fmt.Errorf("lane: commit in group %s: %w", l.policy.Name(), err)
 				}
+			}
+			if breach != nil {
+				return breach
 			}
 			krs = krs[done:]
 			if failed.dep == "" {
@@ -118,13 +119,11 @@ func (l *Lane) Run(ctx context.Context) error {
 	return nil
 }
 
-// failure is the dependency that stopped a batch, and the code of its error.
 type failure struct {
 	dep  string
 	code perrors.Code
 }
 
-// handle handles krs in order and returns how many are done, and the failure that stopped the batch, if any.
 func (l *Lane) handle(ctx context.Context, krs []*kgo.Record) (int, failure, error) {
 	for i, kr := range krs {
 		out, expired := l.outcome(ctx, kr)
@@ -132,7 +131,7 @@ func (l *Lane) handle(ctx context.Context, krs []*kgo.Record) (int, failure, err
 		case lane.KindOk, lane.KindRefuse:
 		case lane.KindDegraded:
 			if l.policy.Mode(out.Dependency()) != "fail_open" {
-				return 0, failure{}, l.breach(kr, out)
+				return i, failure{}, l.breach(kr, out)
 			}
 		case lane.KindPoison:
 			if err := l.deadLetter(ctx, kr, out.Reason()); err != nil {
@@ -140,12 +139,12 @@ func (l *Lane) handle(ctx context.Context, krs []*kgo.Record) (int, failure, err
 			}
 		case lane.KindTransient:
 			if l.policy.Mode(out.Dependency()) != "blocking" {
-				return 0, failure{}, l.breach(kr, out)
+				return i, failure{}, l.breach(kr, out)
 			}
 			return i, failure{dep: out.Dependency(), code: code(out.Err())}, nil
 		}
 		label := outcomeLabels[out.Kind()]
-		if expired {
+		if expired && out.Kind() == lane.KindOk {
 			label = "expired"
 		}
 		records.WithLabelValues(l.policy.Name(), label).Inc()
@@ -211,7 +210,7 @@ func (l *Lane) next(ctx context.Context) ([]*kgo.Record, error) {
 	}
 	var ferr error
 	fetches.EachError(func(_ string, _ int32, err error) {
-		if ferr == nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+		if ferr == nil {
 			ferr = err
 		}
 	})
@@ -264,7 +263,6 @@ func nextAttempt(attempt int, progressed bool) int {
 	return attempt + 1
 }
 
-// replayDelay doubles from one second to a 30-second ceiling, with ±20 % jitter.
 func replayDelay(attempt int) time.Duration {
 	d := min(time.Second<<min(attempt, 5), 30*time.Second)
 	return time.Duration(float64(d) * (0.8 + 0.4*rand.Float64()))
