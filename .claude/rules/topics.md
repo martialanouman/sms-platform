@@ -8,7 +8,7 @@ paths:
 # Topics et lanes
 
 - **Tout topic et tout groupe est déclaré** dans `contracts/topics.yaml` avant d'être produit ou
-  consommé ; le runtime de lane ne fournit un client de dépendance qu'à travers sa déclaration.
+  consommé ; une lane qui signale l'échec d'une dépendance non déclarée, ou d'un autre mode, s'arrête.
 - **Une dead-letter dès le premier jour.** `start: latest` et `fail_open` exigent une justification
   écrite.
 - Le nombre de partitions d'un topic `order: per_key` est **figé** : en ajouter redistribue les clés.

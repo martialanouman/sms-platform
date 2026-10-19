@@ -71,8 +71,8 @@ toute création de topic à la main. Une page de documentation en est générée
 1. **Correspondance dans les deux sens** : tout topic produit ou consommé dans le code a son entrée ;
    aucune entrée sans usage. Garde AST, qui nomme les constructeurs du runtime.
 2. **Un service ne produit que sur les topics où il figure dans `producers`.**
-3. **Une dépendance appelée dans une lane est déclarée** : le runtime ne fournit son client qu'à
-   travers sa déclaration.
+3. **Une dépendance dont une lane signale l'échec ou l'absence est déclarée**, dans le mode qui s'y applique ;
+   sinon la lane s'arrête. Le runtime ne fournit pas les clients (amendé à la step 008a, spec 09 §9.1).
 4. **Un topic où transite le corps** a `body: clear_bounded`, une rétention ≤ 96 h, et figure dans
    l'inventaire RGPD (T8).
 5. **Un topic `order: per_key` a un nombre de partitions figé** : la garde refuse de l'augmenter dans

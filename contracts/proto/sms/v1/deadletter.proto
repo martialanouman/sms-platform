@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package sms.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// DeadLetter wraps a record a lane could not handle. décision 4 §4.6, spec 09 §9.1
+message DeadLetter {
+  bytes payload = 1; // valeur d'origine, rejouée telle quelle
+  repeated Header headers = 2; // en-têtes d'origine
+  string reason = 3; // code court, jamais le texte d'une erreur (I1)
+  google.protobuf.Timestamp at = 4;
+  string topic = 5; // position source
+  int32 partition = 6;
+  int64 offset = 7;
+}
+
+// Header is one Kafka header of the source record.
+message Header {
+  string key = 1;
+  bytes value = 2;
+}

@@ -55,14 +55,16 @@ chaque pod lit tout, `manual` quand un bail assigne les partitions),
 
 **En-têtes communs** : `origin_ts` (posé par le premier producteur, jamais modifié), `trace_id`,
 `replay_count`, `replayed_at`. Ce sont les seuls : toute autre donnée est un champ du payload, versionné
-et gardé par `buf breaking`.
+et gardé par `buf breaking`. Un record de dead-letter enveloppe sa source dans `sms.v1.DeadLetter` (payload et
+en-têtes d'origine, raison, instant, position source) et recopie les quatre en-têtes (step 008a).
 
 **Gardes bloquantes** :
 
 1. Tout topic produit ou consommé dans le code a son entrée, et toute entrée a un usage.
 2. Un service ne produit que là où il figure dans `producers`.
-3. Une dépendance appelée dans une lane est déclarée : le runtime ne fournit son client qu'à travers
-   elle.
+3. Une dépendance dont une lane signale l'échec ou l'absence est déclarée, dans le mode qui s'y applique :
+   sinon la lane s'arrête, après avoir commité ce qui est fait. Le runtime n'agit sur un mode qu'à l'échec
+   de la dépendance ; il ne fournit pas les clients (amendé à la step 008a).
 4. Un topic où transite le corps est `clear_bounded`, de rétention ≤ 96 h, inscrit à l'inventaire RGPD.
 5. Le nombre de partitions d'un topic `order: per_key` est figé.
 6. `maxReplicas` d'un service consommant par groupe (`assignment: group`) ≤ partitions du plus petit

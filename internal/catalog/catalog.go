@@ -61,7 +61,8 @@ type Group struct {
 	StartJustification string                `yaml:"start_justification"`
 }
 
-func (g Group) name() string {
+// Name is the consumer group id, <service>[.<lane>].<topic>.
+func (g Group) Name() string {
 	if g.Lane != "" {
 		return g.Service + "." + g.Lane + "." + g.Topic
 	}
@@ -118,7 +119,7 @@ func (c Catalog) Validate() []error {
 
 	seen := map[string]bool{}
 	for _, g := range c.Groups {
-		name := g.name()
+		name := g.Name()
 		if seen[name] {
 			fail("group %s: duplicate", name)
 		}
@@ -210,8 +211,10 @@ func Frozen(base, head Catalog) []error {
 // MissingPayloads returns an error for every topic whose payload message known does not recognise.
 func (c Catalog) MissingPayloads(known func(string) bool) []error {
 	var errs []error
-	for _, name := range sortedKeys(c.Topics) {
-		if p := c.Topics[name].Payload; !known(p) {
+	all := c.DeadLetters()
+	maps.Copy(all, c.Topics)
+	for _, name := range sortedKeys(all) {
+		if p := all[name].Payload; !known(p) {
 			errs = append(errs, fmt.Errorf("topic %s: payload %s does not exist", name, p))
 		}
 	}
@@ -226,6 +229,7 @@ func (c Catalog) DeadLetters() map[string]Topic {
 		dl[g.DeadLetter] = Topic{
 			Key:        src.Key,
 			Order:      "none",
+			Payload:    "sms.v1.DeadLetter",
 			Body:       src.Body,
 			Partitions: 8,
 			Retention:  maxClearRetention,
@@ -258,7 +262,7 @@ func (c Catalog) ACLs() []ACL {
 	}
 	for _, g := range c.Groups {
 		grant(g.Service, "TOPIC", g.Topic, "READ")
-		grant(g.Service, "GROUP", g.name(), "READ")
+		grant(g.Service, "GROUP", g.Name(), "READ")
 		grant(g.Service, "TOPIC", g.DeadLetter, "WRITE")
 	}
 	slices.SortFunc(acls, func(a, b ACL) int {
@@ -395,7 +399,7 @@ func (c Catalog) Markdown() []byte {
 			maxAge = "—"
 		}
 		fmt.Fprintf(&b, "| `%s` | %s | %s | %s | %s | %s | %s |\n",
-			g.name(), assignment, g.Tenant, strings.Join(deps, ", "), concurrency, maxAge, g.Start)
+			g.Name(), assignment, g.Tenant, strings.Join(deps, ", "), concurrency, maxAge, g.Start)
 	}
 	dl := c.DeadLetters()
 	b.WriteString("\n## Dead-letters\n\nDérivées de chaque groupe : clé et corps de la source, ordre `none`.\n\n| Topic | Corps | Partitions | Rétention |\n|---|---|---|---|\n")
