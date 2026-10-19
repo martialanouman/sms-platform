@@ -100,7 +100,8 @@ opération de la passerelle.
 - **Classement** : chaque table de `control_plane` est auditée (diff), en événement seul
   (`exact_routes` pour le volume ; `suppressions`, `unrouted_mo` pour le MSISDN), ou exemptée avec une
   raison (grand livre, état d'exécution, journaux eux-mêmes). La garde refuse une table non classée.
-- **Immuables**, partitionnées par mois, plancher de rétention de `8760 hours` tenu en base (ADR-0018).
+- **Immuables**, non partitionnées (quelques dizaines de lignes par jour, purge par `DELETE`), plancher
+  de rétention de `8760 hours` tenu en base (ADR-0018). Amendé le 2026-10-18 (step 006a).
 
 ## 7.6 Secours
 

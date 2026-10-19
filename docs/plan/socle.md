@@ -19,7 +19,8 @@ tous les services importeront. Le numéro est l'ordre d'exécution (C6). Aucun s
 | 005c | Bibliothèques : mTLS | PR |
 | 005d | Bibliothèques : configuration d'infrastructure, drain | PR |
 | 005e | Bibliothèques : tests | PR |
-| 006 | Données : migrations, rôles, GRANT, trigger d'audit | PR |
+| 006a | Données : goose, `control_plane`, trigger d'audit, classement | PR |
+| 006b | Données : rôles, GRANT générés | PR |
 | 007 | Livraison : images, manifests, Jobs, environnement de test, alertes | PR |
 
 ## 001 — Contexte de travail
@@ -121,19 +122,25 @@ Portées de `go-gateway` avec leurs tests, puis adaptées aux décisions :
   contre toute configuration métier (décision 7).
 - **Drain** : `OnDrain`, `/readyz`, ordre des composants.
 - **Tests** : testcontainers (socket exporté, Ryuk actif) et `tcpproxy` ; les `Cuttable` par magasin
-  arrivent avec le magasin (006 pour Postgres, la step Redis ensuite).
+  arrivent avec leur premier consommateur (pour Postgres, la bibliothèque d'instantané de
+  configuration ; amendé en 006a).
 
 **Terminé quand** : chaque bibliothèque a son test, et chaque garde a été prouvée par une mutation.
 
 ## 006 — Données
 
-- **goose** pour Postgres et ClickHouse, un répertoire par base : `control_plane`, `message_state`,
-  `dashboard`, `cdr`. Job `migrate` up/down/up en CI.
+Deux PR (Fable, 2026-10-18) : 006a pour goose, l'audit et le classement ; 006b pour les rôles et les
+GRANT, qui lisent le classement.
+
+- **goose** en bibliothèque, un répertoire par base. Seule `control_plane` naît ici ; `message_state`,
+  `dashboard` et `cdr` (avec le câblage goose de ClickHouse) arrivent avec leur premier composant.
+  up/down/up prouvé en CI par un test d'intégration, sous `migrator` ; le Job `migrate` arrive en 007.
 - **Rôles** : `migrator` propriétaire des schémas ; un rôle par service ; GRANT **générés** depuis un
   fichier de déclaration par service (décision 6). Une garde refuse un droit non déclaré.
 - **Audit et notification** : `audit_log`, `audit_changes`, la fonction de trigger (acteur obligatoire,
   avant/après, colonnes scellées exclues, `pg_notify`), le classement des tables et sa garde. Aucune
-  table métier encore : chacune arrivera avec son composant et devra se classer.
+  table métier encore : chacune arrivera avec son composant et devra se classer ; le trigger par
+  instruction (`<table>:*`) et le canal `optout` arrivent avec `exact_routes` et `suppressions`.
 
 **Terminé quand** : une écriture sans `app.actor` échoue ; une table non classée fait échouer la garde ;
 un rôle de service ne lit rien hors de sa déclaration (testé sous un rôle non superuser).
