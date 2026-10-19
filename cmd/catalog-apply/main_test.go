@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -71,13 +72,21 @@ func messages(t *testing.T, p catalog.Plan) []string {
 	report(slog.New(slog.NewJSONHandler(&logs, nil)), p)
 	var msgs []string
 	for _, line := range strings.Split(strings.TrimSpace(logs.String()), "\n") {
-		var entry struct {
-			Msg string `json:"msg"`
-		}
+		var entry map[string]any
 		if err := json.Unmarshal([]byte(line), &entry); err != nil {
 			t.Fatal(err)
 		}
-		msgs = append(msgs, entry.Msg)
+		msg := fmt.Sprint(entry["msg"])
+		if topic, ok := entry["topic"]; ok {
+			msg += " " + fmt.Sprint(topic)
+		}
+		if partitions, ok := entry["partitions"]; ok {
+			msg += " " + fmt.Sprint(partitions)
+		}
+		if acl, ok := entry["acl"].(map[string]any); ok {
+			msg += " " + fmt.Sprint(acl["Principal"], " ", acl["Name"], " ", acl["Operation"])
+		}
+		msgs = append(msgs, msg)
 	}
 	return msgs
 }
@@ -92,11 +101,12 @@ func TestReportLogsEveryChange(t *testing.T) {
 		Remove:    []catalog.ACL{a},
 		Unmanaged: []string{"legacy"},
 	})
-	want := []string{"topic created", "topic extended", "topic configured", "ACL added", "ACL removed", "topic outside the catalog"}
+	want := []string{"topic created mt.outcome 128", "topic extended mt.inbound.otp 64", "topic configured dlr.events", "ACL added User:CN=router-svc mt.outcome WRITE",
+		"ACL removed User:CN=router-svc mt.outcome WRITE", "topic outside the catalog legacy"}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Errorf("report logged %q, want %q", got, want)
 	}
-	if got := messages(t, catalog.Plan{Unmanaged: []string{"legacy"}}); strings.Join(got, "|") != "topic outside the catalog|cluster already matches the catalog" {
+	if got := messages(t, catalog.Plan{Unmanaged: []string{"legacy"}}); strings.Join(got, "|") != "topic outside the catalog legacy|cluster already matches the catalog" {
 		t.Errorf("report of an empty plan logged %q", got)
 	}
 }

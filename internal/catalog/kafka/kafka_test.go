@@ -157,7 +157,7 @@ func TestSyncBringsTheClusterToTheCatalog(t *testing.T) {
 	c := real(t)
 	create(t, adm, "mt.inbound.otp", 4, map[string]*string{"retention.ms": ptr("1000"), "min.insync.replicas": ptr("2")})
 	create(t, adm, "legacy", 1, nil)
-	intruder := kadm.NewACLs().Topics("legacy").Allow("User:CN=intruder").Operations(kadm.OpRead)
+	intruder := kadm.NewACLs().Topics("mt.inbound.otp").Allow("User:CN=intruder").Operations(kadm.OpRead)
 	if _, err := adm.CreateACLs(ctx, intruder); err != nil {
 		t.Fatal(err)
 	}

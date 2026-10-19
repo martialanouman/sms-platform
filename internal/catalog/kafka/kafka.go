@@ -19,7 +19,7 @@ import (
 // Sync reads the cluster, plans it against the catalog and applies the plan; a refused plan writes nothing.
 func Sync(ctx context.Context, cl *kgo.Client, c catalog.Catalog) (catalog.Plan, error) {
 	adm := kadm.NewClient(cl)
-	s, err := read(ctx, cl, adm)
+	s, err := read(ctx, adm)
 	if err != nil {
 		return catalog.Plan{}, err
 	}
@@ -30,7 +30,7 @@ func Sync(ctx context.Context, cl *kgo.Client, c catalog.Catalog) (catalog.Plan,
 	return p, apply(ctx, cl, adm, p)
 }
 
-func read(ctx context.Context, cl *kgo.Client, adm *kadm.Client) (catalog.State, error) {
+func read(ctx context.Context, adm *kadm.Client) (catalog.State, error) {
 	topics, err := adm.ListTopics(ctx)
 	if err == nil {
 		err = topics.Error()
@@ -53,22 +53,18 @@ func read(ctx context.Context, cl *kgo.Client, adm *kadm.Client) (catalog.State,
 		}
 		s.Topics[rc.Name] = live
 	}
-	req := kmsg.NewPtrDescribeACLsRequest()
-	req.ResourceType = kmsg.ACLResourceTypeAny
-	req.ResourcePatternType = kmsg.ACLResourcePatternTypeAny
-	req.Operation = kmsg.ACLOperationAny
-	req.PermissionType = kmsg.ACLPermissionTypeAny
-	resp, err := req.RequestWith(ctx, cl)
-	if err == nil {
-		err = kerr.ErrorForCode(resp.ErrorCode)
-	}
+	rs, err := adm.DescribeACLs(ctx, kadm.NewACLs().AnyResource().ResourcePatternType(kadm.ACLPatternAny).
+		Operations(kadm.OpAny).Allow().Deny().AllowHosts().DenyHosts())
 	if err != nil {
 		return catalog.State{}, fmt.Errorf("describe ACLs: %w", err)
 	}
-	for _, r := range resp.Resources {
-		for _, a := range r.ACLs {
-			s.ACLs = append(s.ACLs, catalog.ACL{Principal: a.Principal, Resource: r.ResourceType.String(), Name: r.ResourceName,
-				Pattern: r.ResourcePatternType.String(), Operation: a.Operation.String(), Permission: a.PermissionType.String(), Host: a.Host})
+	for _, r := range rs {
+		if r.Err != nil {
+			return catalog.State{}, fmt.Errorf("describe ACLs: %w", r.Err)
+		}
+		for _, d := range r.Described {
+			s.ACLs = append(s.ACLs, catalog.ACL{Principal: d.Principal, Resource: d.Type.String(), Name: d.Name, Pattern: d.Pattern.String(),
+				Operation: d.Operation.String(), Permission: d.Permission.String(), Host: d.Host})
 		}
 	}
 	return s, nil
@@ -181,7 +177,11 @@ func removeACLs(ctx context.Context, cl *kgo.Client, acls []catalog.ACL) error {
 		return fmt.Errorf("delete ACLs: %w", err)
 	}
 	for i, r := range resp.Results {
-		if err := kerr.ErrorForCode(r.ErrorCode); err != nil {
+		err := kerr.ErrorForCode(r.ErrorCode)
+		for _, m := range r.MatchingACLs {
+			err = errors.Join(err, kerr.ErrorForCode(m.ErrorCode))
+		}
+		if err != nil {
 			return fmt.Errorf("delete ACL %+v: %w", acls[i], err)
 		}
 	}

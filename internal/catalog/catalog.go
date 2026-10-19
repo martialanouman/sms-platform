@@ -245,8 +245,7 @@ type ACL struct {
 	Host       string
 }
 
-// ACLs is every right the catalog grants, sorted and without duplicates: a producer writes its topics, a group reads
-// its topic and its group and writes its dead-letter.
+// ACLs is every right the catalog grants, sorted and without duplicates.
 func (c Catalog) ACLs() []ACL {
 	var acls []ACL
 	grant := func(service, resource, name, operation string) {
@@ -303,9 +302,7 @@ func (p Plan) Empty() bool {
 	return len(p.Create)+len(p.Extend)+len(p.Configure)+len(p.Add)+len(p.Remove) == 0
 }
 
-// Plan compares the cluster with the catalog and its dead-letters. A per_key topic keeps its partition count; the
-// count of a manual-key topic is a floor, the Admin API extends it; any other topic wider than the catalog is refused.
-// A refusal returns every fault and no plan.
+// Plan compares the cluster with the catalog and its dead-letters; a refusal returns every fault and no plan.
 func (c Catalog) Plan(s State) (Plan, error) {
 	var p Plan
 	var errs []error
@@ -323,7 +320,7 @@ func (c Catalog) Plan(s State) (Plan, error) {
 			continue
 		case t.Order == "per_key" && live.Partitions != int(t.Partitions):
 			errs = append(errs, fmt.Errorf("topic %s: %d partitions, per_key frozen at %d", name, live.Partitions, t.Partitions))
-		case live.Partitions > int(t.Partitions) && t.Key != "manual":
+		case live.Partitions > int(t.Partitions) && t.Order != "per_partition":
 			errs = append(errs, fmt.Errorf("topic %s: %d partitions, the catalog says %d and Kafka cannot remove any", name, live.Partitions, t.Partitions))
 		case live.Partitions < int(t.Partitions):
 			if p.Extend == nil {
@@ -373,7 +370,7 @@ func (c Catalog) Markdown() []byte {
 	for _, name := range sortedKeys(c.Topics) {
 		t := c.Topics[name]
 		partitions := strconv.Itoa(int(t.Partitions))
-		if t.Key == "manual" {
+		if t.Order == "per_partition" {
 			partitions += " (initial)"
 		}
 		fmt.Fprintf(&b, "| `%s` | `%s` | %s | %s | %s | %s | `%s` | %s | %s |\n",

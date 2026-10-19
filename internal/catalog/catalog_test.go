@@ -382,8 +382,9 @@ func TestPlanExtendsAndAlignsWhatTheCatalogDemands(t *testing.T) {
 
 func TestPlanRefusesEveryPartitionCountKafkaCannotReach(t *testing.T) {
 	c := parse(t)
+	c.Groups = append(c.Groups, catalog.Group{Topic: "mt.routed.otp", Service: "billing-svc", DeadLetter: "billing-svc.mt.routed.otp.dead-letter"})
 	s := applied(c)
-	for name, partitions := range map[string]int{"mt.outcome": 64, "connector.account-status": 16, "mt.inbound.otp": 65, "router-svc.mt.inbound.otp.dead-letter": 9} {
+	for name, partitions := range map[string]int{"mt.outcome": 64, "connector.account-status": 16, "mt.inbound.otp": 65, "router-svc.mt.inbound.otp.dead-letter": 9, "billing-svc.mt.routed.otp.dead-letter": 9} {
 		s.Topics[name] = catalog.Live{Partitions: partitions, Configs: s.Topics[name].Configs}
 	}
 	delete(s.Topics, "mt.inbound.marketing")
@@ -394,7 +395,7 @@ func TestPlanRefusesEveryPartitionCountKafkaCannotReach(t *testing.T) {
 	if err == nil || !reflect.DeepEqual(p, catalog.Plan{}) {
 		t.Fatalf("Plan = %+v, %v; want a refusal and no plan", p, err)
 	}
-	for _, name := range []string{"mt.outcome", "connector.account-status", "mt.inbound.otp:", "router-svc.mt.inbound.otp.dead-letter"} {
+	for _, name := range []string{"mt.outcome", "connector.account-status", "mt.inbound.otp:", "router-svc.mt.inbound.otp.dead-letter", "billing-svc.mt.routed.otp.dead-letter"} {
 		if !strings.Contains(err.Error(), name) {
 			t.Errorf("refusal does not name %s: %v", name, err)
 		}
@@ -403,7 +404,7 @@ func TestPlanRefusesEveryPartitionCountKafkaCannotReach(t *testing.T) {
 
 func TestMarkdownListsTheACLsAndTheInitialSizeOfAManualTopic(t *testing.T) {
 	page := string(parse(t).Markdown())
-	for _, s := range []string{"| 384 (initial) |", "| `User:CN=router-svc` | TOPIC | `mt.routed.otp` | WRITE |"} {
+	for _, s := range []string{"| `mt.routed.otp` | `manual` | per_partition | clear_bounded | 384 (initial) |", "| `mt.outcome` | `message_id` | per_key | none | 128 | 96h |", "| `User:CN=router-svc` | TOPIC | `mt.routed.otp` | WRITE |"} {
 		if !strings.Contains(page, s) {
 			t.Errorf("page lacks %q", s)
 		}

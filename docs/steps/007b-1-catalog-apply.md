@@ -32,7 +32,7 @@ Fable a tranché les propositions le 2026-10-19 (P1, P3 à P7, P9, P10 tenues ; 
   `retention.ms` hors compacté), facteur de réplication et `min.insync.replicas` aux défauts du broker
   (spec 10 §10.3 : réglages de cluster, posés en 007d-1). Un existant voit ces deux configs alignées par
   `IncrementalAlterConfigs`, comparées avant écriture : ce que pose l'exploitant reste intact. Partitions :
-  `per_key`, le cluster égale le catalogue, sinon refus ; clé `manual` (`mt.routed.<cat>`), le catalogue
+  `per_key`, le cluster égale le catalogue, sinon refus ; ordre `per_partition` (clé `manual`, `mt.routed.<cat>`), le catalogue
   est un **plancher**, l'Admin API étend ces topics par blocs (design 03 §4.2, spec 07 §7.3) : moins est
   étendu, plus est l'état normal ; `none` et dead-letters, le catalogue fait foi : moins est étendu, plus
   est refusé. Un topic hors catalogue n'est jamais supprimé : il est nommé dans le journal (`ListTopics`
@@ -43,7 +43,9 @@ Fable a tranché les propositions le 2026-10-19 (P1, P3 à P7, P9, P10 tenues ; 
   unique : `manual` commite dans son groupe hors adhésion (design 03 §4.3) ; `broadcast` n'a pas de
   contrat de commit écrit, le runtime de lane amendera la dérivation dans sa PR s'il fait autrement. Le
   rejeu (`replay-dead-letter`, dans `admin-api-svc`, design 05 §5) heurte la garde 2 : sa règle se tranche
-  avec lui. Séquencement, pas une dette.
+  avec lui. De même l'`ALTER` qu'exige l'extension de `mt.routed.<cat>` par l'Admin API (design 03 §4.2) :
+  ni l'opération ni son principal n'existent, son droit entre avec elle et « exactement » le retirerait
+  s'il était posé à la main. Séquencement, pas une dette.
 - **P4 — Exactement** : l'ensemble des ACL du cluster devient l'ensemble dérivé, quel qu'en soit le
   principal (« aucune politique écrite à la main », 06 §5.2) ; le super-utilisateur n'en a pas besoin.
   Les manquantes sont créées **avant** que les excédentaires soient retirées : un droit qui demeure n'est
@@ -79,14 +81,37 @@ Fable a tranché les propositions le 2026-10-19 (P1, P3 à P7, P9, P10 tenues ; 
     écrire, ACL à ajouter puis à retirer, topics hors catalogue ; tous les refus d'un coup, aucun plan
     s'il en est un ; `(Plan) Empty() bool` ;
   - `Markdown` : partitions d'un topic à clé `manual` rendues « 384 (initial) », table des ACL.
-- `internal/catalog/kafka` : `Sync(ctx, *kadm.Client, Catalog) (Plan, error)` lit le cluster, calcule le
-  plan, n'écrit rien s'il est refusé ; sinon crée, étend, configure, ajoute puis retire les ACL.
+- `internal/catalog/kafka` : `Sync(ctx, *kgo.Client, Catalog) (Plan, error)` lit le cluster par `kadm`,
+  calcule le plan, n'écrit rien s'il est refusé ; sinon crée, étend, configure, ajoute puis retire les ACL,
+  une ACL exacte par entrée (`kmsg` : le constructeur de `kadm` fait un produit cartésien).
+- `Topic.Partitions` en `int32`, le type du protocole Kafka.
 - `internal/platform/config` : `KAFKA_BROKERS` → `Infra.KafkaBrokers`, sans défaut.
 - `cmd/catalog-apply` : `run(ctx, config.Infra, *slog.Logger) error` refuse des brokers vides et des
   fichiers TLS absents, se connecte en mTLS, appelle `Sync`, journalise chaque changement et les topics
   hors catalogue ; `main` comme `migrate`.
+- `internal/platform/mtls/mtlstest` : l'autorité de test des tests mTLS, sortie pour que `catalog-apply`
+  prouve son dial TLS.
 - GoReleaser, `deploy/k8s/catalog-apply.yaml`, la garde de livraison vérifie le nouveau couple.
 - Tests : unitaires du plan (chaque règle de partitions, configs, ACL en trop et manquantes, hors
   catalogue, refus groupés) et de la dérivation ; intégration de `Sync` (cluster vide → topics, configs et
   ACL égaux au catalogue et à `ACLs()`, une ACL étrangère retirée ; seconde passe : plan vide ; un refus
-  n'écrit rien) ; `run` refuse brokers vides et TLS absent, sans connexion.
+  n'écrit rien) ; `run` refuse brokers vides et TLS absent, sans connexion, et son premier octet vers un
+  broker ouvre une poignée de main TLS. Kafka KRaft rend topics, configs et ACL visibles après coup : les
+  tests attendent l'état, bornés à 30 s ; après un refus, un marqueur écrit puis vu prouve, par l'ordre du
+  journal de métadonnées, que rien d'antérieur n'a été écrit.
+
+## Revue
+
+**Tour 1** (trois axes, aucun bloquant) :
+
+- Retenus : l'ACL étrangère du test portait sur une ressource sans droit dérivé (un filtre de retrait
+  sans principal survivait) ; une dead-letter de source `manual` héritait du plancher (le plancher suit
+  l'ordre `per_partition`, plus la clé) ; erreurs de retrait par ACL ignorées ; lecture des ACL réécrite
+  en `kmsg` là où `kadm` suffit ; « (initial) » et les attributs du journal non vérifiés ; doc de `Plan`
+  et `ACLs` qui redit le code ; `Sync`, `mtlstest` et le test du premier octet absents du design.
+- Écartés : `Validate` dans `catalog-apply` (le fichier embarqué est celui que la CI valide, aucun test ne
+  ferait tomber l'appel) ; une preuve de l'ordre « ajout avant retrait » exigerait un refus de Kafka sur une
+  ACL bien formée ; `Authority.PEM` reste exporté (`mtls_test.go` lit les PEM) ; `Live.Partitions` en
+  `int32` déplacerait la conversion vers `len`, que gosec refuse.
+- Pour 007d-1 : le principal est `User:CN=<service>` seulement si le sujet du certificat se réduit au CN
+  (ou par `ssl.principal.mapping.rules`), `super.users=User:CN=catalog-apply` compris.
