@@ -53,7 +53,7 @@ func ControlPlane(t *testing.T) DB {
 	}
 	defer func() { _ = super.Close() }()
 	for _, s := range []string{
-		`CREATE ROLE migrator LOGIN PASSWORD 'migrator'`,
+		`CREATE ROLE migrator LOGIN CREATEROLE PASSWORD 'migrator'`,
 		`CREATE DATABASE control_plane OWNER migrator`,
 	} {
 		if _, err := super.Exec(s); err != nil {

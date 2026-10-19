@@ -14,6 +14,9 @@ est générée, comme les types Go du BFF et TypeScript de la SPA avec leur comp
   publique (huma n'applique pas le `security:` global). Toute opération déclarée est servie.
 - `openapi-bff.yaml` : chaque opération déclare `security` — `[]` pour les seules publiques, sinon la
   session et au plus une permission (BFF ou scope Admin). Aucun chemin sous `/gw`, le proxy.
+- `grants/<service>.yaml` : ce que le service lit ou écrit dans `control_plane`, table par table, en
+  `select`, `insert`, `update`, `delete` seuls ; une table non classée est refusée. Le rôle est le nom du
+  service, `-` en `_`. Régénérer `migrations/grants/control_plane.sql` ; rien d'autre n'accorde un droit.
 - `proto/` : `buf breaking` bloquant — un record en rétention ou un pod de la version précédente doit
   rester lisible.
 - **OpenAPI** : 3.1, **en anglais**, descriptions comprises ; aucun commentaire YAML. Nullable par

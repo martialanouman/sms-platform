@@ -153,6 +153,10 @@ un rôle de service ne lit rien hors de sa déclaration (testé sous un rôle no
   `cmd/` (13 à terme).
 - **`deploy/k8s/`** et sa garde ; Jobs `migrate` et `catalog-apply` (topics, ACL Kafka, GRANT,
   NetworkPolicy depuis les déclarations).
+- **GRANT en production** (reports de 006b) : `catalog-apply` applique
+  `migrations/grants/control_plane.sql` sous `migrator`, une seule fois à la fois, en échouant sur la
+  première erreur (`psql -v ON_ERROR_STOP=1`) ; il pose `LOGIN` et le secret de chaque rôle de service, et
+  retire les droits d'un rôle sorti des déclarations, que le fichier généré ne nomme plus.
 - **`deploy/alerts/`** : règles Prometheus, `promtool test rules` en CI.
 - **Environnement de test** k3s, déployé par SHA depuis `main`, avec retour arrière.
 
