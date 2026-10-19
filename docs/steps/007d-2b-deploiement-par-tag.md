@@ -46,12 +46,20 @@ Fable a tranché le 2026-10-19 (verdict sur la 007d-2, intégrant la décision h
   images de 007d-2a) ; après merge, ce `feat` produit `v0.2.0` et le premier déploiement automatique, consigné
   dans une PR `docs(steps)` qui prouve aussi, en ne publiant pas, qu'un `docs` ne déploie rien.
 
+Fait de la preuve (2026-10-19) : le service lançait `sync.sh` depuis le dépôt, que `sync.sh` bascule sur le tag ;
+au premier tick, `v0.1.0`, qui ne le contient pas, l'a fait disparaître (« Unable to locate executable ») et le
+timer est resté mort, incapable de voir un tag plus récent. Correctif : `bootstrap.sh` installe `sync.sh` hors du
+dépôt (`/usr/local/libexec/sms-deploy-sync`), que le service lance ; après chaque déploiement réussi, `sync.sh` se
+remplace par la version du tag ; un tag sans `deploy.sh` est reconnu avant la bascule
+(`git cat-file -e`), qui laisse alors l'arbre en place.
+
 ## Design arrêté
 
 - `deploy/k8s/*.yaml` : `activeDeadlineSeconds` (300 pour `migrate`, 900 pour `catalog-apply`).
 - `deploy/guard_test.go` : chaque Job porte `activeDeadlineSeconds` positif ; cas faussé.
 - `deploy/test-env/deploy.sh <tag>` : la séquence de 007d-1, images à `:<tag>`, Jobs recréés et attendus.
-- `deploy/test-env/sync.sh` : le tirage ci-dessus ; `deploy/test-env/sms-deploy.service` et `.timer`.
+- `deploy/test-env/sync.sh` : le tirage ci-dessus, lancé depuis sa copie `/usr/local/libexec/sms-deploy-sync`,
+  qu'il remplace après chaque succès ; `deploy/test-env/sms-deploy.service` et `.timer`.
 - `deploy/test-env/bootstrap.sh` : l'amorçage ci-dessus.
 - `.claude/rules/ci-deploy.md` : un `cmd/` neuf entre dans `deploy.sh` (ordre) avec son manifest.
 - Preuve : la procédure ci-dessus, consignée avant la PR.

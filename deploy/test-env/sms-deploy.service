@@ -7,5 +7,5 @@ Wants=network-online.target
 Type=oneshot
 Environment=KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
-ExecStart=/opt/sms-platform/deploy/test-env/sync.sh
+ExecStart=/usr/local/libexec/sms-deploy-sync
 TimeoutStartSec=1h
