@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -31,7 +33,7 @@ type Topic struct {
 	DuplicateUnit string        `yaml:"duplicate_unit"`
 	Payload       string        `yaml:"payload"`
 	Body          string        `yaml:"body"`
-	Partitions    int           `yaml:"partitions"`
+	Partitions    int32         `yaml:"partitions"`
 	Retention     time.Duration `yaml:"retention"`
 	Compacted     bool          `yaml:"compacted"`
 	Producers     []string      `yaml:"producers"`
@@ -232,6 +234,134 @@ func (c Catalog) DeadLetters() map[string]Topic {
 	return dl
 }
 
+// ACL is one Kafka access control entry, in the names of the Kafka protocol.
+type ACL struct {
+	Principal  string
+	Resource   string
+	Name       string
+	Pattern    string
+	Operation  string
+	Permission string
+	Host       string
+}
+
+// ACLs is every right the catalog grants, sorted and without duplicates.
+func (c Catalog) ACLs() []ACL {
+	var acls []ACL
+	grant := func(service, resource, name, operation string) {
+		acls = append(acls, ACL{Principal: "User:CN=" + service, Resource: resource, Name: name, Pattern: "LITERAL", Operation: operation, Permission: "ALLOW", Host: "*"})
+	}
+	for name, t := range c.Topics {
+		for _, p := range t.Producers {
+			grant(p, "TOPIC", name, "WRITE")
+		}
+	}
+	for _, g := range c.Groups {
+		grant(g.Service, "TOPIC", g.Topic, "READ")
+		grant(g.Service, "GROUP", g.name(), "READ")
+		grant(g.Service, "TOPIC", g.DeadLetter, "WRITE")
+	}
+	slices.SortFunc(acls, func(a, b ACL) int {
+		return strings.Compare(a.Principal+" "+a.Resource+" "+a.Name+" "+a.Operation, b.Principal+" "+b.Resource+" "+b.Name+" "+b.Operation)
+	})
+	return slices.Compact(acls)
+}
+
+// Configs is the topic configuration the catalog owns; everything else is left to the broker and its operator.
+func (t Topic) Configs() map[string]string {
+	if t.Compacted {
+		return map[string]string{"cleanup.policy": "compact"}
+	}
+	return map[string]string{"cleanup.policy": "delete", "retention.ms": strconv.FormatInt(t.Retention.Milliseconds(), 10)}
+}
+
+// Live is a topic as the cluster holds it.
+type Live struct {
+	Partitions int
+	Configs    map[string]string
+}
+
+// State is what the cluster holds: its topics, internal ones excluded, and every ACL.
+type State struct {
+	Topics map[string]Live
+	ACLs   []ACL
+}
+
+// Plan is what brings a cluster to the catalog; ACLs are added before others are removed.
+type Plan struct {
+	Create    map[string]Topic
+	Extend    map[string]int
+	Configure map[string]map[string]string
+	Add       []ACL
+	Remove    []ACL
+	Unmanaged []string
+}
+
+// Empty reports whether the plan writes nothing; an unmanaged topic is only reported.
+func (p Plan) Empty() bool {
+	return len(p.Create)+len(p.Extend)+len(p.Configure)+len(p.Add)+len(p.Remove) == 0
+}
+
+// Plan compares the cluster with the catalog and its dead-letters; a refusal returns every fault and no plan.
+func (c Catalog) Plan(s State) (Plan, error) {
+	var p Plan
+	var errs []error
+	want := maps.Clone(c.Topics)
+	maps.Copy(want, c.DeadLetters())
+	for _, name := range sortedKeys(want) {
+		t := want[name]
+		live, ok := s.Topics[name]
+		switch {
+		case !ok:
+			if p.Create == nil {
+				p.Create = map[string]Topic{}
+			}
+			p.Create[name] = t
+			continue
+		case t.Order == "per_key" && live.Partitions != int(t.Partitions):
+			errs = append(errs, fmt.Errorf("topic %s: %d partitions, per_key frozen at %d", name, live.Partitions, t.Partitions))
+		case live.Partitions > int(t.Partitions) && t.Order != "per_partition":
+			errs = append(errs, fmt.Errorf("topic %s: %d partitions, the catalog says %d and Kafka cannot remove any", name, live.Partitions, t.Partitions))
+		case live.Partitions < int(t.Partitions):
+			if p.Extend == nil {
+				p.Extend = map[string]int{}
+			}
+			p.Extend[name] = int(t.Partitions)
+		}
+		for k, v := range t.Configs() {
+			if live.Configs[k] != v {
+				if p.Configure == nil {
+					p.Configure = map[string]map[string]string{}
+				}
+				if p.Configure[name] == nil {
+					p.Configure[name] = map[string]string{}
+				}
+				p.Configure[name][k] = v
+			}
+		}
+	}
+	if len(errs) > 0 {
+		return Plan{}, errors.Join(errs...)
+	}
+	for _, name := range sortedKeys(s.Topics) {
+		if _, ok := want[name]; !ok {
+			p.Unmanaged = append(p.Unmanaged, name)
+		}
+	}
+	acls := c.ACLs()
+	for _, a := range acls {
+		if !slices.Contains(s.ACLs, a) {
+			p.Add = append(p.Add, a)
+		}
+	}
+	for _, a := range s.ACLs {
+		if !slices.Contains(acls, a) {
+			p.Remove = append(p.Remove, a)
+		}
+	}
+	return p, nil
+}
+
 // Markdown renders the catalog as the generated documentation page.
 func (c Catalog) Markdown() []byte {
 	var b strings.Builder
@@ -239,8 +369,12 @@ func (c Catalog) Markdown() []byte {
 	b.WriteString("## Topics\n\n| Topic | Clé | Ordre | Corps | Partitions | Rétention | Payload | Producteurs | Doublon |\n|---|---|---|---|---|---|---|---|---|\n")
 	for _, name := range sortedKeys(c.Topics) {
 		t := c.Topics[name]
-		fmt.Fprintf(&b, "| `%s` | `%s` | %s | %s | %d | %s | `%s` | %s | %s |\n",
-			name, t.Key, t.Order, t.Body, t.Partitions, retention(t), t.Payload, strings.Join(t.Producers, ", "), t.DuplicateUnit)
+		partitions := strconv.Itoa(int(t.Partitions))
+		if t.Order == "per_partition" {
+			partitions += " (initial)"
+		}
+		fmt.Fprintf(&b, "| `%s` | `%s` | %s | %s | %s | %s | `%s` | %s | %s |\n",
+			name, t.Key, t.Order, t.Body, partitions, retention(t), t.Payload, strings.Join(t.Producers, ", "), t.DuplicateUnit)
 	}
 	b.WriteString("\n## Groupes\n\n| Groupe | Assignation | Tenant | Dépendances | Concurrence | Âge maximal | Départ |\n|---|---|---|---|---|---|---|\n")
 	for _, g := range c.Groups {
@@ -268,6 +402,10 @@ func (c Catalog) Markdown() []byte {
 	for _, name := range sortedKeys(dl) {
 		t := dl[name]
 		fmt.Fprintf(&b, "| `%s` | %s | %d | %s |\n", name, t.Body, t.Partitions, retention(t))
+	}
+	b.WriteString("\n## ACL\n\nDérivées des producteurs et des groupes, appliquées telles quelles par `catalog-apply` : toute autre ACL du cluster est retirée.\n\n| Principal | Ressource | Nom | Opération |\n|---|---|---|---|\n")
+	for _, a := range c.ACLs() {
+		fmt.Fprintf(&b, "| `%s` | %s | `%s` | %s |\n", a.Principal, a.Resource, a.Name, a.Operation)
 	}
 	return []byte(b.String())
 }

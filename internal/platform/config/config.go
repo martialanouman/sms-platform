@@ -27,6 +27,7 @@ type Infra struct {
 	TLSAllowedClients []string
 	TraceSampleRatio  float64
 	PostgresURL       string
+	KafkaBrokers      []string
 }
 
 var defaults = map[string]string{
@@ -41,6 +42,7 @@ var defaults = map[string]string{
 	"TLS_ALLOWED_CLIENTS": "",
 	"TRACE_SAMPLE_RATIO":  "1",
 	"POSTGRES_URL":        "",
+	"KAFKA_BROKERS":       "",
 }
 
 // Variables is the sorted closed list of the environment variables Load reads.
@@ -58,6 +60,15 @@ func Load() (Infra, error) {
 		}
 		return defaults[name]
 	}
+	list := func(name string) []string {
+		var items []string
+		for _, item := range strings.Split(value(name), ",") {
+			if item = strings.TrimSpace(item); item != "" {
+				items = append(items, item)
+			}
+		}
+		return items
+	}
 	duration := func(name string) time.Duration {
 		d, err := time.ParseDuration(value(name))
 		if err != nil {
@@ -67,20 +78,17 @@ func Load() (Infra, error) {
 		return d
 	}
 	c := Infra{
-		OpsAddr:         value("OPS_ADDR"),
-		DrainDelay:      duration("DRAIN_DELAY"),
-		DrainBudget:     duration("DRAIN_BUDGET"),
-		ShutdownTimeout: duration("SHUTDOWN_TIMEOUT"),
-		TLS:             mtls.Files{Cert: value("TLS_CERT_FILE"), Key: value("TLS_KEY_FILE"), CA: value("TLS_CA_FILE")},
-		PostgresURL:     value("POSTGRES_URL"),
+		OpsAddr:           value("OPS_ADDR"),
+		DrainDelay:        duration("DRAIN_DELAY"),
+		DrainBudget:       duration("DRAIN_BUDGET"),
+		ShutdownTimeout:   duration("SHUTDOWN_TIMEOUT"),
+		TLS:               mtls.Files{Cert: value("TLS_CERT_FILE"), Key: value("TLS_KEY_FILE"), CA: value("TLS_CA_FILE")},
+		PostgresURL:       value("POSTGRES_URL"),
+		TLSAllowedClients: list("TLS_ALLOWED_CLIENTS"),
+		KafkaBrokers:      list("KAFKA_BROKERS"),
 	}
 	if err := c.LogLevel.UnmarshalText([]byte(value("LOG_LEVEL"))); err != nil {
 		errs = append(errs, fmt.Errorf("LOG_LEVEL: %w", err))
-	}
-	for _, client := range strings.Split(value("TLS_ALLOWED_CLIENTS"), ",") {
-		if client = strings.TrimSpace(client); client != "" {
-			c.TLSAllowedClients = append(c.TLSAllowedClients, client)
-		}
 	}
 	ratio, err := strconv.ParseFloat(value("TRACE_SAMPLE_RATIO"), 64)
 	switch {
