@@ -4,8 +4,8 @@ package pgtest
 import (
 	"context"
 	"crypto/rand"
-	"encoding/base64"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"testing"
