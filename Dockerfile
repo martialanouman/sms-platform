@@ -1,0 +1,5 @@
+FROM gcr.io/distroless/static-debian12:nonroot
+ARG TARGETPLATFORM
+ARG BINARY
+COPY $TARGETPLATFORM/$BINARY /app
+ENTRYPOINT ["/app"]

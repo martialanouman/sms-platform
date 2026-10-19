@@ -11,14 +11,9 @@ import (
 	"github.com/martialanouman/sms-platform/internal/platform/mtls"
 )
 
-var variables = []string{
-	"LOG_LEVEL", "OPS_ADDR", "DRAIN_DELAY", "DRAIN_BUDGET", "SHUTDOWN_TIMEOUT",
-	"TLS_CERT_FILE", "TLS_KEY_FILE", "TLS_CA_FILE", "TLS_ALLOWED_CLIENTS", "TRACE_SAMPLE_RATIO",
-}
-
 func env(t *testing.T, values map[string]string) {
 	t.Helper()
-	for _, v := range variables {
+	for _, v := range config.Variables() {
 		t.Setenv(v, "")
 	}
 	for k, v := range values {
@@ -57,6 +52,7 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 		"TLS_CA_FILE":         "/tls/ca.crt",
 		"TLS_ALLOWED_CLIENTS": "dashboard, admin-api-svc",
 		"TRACE_SAMPLE_RATIO":  "0.25",
+		"POSTGRES_URL":        "postgres://migrator@pg:5432/control_plane",
 	})
 	got, err := config.Load()
 	if err != nil {
@@ -70,9 +66,20 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 		TLS:               mtls.Files{Cert: "/tls/tls.crt", Key: "/tls/tls.key", CA: "/tls/ca.crt"},
 		TLSAllowedClients: []string{"dashboard", "admin-api-svc"},
 		TraceSampleRatio:  0.25,
+		PostgresURL:       "postgres://migrator@pg:5432/control_plane",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Load() = %+v, want %+v", got, want)
+	}
+}
+
+func TestVariablesIsTheClosedListLoadReads(t *testing.T) {
+	want := []string{
+		"DRAIN_BUDGET", "DRAIN_DELAY", "LOG_LEVEL", "OPS_ADDR", "POSTGRES_URL", "SHUTDOWN_TIMEOUT",
+		"TLS_ALLOWED_CLIENTS", "TLS_CA_FILE", "TLS_CERT_FILE", "TLS_KEY_FILE", "TRACE_SAMPLE_RATIO",
+	}
+	if got := config.Variables(); !reflect.DeepEqual(got, want) {
+		t.Errorf("Variables() = %v, want %v", got, want)
 	}
 }
 

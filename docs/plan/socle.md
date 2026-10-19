@@ -21,7 +21,12 @@ tous les services importeront. Le numéro est l'ordre d'exécution (C6). Aucun s
 | 005e | Bibliothèques : tests | PR |
 | 006a | Données : goose, `control_plane`, trigger d'audit, classement | PR |
 | 006b | Données : rôles, GRANT générés | PR |
-| 007 | Livraison : images, manifests, Jobs, environnement de test, alertes | PR |
+| 007a | Livraison : images, scan, `migrate`, squelette `deploy/k8s/` | PR |
+| 007b-1 | Livraison : `catalog-apply`, topics et ACL Kafka | PR |
+| 007b-2 | Livraison : `catalog-apply`, GRANT en production | PR |
+| 007c | Livraison : NetworkPolicy générées, alertes | PR |
+| 007d-1 | Livraison : briques de l'environnement de test | PR |
+| 007d-2 | Livraison : déploiement par SHA, retour arrière | PR |
 
 ## 001 — Contexte de travail
 
@@ -147,18 +152,27 @@ un rôle de service ne lit rien hors de sa déclaration (testé sous un rôle no
 
 ## 007 — Livraison
 
-- **Scan des images** produites (vulnérabilités connues), bloquant ; ajouté avec la step 004d.
+Six PR (Fable, 2026-10-19) ; chacune porte sa part du critère de fin, atteint en 007d-2. Décisions
+humaines du 2026-10-19 : NetworkPolicy générées, jamais appliquées par `catalog-apply` ; environnement de
+test tiré par la VM.
 
-- **GoReleaser** : une version, images distroless ; la garde « exactement N images » suit le nombre de
-  `cmd/` (13 à terme).
-- **`deploy/k8s/`** et sa garde ; Jobs `migrate` et `catalog-apply` (topics, ACL Kafka, GRANT,
-  NetworkPolicy depuis les déclarations).
-- **GRANT en production** (reports de 006b) : `catalog-apply` applique
+- **007a** : **scan des images** produites (vulnérabilités connues), bloquant (ajouté avec la step 004d) ;
+  **GoReleaser**, une version, images distroless ; la garde : chaque `cmd/` a exactement un build, une
+  image et un manifest (13 à terme) ; `cmd/migrate` ; le squelette **`deploy/k8s/`**, sa garde et le Job `migrate`.
+- **007b-1** : `cmd/catalog-apply`, topics et ACL Kafka depuis le catalogue ; son Job.
+- **007b-2** : **GRANT en production** (reports de 006b) : `catalog-apply` applique
   `migrations/grants/control_plane.sql` sous `migrator`, une seule fois à la fois, en échouant sur la
-  première erreur (`psql -v ON_ERROR_STOP=1`) ; il pose `LOGIN` et le secret de chaque rôle de service, et
-  retire les droits d'un rôle sorti des déclarations, que le fichier généré ne nomme plus.
-- **`deploy/alerts/`** : règles Prometheus, `promtool test rules` en CI.
-- **Environnement de test** k3s, déployé par SHA depuis `main`, avec retour arrière.
+  première erreur ; il pose `LOGIN` et le secret de chaque rôle de service, et retire les droits d'un rôle
+  sorti des déclarations, que le fichier généré ne nomme plus.
+- **007c** : NetworkPolicy **générées** dans `deploy/k8s/` depuis les déclarations, sous
+  `check-generated` ; **`deploy/alerts/`** : règles Prometheus, `promtool test rules` en CI. Seules
+  entrent les règles dont la métrique source existe ; **une règle entre avec le composant qui émet sa
+  métrique**, le tableau de la spec 10 §10.1 sert de liste de contrôle.
+- **007d-1** : les briques de l'environnement de test (opérateur Postgres, Strimzi, cert-manager),
+  versions épinglées, TLS vers Postgres.
+- **007d-2** : **environnement de test** k3s : GoReleaser pousse les images sur GHCR avec le
+  `GITHUB_TOKEN`, la VM tire le SHA de `main` et pose le tag des images ; chaque Job est borné dans le
+  temps ; aucun secret de déploiement dans GitHub ; retour arrière par `git revert`.
 
 **Terminé quand** : un merge sur `main` déploie l'environnement de test sans geste manuel, et `catalog-apply`
 y crée les topics et leurs ACL.

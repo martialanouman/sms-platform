@@ -37,7 +37,8 @@ Aucun service du plan de données n'appelle le dashboard (I15).
 | `dashboard` | BFF Go et SPA : authentifie, accorde, relaie `/api/gw/*` à l'aveugle (I14) | — | — | base `dashboard` | public (navigateur) ; `admin-api-svc` (JWKS interne) |
 
 **Jobs** : `migrate` (goose, Postgres et ClickHouse, rôle `migrator`) ; `catalog-apply` (topics, ACL
-Kafka, GRANT, NetworkPolicy, depuis le catalogue et les déclarations). Ils remplacent `kafka-provision`
+Kafka, GRANT, depuis le catalogue et les déclarations ; les NetworkPolicy sont générées dans
+`deploy/k8s/`, chapitre 10 §10.2). Ils remplacent `kafka-provision`
 et toute création à la main.
 
 **Supprimés** : `config-sync` (décision 7), `mt-replay` (devenu l'opération Admin
