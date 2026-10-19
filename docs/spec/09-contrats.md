@@ -33,7 +33,8 @@ documentation en est générée.
 le groupe se nomme `<service>[.<lane>].<topic>`), `assignment` (`group` par défaut ; `broadcast` quand
 chaque pod lit tout, `manual` quand un bail assigne les partitions),
 `tenant`, `dependencies` (chacune `blocking`, `park_by_tenant`,
-`park_global` ou `fail_open` justifié), `concurrency` (`per_partition`, `per_tenant` plafonné),
+`park_global` vers le topic de garage qu'il nomme (`park`, même payload, produit par le service) ou
+`fail_open` justifié), `concurrency` (`per_partition`, `per_tenant` plafonné),
 `max_age`, `dead_letter` (obligatoire), `start` (`earliest` ; `latest` justifié).
 
 | Topic | Clé | Ordre | Corps | Producteurs | Consommateurs |

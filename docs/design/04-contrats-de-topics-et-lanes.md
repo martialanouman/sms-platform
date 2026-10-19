@@ -55,7 +55,7 @@ Kafka (partition manuelle, topics compactés, offsets).
 |---|---|
 | `topic`, `service` | |
 | `tenant` | Champ de l'enveloppe qui identifie le tenant (`account_id`, `customer_id`, `connector_account_id`) ou `none` |
-| `dependencies` | Pour chaque dépendance, un mode (§4.3) : `blocking`, `park_by_tenant`, `park_global`, `fail_open` (avec justification écrite) |
+| `dependencies` | Pour chaque dépendance, un mode (§4.3) : `blocking`, `park_by_tenant`, `park_global` (avec son topic de garage, `park` ; amendé à la step 008b), `fail_open` (avec justification écrite) |
 | `concurrency` | `per_partition` (défaut) ou `per_tenant` avec un plafond en vol (§5.2) |
 | `max_age` | Politique par catégorie (D3) ou durée fixe (24 h pour la remise) |
 | `dead_letter` | Topic de dead-letter, **obligatoire dès le premier jour** |

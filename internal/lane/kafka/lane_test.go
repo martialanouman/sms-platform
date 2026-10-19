@@ -381,11 +381,11 @@ func TestNewLaneNeedsBothHandlers(t *testing.T) {
 }
 
 func TestNewLaneRefusesWhatThePolicyRefuses(t *testing.T) {
-	w := newWorld(t, "dependencies: {kafka: {mode: blocking}, billing-svc: {mode: park_global}}")
+	w := newWorld(t, "dependencies: {kafka: {mode: blocking}}, assignment: broadcast")
 	ok := func(context.Context, lane.Record) lane.Outcome { return lane.Ok() }
 	_, err := kafka.NewLane(w.cat, w.group, kafka.Handlers{Handle: ok, Expired: ok}, slog.New(slog.DiscardHandler), kgo.SeedBrokers(brokers...))
-	if err == nil || !strings.Contains(err.Error(), "008b") {
-		t.Fatalf("NewLane = %v, want the refusal of park_global", err)
+	if err == nil || !strings.Contains(err.Error(), "022") {
+		t.Fatalf("NewLane = %v, want the refusal of broadcast", err)
 	}
 }
 

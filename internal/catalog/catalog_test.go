@@ -22,6 +22,9 @@ topics:
     producers: [rest-api-svc]
   mt.inbound.marketing:
     <<: *inbound
+  mt.billing-wait.otp:
+    <<: *inbound
+    producers: [router-svc]
   mt.outcome:
     key: message_id
     order: per_key
@@ -56,6 +59,7 @@ groups:
     dependencies:
       kafka: {mode: blocking}
       cancel-token: {mode: fail_open, justification: ADR-0013}
+      billing-svc: {mode: park_global, park: mt.billing-wait.otp}
     concurrency: per_partition
     max_age: category
     dead_letter: router-svc.mt.inbound.otp.dead-letter
@@ -135,6 +139,21 @@ func TestEveryGuardRejectsAFaultyEntry(t *testing.T) {
 		mutate func(*catalog.Catalog)
 		want   string
 	}{
+		"park_global without park": {func(c *catalog.Catalog) {
+			c.Groups[0].Dependencies["billing-svc"] = catalog.Dependency{Mode: "park_global"}
+		}, "park_global dependency billing-svc needs a park topic"},
+		"park outside park_global": {func(c *catalog.Catalog) {
+			c.Groups[0].Dependencies["kafka"] = catalog.Dependency{Mode: "blocking", Park: "mt.billing-wait.otp"}
+		}, "park only applies to park_global"},
+		"park on an undeclared topic": {func(c *catalog.Catalog) {
+			c.Groups[0].Dependencies["billing-svc"] = catalog.Dependency{Mode: "park_global", Park: "mt.nowhere"}
+		}, "park topic mt.nowhere is not declared"},
+		"park where the service does not produce": {func(c *catalog.Catalog) {
+			topic(c, "mt.billing-wait.otp", func(t *catalog.Topic) { t.Producers = []string{"rest-api-svc"} })
+		}, "router-svc is not a producer of its park topic"},
+		"park of another payload": {func(c *catalog.Catalog) {
+			topic(c, "mt.billing-wait.otp", func(t *catalog.Topic) { t.Payload = "sms.v1.MtRouted" })
+		}, "park topic mt.billing-wait.otp carries another payload"},
 		"dead_letter missing":  {func(c *catalog.Catalog) { c.Groups[0].DeadLetter = "" }, "dead_letter"},
 		"dead_letter misnamed": {func(c *catalog.Catalog) { c.Groups[0].DeadLetter = "router.dlq" }, "dead_letter"},
 		"clear_bounded over 96h": {func(c *catalog.Catalog) {
@@ -238,7 +257,7 @@ func TestDeadLettersAreDerivedFromTheirSource(t *testing.T) {
 
 func TestMarkdownListsTopicsGroupsAndDeadLetters(t *testing.T) {
 	page := string(parse(t).Markdown())
-	for _, s := range []string{"mt.inbound.otp", "delivery-svc.mt.outcome", "router-svc.mt.inbound.otp.dead-letter", "router-svc.seal.mt.inbound.otp", "broadcast", "fail_open"} {
+	for _, s := range []string{"mt.inbound.otp", "delivery-svc.mt.outcome", "router-svc.mt.inbound.otp.dead-letter", "router-svc.seal.mt.inbound.otp", "broadcast", "fail_open", "park_global → `mt.billing-wait.otp`"} {
 		if !strings.Contains(page, s) {
 			t.Errorf("page lacks %q", s)
 		}
@@ -276,6 +295,7 @@ func TestACLsDeriveFromProducersAndGroups(t *testing.T) {
 		acl("router-svc", "GROUP", "router-svc.mt.inbound.otp", "READ"),
 		acl("router-svc", "GROUP", "router-svc.seal.mt.inbound.otp", "READ"),
 		acl("router-svc", "TOPIC", "connector.account-status", "READ"),
+		acl("router-svc", "TOPIC", "mt.billing-wait.otp", "WRITE"),
 		acl("router-svc", "TOPIC", "mt.inbound.otp", "READ"),
 		acl("router-svc", "TOPIC", "mt.outcome", "WRITE"),
 		acl("router-svc", "TOPIC", "mt.routed.otp", "WRITE"),

@@ -139,13 +139,25 @@ groups:
     dependencies:
       kafka: {mode: blocking}
       control-plane: {mode: blocking}
-      billing-svc: {mode: park_global}
+      billing-svc: {mode: park_global, park: mt.billing-wait.otp}
     concurrency: per_partition
     max_age: category
     dead_letter: router-svc.mt.inbound.otp.dead-letter
     start: earliest
-  - {<<: *router-inbound, topic: mt.inbound.transactional, dead_letter: router-svc.mt.inbound.transactional.dead-letter}
-  - {<<: *router-inbound, topic: mt.inbound.marketing, dead_letter: router-svc.mt.inbound.marketing.dead-letter}
+  - <<: *router-inbound
+    topic: mt.inbound.transactional
+    dependencies:
+      kafka: {mode: blocking}
+      control-plane: {mode: blocking}
+      billing-svc: {mode: park_global, park: mt.billing-wait.transactional}
+    dead_letter: router-svc.mt.inbound.transactional.dead-letter
+  - <<: *router-inbound
+    topic: mt.inbound.marketing
+    dependencies:
+      kafka: {mode: blocking}
+      control-plane: {mode: blocking}
+      billing-svc: {mode: park_global, park: mt.billing-wait.marketing}
+    dead_letter: router-svc.mt.inbound.marketing.dead-letter
   - &router-wait
     topic: mt.billing-wait.otp
     service: router-svc

@@ -31,9 +31,9 @@ Page générée depuis `contracts/topics.yaml` par `go generate` : ne pas l'édi
 
 | Groupe | Assignation | Tenant | Dépendances | Concurrence | Âge maximal | Départ |
 |---|---|---|---|---|---|---|
-| `router-svc.mt.inbound.otp` | group | account_id | billing-svc : park_global, control-plane : blocking, kafka : blocking | per_partition | category | earliest |
-| `router-svc.mt.inbound.transactional` | group | account_id | billing-svc : park_global, control-plane : blocking, kafka : blocking | per_partition | category | earliest |
-| `router-svc.mt.inbound.marketing` | group | account_id | billing-svc : park_global, control-plane : blocking, kafka : blocking | per_partition | category | earliest |
+| `router-svc.mt.inbound.otp` | group | account_id | billing-svc : park_global → `mt.billing-wait.otp`, control-plane : blocking, kafka : blocking | per_partition | category | earliest |
+| `router-svc.mt.inbound.transactional` | group | account_id | billing-svc : park_global → `mt.billing-wait.transactional`, control-plane : blocking, kafka : blocking | per_partition | category | earliest |
+| `router-svc.mt.inbound.marketing` | group | account_id | billing-svc : park_global → `mt.billing-wait.marketing`, control-plane : blocking, kafka : blocking | per_partition | category | earliest |
 | `router-svc.mt.billing-wait.otp` | group | account_id | billing-svc : blocking, control-plane : blocking, kafka : blocking | per_partition | category | earliest |
 | `router-svc.mt.billing-wait.transactional` | group | account_id | billing-svc : blocking, control-plane : blocking, kafka : blocking | per_partition | category | earliest |
 | `router-svc.mt.billing-wait.marketing` | group | account_id | billing-svc : blocking, control-plane : blocking, kafka : blocking | per_partition | category | earliest |

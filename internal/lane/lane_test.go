@@ -36,7 +36,6 @@ func TestPolicyRefusesWhatThisStepCannotServe(t *testing.T) {
 		"broadcast":      {one("dlr.routed", "", "assignment: broadcast, "), "022"},
 		"manual":         {one("mt.routed.otp", "", "assignment: manual, "), "023a"},
 		"park_by_tenant": {one("dlr.routed", ", endpoint: {mode: park_by_tenant}", ""), "008b"},
-		"park_global":    {one("dlr.routed", ", billing-svc: {mode: park_global}", ""), "008b"},
 		"per_tenant": {strings.Replace(one("dlr.routed", "", "max_in_flight: 8, "),
 			"per_partition", "per_tenant", 1), "008b"},
 		"category without a category topic": {one("mt.reroute-park", "", "max_age: category, "), "category"},
