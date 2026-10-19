@@ -94,12 +94,14 @@ téléchargée à chaque scan.
   d'un `cmd/` compile `./cmd/<nom>` avec `CGO_ENABLED=0` (un binaire lié dynamiquement ne démarre pas
   dans l'image statique), son image ne bâtit que ce build et ne se publie que sous le registre. Côté
   manifests : tout fichier de `deploy/k8s/` est un `.yaml` (un `.yml` serait appliqué sans être gardé) ;
-  chaque document est un `Job` ou un `Deployment` avec au moins un conteneur, les autres sortes entrent
-  avec leur règle ; chaque conteneur, init compris, porte lui-même `runAsNonRoot`,
+  chaque document est un `Job` avec au moins un conteneur, les autres sortes (`Deployment` compris)
+  entrent avec leur premier manifest et leur règle ; chaque conteneur, init compris, porte lui-même `runAsNonRoot`,
   `readOnlyRootFilesystem` et `seccompProfile` `RuntimeDefault`, au niveau du conteneur, plus strict
   que le minimum de Kubernetes.
 - Tests d'intégration de `cmd/migrate` (pgtest) : `up` applique toutes les migrations sous `migrator`, et
-  une seconde fois n'applique rien ; deux `run` simultanés réussissent tous les deux ; le journal ne
+  une seconde fois n'applique rien ; deux `run` simultanés réussissent tous les deux, sur une base dont
+  la table de version existe déjà (cas de tout déploiement après le premier ; sur une base vide, la
+  reprise de goose sur la création de cette table sérialise les deux `run` et le test ne prouve rien) ; le journal ne
   porte ni l'URL ni le mot de passe ; une URL vide est refusée avant toute connexion.
 - `docs/design/09-conventions-du-socle.md` C1 : l'exception GoReleaser et grype.
 
@@ -118,3 +120,10 @@ téléchargée à chaque scan.
   le tag de l'image relèvent de la séquence de déploiement (007d-2, porté au plan). `migrate` ne couvre
   que `control_plane` : les autres bases arrivent avec leur composant (plan §006). Une fonction de
   migration partagée entre `pgtest` et `migrate` éviterait quatre lignes pour un export de plus.
+
+**Tour 2** (deux axes, 4 constats mineurs, aucun bloquant) :
+
+- Retenus : `Deployment` admis sans cas qui l'exerce (retiré de la liste fermée), `MkdirAll` redit dans
+  le test de la garde, préparation du test de course absente du design.
+- Écarté : un `---` final refusé (`kind ""`) : le refus est sûr et visible ; le message cite la sorte
+  entre guillemets.
