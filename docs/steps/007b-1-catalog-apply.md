@@ -80,7 +80,7 @@ Fable a tranché les propositions le 2026-10-19 (P1, P3 à P7, P9, P10 tenues ; 
     (Plan, error)` sur les topics du catalogue et les dead-letters : créations, extensions, configs à
     écrire, ACL à ajouter puis à retirer, topics hors catalogue ; tous les refus d'un coup, aucun plan
     s'il en est un ; `(Plan) Empty() bool` ;
-  - `Markdown` : partitions d'un topic à clé `manual` rendues « 384 (initial) », table des ACL.
+  - `Markdown` : partitions d'un topic d'ordre `per_partition` rendues « 384 (initial) », table des ACL.
 - `internal/catalog/kafka` : `Sync(ctx, *kgo.Client, Catalog) (Plan, error)` lit le cluster par `kadm`,
   calcule le plan, n'écrit rien s'il est refusé ; sinon crée, étend, configure, ajoute puis retire les ACL,
   une ACL exacte par entrée (`kmsg` : le constructeur de `kadm` fait un produit cartésien).
@@ -115,3 +115,7 @@ Fable a tranché les propositions le 2026-10-19 (P1, P3 à P7, P9, P10 tenues ; 
   `int32` déplacerait la conversion vers `len`, que gosec refuse.
 - Pour 007d-1 : le principal est `User:CN=<service>` seulement si le sujet du certificat se réduit au CN
   (ou par `ssl.principal.mapping.rules`), `super.users=User:CN=catalog-apply` compris.
+
+**Tour 2** (un axe sur les correctifs, deux mineurs, aucun bloquant) : texte du design aligné sur l'ordre
+`per_partition` ; la lecture des erreurs par ACL au retrait est gardée sans test, pour la même raison que
+l'ordre « ajout avant retrait » : on ne provoque pas le refus d'une ACL bien formée.
