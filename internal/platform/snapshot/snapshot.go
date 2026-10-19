@@ -15,15 +15,15 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/martialanouman/sms-platform/internal/platform/pgdial"
 )
 
-var resyncEvery = 5 * time.Minute
-
-const reconnectEvery = time.Second
+var (
+	resyncEvery  = 5 * time.Minute
+	queryTimeout = 10 * time.Second
+)
 
 var propagation = prometheus.NewHistogram(prometheus.HistogramOpts{
 	Name:    "config_propagation_seconds",
@@ -48,14 +48,19 @@ type Snapshots struct {
 	conn   *pgx.Conn
 	keys   map[string][]string
 	rows   map[string]map[string]string
+	newest map[string]time.Time
 	views  atomic.Pointer[map[string]any]
 }
 
 // Open listens on a direct connection to dsn and returns once every table is loaded.
 func Open(ctx context.Context, log *slog.Logger, dsn string, tables ...Table) (*Snapshots, error) {
-	s := &Snapshots{log: log, dsn: dsn, tables: tables, keys: map[string][]string{}, rows: map[string]map[string]string{}}
+	s := &Snapshots{log: log, dsn: dsn, tables: tables, keys: map[string][]string{},
+		rows: map[string]map[string]string{}, newest: map[string]time.Time{}}
 	s.views.Store(&map[string]any{})
-	if err := pgdial.Retry(ctx, log, func(ctx context.Context) error { return s.connect(ctx, false) }); err != nil {
+	if err := pgdial.Retry(ctx, log, s.connect); err != nil {
+		if s.conn != nil {
+			_ = s.conn.Close(context.Background())
+		}
 		return nil, err
 	}
 	return s, nil
@@ -79,45 +84,35 @@ func (s *Snapshots) Run(ctx context.Context) {
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(reconnectEvery):
+			case <-time.After(time.Second):
 			}
-			if err = s.connect(ctx, true); err != nil {
+			if err = s.connect(ctx); err != nil {
 				s.log.Warn("config listener reconnection failed", "error", err)
 			}
 		}
 	}
 }
 
-func (s *Snapshots) connect(ctx context.Context, observe bool) error {
+func (s *Snapshots) connect(ctx context.Context) error {
 	if s.conn != nil {
 		_ = s.conn.Close(ctx)
 	}
-	conn, err := pgx.Connect(ctx, s.dsn)
+	bounded, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+	conn, err := pgx.Connect(bounded, s.dsn)
 	if err != nil {
 		return err
 	}
 	s.conn = conn
-	if _, err := conn.Exec(ctx, "LISTEN config"); err != nil {
+	if _, err := conn.Exec(bounded, "LISTEN config"); err != nil {
 		return err
 	}
-	return s.resync(ctx, observe)
+	return s.resync(ctx)
 }
 
-func (s *Snapshots) resync(ctx context.Context, observe bool) error {
+func (s *Snapshots) resync(ctx context.Context) error {
 	for _, t := range s.tables {
-		name := t.Name
-		var key []string
-		err := s.conn.QueryRow(ctx, `SELECT array_agg(a.attname::text ORDER BY a.attnum) FROM pg_index i
-			JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey)
-			WHERE i.indrelid = $1::regclass AND i.indisprimary`, ident(name)).Scan(&key)
-		if err != nil {
-			return fmt.Errorf("snapshot: %s: %w", name, err)
-		}
-		if len(key) == 0 {
-			return fmt.Errorf("snapshot: %s has no primary key", name)
-		}
-		s.keys[name] = key
-		if err := s.load(ctx, name, "", observe); err != nil {
+		if err := s.load(ctx, t.Name, ""); err != nil {
 			return err
 		}
 	}
@@ -132,7 +127,7 @@ func (s *Snapshots) listen(ctx context.Context) error {
 		cancel()
 		switch {
 		case err != nil && ctx.Err() == nil && errors.Is(wait.Err(), context.DeadlineExceeded):
-			if err := s.resync(ctx, true); err != nil {
+			if err := s.resync(ctx); err != nil {
 				return err
 			}
 			next = time.Now().Add(resyncEvery)
@@ -147,45 +142,88 @@ func (s *Snapshots) listen(ctx context.Context) error {
 }
 
 func (s *Snapshots) apply(ctx context.Context, payload string) error {
-	table, key, ok := strings.Cut(payload, ":")
-	if _, held := s.rows[table]; !ok || !held {
+	table, key, _ := strings.Cut(payload, ":")
+	if _, held := s.rows[table]; !held {
 		return nil
 	}
 	if key == "*" {
-		return s.load(ctx, table, "", true)
+		return s.load(ctx, table, "")
 	}
 	if !json.Valid([]byte(key)) {
 		s.log.Warn("config notification without a readable key", "table", table)
 		return nil
 	}
-	return s.load(ctx, table, key, true)
+	return s.load(ctx, table, key)
 }
 
-// load reads key's row of table, or every row when key is empty, and rebuilds the table's view.
-func (s *Snapshots) load(ctx context.Context, table, key string, observe bool) error {
+func (s *Snapshots) describe(ctx context.Context, table string) error {
+	rows, err := s.conn.Query(ctx, `SELECT a.attname::text,
+			a.attname ~ '(_sealed|_hash|_kms_key_ref)$' OR a.attname = 'wrapped_key',
+			a.atttypid IN ('timestamptz'::regtype, 'timetz'::regtype)
+		FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey)
+		WHERE i.indrelid = $1::regclass AND i.indisprimary ORDER BY a.attnum`, ident(table))
+	if err != nil {
+		return err
+	}
+	var key []string
+	var column string
+	var filtered, zoned bool
+	_, err = pgx.ForEachRow(rows, []any{&column, &filtered, &zoned}, func() error {
+		switch {
+		case filtered:
+			return fmt.Errorf("key column %s is filtered out of its notification", column)
+		case zoned:
+			return fmt.Errorf("key column %s is rendered in the session time zone", column)
+		}
+		key = append(key, column)
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if len(key) == 0 {
+		return errors.New("no primary key")
+	}
+	s.keys[table] = key
+	return nil
+}
+
+func (s *Snapshots) load(ctx context.Context, table, key string) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+	if key == "" {
+		if err := s.describe(ctx, table); err != nil {
+			return fmt.Errorf("snapshot: %s: %w", table, err)
+		}
+	}
 	q := fmt.Sprintf(`SELECT (SELECT jsonb_object_agg(c, to_jsonb(t) -> c) FROM unnest($2::text[]) c)::text AS pk,
 		(to_jsonb(t) - ARRAY(SELECT attname::text FROM pg_attribute WHERE attrelid = $1::regclass AND attnum > 0
 			AND NOT attisdropped AND (attname ~ '(_sealed|_kms_key_ref)$' OR attname = 'wrapped_key')))::text AS row,
 		pg_xact_commit_timestamp(t.xmin) AS committed
 		FROM %s t`, ident(table))
 	args := []any{ident(table), s.keys[table]}
-	held := s.rows[table]
+	held, loaded := s.rows[table]
 	next := map[string]string{}
 	if key != "" {
 		q = `SELECT * FROM (` + q + `) r WHERE r.pk::jsonb = $3::jsonb`
 		args = append(args, key)
-		next = maps.Clone(held)
+		next = held
 		delete(next, key)
 	}
 	rows, err := s.conn.Query(ctx, q, args...)
 	if err != nil {
 		return fmt.Errorf("snapshot: %s: %w", table, err)
 	}
+	newest := s.newest[table]
+	latest := newest
 	var pk, row string
-	var committed pgtype.Timestamptz
+	var committed *time.Time
 	_, err = pgx.ForEachRow(rows, []any{&pk, &row, &committed}, func() error {
-		if observe && held[pk] != row && committed.Valid {
-			propagation.Observe(time.Since(committed.Time).Seconds())
+		if committed != nil && loaded && committed.After(newest) {
+			propagation.Observe(time.Since(*committed).Seconds())
+		}
+		if committed != nil && committed.After(latest) {
+			latest = *committed
 		}
 		next[pk] = row
 		return nil
@@ -194,7 +232,8 @@ func (s *Snapshots) load(ctx context.Context, table, key string, observe bool) e
 		return fmt.Errorf("snapshot: %s: %w", table, err)
 	}
 	s.rows[table] = next
-	return s.build(table, observe)
+	s.newest[table] = latest
+	return s.build(table, loaded)
 }
 
 func (s *Snapshots) build(table string, keepOnFailure bool) error {
