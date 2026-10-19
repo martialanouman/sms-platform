@@ -16,7 +16,8 @@ une autre peut s'ajouter au démarrage d'une step, comme au socle.
 | 008a | Runtime de lane : lane `group`, dead-letter, gardes | Fondations |
 | 008b | Runtime de lane : garage global, `per_tenant` | Fondations |
 | 009 | Instantané de configuration | Fondations |
-| 010 | OpenBao et `content-key-svc` | Fondations |
+| 010a | Brique OpenBao | Fondations |
+| 010b | `content-key-svc` | Fondations |
 | 011a | Dashboard : BFF, SPA, activation, mot de passe, sessions, journal d'accès | Fondations |
 | 011b | Dashboard : TOTP, WebAuthn, session élevée | Fondations |
 | 012 | Dashboard : opérateurs, rôles, jetons | Fondations |
@@ -93,17 +94,17 @@ l'écoute est suivie d'une resync complète ; une notification `<table>:*` recha
 
 ## 010 — OpenBao et `content-key-svc`
 
-- **Brique OpenBao** dans l'environnement de test : Transit, rôle `breakglass` et rôle `CREATEROLE` par
-  les rôles gérés de CloudNativePG (report de 007d-1).
-- **`content-key-svc`** : scellement et ouverture des secrets rejoués sous la clé maître (ADR-0016) ;
-  seul appelant d'OpenBao Transit. Les clés par client et le crypto-shred viennent en 032.
+- **010a, brique OpenBao** dans l'environnement de test : Transit, rôle `CREATEROLE` `openbao` par les
+  rôles gérés de CloudNativePG (report de 007d-1), `breakglass` créé sous `openbao`, qui seul peut en
+  accorder l'adhésion (Fable, 2026-10-19).
+- **010b, `content-key-svc`** : scellement et ouverture des secrets rejoués sous la clé maître (ADR-0016) ;
+  seul appelant d'OpenBao Transit. Les clés par client et le crypto-shred viennent en 032. Premier
+  service : la garde de `deploy.sh` (ordre des Jobs et des services) y est revue.
 
 **Terminé quand** : un secret scellé ne s'ouvre que par `content-key-svc` ; seuls ses appelants admis
 l'atteignent.
 
 ## 011 — Dashboard : BFF et authentification
-
-Le premier service : la garde de `deploy.sh` (ordre des Jobs et des services) est revue en 011a.
 
 - **011a** : `cmd/dashboard`, base `dashboard` et ses migrations, la SPA embarquée (`embed.FS`) et sa
   chaîne (pnpm, Vite) dans la CI unique ; comptes nés sans mot de passe, liens d'activation et de
