@@ -28,6 +28,25 @@ func (db DB) As(role string) string {
 // ControlPlane starts a Postgres whose control_plane database is migrated to the latest version.
 func ControlPlane(t *testing.T) DB {
 	t.Helper()
+	db := Empty(t)
+	migrator, err := sql.Open("pgx", db.As("migrator"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = migrator.Close() }()
+	p, err := goose.NewProvider(goose.DialectPostgres, migrator, migrations.ControlPlane())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.Up(context.Background()); err != nil {
+		t.Fatalf("migrate control_plane: %v", err)
+	}
+	return db
+}
+
+// Empty starts a Postgres whose control_plane database, owned by migrator, holds no migration.
+func Empty(t *testing.T) DB {
+	t.Helper()
 	testcontainers.SkipIfProviderIsNotHealthy(t)
 	ctx := context.Background()
 	pg, err := testcontainers.Run(ctx, "postgres:18-alpine",
@@ -59,18 +78,6 @@ func ControlPlane(t *testing.T) DB {
 		if _, err := super.Exec(s); err != nil {
 			t.Fatalf("%s: %v", s, err)
 		}
-	}
-	migrator, err := sql.Open("pgx", db.As("migrator"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = migrator.Close() }()
-	p, err := goose.NewProvider(goose.DialectPostgres, migrator, migrations.ControlPlane())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := p.Up(ctx); err != nil {
-		t.Fatalf("migrate control_plane: %v", err)
 	}
 	return db
 }
