@@ -168,7 +168,7 @@ Arbitrage de la revue (Fable, 2026-10-19) :
 
 ## Preuve sur `contabo169`
 
-Procédure jouée le 2026-10-19 au commit `db80cbb`, de la table rase (`k3s-uninstall.sh`) à la table rase ; images
+Procédure jouée le 2026-10-19 au commit `88e1f5c`, de la table rase (`k3s-uninstall.sh`) à la table rase ; images
 du snapshot importées dans le containerd de k3s (`docker save | k3s ctr images import`). Sorties expurgées des
 adresses. Les rouges marqués « avant » viennent des passages précédents, aux commits `fc8a929` à `3df8fc9`.
 
@@ -181,15 +181,18 @@ adresses. Les rouges marqués « avant » viennent des passages précédents, au
 5. `networkpolicies.yaml` puis les Jobs, sans attente artificielle :
    - `migrate` : `succeeded 1`, « postgres unreachable, retrying » puis « migration applied », version 1 ;
    - `catalog-apply` : `succeeded 1`, 58 topics et 139 ACL posés, le secret de `admin_api_svc` posé ;
-   - un second `catalog-apply` aussitôt : `succeeded 1, failed 2`, les tentatives rejetées sur une métadonnée
-     pas encore propagée (« UNKNOWN_TOPIC_OR_PARTITION » au passage précédent, « create topic mo.outcome:
-     TOPIC_ALREADY_EXISTS » ici), rejouées ; relancé plus tard, « cluster already matches the catalog ».
+   - un second `catalog-apply` aussitôt : rejoué jusqu'au succès, sur une métadonnée pas encore propagée
+     (« UNKNOWN_TOPIC_OR_PARTITION », puis « create topic …: TOPIC_ALREADY_EXISTS » ; `failed 1` à `failed 2`
+     selon les passages) ; relancé plus tard, « cluster already matches the catalog ».
 6. Réplication : chacun des trois brokers porte les 128 partitions de `mt.outcome` (facteur 3).
 7. cert-manager expose `certmanager_certificate_expiration_timestamp_seconds` (5 séries) et
    `certmanager_certificate_ready_status` (15) sur `:9402`.
 
 Rouges vus :
 
+- **Un compte `edit` sur `sms`** : `auth can-i create certificates` rend « no », `create deployments` « yes ».
+- **`openssl` en échec** (un faux `openssl` en tête du `PATH`) : `secrets.sh` sort en échec, aucun Secret
+  `migrator` créé.
 - **Course du contrôleur de politiques** (avant `pgdial`) : les deux Jobs en `Failed` à chaque passage, « dial
   tcp …:5432: connect: connection refused » ; avec dix secondes d'attente, `migrate` passe.
 - **Secret à saut de ligne** (avant le correctif de `secrets.sh`) : `catalog-apply` en `Failed`, « role
@@ -231,3 +234,11 @@ suivent.
   opérateurs et de Kafka (tags de release, `spec.kafka.version`) ; un test de la borne d'une minute
   (comparer à la constante serait creux ; la procédure ne l'observe pas non plus) ; retirer les trois clés de
   réplication des journaux internes que B4 demande.
+
+**Tour 2** (un axe sur les correctifs, aucun bloquant) :
+
+- Retenus : pgx résout le nom lui-même, avant tout dial : un nom non résolu arrive en `*net.DNSError` nu, que le
+  prédicat « dial seul » ne rejouait plus, et le test passait sur une erreur fabriquée (désormais un vrai
+  `pgx.Connect`) ; la garde ne voyait pas un magasin de confiance retiré (la JVM retomberait sur ses CA
+  publiques) ; `nonempty` et l'agrégation RBAC sans rouge consigné (ajoutés à la procédure) ; une mention de
+  runbook sans objet ; B3, B4 et le paragraphe de `pgdial` décrivaient l'état remplacé ; deux commentaires.
