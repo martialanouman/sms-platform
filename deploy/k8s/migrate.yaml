@@ -17,6 +17,8 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
           env:
             - name: POSTGRES_URL
               valueFrom:

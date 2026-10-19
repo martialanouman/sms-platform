@@ -3,7 +3,7 @@ SHELL := /bin/bash -o pipefail
 .PHONY: help lint vuln test ciguard check-generated debtguard catalog proto openapi image scan check
 
 # Hors de la directive tool (décision 9, C1) : une version ici, la seule.
-GORELEASER := GOTOOLCHAIN=auto go run github.com/goreleaser/goreleaser/v2@v2.18.3
+GORELEASER := go run github.com/goreleaser/goreleaser/v2@v2.18.3
 GRYPE := go run github.com/anchore/grype/cmd/grype@v0.120.1
 
 help: ## Liste les cibles
@@ -60,9 +60,9 @@ openapi: ## Gardes des contrats, oasdiff validate, puis oasdiff breaking contre 
 image: ## Images de chaque cmd/, en snapshot, sans push
 	$(GORELEASER) release --snapshot --clean
 
-scan: ## grype sur chaque image du snapshot : une vulnérabilité connue échoue, aucune image aussi
+scan: image ## grype sur chaque image du snapshot : une vulnérabilité connue échoue, aucune image aussi
 	@images=$$(jq -r '.[] | select(.type == "Docker Image") | .name' dist/artifacts.json) || exit 1; \
 	[ -n "$$images" ] || { echo "aucune image à scanner"; exit 1; }; \
 	for i in $$images; do $(GRYPE) --fail-on low "docker:$$i" || exit 1; done
 
-check: lint vuln ciguard check-generated debtguard catalog proto openapi image scan ## Ce que vérifie la CI
+check: lint vuln ciguard check-generated debtguard catalog proto openapi scan ## Ce que vérifie la CI

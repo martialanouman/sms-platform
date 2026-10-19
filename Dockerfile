@@ -1,6 +1,5 @@
 FROM gcr.io/distroless/static-debian12:nonroot
 ARG TARGETPLATFORM
 ARG BINARY
-USER 65532:65532
 COPY $TARGETPLATFORM/$BINARY /app
 ENTRYPOINT ["/app"]
