@@ -62,8 +62,9 @@ en-têtes d'origine, raison, instant, position source) et recopie les quatre en-
 
 1. Tout topic produit ou consommé dans le code a son entrée, et toute entrée a un usage.
 2. Un service ne produit que là où il figure dans `producers`.
-3. Une dépendance appelée dans une lane est déclarée : le runtime ne fournit son client qu'à travers
-   elle.
+3. Une dépendance dont une lane signale l'échec ou l'absence est déclarée, dans le mode qui s'y applique :
+   sinon la lane s'arrête, après avoir commité ce qui est fait. Le runtime n'agit sur un mode qu'à l'échec
+   de la dépendance ; il ne fournit pas les clients (amendé à la step 008a).
 4. Un topic où transite le corps est `clear_bounded`, de rétention ≤ 96 h, inscrit à l'inventaire RGPD.
 5. Le nombre de partitions d'un topic `order: per_key` est figé.
 6. `maxReplicas` d'un service consommant par groupe (`assignment: group`) ≤ partitions du plus petit

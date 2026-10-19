@@ -126,7 +126,8 @@ Trois axes en lecture seule : correction et concurrence, conformité à la spec,
   contrats pour des raisons internes au runtime ; la règle I1 et le test du marqueur la gardent.
 - *`ErrDataLoss` de franz-go arrête la lane* : le redémarrage repart de l'offset de reprise ; rien ne se perd.
 
-**À trancher par l'humain** : la garde 3 de la spec 09 §9.1 dit « le runtime ne fournit son client qu'à travers
-[la déclaration] ». 008a ne fournit aucun client : le traitement tient les siens, et seule une issue (`Transient`,
-`Degraded`) sur une dépendance non déclarée ou d'un autre mode arrête la lane. Une dépendance appelée sans être
-déclarée, puis rendue `Ok`, passe.
+**Tranché par l'humain** (2026-10-19) : la garde 3 de la spec 09 §9.1 disait « le runtime ne fournit son client
+qu'à travers [la déclaration] ». 008a ne fournit aucun client : le traitement tient les siens, et seule une issue
+(`Transient`, `Degraded`) sur une dépendance non déclarée ou d'un autre mode arrête la lane. Le runtime n'agit sur un
+mode qu'à l'échec : c'est ce qu'il vérifie. La spec, la décision 4 et la règle `topics` sont amendées ; envelopper
+chaque client (Postgres, Redis, gRPC) dans le runtime aurait été une abstraction sans consommateur.
