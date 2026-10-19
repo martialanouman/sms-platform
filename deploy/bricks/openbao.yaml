@@ -1,0 +1,77 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: openbao
+  namespace: kube-system
+spec:
+  repo: https://openbao.github.io/openbao-helm
+  chart: openbao
+  version: 0.30.2
+  targetNamespace: openbao
+  valuesContent: |-
+    global:
+      tlsDisable: false
+    injector:
+      enabled: false
+    ui:
+      enabled: false
+    server:
+      authDelegator:
+        enabled: true
+      extraEnvironmentVars:
+        BAO_CACERT: /openbao/userconfig/openbao-tls/ca.crt
+      extraVolumes:
+        - type: secret
+          name: openbao-tls
+      dataStorage:
+        size: 1Gi
+      ha:
+        enabled: true
+        replicas: 1
+        disruptionBudget:
+          enabled: false
+        raft:
+          enabled: true
+          setNodeId: true
+          config: |
+            ui = false
+            listener "tcp" {
+              address = "[::]:8200"
+              cluster_address = "[::]:8201"
+              tls_cert_file = "/openbao/userconfig/openbao-tls/tls.crt"
+              tls_key_file = "/openbao/userconfig/openbao-tls/tls.key"
+              telemetry {
+                unauthenticated_metrics_access = true
+              }
+            }
+            storage "raft" {
+              path = "/openbao/data"
+            }
+            service_registration "kubernetes" {}
+            telemetry {
+              prometheus_retention_time = "30s"
+              disable_hostname = true
+            }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: openbao
+  namespace: openbao
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: openbao
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sms
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: content-key-svc
+      ports:
+        - protocol: TCP
+          port: 8200
