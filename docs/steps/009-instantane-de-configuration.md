@@ -27,7 +27,7 @@ Fable, 2026-10-19, sauf les deux points tranchés par l'humain.
    (`audit_log`, `exact_routes`) ; une table non déclarée fait échouer `Open` faute de GRANT (garde 1).
 4. **Boucle** : une connexion directe, une goroutine. `LISTEN config` avant le chargement ; colonnes de
    la clé lues dans `pg_index` à l'ouverture ; une seule requête pour charger et relire, la clé rendue
-   par `jsonb_build_object` comme le trigger. Ligne absente : suppression. Table non chargée : ignorée.
+   par `jsonb_object_agg` comme le trigger. Ligne absente : suppression. Table non chargée : ignorée.
    Charge utile illisible : journalisée sans la charge utile et ignorée (`NOTIFY` n'exige aucun
    privilège ; la resync de 5 min rattrape).
 5. **Colonnes scellées** : `*_sealed`, `*_kms_key_ref` et `wrapped_key` retirées à la lecture (spec
@@ -48,7 +48,7 @@ Fable, 2026-10-19, sauf les deux points tranchés par l'humain.
 
 - **`internal/platform/snapshot`** :
   - `Table{Name string; Build func([]json.RawMessage) (any, error)}` ;
-  - `Open(ctx, log, dsn string, tables ...Table) (*Snapshots, error)` ; `(*Snapshots).Run(ctx) error`
+  - `Open(ctx, log, dsn string, tables ...Table) (*Snapshots, error)` ; `(*Snapshots).Run(ctx)`
     jusqu'à l'annulation ; `(*Snapshots).Get(table string) any`, lu par `atomic.Pointer` ;
   - `Register(prometheus.Registerer) error` pour `config_propagation_seconds` (bornes 0.1, 0.5, 1, 2,
     5, 10, 30, 60, 300) ;
@@ -71,3 +71,31 @@ Fable, 2026-10-19, sauf les deux points tranchés par l'humain.
   - `Open` échoue sur une table sans GRANT, sans clé primaire, ou dont `Build` échoue ; un `Build` en
     échec ensuite garde la vue précédente sans bloquer les autres tables ;
   - une charge utile illisible ou d'une table non tenue est ignorée, sans resync.
+
+## Correctifs de revue, tour 1
+
+Trois revues (correction, tests creux, code en trop) ; Fable, 2026-10-19.
+
+1. **Clé primaire modifiée** : `audit_capture` ne notifiait que la nouvelle clé, l'ancienne ligne restait
+   jusqu'à la resync. Migration `00002` (`CREATE OR REPLACE`, propriétaire et ACL gardés) : un `UPDATE` qui
+   change la clé notifie aussi l'ancienne. Deux notifications, une clé chacune (D1). `audit_changes` inchangé.
+2. **Clé introuvable** : `Open` refuse une table dont une colonne de clé est retirée par le trigger
+   (`*_sealed`, `*_hash`, `*_kms_key_ref`, `wrapped_key` : il notifierait une clé nulle) ou de type
+   `timestamptz`/`timetz` (`to_jsonb` les rend dans le fuseau de la session : la clé de l'écrivain ne serait
+   pas celle du lecteur).
+3. **Borne** : 10 s par chargement (resync d'une table, relecture d'une ligne) ; l'échec fait reconnecter.
+   Une coupure silencieuse se voit au plus à la resync suivante (5 min 10 s).
+4. **Fraîcheur** : une ligne est observée si son commit est postérieur au plus récent commit vu dans la
+   table avant ce chargement ; le maximum est remplacé après. Un `ADD COLUMN` ou `DROP COLUMN` ne touche pas
+   `xmin` et ne fait plus partir l'alerte ; une réécriture complète (`ALTER TYPE`) la fait partir une fois,
+   accepté. Plus de comparaison de JSON ni de copie de la table.
+5. **Simplifications** : « observer » et « garder la vue en cas d'échec » valent « la table est déjà
+   chargée » ; la connexion se ferme quand `Open` échoue ; `!ok` du découpage de la charge utile retiré
+   (`json.Valid("")` la refuse déjà).
+6. **Tests** : valeur observée (≥ durée d'une coupure, notification perdue) ; lecture de la vue pendant la
+   coupure ; resync périodique sous un flot de notifications ; `LISTEN` avant le chargement ; ni `Build` en
+   échec ni `*` ne resynchronisent ; journal d'une charge utile illisible sans elle ; témoin de colonne non
+   scellée ; clé composite de la sonde ; `Open` derrière `pgtest.Late` ; motifs d'échec d'`Open` ; alerte
+   resserrée autour de 5 s ; aucune connexion laissée par un `Open` en échec.
+7. Écarté : un horodatage NULL n'arrive qu'au-delà de la rétention des commit timestamps, intestable ; la
+   condition reste, sans test ni dette.
