@@ -14,7 +14,8 @@ images=$(grep -hoE 'ghcr\.io/martialanouman/sms-platform/[a-z-]+' deploy/k8s/*.y
 for image in $images; do
 	k3s crictl pull "$image:$latest" >/dev/null || { echo "sync.sh: $image:$latest pas tirable" >&2; exit 1; }
 done
+bash -n deploy/test-env/sync.sh || { echo "sync.sh: la copie de $latest ne se lit pas" >&2; exit 1; }
 deploy/test-env/deploy.sh "$latest"
 mkdir -p "$(dirname "$marker")"
 echo "$latest" >"$marker"
-bash -n deploy/test-env/sync.sh && install -m 755 deploy/test-env/sync.sh /usr/local/libexec/sms-deploy-sync
+install -m 755 deploy/test-env/sync.sh /usr/local/libexec/sms-deploy-sync
