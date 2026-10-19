@@ -28,10 +28,11 @@ var records = prometheus.NewCounterVec(prometheus.CounterOpts{
 }, []string{"group", "outcome"})
 
 var outcomeLabels = map[lane.Kind]string{
-	lane.KindOk:       "ok",
-	lane.KindRefuse:   "refused",
-	lane.KindDegraded: "degraded",
-	lane.KindPoison:   "poison",
+	lane.KindOk:        "ok",
+	lane.KindRefuse:    "refused",
+	lane.KindDegraded:  "degraded",
+	lane.KindPoison:    "poison",
+	lane.KindTransient: "parked",
 }
 
 // Register adds the metrics of the lanes to r.
@@ -46,6 +47,8 @@ type Handlers struct {
 	Category func(lane.Record) (string, error)
 	// Limit lowers the max_age of a record when it returns a positive duration.
 	Limit func(lane.Record) time.Duration
+	// Tenant names the tenant of a record, required by a per_tenant group.
+	Tenant func(lane.Record) (string, error)
 }
 
 // Lane consumes one consumer group of the catalog, committing a record only once it is handled or dead-lettered.
@@ -64,6 +67,9 @@ func NewLane(c catalog.Catalog, group string, h Handlers, log *slog.Logger, opts
 	p, err := lane.NewPolicy(c, group, h.Category)
 	if err != nil {
 		return nil, err
+	}
+	if p.MaxInFlight() > 0 && h.Tenant == nil {
+		return nil, fmt.Errorf("lane: group %s: Tenant is required by per_tenant", group)
 	}
 	reset := kgo.NewOffset().AtStart()
 	if p.StartsFromEnd() {
@@ -87,6 +93,9 @@ func (l *Lane) Close() { l.cl.Close() }
 // Run consumes until ctx ends, returning nil then, and an error on a fetch or commit fault or a breach of contract
 // by the handlers, which commits nothing more.
 func (l *Lane) Run(ctx context.Context) error {
+	if l.policy.MaxInFlight() > 0 {
+		return l.runPerTenant(ctx)
+	}
 	for ctx.Err() == nil {
 		krs, err := l.next(ctx)
 		if err != nil {
@@ -127,36 +136,57 @@ type failure struct {
 func (l *Lane) handle(ctx context.Context, krs []*kgo.Record) (int, failure, error) {
 	for i, kr := range krs {
 		out, expired := l.outcome(ctx, kr)
-		switch out.Kind() {
-		case lane.KindOk, lane.KindRefuse:
-		case lane.KindDegraded:
-			if l.policy.Mode(out.Dependency()) != "fail_open" {
-				return i, failure{}, l.breach(kr, out)
-			}
-		case lane.KindPoison:
-			if err := l.deadLetter(ctx, kr, out.Reason()); err != nil {
-				return i, failure{dep: "kafka", code: code(err)}, nil
-			}
-		case lane.KindTransient:
-			if l.policy.Mode(out.Dependency()) != "blocking" {
-				return i, failure{}, l.breach(kr, out)
-			}
-			return i, failure{dep: out.Dependency(), code: code(out.Err())}, nil
+		if f, err := l.settle(ctx, kr, out, expired); err != nil || f.dep != "" {
+			return i, f, err
 		}
-		label := outcomeLabels[out.Kind()]
-		if expired && out.Kind() == lane.KindOk {
-			label = "expired"
-		}
-		records.WithLabelValues(l.policy.Name(), label).Inc()
 	}
 	return len(krs), failure{}, nil
 }
 
-func (l *Lane) outcome(ctx context.Context, kr *kgo.Record) (lane.Outcome, bool) {
+// settle applies the outcome of kr and counts it once it is done; a failure is replayed in place, an error is a
+// breach of contract.
+func (l *Lane) settle(ctx context.Context, kr *kgo.Record, out lane.Outcome, expired bool) (failure, error) {
+	switch out.Kind() {
+	case lane.KindOk, lane.KindRefuse:
+	case lane.KindDegraded:
+		if l.policy.Mode(out.Dependency()) != "fail_open" {
+			return failure{}, l.breach(kr, out)
+		}
+	case lane.KindPoison:
+		if err := l.deadLetter(ctx, kr, out.Reason()); err != nil {
+			return failure{dep: "kafka", code: code(err)}, nil
+		}
+	case lane.KindTransient:
+		switch l.policy.Mode(out.Dependency()) {
+		case "blocking":
+			return failure{dep: out.Dependency(), code: code(out.Err())}, nil
+		case "park_global":
+			park := &kgo.Record{Topic: l.policy.Park(out.Dependency()), Key: kr.Key, Value: kr.Value, Headers: kr.Headers}
+			if err := l.cl.ProduceSync(ctx, park).FirstErr(); err != nil {
+				return failure{dep: "kafka", code: code(err)}, nil
+			}
+		default:
+			return failure{}, l.breach(kr, out)
+		}
+	}
+	label := outcomeLabels[out.Kind()]
+	if expired && out.Kind() == lane.KindOk {
+		label = "expired"
+	}
+	records.WithLabelValues(l.policy.Name(), label).Inc()
+	return failure{}, nil
+}
+
+func record(kr *kgo.Record) lane.Record {
 	rec := lane.Record{Topic: kr.Topic, Partition: kr.Partition, Offset: kr.Offset, Key: kr.Key, Value: kr.Value}
 	for _, h := range kr.Headers {
 		rec.Raw = append(rec.Raw, lane.Header{Key: h.Key, Value: h.Value})
 	}
+	return rec
+}
+
+func (l *Lane) outcome(ctx context.Context, kr *kgo.Record) (lane.Outcome, bool) {
+	rec := record(kr)
 	var err error
 	if rec.Headers, err = lane.ParseHeaders(rec.Raw); err != nil {
 		return lane.Poison("unreadable_headers"), false

@@ -24,6 +24,7 @@ import (
 
 const secret = "BODY-7f3a"
 
+// debt: #33
 func send(t *testing.T, topic string, recs ...*kgo.Record) {
 	t.Helper()
 	for _, r := range recs {
@@ -312,36 +313,40 @@ func TestABreachOfContractStopsTheLaneWithoutCommitting(t *testing.T) {
 		"degraded on a blocking dependency":     lane.Degraded("kafka"),
 		"degraded on an undeclared dependency":  lane.Degraded("redis"),
 	}
+	worlds := map[string]func(*testing.T, string) world{"per_partition": newWorld, "per_tenant": newTenantWorld}
 	for name, out := range cases {
-		t.Run(name, func(t *testing.T) {
-			w := newWorld(t, "dependencies: {kafka: {mode: blocking}}")
-			send(t, w.topic, rec("done", time.Now().UTC()), rec("breach", time.Now().UTC()))
-			l, err := kafka.NewLane(w.cat, w.group, kafka.Handlers{
-				Handle: func(_ context.Context, rc lane.Record) lane.Outcome {
-					if string(rc.Value) == "done" {
-						return lane.Ok()
-					}
-					return out
-				},
-				Expired: func(context.Context, lane.Record) lane.Outcome { return lane.Ok() },
-			}, slog.New(slog.DiscardHandler), kgo.SeedBrokers(brokers...))
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer l.Close()
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			defer cancel()
-			err = l.Run(ctx)
-			if err == nil || ctx.Err() != nil {
-				t.Fatalf("Run = %v, want a breach of contract before the deadline", err)
-			}
-			if strings.Contains(err.Error(), secret) {
-				t.Errorf("the error carries the handler's text: %v", err)
-			}
-			if got := committed(t, w); got != 1 {
-				t.Errorf("committed offset %d, want 1: what was done before the breach, nothing after", got)
-			}
-		})
+		for concurrency, newW := range worlds {
+			t.Run(name+" under "+concurrency, func(t *testing.T) {
+				w := newW(t, "dependencies: {kafka: {mode: blocking}}")
+				send(t, w.topic, rec("done", time.Now().UTC()), rec("breach", time.Now().UTC()))
+				l, err := kafka.NewLane(w.cat, w.group, kafka.Handlers{
+					Handle: func(_ context.Context, rc lane.Record) lane.Outcome {
+						if string(rc.Value) == "done" {
+							return lane.Ok()
+						}
+						return out
+					},
+					Expired: func(context.Context, lane.Record) lane.Outcome { return lane.Ok() },
+					Tenant:  byKey,
+				}, slog.New(slog.DiscardHandler), kgo.SeedBrokers(brokers...))
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer l.Close()
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+				err = l.Run(ctx)
+				if err == nil || ctx.Err() != nil {
+					t.Fatalf("Run = %v, want a breach of contract before the deadline", err)
+				}
+				if strings.Contains(err.Error(), secret) {
+					t.Errorf("the error carries the handler's text: %v", err)
+				}
+				if got := committed(t, w); got != 1 {
+					t.Errorf("committed offset %d, want 1: what was done before the breach, nothing after", got)
+				}
+			})
+		}
 	}
 }
 
@@ -369,11 +374,17 @@ func TestOutcomesThatMoveOn(t *testing.T) {
 	}
 }
 
-func TestNewLaneNeedsBothHandlers(t *testing.T) {
-	w := newWorld(t, "dependencies: {kafka: {mode: blocking}}")
-	ok := func(context.Context, lane.Record) lane.Outcome { return lane.Ok() }
-	for name, h := range map[string]kafka.Handlers{"no Handle": {Expired: ok}, "no Expired": {Handle: ok}} {
-		if l, err := kafka.NewLane(w.cat, w.group, h, slog.New(slog.DiscardHandler), kgo.SeedBrokers(brokers...)); err == nil {
+func TestNewLaneNeedsItsHandlers(t *testing.T) {
+	ok := expiredOk
+	for name, tc := range map[string]struct {
+		w world
+		h kafka.Handlers
+	}{
+		"no Handle":             {newWorld(t, "dependencies: {kafka: {mode: blocking}}"), kafka.Handlers{Expired: ok}},
+		"no Expired":            {newWorld(t, "dependencies: {kafka: {mode: blocking}}"), kafka.Handlers{Handle: ok}},
+		"no Tenant, per_tenant": {newTenantWorld(t, "dependencies: {kafka: {mode: blocking}}"), kafka.Handlers{Handle: ok, Expired: ok}},
+	} {
+		if l, err := kafka.NewLane(tc.w.cat, tc.w.group, tc.h, slog.New(slog.DiscardHandler), kgo.SeedBrokers(brokers...)); err == nil {
 			l.Close()
 			t.Errorf("%s: NewLane accepted it", name)
 		}
@@ -381,11 +392,11 @@ func TestNewLaneNeedsBothHandlers(t *testing.T) {
 }
 
 func TestNewLaneRefusesWhatThePolicyRefuses(t *testing.T) {
-	w := newWorld(t, "dependencies: {kafka: {mode: blocking}, billing-svc: {mode: park_global}}")
+	w := newWorld(t, "dependencies: {kafka: {mode: blocking}}, assignment: broadcast")
 	ok := func(context.Context, lane.Record) lane.Outcome { return lane.Ok() }
 	_, err := kafka.NewLane(w.cat, w.group, kafka.Handlers{Handle: ok, Expired: ok}, slog.New(slog.DiscardHandler), kgo.SeedBrokers(brokers...))
-	if err == nil || !strings.Contains(err.Error(), "008b") {
-		t.Fatalf("NewLane = %v, want the refusal of park_global", err)
+	if err == nil || !strings.Contains(err.Error(), "022") {
+		t.Fatalf("NewLane = %v, want the refusal of broadcast", err)
 	}
 }
 
@@ -414,6 +425,68 @@ func TestAGroupStartingLatestSkipsWhatPrecedesIt(t *testing.T) {
 				time.Sleep(200 * time.Millisecond)
 			}
 		})
+	}
+}
+
+func TestATransientOnAParkGlobalDependencyParksTheRecordAndMovesOn(t *testing.T) {
+	w := newWorld(t, "dependencies: {kafka: {mode: blocking}, billing: {mode: park_global, park: $park}}")
+	origin := time.Now().UTC().Truncate(time.Microsecond)
+	send(t, w.topic, rec("a", origin), rec("wait", origin), rec("c", origin))
+	s := newSeen()
+	r := start(t, w, kafka.Handlers{
+		Handle: func(_ context.Context, rc lane.Record) lane.Outcome {
+			s.add(&s.handled, string(rc.Value))
+			if string(rc.Value) == "wait" {
+				return lane.Transient("billing", errors.New("no envelope"))
+			}
+			return lane.Ok()
+		},
+		Expired: expiredOk,
+	})
+	s.wait(t, 3)
+	parked := readAll(t, w.park, 1)
+	if err := r.stop(t); err != nil {
+		t.Fatal(err)
+	}
+	if handled, _ := s.snapshot(); strings.Join(handled, ",") != "a,wait,c" {
+		t.Errorf("handled %v, want a, wait, c", handled)
+	}
+	if got := committed(t, w); got != 3 {
+		t.Errorf("committed offset %d, want 3", got)
+	}
+	var raw []lane.Header
+	for _, x := range parked[0].Headers {
+		raw = append(raw, lane.Header{Key: x.Key, Value: x.Value})
+	}
+	h, err := lane.ParseHeaders(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(parked[0].Value) != "wait" || string(parked[0].Key) != "k" || !h.OriginTS.Equal(origin) || h.TraceID != "tr" || h.ReplayCount != 3 {
+		t.Errorf("parked %q under %q with %+v, want the source record", parked[0].Value, parked[0].Key, h)
+	}
+}
+
+func TestARecordIsNeverCommittedBeforeItIsParked(t *testing.T) {
+	w := newWorld(t, "dependencies: {kafka: {mode: blocking}, billing: {mode: park_global, park: $park}}")
+	if _, err := kadm.NewClient(client(t)).DeleteTopics(context.Background(), w.park); err != nil {
+		t.Fatal(err)
+	}
+	send(t, w.topic, rec("wait", time.Now().UTC()))
+	s := newSeen()
+	r := start(t, w, kafka.Handlers{
+		Handle: func(_ context.Context, rc lane.Record) lane.Outcome {
+			s.add(&s.handled, string(rc.Value))
+			return lane.Transient("billing", errors.New("no envelope"))
+		},
+		Expired: expiredOk,
+	})
+	s.wait(t, 2)
+	if got := committed(t, w); got != -1 {
+		t.Fatalf("committed offset %d before the record is parked, want none", got)
+	}
+	if !strings.Contains(r.log.String(), `"dependency":"kafka"`) {
+		t.Errorf("the failed park is not replayed as a kafka failure: %s", r.log)
 	}
 }
 
@@ -455,10 +528,10 @@ func TestEveryOutcomeIsCountedUnderItsGroup(t *testing.T) {
 	if err := kafka.Register(reg); err != nil {
 		t.Fatal(err)
 	}
-	w := newWorld(t, "dependencies: {kafka: {mode: blocking}, cancel: {mode: fail_open, justification: j}}, max_age: category")
+	w := newWorld(t, "dependencies: {kafka: {mode: blocking}, cancel: {mode: fail_open, justification: j}, billing: {mode: park_global, park: $park}}, max_age: category")
 	now := time.Now().UTC()
 	send(t, w.topic, rec("ok", now), rec("refused", now), rec("degraded", now), rec("poison", now), rec("old", now.Add(-time.Hour)),
-		rec("rotten", now.Add(-time.Hour)))
+		rec("rotten", now.Add(-time.Hour)), rec("wait", now))
 	s := newSeen()
 	r := start(t, w, kafka.Handlers{
 		Handle: func(_ context.Context, rc lane.Record) lane.Outcome {
@@ -470,6 +543,8 @@ func TestEveryOutcomeIsCountedUnderItsGroup(t *testing.T) {
 				return lane.Degraded("cancel")
 			case "poison":
 				return lane.Poison("unreadable_payload")
+			case "wait":
+				return lane.Transient("billing", errors.New("no envelope"))
 			}
 			return lane.Ok()
 		},
@@ -481,8 +556,9 @@ func TestEveryOutcomeIsCountedUnderItsGroup(t *testing.T) {
 			return lane.Ok()
 		},
 	})
-	s.wait(t, 6)
+	s.wait(t, 7)
 	readAll(t, w.dl, 2)
+	readAll(t, w.park, 1)
 	if err := r.stop(t); err != nil {
 		t.Fatal(err)
 	}
@@ -502,7 +578,7 @@ func TestEveryOutcomeIsCountedUnderItsGroup(t *testing.T) {
 			}
 		}
 	}
-	want := map[string]float64{"ok": 1, "refused": 1, "degraded": 1, "poison": 2, "expired": 1}
+	want := map[string]float64{"ok": 1, "refused": 1, "degraded": 1, "poison": 2, "expired": 1, "parked": 1}
 	if !maps.Equal(got, want) {
 		t.Errorf("lane_records_total = %v, want %v", got, want)
 	}

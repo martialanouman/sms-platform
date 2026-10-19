@@ -182,7 +182,8 @@ le montant.
 | **billing-svc ou Postgres indisponible** | Les pods consomment les enveloppes qu'ils tiennent (environ 2 s), puis **garent** |
 
 **Garage.** Un message prépayé sans enveloppe, dont l'octroi échoue faute de facturation joignable,
-est publié dans `mt.billing-wait.<catégorie>`, clé par propriétaire.
+est publié dans `mt.billing-wait.<catégorie>`, sous la clé de son record source, `message_id` (spec 09 §9.1,
+amendé à la step 008b).
 - Il ne bloque ni sa lane ni les propriétaires non facturés.
 - Il est rejoué dès qu'un octroi réussit à nouveau.
 - Il est rejeté explicitement, avec le code `billing_unavailable` et un CDR `rejected`, au-delà de

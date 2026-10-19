@@ -72,7 +72,8 @@ Une lane par topic (`dlr.routed`, `mo.routed`), `tenant = account_id`, dépendan
   appel ; une sonde par intervalle (présence du bind toutes les 5 s, ou appel du webhook) le referme ;
   le garage se vide dans l'ordre d'arrivée, à débit borné.
 - **Client lent mais vivant** : `concurrency: per_tenant`, 8 envois en vol par compte au plus. L'offset
-  commité ne dépasse jamais le plus ancien record non terminé.
+  commité ne dépasse jamais le plus ancien record non terminé ; la lecture s'arrête à 1 024 records non
+  commités par pod, au-delà desquels le pod attend ce client (décision 4 §5.3).
 - **Au-delà de 24 h** : abandon compté, jamais remis. La plupart des opérateurs ne garantissent plus un
   DLR au-delà ; nous non plus.
 

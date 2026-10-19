@@ -55,7 +55,7 @@ Kafka (partition manuelle, topics compactés, offsets).
 |---|---|
 | `topic`, `service` | |
 | `tenant` | Champ de l'enveloppe qui identifie le tenant (`account_id`, `customer_id`, `connector_account_id`) ou `none` |
-| `dependencies` | Pour chaque dépendance, un mode (§4.3) : `blocking`, `park_by_tenant`, `park_global`, `fail_open` (avec justification écrite) |
+| `dependencies` | Pour chaque dépendance, un mode (§4.3) : `blocking`, `park_by_tenant`, `park_global` (avec son topic de garage, `park` ; amendé à la step 008b), `fail_open` (avec justification écrite) |
 | `concurrency` | `per_partition` (défaut) ou `per_tenant` avec un plafond en vol (§5.2) |
 | `max_age` | Politique par catégorie (D3) ou durée fixe (24 h pour la remise) |
 | `dead_letter` | Topic de dead-letter, **obligatoire dès le premier jour** |
@@ -184,7 +184,9 @@ reste dans le routeur aucune dépendance propre à un tenant qui puisse bloquer 
 - **Client lent mais vivant** : son disjoncteur ne s'ouvre jamais, le garage ne le couvre pas.
   `concurrency: per_tenant` confie les records d'une partition à des workers par tenant, avec un
   plafond en vol (8 par compte par défaut). L'offset commité ne dépasse jamais le plus ancien record
-  non terminé. Un client lent ne ralentit que sa file.
+  non terminé. Un client lent ne ralentit que sa file, tant que les records non commités du pod tiennent sous
+  sa fenêtre (1 024) ; au-delà, le pod attend ce client. Une fenêtre par partition s'ajoutera sur mesure
+  (amendé à la step 008b).
 - **Compte sans moyen de réception déclaré** : `Refuse(no_receiver)`, sans appel ni garage. Un DLR est
   compté et abandonné (l'état reste consultable par `GET /messages/{id}`, puis dans le CDR) ; un MO va
   en dead-letter. Cache négatif relu au rechargement de configuration.

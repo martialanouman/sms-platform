@@ -29,7 +29,7 @@ Fable, 2026-10-19 ; aucun désaccord laissé à l'humain.
 
 1. **Deux PR.** 008a : la lane `group`, les issues, `blocking` et `fail_open`, l'âge, la dead-letter, le producteur,
    les métriques, les gardes 1 à 3 et 6. 008b : `park_by_tenant`, `park_global`, `per_tenant`, le test de
-   non-régression de la décision 4 §8. 008a **refuse à la construction** un groupe qui déclare un mode ou une
+   non-régression de la décision 4 §8 (amendé en 008b : `park_by_tenant` et I11 passent en 029c). 008a **refuse à la construction** un groupe qui déclare un mode ou une
    concurrence de 008b, jamais ne le dégrade en `blocking`. Le « Terminé quand » du plan (I11) se ferme en 008b.
 2. **Emplacement** : `internal/lane` (cœur sans I/O : issues, âge, en-têtes, politique), `internal/lane/kafka`
    (franz-go). Le plan est corrigé.

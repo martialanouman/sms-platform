@@ -43,6 +43,7 @@ type Topic struct {
 type Dependency struct {
 	Mode          string `yaml:"mode"`
 	Justification string `yaml:"justification"`
+	Park          string `yaml:"park"`
 }
 
 // Group is the contract of one consumer of one topic.
@@ -177,12 +178,27 @@ func (c Catalog) Validate() []error {
 		}
 		for _, dep := range sortedKeys(g.Dependencies) {
 			d := g.Dependencies[dep]
+			if d.Park != "" && d.Mode != "park_global" {
+				fail("group %s: dependency %s: park only applies to park_global", name, dep)
+			}
 			switch d.Mode {
 			case "park_by_tenant":
 				if g.Tenant == "none" {
 					fail("group %s: park_by_tenant dependency %s needs a tenant", name, dep)
 				}
-			case "blocking", "park_global":
+			case "blocking":
+			case "park_global":
+				park, ok := c.Topics[d.Park]
+				switch {
+				case d.Park == "":
+					fail("group %s: park_global dependency %s needs a park topic", name, dep)
+				case !ok:
+					fail("group %s: park topic %s is not declared", name, d.Park)
+				case !slices.Contains(park.Producers, g.Service):
+					fail("group %s: %s is not a producer of its park topic %s", name, g.Service, d.Park)
+				case park.Payload != topic.Payload:
+					fail("group %s: park topic %s carries another payload than %s", name, d.Park, g.Topic)
+				}
 			case "fail_open":
 				if d.Justification == "" {
 					fail("group %s: fail_open dependency %s needs a justification", name, dep)
@@ -384,7 +400,12 @@ func (c Catalog) Markdown() []byte {
 	for _, g := range c.Groups {
 		var deps []string
 		for _, name := range sortedKeys(g.Dependencies) {
-			deps = append(deps, name+" : "+g.Dependencies[name].Mode)
+			d := g.Dependencies[name]
+			dep := name + " : " + d.Mode
+			if d.Park != "" {
+				dep += " → `" + d.Park + "`"
+			}
+			deps = append(deps, dep)
 		}
 		assignment := g.Assignment
 		if assignment == "" {
