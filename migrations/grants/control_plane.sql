@@ -2,13 +2,19 @@
 BEGIN;
 
 DO $$ BEGIN
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles r WHERE r.rolname = 'admin_api_svc'
+      AND (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolbypassrls
+        OR r.rolreplication OR EXISTS (SELECT FROM pg_catalog.pg_auth_members m WHERE m.member = r.oid))) THEN
+    RAISE EXCEPTION 'role admin_api_svc is not a plain service role';
+  END IF;
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'admin_api_svc') THEN
     CREATE ROLE admin_api_svc NOLOGIN;
   END IF;
 END $$;
+REVOKE ALL ON SCHEMA control_plane FROM admin_api_svc;
 GRANT USAGE ON SCHEMA control_plane TO admin_api_svc;
 REVOKE ALL ON ALL TABLES IN SCHEMA control_plane FROM admin_api_svc;
-GRANT SELECT, DELETE ON control_plane.audit_changes TO admin_api_svc;
-GRANT SELECT, INSERT, DELETE ON control_plane.audit_log TO admin_api_svc;
+GRANT select, delete ON control_plane.audit_changes TO admin_api_svc;
+GRANT select, insert, delete ON control_plane.audit_log TO admin_api_svc;
 
 COMMIT;

@@ -22,9 +22,9 @@ control_plane:
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := schema.Grants{Service: "admin-api-svc", Tables: map[string][]schema.Privilege{
-		"audit_log": {schema.Select, schema.Insert},
-		"customers": {schema.Update},
+	want := schema.Grants{Service: "admin-api-svc", Tables: map[string][]string{
+		"audit_log": {"select", "insert"},
+		"customers": {"update"},
 	}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
@@ -35,7 +35,10 @@ func TestParseGrantsRefuses(t *testing.T) {
 	for name, tc := range map[string]struct{ service, yaml, want string }{
 		"upper case service":  {"Admin-svc", `control_plane: {audit_log: [select]}`, `service "Admin-svc"`},
 		"underscored service": {"admin_svc", `control_plane: {audit_log: [select]}`, `service "admin_svc"`},
-		"other database":      {"svc", `message_state: {audit_log: [select]}`, `database "message_state"`},
+		"other database":      {"svc", `message_state: {audit_log: [select]}`, `field message_state not found`},
+		"too long service":    {strings.Repeat("a", 64), `control_plane: {audit_log: [select]}`, `is not a service name`},
+		"built-in role":       {"pg-signal-backend", `control_plane: {audit_log: [select]}`, `is not a service name`},
+		"twice":               {"svc", `control_plane: {audit_log: [select, select]}`, `"select" on "audit_log" is declared twice`},
 		"unclassified table":  {"svc", `control_plane: {jobs: [select]}`, `table "jobs" is not classified`},
 		"truncate":            {"svc", `control_plane: {audit_log: [truncate]}`, `privilege "truncate"`},
 		"no privilege":        {"svc", `control_plane: {audit_log: []}`, `table "audit_log" grants nothing`},
@@ -49,15 +52,9 @@ func TestParseGrantsRefuses(t *testing.T) {
 	}
 }
 
-func TestRole(t *testing.T) {
-	if got := schema.Role("admin-api-svc"); got != "admin_api_svc" {
-		t.Fatalf("got %q", got)
-	}
-}
-
 func TestGrantsSQLIsStable(t *testing.T) {
-	g := []schema.Grants{{Service: "svc", Tables: map[string][]schema.Privilege{
-		"a": {schema.Select}, "b": {schema.Select}, "c": {schema.Select}, "d": {schema.Select},
+	g := []schema.Grants{{Service: "svc", Tables: map[string][]string{
+		"a": {"select"}, "b": {"select"}, "c": {"select"}, "d": {"select"},
 	}}}
 	first := string(schema.GrantsSQL(g))
 	for range 20 {

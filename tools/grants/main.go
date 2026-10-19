@@ -32,8 +32,5 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll("migrations/grants", 0o750); err != nil {
-		return err
-	}
 	return os.WriteFile(out, schema.GrantsSQL(declared), 0o600)
 }

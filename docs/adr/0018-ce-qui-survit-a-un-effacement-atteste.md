@@ -2,6 +2,8 @@
 
 > Amendé par la spec (`../spec/05-etat-et-cdr.md` §5.4) : survivent aussi le corps en transit (≤ 96 h) et le journal d'état (≤ 72 h).
 >
+> Amendé par les steps 006a et 006b (`../steps/006a-audit.md`, `../steps/006b-grants.md`) : `migrator` possède les tables d'audit, non partitionnées ; `DELETE` n'est accordé qu'au rôle `admin_api_svc`, qui n'en est pas propriétaire. La porte de purge et son plancher en heures restent ; la danse `REVOKE`/`GRANT` au propriétaire disparaît.
+>
 > Repris de `go-gateway`. Les chemins, steps et fiches `debts/` cités appartiennent à ce dépôt d'origine.
 
 **Status:** Accepted
