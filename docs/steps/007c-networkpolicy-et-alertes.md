@@ -72,8 +72,10 @@ Fable a tranché le 2026-10-19 (N1, N2, N4, A1, A2, A3 tenues ; N3, N5 amendées
   - `default-deny` : `podSelector: {}`, entrée et sortie ;
   - `dns` : sortie de tout pod vers `kube-system` / `k8s-app: kube-dns`, 53 UDP et TCP ;
   - une politique par workload qui déclare une dépendance, nommée comme lui, triée : sortie vers Postgres
-    si `POSTGRES_URL`, vers chaque cluster Kafka de `KAFKA_BROKERS` ; refus d'un broker hors de la forme
-    Strimzi.
+    si `POSTGRES_URL`, vers chaque cluster Kafka de `KAFKA_BROKERS`, lues dans chaque document et chaque
+    conteneur, init compris, sans doublon ; un élément vide de `KAFKA_BROKERS` ignoré comme le fait
+    `config` ; refus d'un broker hors de la forme Strimzi ou d'un port hors de 1 à 65535, et d'un workload
+    nommé `dns` ou `default-deny`.
 - `tools/netpol` et `//go:generate go run ./tools/netpol` ; `deploy/k8s/networkpolicies.yaml` généré.
 - `deploy/k8s/*.yaml` : label `app.kubernetes.io/name` sur chaque pod ; `KAFKA_BROKERS` qualifié.
 - `deploy/guard_test.go` : `networkpolicies.yaml` admis hors des `cmd/`, de `NetworkPolicy` seules ; chaque
@@ -83,5 +85,24 @@ Fable a tranché le 2026-10-19 (N1, N2, N4, A1, A2, A3 tenues ; N3, N5 amendées
   alerte renommée).
 - Docs : C1 (promtool), plan §007c (un flux entre avec le workload qui le déclare), `.claude/rules/ci-deploy.md`
   (un `cmd/` qui pose `TLS_ALLOWED_CLIENTS` ou sert `OPS_ADDR` étend le générateur dans sa PR).
-- Tests du cœur : sortie exacte pour les deux Jobs réels ; chaque règle (Postgres, Kafka, plusieurs clusters,
-  aucun besoin, broker refusé) vue tomber ; `check-generated` tient le fichier.
+- Tests du cœur : chaque règle (deny, DNS, Postgres, Kafka, plusieurs clusters, doublons, plusieurs
+  documents, init containers, aucun besoin, broker ou port refusé, nom réservé) et l'ordre des politiques
+  vus tomber ; `check-generated` tient le fichier des deux Jobs réels (une mutation du générateur le fait
+  différer).
+- Tests promtool : l'alerte part juste après une hausse et neuf minutes après, se tait onze minutes après et
+  sur un compteur immobile.
+
+## Revue
+
+**Tour 1** (trois axes, aucun bloquant) :
+
+- Retenus : la fenêtre `[10m]` de l'alerte n'était tenue que par sa borne basse (`[30m]` survivait) ;
+  `internal/netpol` ne lisait ni le second document d'un manifest, ni les `initContainers` que la garde
+  admet ; un élément vide de `KAFKA_BROKERS`, que `config` ignore, était refusé ; port non borné ; un
+  workload nommé `dns` écrasait une politique fixe ; dédoublonnage de Kafka seul ; l'ordre des politiques
+  et un `Job` après une vraie politique sans test ; groupes capturants superflus, branche `Atoi` morte,
+  boucle de stabilité spéculative, `!ok` mort et ordre aléatoire dans la garde des alertes, message d'erreur
+  incohérent, sous-shell dans le `Makefile`, territoire de `ci-deploy.md` sans `internal/netpol`.
+- Écartés : un test de sortie exacte des deux Jobs réels recopierait le fichier que `check-generated` tient
+  déjà (design amendé) ; `> 0` contre `>= 0.5` : un compteur entier n'a pas d'accroissement entre les deux ;
+  un échec au tout premier scrape d'un pod (série née à 1) reste muet, un échec qui dure incrémente et part.

@@ -209,7 +209,7 @@ func checkPolicies(path string) []error {
 		if err := dec.Decode(&doc); errors.Is(err, io.EOF) {
 			return errs
 		} else if err != nil {
-			return append(errs, fmt.Errorf("%s: %w", path, err))
+			return append(errs, fmt.Errorf("%s: %w", netpol.File, err))
 		}
 		if doc.Kind != "NetworkPolicy" {
 			errs = append(errs, fmt.Errorf("%s: kind %q, want NetworkPolicy", netpol.File, doc.Kind))
@@ -312,6 +312,7 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 		{"role secret under another key", "deploy/k8s/catalog-apply.yaml", "key: postgres-password", "key: password", "admin-api-svc password admin_api_svc"},
 		{"role secret under another path", "deploy/k8s/catalog-apply.yaml", "path: admin_api_svc", "path: admin-api-svc", "admin-api-svc postgres-password admin-api-svc"},
 		{"Job among the network policies", "deploy/k8s/networkpolicies.yaml", "", "kind: Job\n", "networkpolicies.yaml: kind \"Job\""},
+		{"Job behind a network policy", "deploy/k8s/networkpolicies.yaml", "DO NOT EDIT.\n", "DO NOT EDIT.\nkind: NetworkPolicy\n---\nkind: Job\n---\n", "networkpolicies.yaml: kind \"Job\""},
 		{"pod without its label", "deploy/k8s/migrate.yaml", "app.kubernetes.io/name: migrate", "app.kubernetes.io/part-of: migrate", "label app.kubernetes.io/name"},
 		{"pod labelled for another", "deploy/k8s/migrate.yaml", "app.kubernetes.io/name: migrate", "app.kubernetes.io/name: other", "label app.kubernetes.io/name"},
 		{"envFrom", "deploy/k8s/migrate.yaml", "          env:\n", "          envFrom:\n            - configMapRef: {name: x}\n          env:\n", "envFrom"},

@@ -19,8 +19,8 @@ func checkAlerts(dir string) error {
 	}
 	var errs []error
 	for _, file := range rules {
-		base, ok := strings.CutSuffix(file, ".yaml")
-		if strings.HasSuffix(base, "_test") || !ok {
+		base := strings.TrimSuffix(file, ".yaml")
+		if strings.HasSuffix(base, "_test") {
 			continue
 		}
 		var r struct {
@@ -38,10 +38,13 @@ func checkAlerts(dir string) error {
 				} `yaml:"alert_rule_test"`
 			} `yaml:"tests"`
 		}
-		for path, into := range map[string]any{file: &r, base + "_test.yaml": &tests} {
-			data, err := os.ReadFile(path)
+		for _, f := range []struct {
+			path string
+			into any
+		}{{file, &r}, {base + "_test.yaml", &tests}} {
+			data, err := os.ReadFile(f.path)
 			if err == nil {
-				err = yaml.Unmarshal(data, into)
+				err = yaml.Unmarshal(data, f.into)
 			}
 			if err != nil {
 				errs = append(errs, err)
@@ -96,7 +99,7 @@ func TestTheAlertGuardFails(t *testing.T) {
 					if !bytes.Contains(data, []byte(tc.old)) {
 						t.Fatalf("%s does not hold %q", f, tc.old)
 					}
-					data = bytes.Replace(data, []byte(tc.old), []byte(tc.new), 1)
+					data = bytes.ReplaceAll(data, []byte(tc.old), []byte(tc.new))
 				}
 				if err := os.WriteFile(filepath.Join(dir, f), data, 0o600); err != nil {
 					t.Fatal(err)

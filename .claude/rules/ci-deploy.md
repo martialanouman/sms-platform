@@ -4,6 +4,7 @@ paths:
   - "Makefile"
   - ".goreleaser*"
   - "deploy/**"
+  - "internal/netpol/**"
 ---
 
 # CI, livraison, alertes

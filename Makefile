@@ -62,8 +62,8 @@ openapi: ## Gardes des contrats, oasdiff validate, puis oasdiff breaking contre 
 	done
 
 alerts: ## promtool : chaque fichier de règles se charge, chaque test de règles passe
-	$(PROMTOOL) check rules $$(cd deploy/alerts && ls *.yaml | grep -v '_test\.yaml$$')
-	$(PROMTOOL) test rules $$(cd deploy/alerts && ls *_test.yaml)
+	$(PROMTOOL) check rules $(notdir $(filter-out %_test.yaml,$(wildcard deploy/alerts/*.yaml)))
+	$(PROMTOOL) test rules $(notdir $(wildcard deploy/alerts/*_test.yaml))
 
 image: ## Images de chaque cmd/, en snapshot, sans push
 	$(GORELEASER) release --snapshot --clean

@@ -19,7 +19,7 @@ import (
 // File is the generated file, beside the manifests it is rendered from.
 const File = "networkpolicies.yaml"
 
-var broker = regexp.MustCompile(`^([a-z0-9]([a-z0-9-]*[a-z0-9])?)-kafka-bootstrap\.([a-z0-9]([a-z0-9-]*[a-z0-9])?)\.svc:([0-9]+)$`)
+var broker = regexp.MustCompile(`^([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)-kafka-bootstrap\.([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.svc:([0-9]{1,5})$`)
 
 type labels struct {
 	MatchLabels map[string]string `yaml:"matchLabels,omitempty"`
@@ -53,16 +53,19 @@ type policy struct {
 	} `yaml:"spec"`
 }
 
+type container struct {
+	Env []struct {
+		Name  string `yaml:"name"`
+		Value string `yaml:"value"`
+	} `yaml:"env"`
+}
+
 type workload struct {
 	Spec struct {
 		Template struct {
 			Spec struct {
-				Containers []struct {
-					Env []struct {
-						Name  string `yaml:"name"`
-						Value string `yaml:"value"`
-					} `yaml:"env"`
-				} `yaml:"containers"`
+				Containers     []container `yaml:"containers"`
+				InitContainers []container `yaml:"initContainers"`
 			} `yaml:"spec"`
 		} `yaml:"template"`
 	} `yaml:"spec"`
@@ -93,6 +96,9 @@ func Render(fsys fs.FS) ([]byte, error) {
 	for _, file := range names {
 		if file == File {
 			continue
+		}
+		if name := strings.TrimSuffix(file, ".yaml"); name == "dns" || name == "default-deny" {
+			return nil, fmt.Errorf("%s: a workload cannot share the name of a fixed policy", name)
 		}
 		p, err := flows(fsys, file)
 		if err != nil {
@@ -129,26 +135,30 @@ func flows(fsys fs.FS, file string) (policy, error) {
 		} else if err != nil {
 			return p, fmt.Errorf("%s: %w", file, err)
 		}
-		for _, c := range w.Spec.Template.Spec.Containers {
+		add := func(f egress) {
+			if !slices.ContainsFunc(p.Spec.Egress, func(e egress) bool { return reflect.DeepEqual(e, f) }) {
+				p.Spec.Egress = append(p.Spec.Egress, f)
+			}
+		}
+		for _, c := range append(w.Spec.Template.Spec.InitContainers, w.Spec.Template.Spec.Containers...) {
 			for _, e := range c.Env {
 				switch e.Name {
 				case "POSTGRES_URL":
-					p.Spec.Egress = append(p.Spec.Egress, to("postgres", map[string]string{"cnpg.io/cluster": "postgres"}, port{"TCP", 5432}))
+					add(to("postgres", map[string]string{"cnpg.io/cluster": "postgres"}, port{"TCP", 5432}))
 				case "KAFKA_BROKERS":
 					for b := range strings.SplitSeq(e.Value, ",") {
-						m := broker.FindStringSubmatch(strings.TrimSpace(b))
-						if m == nil {
+						if b = strings.TrimSpace(b); b == "" {
+							continue
+						}
+						m := broker.FindStringSubmatch(b)
+						n := 0
+						if m != nil {
+							n, _ = strconv.Atoi(m[3])
+						}
+						if n < 1 || n > 65535 {
 							return p, fmt.Errorf("%s: broker %q is not <cluster>-kafka-bootstrap.<namespace>.svc:<port>", name, b)
 						}
-						n, err := strconv.Atoi(m[5])
-						if err != nil {
-							return p, fmt.Errorf("%s: broker %q: %w", name, b, err)
-						}
-						if f := to(m[3], map[string]string{"strimzi.io/cluster": m[1]}, port{"TCP", n}); !slices.ContainsFunc(p.Spec.Egress, func(e egress) bool {
-							return reflect.DeepEqual(e, f)
-						}) {
-							p.Spec.Egress = append(p.Spec.Egress, f)
-						}
+						add(to(m[2], map[string]string{"strimzi.io/cluster": m[1]}, port{"TCP", n}))
 					}
 				}
 			}

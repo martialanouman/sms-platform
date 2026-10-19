@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"maps"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -62,14 +64,25 @@ func render(t *testing.T, files fstest.MapFS) map[string]policy {
 		t.Fatal(err)
 	}
 	got := map[string]policy{}
+	var order []string
 	dec := yaml.NewDecoder(bytes.NewReader(out))
 	for {
 		var p policy
 		if err := dec.Decode(&p); errors.Is(err, io.EOF) {
+			want := []string{"default-deny", "dns"}
+			for _, name := range slices.Sorted(maps.Keys(got)) {
+				if !slices.Contains(want, name) {
+					want = append(want, name)
+				}
+			}
+			if !slices.Equal(order, want) {
+				t.Errorf("policies in order %v, want %v", order, want)
+			}
 			return got
 		} else if err != nil {
 			t.Fatal(err)
 		}
+		order = append(order, p.Metadata.Name)
 		if p.APIVersion != "networking.k8s.io/v1" || p.Kind != "NetworkPolicy" || p.Metadata.Namespace != "" {
 			t.Errorf("%s: %s %s in namespace %q", p.Metadata.Name, p.APIVersion, p.Kind, p.Metadata.Namespace)
 		}
@@ -101,8 +114,8 @@ func TestEveryPodIsDeniedThenResolvesNames(t *testing.T) {
 
 func TestEachWorkloadReachesTheStoresItsVariablesName(t *testing.T) {
 	got := render(t, fstest.MapFS{
-		"migrate.yaml": {Data: []byte(job("migrate", [2]string{"POSTGRES_URL", "x"}, [2]string{"LOG_LEVEL", "debug"}))},
-		"apply.yaml":   {Data: []byte(job("apply", [2]string{"KAFKA_BROKERS", "kafka-kafka-bootstrap.kafka.svc:9093, events-kafka-bootstrap.stream.svc:9094, kafka-kafka-bootstrap.kafka.svc:9093"}))},
+		"migrate.yaml": {Data: []byte(job("migrate", [2]string{"LOG_LEVEL", "debug"}) + "---\n" + strings.Replace(job("migrate", [2]string{"POSTGRES_URL", "x"}), "containers:", "initContainers:", 1))},
+		"apply.yaml":   {Data: []byte(job("apply", [2]string{"KAFKA_BROKERS", "kafka-kafka-bootstrap.kafka.svc:9093, events-kafka-bootstrap.stream.svc:9094, kafka-kafka-bootstrap.kafka.svc:9093,"}, [2]string{"POSTGRES_URL", "x"}, [2]string{"POSTGRES_URL", "x"}))},
 	})
 	type flow struct {
 		namespace, pod string
@@ -134,14 +147,15 @@ func TestEachWorkloadReachesTheStoresItsVariablesName(t *testing.T) {
 	if got, want := flows("migrate"), []flow{{"postgres", "cnpg.io/cluster=postgres", 5432}}; !reflect.DeepEqual(got, want) {
 		t.Errorf("migrate flows %v, want %v", got, want)
 	}
-	if got, want := flows("apply"), []flow{{"kafka", "strimzi.io/cluster=kafka", 9093}, {"stream", "strimzi.io/cluster=events", 9094}}; !reflect.DeepEqual(got, want) {
+	if got, want := flows("apply"), []flow{{"kafka", "strimzi.io/cluster=kafka", 9093}, {"stream", "strimzi.io/cluster=events", 9094}, {"postgres", "cnpg.io/cluster=postgres", 5432}}; !reflect.DeepEqual(got, want) {
 		t.Errorf("apply flows %v, want %v", got, want)
 	}
 }
 
 func TestRenderRefusesABrokerOutsideStrimzi(t *testing.T) {
 	for _, broker := range []string{"kafka-kafka-bootstrap:9093", "kafka.example.com:9093", "kafka-kafka-bootstrap.kafka.svc", "kafka-kafka-bootstrap.kafka.svc:tls",
-		"kafka-kafka-bootstrap.kafka.svc:9093/x", "evil.kafka-kafka-bootstrap.kafka.svc:9093"} {
+		"kafka-kafka-bootstrap.kafka.svc:9093/x", "evil.kafka-kafka-bootstrap.kafka.svc:9093",
+		"kafka-kafka-bootstrap.kafka.svc:0", "kafka-kafka-bootstrap.kafka.svc:65536"} {
 		_, err := netpol.Render(fstest.MapFS{"apply.yaml": {Data: []byte(job("apply", [2]string{"KAFKA_BROKERS", broker}))}})
 		if err == nil || !strings.Contains(err.Error(), "apply") {
 			t.Errorf("broker %q: err = %v, want a refusal naming apply", broker, err)
@@ -149,7 +163,7 @@ func TestRenderRefusesABrokerOutsideStrimzi(t *testing.T) {
 	}
 }
 
-func TestRenderIsStable(t *testing.T) {
+func TestRenderIsHeadedAndSorted(t *testing.T) {
 	files := fstest.MapFS{
 		"b.yaml": {Data: []byte(job("b", [2]string{"POSTGRES_URL", "x"}))},
 		"a.yaml": {Data: []byte(job("a", [2]string{"POSTGRES_URL", "x"}))},
@@ -161,9 +175,13 @@ func TestRenderIsStable(t *testing.T) {
 	if !strings.HasPrefix(string(first), "# Code generated") || strings.Index(string(first), "name: a\n") > strings.Index(string(first), "name: b\n") {
 		t.Errorf("render is not headed and sorted:\n%s", first)
 	}
-	for range 20 {
-		if again, _ := netpol.Render(files); !bytes.Equal(again, first) {
-			t.Fatal("two renderings differ")
+}
+
+func TestRenderRefusesAWorkloadNamedLikeAFixedPolicy(t *testing.T) {
+	for _, name := range []string{"dns", "default-deny"} {
+		_, err := netpol.Render(fstest.MapFS{name + ".yaml": {Data: []byte(job(name, [2]string{"POSTGRES_URL", "x"}))}})
+		if err == nil || !strings.Contains(err.Error(), name) {
+			t.Errorf("workload %s: err = %v, want a refusal", name, err)
 		}
 	}
 }
