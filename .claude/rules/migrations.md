@@ -7,8 +7,9 @@ paths:
 # Migrations et schéma
 
 goose pour Postgres et ClickHouse, un répertoire par base. **Une table neuve** se classe pour l'audit
-(diff, événement seul ou exemptée avec raison) et entre dans la déclaration de GRANT de chaque service
-qui la lit ; les gardes refusent sinon. Une migration reste compatible avec la version précédente du
+(diff, événement seul ou exemptée avec raison) dans `migrations/<base>/audit.yaml` — une table `diff`
+porte le trigger `control_plane.audit_capture()` et une clé primaire — et entre dans la déclaration de
+GRANT de chaque service qui la lit ; les gardes refusent sinon. Une migration reste compatible avec la version précédente du
 code pendant un déploiement progressif.
 
 ## Postgres
