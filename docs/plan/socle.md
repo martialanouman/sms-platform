@@ -169,7 +169,8 @@ test tiré par la VM.
   entrent les règles dont la métrique source existe ; **une règle entre avec le composant qui émet sa
   métrique**, le tableau de la spec 10 §10.1 sert de liste de contrôle.
 - **007d-1** : les briques de l'environnement de test (opérateur Postgres, Strimzi, cert-manager),
-  versions épinglées, TLS vers Postgres.
+  versions épinglées, TLS vers Postgres ; le Secret `postgres-password` de chaque service déclaré et le
+  Secret `catalog-apply` (URL sous `migrator`), avant tout service.
 - **007d-2** : **environnement de test** k3s : GoReleaser pousse les images sur GHCR avec le
   `GITHUB_TOKEN`, la VM tire le SHA de `main` et pose le tag des images ; chaque Job est borné dans le
   temps ; aucun secret de déploiement dans GitHub ; retour arrière par `git revert`.
