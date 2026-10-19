@@ -48,7 +48,8 @@ déclenche aucune. D'où ces déclencheurs :
   des services qui la lisent.
 - **Différer quelque chose** (« hors périmètre », « pour l'instant », « deferred ») → une issue
   étiquetée `debt` **dans la même PR**, et `debt: #N` là où le code porte le report.
-- **Ajouter un `cmd/`** → GoReleaser et `deploy/k8s/`, dans la même PR.
+- **Ajouter un `cmd/`** → GoReleaser et `deploy/k8s/`, dans la même PR ; après sa première release, rendre son
+  paquet GHCR public (geste unique : un paquet neuf naît privé).
 
 ## Travailler ici
 

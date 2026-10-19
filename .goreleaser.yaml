@@ -21,14 +21,14 @@ dockers_v2:
   - id: migrate
     ids: [migrate]
     images: [ghcr.io/martialanouman/sms-platform/migrate]
-    tags: ["{{ .Version }}"]
+    tags: ["{{ .Tag }}"]
     platforms: [linux/amd64]
     build_args:
       BINARY: migrate
   - id: catalog-apply
     ids: [catalog-apply]
     images: [ghcr.io/martialanouman/sms-platform/catalog-apply]
-    tags: ["{{ .Version }}"]
+    tags: ["{{ .Tag }}"]
     platforms: [linux/amd64]
     build_args:
       BINARY: catalog-apply
@@ -37,7 +37,5 @@ archives:
   - formats: [none]
 
 release:
-  disable: true
+  target_commitish: "{{ .FullCommit }}"
 
-changelog:
-  disable: true

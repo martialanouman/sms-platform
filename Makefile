@@ -1,6 +1,6 @@
 SHELL := /bin/bash -o pipefail
 
-.PHONY: help lint vuln test ciguard check-generated debtguard catalog proto openapi alerts image scan check
+.PHONY: help lint vuln test ciguard check-generated debtguard catalog proto openapi alerts image scan release check
 
 # Hors de la directive tool (décision 9, C1) : une version ici, la seule. GoReleaser exige Go 1.27 ; setup-go pose
 # GOTOOLCHAIN=local en CI.
@@ -72,5 +72,8 @@ scan: image ## grype sur chaque image du snapshot : une vulnérabilité connue �
 	@images=$$(jq -r '.[] | select(.type == "Docker Image") | .name' dist/artifacts.json) || exit 1; \
 	[ -n "$$images" ] || { echo "aucune image à scanner"; exit 1; }; \
 	for i in $$images; do $(GRYPE) --fail-on low "docker:$$i" || exit 1; done
+
+release: ## Release du tag posé sur HEAD : images poussées sur GHCR, release GitHub (CI seule)
+	$(GORELEASER) release --clean
 
 check: lint vuln ciguard check-generated debtguard catalog proto openapi alerts scan ## Ce que vérifie la CI
