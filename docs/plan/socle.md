@@ -26,7 +26,8 @@ tous les services importeront. Le numéro est l'ordre d'exécution (C6). Aucun s
 | 007b-2 | Livraison : `catalog-apply`, GRANT en production | PR |
 | 007c | Livraison : NetworkPolicy générées, alertes | PR |
 | 007d-1 | Livraison : briques de l'environnement de test | PR |
-| 007d-2 | Livraison : déploiement par SHA, retour arrière | PR |
+| 007d-2a | Livraison : tag et release | PR |
+| 007d-2b | Livraison : déploiement par tag, retour arrière | PR |
 
 ## 001 — Contexte de travail
 
@@ -154,9 +155,10 @@ un rôle de service ne lit rien hors de sa déclaration (testé sous un rôle no
 
 ## 007 — Livraison
 
-Six PR (Fable, 2026-10-19) ; chacune porte sa part du critère de fin, atteint en 007d-2. Décisions
+Sept PR (Fable, 2026-10-19 ; 007d-2 coupée en deux par l'humain) ; chacune porte sa part du critère de fin,
+atteint en 007d-2b. Décisions
 humaines du 2026-10-19 : NetworkPolicy générées, jamais appliquées par `catalog-apply` ; environnement de
-test tiré par la VM.
+test tiré par la VM ; déploiement par tag de release, pas par SHA (décision du même jour).
 
 - **007a** : **scan des images** produites (vulnérabilités connues), bloquant (ajouté avec la step 004d) ;
   **GoReleaser**, une version, images distroless ; la garde : chaque `cmd/` a exactement un build, une
@@ -177,12 +179,15 @@ test tiré par la VM.
   `migrator`), avant tout service. `breakglass` et le rôle `CREATEROLE` d'OpenBao entrent avec la brique
   OpenBao, par les rôles gérés de CloudNativePG, sous un autre rôle que `migrator`, qui ne crée que les rôles
   de service (007b-2, 007d-1).
-- **007d-2** : **environnement de test** k3s : GoReleaser pousse les images sur GHCR avec le
-  `GITHUB_TOKEN`, la VM tire le SHA de `main` et pose le tag des images ; chaque Job est borné dans le
-  temps ; aucun secret de déploiement dans GitHub ; retour arrière par `git revert`.
+- **007d-2a** : **tag et release** : un merge dont les commits changent le binaire (`feat` → mineure ; `fix`,
+  `perf`, `refactor`, `build`, `revert` → patch ; rupture → majeure, mineure en 0.x) pose le tag `vX.Y.Z`,
+  publie la release et pousse les images `:vX.Y.Z` sur GHCR avec le `GITHUB_TOKEN`.
+- **007d-2b** : **environnement de test** k3s : la VM tire le dernier tag de release et déploie ses images ;
+  chaque Job est borné dans le temps ; aucun secret de déploiement dans GitHub ; retour arrière par `git revert`,
+  qui produit une release.
 
-**Terminé quand** : un merge sur `main` déploie l'environnement de test sans geste manuel, et `catalog-apply`
-y crée les topics et leurs ACL.
+**Terminé quand** : une release déploie l'environnement de test sans geste manuel, et `catalog-apply` y crée les
+topics et leurs ACL.
 
 ## Après le socle
 
