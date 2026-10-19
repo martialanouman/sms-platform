@@ -147,3 +147,10 @@ qui fait déployer ce code avec les vraies images `:v0.1.0` de 007d-2a.
   prêtait à la garde le contrôle de l'ordre.
 - Écarté : un tag `v*` plus haut que les releases, hors de `main`, fige la VM (sortie en 1 à chaque tick) jusqu'à
   sa suppression ; il faut l'écriture sur le dépôt, et le refus est visible.
+
+## Après merge
+
+Premier déploiement automatique, 2026-10-19 : le merge de #112 (`feat`) publie `v0.2.0` à 19:57:02 ; la VM, rebranchée
+sur le dépôt public, le déploie à 19:57:59 (« v0.2.0 déployé ») ; `migrate` et `catalog-apply` `succeeded 1`, images
+`:v0.2.0`, `catalog-apply` sans essai consommé. Le merge de cette PR (`docs`) ne publie rien : la release le dit
+(« aucun commit ne change le binaire »), et le marqueur reste `v0.2.0`.
