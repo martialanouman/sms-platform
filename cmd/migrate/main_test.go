@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/pressly/goose/v3"
+	"github.com/pressly/goose/v3/database"
 
 	"github.com/martialanouman/sms-platform/internal/platform/config"
 	"github.com/martialanouman/sms-platform/internal/platform/pgtest"
@@ -42,8 +43,8 @@ func TestRunAppliesEveryMigrationOnceAsMigrator(t *testing.T) {
 	if n := strings.Count(logs.String(), `"msg":"migration applied"`); n != len(sources) {
 		t.Errorf("%d migrations logged, want %d:\n%s", n, len(sources), logs.String())
 	}
-	if strings.Contains(logs.String(), url) {
-		t.Errorf("the URL reached the log:\n%s", logs.String())
+	if strings.Contains(logs.String(), "migrator") {
+		t.Errorf("the URL or its password reached the log:\n%s", logs.String())
 	}
 	logs.Reset()
 	if err := run(ctx, config.Infra{PostgresURL: url}, log); err != nil {
@@ -51,6 +52,39 @@ func TestRunAppliesEveryMigrationOnceAsMigrator(t *testing.T) {
 	}
 	if strings.Contains(logs.String(), `"msg":"migration applied"`) {
 		t.Errorf("a second run applied a migration:\n%s", logs.String())
+	}
+}
+
+func TestTwoSimultaneousRunsBothSucceed(t *testing.T) {
+	infra := config.Infra{PostgresURL: pgtest.Empty(t).As("migrator")}
+	db, err := sql.Open("pgx", infra.PostgresURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	store, err := database.NewStore(database.DialectPostgres, goose.DefaultTablename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.CreateVersionTable(context.Background(), db); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Insert(context.Background(), db, database.InsertRequest{Version: 0}); err != nil {
+		t.Fatal(err)
+	}
+	errs := make(chan error, 2)
+	start := make(chan struct{})
+	for range 2 {
+		go func() {
+			<-start
+			errs <- run(context.Background(), infra, slog.New(slog.DiscardHandler))
+		}()
+	}
+	close(start)
+	for range 2 {
+		if err := <-errs; err != nil {
+			t.Error(err)
+		}
 	}
 }
 

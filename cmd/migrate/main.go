@@ -11,6 +11,7 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
+	"github.com/pressly/goose/v3/lock"
 
 	"github.com/martialanouman/sms-platform/internal/platform/config"
 	"github.com/martialanouman/sms-platform/internal/platform/observability"
@@ -40,7 +41,11 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger) error {
 		return fmt.Errorf("open control_plane: %w", err)
 	}
 	defer func() { _ = db.Close() }()
-	p, err := goose.NewProvider(goose.DialectPostgres, db, migrations.ControlPlane())
+	locker, err := lock.NewPostgresSessionLocker()
+	if err != nil {
+		return err
+	}
+	p, err := goose.NewProvider(goose.DialectPostgres, db, migrations.ControlPlane(), goose.WithSessionLocker(locker))
 	if err != nil {
 		return err
 	}
