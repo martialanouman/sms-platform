@@ -113,3 +113,9 @@ Fable a tranché le reste (2026-10-19) :
 `v0.9.0`/`v0.11.0` donne le même premier tag sans tri) ; branche morte dans `tools/release` ; `changelog.use: git`
 est le défaut de GoReleaser ; la garde « main a avancé » a un prix, désormais écrit ; la règle prêtait à
 `pr-title` la validation du corps.
+
+**Après merge** (premier run sur `main`, 2026-10-19) : `release` a échoué avant toute publication, « Attestation is
+not supported for the docker driver » : hors snapshot, GoReleaser attache SBOM et provenance, que le pilote
+`docker` par défaut du runner ne produit pas. Aucun tag ni release laissés, comme le design le voulait. Correctif
+(`fix(ci)`) : un builder buildx `docker-container` créé avant `make release`, comme le prescrit la doc de
+GoReleaser ; les SBOM restent.
