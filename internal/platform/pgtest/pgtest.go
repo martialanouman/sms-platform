@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"testing"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -18,6 +19,22 @@ import (
 // DB is a migrated database; each role it holds logs in with its own name as password.
 type DB struct {
 	endpoint string
+	ctr      testcontainers.Container
+}
+
+// Logs is what the server has logged so far.
+func (db DB) Logs(t *testing.T) string {
+	t.Helper()
+	r, err := db.ctr.Logs(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = r.Close() }()
+	data, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
 }
 
 // As is the connection string of the database as role.
@@ -65,7 +82,7 @@ func Empty(t *testing.T) DB {
 	if err != nil {
 		t.Fatal(err)
 	}
-	db := DB{endpoint: endpoint}
+	db := DB{endpoint: endpoint, ctr: pg}
 	super, err := sql.Open("pgx", fmt.Sprintf("postgres://postgres:postgres@%s/postgres?sslmode=disable", endpoint))
 	if err != nil {
 		t.Fatal(err)
