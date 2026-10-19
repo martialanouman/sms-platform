@@ -27,6 +27,11 @@ Décisions humaines du 2026-10-19 :
   `chore`, `ci`, `test`, `style` → rien. Un `revert` doit publier, sinon le retour arrière ne déploie jamais ; un
   `build(deps)` de Dependabot publie, ce qui est voulu.
 - **Deux PR** : 007d-2a (tag et release), 007d-2b (déploiement par tag).
+- **Squash sous le titre et le corps de la PR** (`squash_merge_commit_title: PR_TITLE`,
+  `squash_merge_commit_message: PR_BODY`, réglage du dépôt posé le 2026-10-19) : le commit de `main` porte le
+  seul titre que `pr-title` valide. Sans lui, une PR d'un seul commit était squashée sous le titre du commit,
+  et un `Revert "…"` de GitHub ne publiait pas ; le corps recopiait les messages intermédiaires, dont un
+  `BREAKING CHANGE:` égaré.
 
 Fable a tranché le reste (2026-10-19) :
 
@@ -36,14 +41,18 @@ Fable a tranché le reste (2026-10-19) :
   un seul `vX.Y.Z` est « une version pour tout le dépôt ».
 - **Pas de publication par SHA** : les images ne sont construites et poussées qu'à la release ; les PR et les
   pushes restent en snapshot. Un job, un login et une construction de moins.
-- **Job `release`** : `needs: ci`, sur un push vers `main` seulement et si `ci` a réussi ; `permissions:
+- **Job `release`** : `needs: ci`, sur un push vers `main` seulement et si `ci` a réussi, par une condition
+  explicite (`!cancelled() && needs.ci.result == 'success'`) : sans elle, le `success()` implicite lit aussi les
+  ancêtres sautés (`pr-title` l'est sur un push) et sauterait la release sans un rouge ; `permissions:
   {contents: write, packages: write}` à ce seul job ; `concurrency: {group: release}`, sans annulation du run en
   cours (deux merges rapprochés : le second voit le tag du premier ; trois : le run en attente est remplacé, le
-  dernier bumpe pour tous). Corps : checkout complet, `next=$(go run ./tools/release)` (sortie vide : rien à
+  dernier bumpe pour tous). Corps : checkout complet ; fin si `main` a avancé depuis ce commit (le run du commit suivant publie, et un
+  run hors d'ordre publierait sinon une version plus ancienne marquée « Latest ») ; `next=$(go run ./tools/release)` (sortie vide : rien à
   publier, fin) ; `git tag "$next"` en local ; `docker login ghcr.io` par le `GITHUB_TOKEN` ; `make release`.
 - **GoReleaser** : images taguées `{{ .Tag }}` (le même mot que le tag git) ; `release.target_commitish:
   "{{ .FullCommit }}"` : GitHub crée le tag distant à la création de la release, après le push des images ; un
-  échec avant laisse zéro tag, et le run suivant recalcule la même version ; notes `changelog.use: github-native`.
+  échec avant laisse zéro tag, et le run suivant recalcule la même version ; notes `changelog.use: git`, calculées
+  en local (l'API de notes de GitHub ne reçoit pas `target_commitish` d'un tag pas encore poussé).
   `gh release create` rejeté (un pas de plus, et le tag poussé d'abord).
 - **Calcul de version** : `tools/release`, Go, une fonction pure `Next(current string, commits []string)
   (string, bool, error)` table-testée (l'erreur distingue un tag illisible de « rien à publier », qui
@@ -53,10 +62,10 @@ Fable a tranché le reste (2026-10-19) :
 - **Visibilité GHCR** : geste unique par paquet, dans ses réglages ; deux paquets à la première release.
   Couplage inscrit dans CLAUDE.md (« Ajouter un `cmd/` »). Un jeton de lecture sur la VM est rejeté : un secret à
   faire tourner pour éviter deux clics.
-- **Ruleset** : il ne vise que la branche ; le `GITHUB_TOKEN` peut créer le tag par la release. Un ruleset de
-  tags futur devra exempter `github-actions`.
-- **Preuve** : le merge de cette PR (`feat`) est sa preuve : `v0.1.0`, sa release, ses deux images. Une PR de suite
-  la consigne.
+- **Ruleset** : il ne vise que la branche ; le `GITHUB_TOKEN` peut créer le tag par la release. La contrainte
+  d'un ruleset de tags futur est inscrite dans `.claude/rules/ci-deploy.md`.
+- **Preuve** : le merge de cette PR (`feat`) est sa preuve : `v0.1.0`, sa release, ses deux images ; 007d-2b la
+  consigne et se prouve contre ces images.
 - Noté : un `revert` d'un `feat` produit un patch (bizarrerie semver admise en `0.x`) ; sur `main`, `check`
   construit un snapshot que `release` reconstruit (pas de partage d'artefact, le plus court gagne).
 
@@ -72,12 +81,27 @@ Fable a tranché le reste (2026-10-19) :
   --sort=-v:refname`, liste vide sans tag) et les messages depuis lui (`git log`, séparateur NUL) ; imprime la
   version suivante, ou rien ; sort en 1 sur un tag illisible.
 - `.goreleaser.yaml` : `tags: ["{{ .Tag }}"]` ; `release.target_commitish: "{{ .FullCommit }}"` ;
-  `changelog.use: github-native`.
+  `changelog.use: git`.
 - `Makefile` : `release` (`$(GORELEASER) release --clean`).
 - `ci.yml` : job `release` (ci-dessus).
 - Docs : C2, spec 10 §10.2, plan §007, CLAUDE.md (paquet public après la première release).
 - Tests : table de `Next` (chaque type, `!`, `BREAKING CHANGE`, rupture en `0.x` et en `1.x`, montée la plus forte
   dans les deux ordres, « BREAKING CHANGE: » cité dans un titre, titre non conventionnel, aucun tag, rien à
   publier, tag illisible ou préfixé) vue tomber sous mutation ; `goreleaser check` ; `make check` construit encore
-  le snapshot avec `{{ .Tag }}` ; `tools/release` sur le dépôt rend `v0.1.0`, sur une copie taguée rend la
-  suivante, rien après un seul `docs`, et sort en 1 sur un tag `v1.2` ; `actionlint` sur `ci.yml`.
+  le snapshot avec `{{ .Tag }}` ; `actionlint` sur `ci.yml`. `tools/release` testé sur un dépôt git jetable :
+  premier tag, plage depuis le dernier tag, tri de version (`v0.11.0` après `v0.9.0`), tag d'une autre branche
+  ignoré, `docs` seul, rupture lue dans le corps.
+
+## Revue
+
+**Tour 1** (deux axes, aucun bloquant confirmé) :
+
+- Retenus : `success()` implicite du job `release`, qui lit aussi les ancêtres sautés ; squash sous le titre du
+  commit et non de la PR (réglage du dépôt changé, décision humaine) ; notes `github-native` appelées sur un tag
+  pas encore poussé (passées en `git`) ; un run hors d'ordre publiait une version plus ancienne ; la racine
+  `tools/release` sans test (plage, tri, `docs` seul : désormais un dépôt git jetable) ; « aucun tag, rien à
+  publier » sans cas ; `BREAKING-CHANGE` et zéros de tête sans cas ; doc de `Next` sur deux lignes ; deux
+  reports rattachés (preuve à 007d-2b, ruleset à `ci-deploy.md`).
+- Écartés : resserrer `title` (`pr-title` impose la même grammaire en amont ; la liste des types vit en deux
+  endroits, couplage noté dans `ci-deploy.md`) ; un tag `v*` hors `vX.Y.Z` posé à la main rend les runs rouges, voulu ;
+  un `revert` d'un `feat` dans la même fenêtre compte encore le `feat`, admis.

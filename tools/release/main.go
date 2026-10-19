@@ -11,9 +11,20 @@ import (
 )
 
 func main() {
+	v, err := next()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "release:", err)
+		os.Exit(1)
+	}
+	if v != "" {
+		fmt.Println(v)
+	}
+}
+
+func next() (string, error) {
 	tags, err := exec.Command("git", "tag", "--list", "v*", "--merged", "HEAD", "--sort=-v:refname").Output()
 	if err != nil {
-		fail(err)
+		return "", err
 	}
 	current, _, _ := strings.Cut(strings.TrimSpace(string(tags)), "\n")
 	since := "HEAD"
@@ -22,7 +33,7 @@ func main() {
 	}
 	log, err := exec.Command("git", "log", "--format=%B%x00", since).Output()
 	if err != nil {
-		fail(err)
+		return "", err
 	}
 	var commits []string
 	for _, c := range strings.Split(string(log), "\x00") {
@@ -30,16 +41,9 @@ func main() {
 			commits = append(commits, c)
 		}
 	}
-	next, ok, err := release.Next(current, commits)
-	if err != nil {
-		fail(err)
+	v, ok, err := release.Next(current, commits)
+	if !ok {
+		v = ""
 	}
-	if ok {
-		fmt.Println(next)
-	}
-}
-
-func fail(err error) {
-	fmt.Fprintln(os.Stderr, "release:", err)
-	os.Exit(1)
+	return v, err
 }

@@ -63,7 +63,7 @@ linters:
         linters:
           - gosec
       # G204, G702 : git reçoit une liste d'arguments, sans shell ; la référence vient du développeur ou de la CI.
-      - path: ^tools/(catalog|openapi)/
+      - path: ^tools/(catalog|openapi|release)/
         text: "G204:|G702:"
         linters:
           - gosec

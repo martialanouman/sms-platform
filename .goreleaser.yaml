@@ -40,4 +40,4 @@ release:
   target_commitish: "{{ .FullCommit }}"
 
 changelog:
-  use: github-native
+  use: git

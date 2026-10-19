@@ -21,8 +21,7 @@ const (
 	major
 )
 
-// Next is the version that follows current for commits, full messages since it; it reports false when no commit changes
-// what is shipped. An empty current is a repository without a release yet.
+// Next is the version after current, empty for none yet, that commits since it call for; false when none ships a change.
 func Next(current string, commits []string) (string, bool, error) {
 	v := [3]int{0, 0, 0}
 	if current != "" {

@@ -22,6 +22,7 @@ func TestNext(t *testing.T) {
 		{"revert bumps the patch", "v0.1.3", []string{`revert: "feat: x"`}, "v0.1.4"},
 		{"bang breaks, minor in 0.x", "v0.4.2", []string{"feat(api)!: x"}, "v0.5.0"},
 		{"footer breaks, minor in 0.x", "v0.4.2", []string{"fix: x\n\nBREAKING CHANGE: y"}, "v0.5.0"},
+		{"hyphenated footer breaks", "v1.4.2", []string{"fix: x\n\nBREAKING-CHANGE: y"}, "v2.0.0"},
 		{"bang breaks, major from 1.x", "v1.4.2", []string{"refactor!: x"}, "v2.0.0"},
 		{"strongest bump wins", "v1.4.2", []string{"fix: a", "feat: b", "docs: c"}, "v1.5.0"},
 		{"breaking beats feat", "v1.4.2", []string{"feat: a", "fix!: b"}, "v2.0.0"},
@@ -50,8 +51,14 @@ func TestNextPublishesNothingForWhatLeavesTheBinaryAlone(t *testing.T) {
 	}
 }
 
+func TestNextPublishesNothingYetWithoutAChangeToShip(t *testing.T) {
+	if got, ok, err := release.Next("", []string{"docs: x", "ci: y"}); err != nil || ok {
+		t.Errorf("Next of an untagged repository with docs only = %q, %v, %v; want nothing", got, ok, err)
+	}
+}
+
 func TestNextRefusesATagItCannotRead(t *testing.T) {
-	for _, current := range []string{"0.1.0", "v1.2", "v1.2.3-rc.1", "vx.1.2", "release-v1.2.3"} {
+	for _, current := range []string{"0.1.0", "v1.2", "v1.2.3-rc.1", "vx.1.2", "release-v1.2.3", "v01.2.3"} {
 		if got, _, err := release.Next(current, []string{"feat: x"}); err == nil {
 			t.Errorf("Next(%q) = %q, want a refusal", current, got)
 		}
