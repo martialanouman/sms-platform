@@ -42,7 +42,7 @@ Le plan tranche le périmètre ; ce qui reste est de la forme, sans choix produi
 - `Makefile` : cible `vuln` (`go tool govulncheck ./...`), dans `check`.
 - `.golangci.yml` : `gosec` activé ; deux exclusions commentées sous `tools/catalog` et `tools/openapi`.
 - `tools/catalog`, `tools/openapi` : permissions resserrées.
-- `.github/workflows/ci.yml` : job `codeql` (`init`, `analyze`), hors de l'agrégateur, `debt: #88`.
+- `.github/workflows/ci.yml` : job `codeql` (`init`, `analyze`), hors de l'agrégateur (dette #88, soldée par #100).
 - `.github/dependabot.yml`.
 - Vérification du critère : sur une copie jetable, une dépendance vulnérable appelée
   (`github.com/dgrijalva/jwt-go` v3.2.0, `MapClaims.VerifyAudience`, GO-2020-0017) fait échouer `make vuln` —
