@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"syscall"
 	"testing"
 	"time"
 
@@ -159,5 +160,33 @@ func TestEachSideClosesTheOther(t *testing.T) {
 	_ = dial(t, p.Addr()).Close()
 	if err := <-ended; !errors.Is(err, io.EOF) {
 		t.Errorf("client closed: upstream read = %v, want EOF", err)
+	}
+}
+
+func TestLaterRefusesForItsDelayThenRelays(t *testing.T) {
+	start := time.Now()
+	addr := tcpproxy.Later(t, echo(t), time.Second)
+	for time.Since(start) < 800*time.Millisecond {
+		if c, err := net.Dial("tcp", addr); err == nil {
+			_ = c.Close()
+			t.Fatalf("Later accepted after %s, before its delay", time.Since(start))
+		} else if !errors.Is(err, syscall.ECONNREFUSED) {
+			t.Fatalf("dial before the delay: %v, want a refusal", err)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	for {
+		c, err := net.Dial("tcp", addr)
+		if err == nil {
+			if err := roundTrip(c); err != nil {
+				t.Fatal(err)
+			}
+			_ = c.Close()
+			return
+		}
+		if time.Since(start) > 3*time.Second {
+			t.Fatalf("Later still refuses after %s", time.Since(start))
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
 }

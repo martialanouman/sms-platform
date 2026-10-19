@@ -26,10 +26,55 @@ func New(t testing.TB, upstream string) *Proxy {
 	if err != nil {
 		t.Fatalf("tcpproxy: %v", err)
 	}
-	p := &Proxy{ln: ln, upstream: upstream, clients: map[net.Conn]struct{}{}}
-	go p.accept()
+	p := start(ln, upstream)
 	t.Cleanup(p.Close)
 	return p
+}
+
+func start(ln net.Listener, upstream string) *Proxy {
+	p := &Proxy{ln: ln, upstream: upstream, clients: map[net.Conn]struct{}{}}
+	go p.accept()
+	return p
+}
+
+// Later returns a local address that refuses connections for delay, then relays them to upstream: a dependency the
+// network does not admit yet.
+func Later(t testing.TB, upstream string, delay time.Duration) string {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("tcpproxy: %v", err)
+	}
+	addr := ln.Addr().String()
+	if err := ln.Close(); err != nil {
+		t.Fatalf("tcpproxy: %v", err)
+	}
+	var mu sync.Mutex
+	var p *Proxy
+	ended := false
+	timer := time.AfterFunc(delay, func() {
+		mu.Lock()
+		defer mu.Unlock()
+		if ended {
+			return
+		}
+		ln, err := net.Listen("tcp", addr)
+		if err != nil {
+			t.Errorf("tcpproxy: the reserved address was taken meanwhile: %v", err)
+			return
+		}
+		p = start(ln, upstream)
+	})
+	t.Cleanup(func() {
+		timer.Stop()
+		mu.Lock()
+		defer mu.Unlock()
+		ended = true
+		if p != nil {
+			p.Close()
+		}
+	})
+	return addr
 }
 
 // Addr is the address clients dial instead of the upstream.

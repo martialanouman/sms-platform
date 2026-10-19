@@ -60,8 +60,8 @@ Fable a tranché les propositions le 2026-10-19 (P1, P3 à P7, P9, P10 tenues ; 
   `catalog-apply` refuse des brokers vides et exige mTLS (`mtls.Files.Client`, franz-go pose le
   `ServerName` par broker) : jamais de repli en clair.
 - **P8 — Concurrence** (amendée) : ni code ni test. La spec dit « idempotent » ; un Job à nom fixe est
-  seul dans son namespace et 007d-2 déploie en séquence ; une course ferait échouer le Job
-  (`backoffLimit: 0`) et le déploiement suivant convergerait.
+  seul dans son namespace et 007d-2 déploie en séquence ; une course ferait échouer le Job, qui se rejoue
+  (`backoffLimit: 2`, amendé en 007d-1) : c'est son idempotence qui l'autorise.
 - **P9 — Manifest** : `deploy/k8s/catalog-apply.yaml`, un Job comme `migrate`, `KAFKA_BROKERS` en
   valeur, `TLS_*` vers le volume du Secret `catalog-apply-tls` (cert-manager, 007d-1). Aucune règle de
   garde neuve. Borne de temps et tag en 007d-2.

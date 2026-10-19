@@ -9,12 +9,14 @@ import (
 	"fmt"
 	"io"
 	"testing"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 
+	"github.com/martialanouman/sms-platform/internal/platform/tcpproxy"
 	"github.com/martialanouman/sms-platform/migrations"
 )
 
@@ -42,6 +44,12 @@ func (db DB) Logs(t *testing.T) string {
 // As is the connection string of the database as role.
 func (db DB) As(role string) string {
 	return db.AsWith(role, role)
+}
+
+// Late is the database behind an address that refuses connections for delay, as a network that has not admitted its
+// client yet.
+func (db DB) Late(t *testing.T, delay time.Duration) DB {
+	return DB{endpoint: tcpproxy.Later(t, db.endpoint, delay), ctr: db.ctr}
 }
 
 // AsWith is the connection string of the database as role, logging in with password.

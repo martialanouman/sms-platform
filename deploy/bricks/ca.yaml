@@ -1,0 +1,84 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: internal-ca
+  namespace: cert-manager
+spec:
+  isCA: true
+  commonName: internal-ca
+  secretName: internal-ca
+  duration: 87600h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Never
+  issuerRef:
+    name: selfsigned
+    kind: ClusterIssuer
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: internal-ca
+spec:
+  ca:
+    secretName: internal-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: postgres-server
+  namespace: postgres
+spec:
+  secretName: postgres-server
+  secretTemplate:
+    labels:
+      cnpg.io/reload: ""
+  dnsNames:
+    - postgres-rw
+    - postgres-rw.postgres
+    - postgres-rw.postgres.svc
+  usages:
+    - server auth
+  issuerRef:
+    name: internal-ca
+    kind: ClusterIssuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kafka-listener
+  namespace: kafka
+spec:
+  secretName: kafka-listener
+  dnsNames:
+    - kafka-kafka-bootstrap.kafka.svc
+    - "*.kafka-kafka-brokers.kafka.svc"
+  privateKey:
+    encoding: PKCS8
+  usages:
+    - server auth
+  issuerRef:
+    name: internal-ca
+    kind: ClusterIssuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: catalog-apply-tls
+  namespace: sms
+spec:
+  secretName: catalog-apply-tls
+  commonName: catalog-apply
+  usages:
+    - client auth
+  issuerRef:
+    name: internal-ca
+    kind: ClusterIssuer

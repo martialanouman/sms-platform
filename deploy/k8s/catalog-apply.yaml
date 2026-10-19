@@ -3,7 +3,7 @@ kind: Job
 metadata:
   name: catalog-apply
 spec:
-  backoffLimit: 0
+  backoffLimit: 2
   template:
     metadata:
       labels:

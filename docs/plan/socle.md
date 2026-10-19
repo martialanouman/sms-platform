@@ -174,8 +174,9 @@ test tiré par la VM.
 - **007d-1** : les briques de l'environnement de test (opérateur Postgres, Strimzi, cert-manager),
   versions épinglées, TLS vers Postgres ; le Secret `postgres-password` de chaque service déclaré (32
   caractères ASCII imprimables au moins, tirés au hasard) et le Secret `catalog-apply` (URL sous
-  `migrator`), avant tout service ; `breakglass` et le rôle `CREATEROLE` d'OpenBao créés sous un autre rôle
-  que `migrator`, qui ne crée que les rôles de service (007b-2).
+  `migrator`), avant tout service. `breakglass` et le rôle `CREATEROLE` d'OpenBao entrent avec la brique
+  OpenBao, par les rôles gérés de CloudNativePG, sous un autre rôle que `migrator`, qui ne crée que les rôles
+  de service (007b-2, 007d-1).
 - **007d-2** : **environnement de test** k3s : GoReleaser pousse les images sur GHCR avec le
   `GITHUB_TOKEN`, la VM tire le SHA de `main` et pose le tag des images ; chaque Job est borné dans le
   temps ; aucun secret de déploiement dans GitHub ; retour arrière par `git revert`.
