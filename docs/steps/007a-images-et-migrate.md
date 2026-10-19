@@ -45,8 +45,8 @@ partie rejeté) :
 - **A3 — Outils hors `tool`** : GoReleaser et grype par `go run <module>@vX.Y.Z`, version figée une fois,
   dans le `Makefile` ; la CI appelle `make`, aucune action à épingler. La directive `tool` tirerait dans
   `go.mod` les SDK des registres et des magasins qu'ils savent lire ou publier. Amendé : décision 9, C1.
-- **A4 — Images** : `dockers_v2`, un seul `Dockerfile` (distroless `static-debian12:nonroot`, `USER
-  65532:65532`, `ENTRYPOINT ["/app"]`) : les migrations sont embarquées, `Dockerfile.migrate` n'a plus de
+- **A4 — Images** : `dockers_v2`, un seul `Dockerfile` (distroless `static-debian12:nonroot`, qui porte
+  déjà l'utilisateur 65532, `ENTRYPOINT ["/app"]`) : les migrations sont embarquées, `Dockerfile.migrate` n'a plus de
   raison d'être. `linux/amd64` seul tant qu'aucune cible n'est arm. Registre
   `ghcr.io/martialanouman/sms-platform/<cmd>`. Sur PR : `release --snapshot`, sans push ; le push et le
   tag par SHA sont à 007d-2.
@@ -77,17 +77,44 @@ téléchargée à chaque scan.
   fermée ; `Load` y prend ses défauts ; `Variables()` rend ses noms triés.
   `POSTGRES_URL` → `Infra.PostgresURL`, sans défaut.
 - `cmd/migrate` : `run(ctx, config.Infra, *slog.Logger) error` refuse une URL vide, ouvre pgx, applique
-  `goose` `Up` sur `migrations.ControlPlane()`, journalise chaque version appliquée ; `main` charge la
-  configuration, sort en 1 sur erreur. Ni l'URL ni son mot de passe dans le journal.
+  `goose` `Up` sur `migrations.ControlPlane()` sous le verrou de session Postgres de goose (deux Jobs
+  simultanés se succèdent : sans lui, goose n'en pose aucun), journalise chaque version appliquée ; `main`
+  charge la configuration, sort en 1 sur erreur. Ni l'URL ni son mot de passe dans le journal.
+- `internal/platform/pgtest` : `Empty` rend la base `control_plane` et `migrator` sans migration ;
+  `ControlPlane` la migre.
 - `Dockerfile`, `.goreleaser.yaml` (un build et une entrée `dockers_v2` par `cmd/`, `CGO_ENABLED=0`,
   `-trimpath`, ni archive, ni release, ni changelog).
-- `Makefile` : `image` (`release --snapshot --clean`), `scan` (grype sur chaque image du snapshot,
-  `--fail-on low`, échec si aucune image) ; les deux dans `check`.
+- `Makefile` : `image` (`release --snapshot --clean`), `scan` qui en dépend (grype sur chaque image du
+  snapshot qu'il vient de produire, `--fail-on low`, échec si aucune image) ; `scan` dans `check`.
 - `deploy/k8s/migrate.yaml` : un Job, `restartPolicy: Never`, `backoffLimit: 0`, non-root, système de
-  fichiers en lecture seule, `allowPrivilegeEscalation: false`, capacités retirées, `POSTGRES_URL` depuis
-  le Secret `migrate`.
+  fichiers en lecture seule, `allowPrivilegeEscalation: false`, capacités retirées, `seccompProfile`
+  `RuntimeDefault` (admis par Pod Security « restricted »), `POSTGRES_URL` depuis le Secret `migrate`.
 - `deploy/guard_test.go` : la garde A6–A7, appliquée à l'arbre, puis à une copie de l'arbre faussée
-  par règle (un remplacement dans un fichier réel).
+  par règle (un remplacement dans un fichier réel, ou un fichier retiré). En plus des noms : le build
+  d'un `cmd/` compile `./cmd/<nom>` avec `CGO_ENABLED=0` (un binaire lié dynamiquement ne démarre pas
+  dans l'image statique), son image ne bâtit que ce build et ne se publie que sous le registre. Côté
+  manifests : tout fichier de `deploy/k8s/` est un `.yaml` (un `.yml` serait appliqué sans être gardé) ;
+  chaque document est un `Job` ou un `Deployment` avec au moins un conteneur, les autres sortes entrent
+  avec leur règle ; chaque conteneur, init compris, porte lui-même `runAsNonRoot`,
+  `readOnlyRootFilesystem` et `seccompProfile` `RuntimeDefault`, au niveau du conteneur, plus strict
+  que le minimum de Kubernetes.
 - Tests d'intégration de `cmd/migrate` (pgtest) : `up` applique toutes les migrations sous `migrator`, et
-  une seconde fois n'applique rien ; une URL vide est refusée avant toute connexion.
+  une seconde fois n'applique rien ; deux `run` simultanés réussissent tous les deux ; le journal ne
+  porte ni l'URL ni le mot de passe ; une URL vide est refusée avant toute connexion.
 - `docs/design/09-conventions-du-socle.md` C1 : l'exception GoReleaser et grype.
+
+## Revue
+
+**Tour 1** (trois axes, 18 constats) :
+
+- Retenus : garde sans conteneur ni sorte fermée (bloquant), `.yml` non gardé, cas `initContainers`,
+  `CGO_ENABLED=0` non gardé, mot de passe non cherché dans le journal, `seccompProfile` absent, aucun
+  verrou entre deux `migrate`, `scan` sur un snapshot périmé, boucle de copie de l'arbre dupliquée, `USER`
+  redit, `GOTOOLCHAIN=auto` sans raison (retiré : c'est déjà le défaut de Go), contrôles de la garde et
+  `pgtest.Empty` absents du design, phrase « exactement N images » du plan.
+- Écartés : un test qui relit les options du `Makefile` (`--fail-on low`) comparerait à la constante
+  testée ; le comportement est prouvé par exécution (base `alpine:3.10` rouge, snapshot vide rouge).
+  `-trimpath` n'est pas gardé : aucune propriété d'exécution n'en dépend. Une borne de temps du Job et
+  le tag de l'image relèvent de la séquence de déploiement (007d-2, porté au plan). `migrate` ne couvre
+  que `control_plane` : les autres bases arrivent avec leur composant (plan §006). Une fonction de
+  migration partagée entre `pgtest` et `migrate` éviterait quatre lignes pour un export de plus.

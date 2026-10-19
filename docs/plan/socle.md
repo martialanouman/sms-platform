@@ -157,8 +157,8 @@ humaines du 2026-10-19 : NetworkPolicy générées, jamais appliquées par `cata
 test tiré par la VM.
 
 - **007a** : **scan des images** produites (vulnérabilités connues), bloquant (ajouté avec la step 004d) ;
-  **GoReleaser**, une version, images distroless ; la garde « exactement N images » suit le nombre de
-  `cmd/` (13 à terme) ; `cmd/migrate` ; le squelette **`deploy/k8s/`**, sa garde et le Job `migrate`.
+  **GoReleaser**, une version, images distroless ; la garde : chaque `cmd/` a exactement un build, une
+  image et un manifest (13 à terme) ; `cmd/migrate` ; le squelette **`deploy/k8s/`**, sa garde et le Job `migrate`.
 - **007b-1** : `cmd/catalog-apply`, topics et ACL Kafka depuis le catalogue ; son Job.
 - **007b-2** : **GRANT en production** (reports de 006b) : `catalog-apply` applique
   `migrations/grants/control_plane.sql` sous `migrator`, une seule fois à la fois, en échouant sur la
@@ -171,8 +171,8 @@ test tiré par la VM.
 - **007d-1** : les briques de l'environnement de test (opérateur Postgres, Strimzi, cert-manager),
   versions épinglées, TLS vers Postgres.
 - **007d-2** : **environnement de test** k3s : GoReleaser pousse les images sur GHCR avec le
-  `GITHUB_TOKEN`, la VM tire le SHA de `main` ; aucun secret de déploiement dans GitHub ; retour arrière
-  par `git revert`.
+  `GITHUB_TOKEN`, la VM tire le SHA de `main` et pose le tag des images ; chaque Job est borné dans le
+  temps ; aucun secret de déploiement dans GitHub ; retour arrière par `git revert`.
 
 **Terminé quand** : un merge sur `main` déploie l'environnement de test sans geste manuel, et `catalog-apply`
 y crée les topics et leurs ACL.
