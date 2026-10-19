@@ -9,6 +9,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -20,6 +21,21 @@ import (
 )
 
 const drainCommitTimeout = 10 * time.Second
+
+var records = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Name: "lane_records_total",
+	Help: "Records a lane is done with, by outcome.",
+}, []string{"group", "outcome"})
+
+var outcomeLabels = map[lane.Kind]string{
+	lane.KindOk:       "ok",
+	lane.KindRefuse:   "refused",
+	lane.KindDegraded: "degraded",
+	lane.KindPoison:   "poison",
+}
+
+// Register adds the metrics of the lanes to r.
+func Register(r prometheus.Registerer) error { return r.Register(records) }
 
 // Handlers is the business side of a lane.
 type Handlers struct {
@@ -111,7 +127,7 @@ type failure struct {
 // handle handles krs in order and returns how many are done, and the failure that stopped the batch, if any.
 func (l *Lane) handle(ctx context.Context, krs []*kgo.Record) (int, failure, error) {
 	for i, kr := range krs {
-		out := l.outcome(ctx, kr)
+		out, expired := l.outcome(ctx, kr)
 		switch out.Kind() {
 		case lane.KindOk, lane.KindRefuse:
 		case lane.KindDegraded:
@@ -128,18 +144,23 @@ func (l *Lane) handle(ctx context.Context, krs []*kgo.Record) (int, failure, err
 			}
 			return i, failure{dep: out.Dependency(), code: code(out.Err())}, nil
 		}
+		label := outcomeLabels[out.Kind()]
+		if expired {
+			label = "expired"
+		}
+		records.WithLabelValues(l.policy.Name(), label).Inc()
 	}
 	return len(krs), failure{}, nil
 }
 
-func (l *Lane) outcome(ctx context.Context, kr *kgo.Record) lane.Outcome {
+func (l *Lane) outcome(ctx context.Context, kr *kgo.Record) (lane.Outcome, bool) {
 	rec := lane.Record{Topic: kr.Topic, Partition: kr.Partition, Offset: kr.Offset, Key: kr.Key, Value: kr.Value}
 	for _, h := range kr.Headers {
 		rec.Raw = append(rec.Raw, lane.Header{Key: h.Key, Value: h.Value})
 	}
 	var err error
 	if rec.Headers, err = lane.ParseHeaders(rec.Raw); err != nil {
-		return lane.Poison("unreadable_headers")
+		return lane.Poison("unreadable_headers"), false
 	}
 	var lower time.Duration
 	if l.h.Limit != nil {
@@ -147,12 +168,12 @@ func (l *Lane) outcome(ctx context.Context, kr *kgo.Record) lane.Outcome {
 	}
 	expired, err := l.policy.Expired(rec, time.Now(), lower)
 	if err != nil {
-		return lane.Poison("unreadable_category")
+		return lane.Poison("unreadable_category"), false
 	}
 	if expired {
-		return l.h.Expired(ctx, rec)
+		return l.h.Expired(ctx, rec), true
 	}
-	return l.h.Handle(ctx, rec)
+	return l.h.Handle(ctx, rec), false
 }
 
 func (l *Lane) breach(kr *kgo.Record, out lane.Outcome) error {

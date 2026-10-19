@@ -1,0 +1,8 @@
+groups:
+  - name: lanes
+    rules:
+      - alert: LaneDeadLetterReceiving
+        expr: sum by (group) (increase(lane_records_total{outcome="poison"}[5m])) > 0
+        annotations:
+          summary: Une lane envoie des records en dead-letter
+          description: "Le groupe {{ $labels.group }} a écarté des records illisibles ; ils attendent un rejeu dans sa dead-letter."

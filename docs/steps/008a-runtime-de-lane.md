@@ -52,8 +52,10 @@ Fable, 2026-10-19 ; aucun désaccord laissé à l'humain.
    - 6 : `deploy/guard_test.go`, prouvée rouge sur une fixture (HPA au-delà des partitions).
 7. **Production vers la dead-letter** : synchrone et acquittée avant le commit ; en échec, elle est `blocking`
    (décision 4 §7).
-8. **Métriques** : la métrique entre avec son émetteur, le runtime. La règle « dead-letter qui reçoit » entre ici ;
-   les règles de lag, dont le seuil dépend de la lane (OTP), et leur `absent()` entrent avec chaque service.
+8. **Métriques** : un seul compteur, `lane_records_total{group,outcome}` (`ok`, `refused`, `degraded`, `poison`,
+   `expired`) : il porte l'écart `fail_open` (`degraded`) et la règle « dead-letter qui reçoit » (`poison`), qui
+   entre ici. Le lag par lane, sa règle (seuil propre à la lane, OTP) et son `absent()` entrent avec le premier
+   service qui consomme, 022 : une jauge sans consommateur déployé ni règle ne se vérifie pas.
 9. **Dettes** : #69 reportée, sa marque suit le rejeu porté dans `internal/lane/kafka` ; #64 et #47 en 023a, #77 en
    022 : hors du territoire touché ici.
 
@@ -72,24 +74,25 @@ Fable, 2026-10-19 ; aucun désaccord laissé à l'humain.
   - `Policy` : bâtie depuis un `catalog.Group` et son topic ; refuse un `assignment` autre que `group`, un mode
     `park_*`, `per_tenant` (en citant 022, 023a, 008b) ; `MaxAge(rec, lower)` ; `Mode(dep)`.
 - **`internal/lane/kafka`** :
-  - `NewLane(cfg, cat, group, Handlers)` : groupe du catalogue, son topic, `DisableAutoCommit`, `start` →
-    `ConsumeResetOffset` (`StartsFromEnd()` l'expose). `Handlers` : `Handle`, `Expired`, et facultatifs `Category`,
+  - `NewLane(cat, group, Handlers, log, opts...)` : groupe du catalogue, son topic, `DisableAutoCommit`, `start` →
+    `ConsumeResetOffset`, prouvé par comportement. `Handlers` : `Handle`, `Expired`, et facultatifs `Category`,
     `Limit`.
   - `Run(ctx)` : boucle portée, un lot et un traitement par record. Âge dépassé → `Expired` ; `Ok`, `Refuse`,
     `Degraded` → suivant, compté ; `Poison` → dead-letter synchrone puis suivant ; `Transient` d'une dépendance
-    `blocking` → commit du préfixe, rejeu en place. Commit détaché borné au drain, records retenus. Une attente
+    `blocking` → commit du préfixe, rejeu en place. Commit détaché borné au drain. Pas de records retenus entre deux
+    `Run` : un service lance un `Run` par lane, puis la ferme (le pool qui rappelait la boucle de `go-gateway` n'a
+    plus ce besoin). Une attente
     `blocking` retient tout le lot du pod : la dépendance est globale par définition.
   - Aucun journal ni span ne porte le texte d'une erreur du traitement ni la valeur d'un record : le code (`errors.Code`)
     ou `internal_error`.
   - `NewProducer(cfg, cat, service, topics...)` : refuse un topic où `service` ne figure pas ; `Produce` refuse un
     topic hors de sa liste, et un record sans `origin_ts`.
-  - Métriques, sous `metrics.Guard` : `lane_records_total{group,outcome}`, `lane_refused_total{group,code}`,
-    `lane_fail_open_total{group,dependency}`, `lane_dead_letter_total{group,reason}`, `lane_lag_records{group}` (lag
-    porté, relu sur un tick).
+  - `Register(prometheus.Registerer)` : `lane_records_total{group,outcome}`, compté quand un record est fait ; le
+    service l'enregistre sous `metrics.Guard`.
 - **Gardes** : `internal/lane/kafka/guard_test.go` (1 et 2, AST sur `cmd/` et `internal/`, appels `NewLane` et
   `NewProducer` à arguments littéraux ou familles `catalog.Category(…)`) ; garde 6 dans `deploy/guard_test.go`.
-- **Alerte** : `deploy/alerts/lanes.yaml`, `LaneDeadLetterReceiving` sur `increase(lane_dead_letter_total[5m]) > 0`,
-  et son test promtool.
+- **Alerte** : `deploy/alerts/lanes.yaml`, `LaneDeadLetterReceiving` sur
+  `sum by (group) (increase(lane_records_total{outcome="poison"}[5m])) > 0`, et son test promtool.
 - **Plan** : §008 coupée en 008a et 008b, `internal/lane` ; §022 nomme `broadcast`, §023a `manual` et `fail_open`.
 - **Tests bloquants** (décision 4 §8, part de 008a), sur Kafka testcontainers : un poison part en dead-letter sans
   bloquer sa partition ; le record de dead-letter garde `origin_ts` et ses quatre en-têtes ; un record expiré n'est

@@ -1,0 +1,24 @@
+rule_files:
+  - lanes.yaml
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: lane_records_total{group="router-svc.mt.inbound.otp", outcome="poison", instance="10.0.0.1:9090"}
+        values: 0 0 1 1 1 1 1 1 1 1 1
+      - series: lane_records_total{group="router-svc.mt.inbound.otp", outcome="ok", instance="10.0.0.1:9090"}
+        values: 0 5 10 15 20 25 30 35 40 45 50
+      - series: lane_records_total{group="delivery-svc.dlr.routed", outcome="ok", instance="10.0.0.2:9090"}
+        values: 0 5 10 15 20 25 30 35 40 45 50
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: LaneDeadLetterReceiving
+        exp_alerts:
+          - exp_labels:
+              group: router-svc.mt.inbound.otp
+            exp_annotations:
+              summary: Une lane envoie des records en dead-letter
+              description: "Le groupe router-svc.mt.inbound.otp a écarté des records illisibles ; ils attendent un rejeu dans sa dead-letter."
+      - eval_time: 10m
+        alertname: LaneDeadLetterReceiving
+        exp_alerts: []

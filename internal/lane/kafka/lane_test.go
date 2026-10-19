@@ -5,11 +5,13 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"maps"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"google.golang.org/protobuf/proto"
@@ -418,5 +420,58 @@ func TestAPoisonIsNeverCommittedBeforeItsDeadLetterIsWritten(t *testing.T) {
 			t.Fatal("the poison was never committed once its dead-letter was written")
 		}
 		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+func TestEveryOutcomeIsCountedUnderItsGroup(t *testing.T) {
+	reg := prometheus.NewRegistry()
+	if err := kafka.Register(reg); err != nil {
+		t.Fatal(err)
+	}
+	w := newWorld(t, "dependencies: {kafka: {mode: blocking}, cancel: {mode: fail_open, justification: j}}, max_age: category")
+	now := time.Now().UTC()
+	send(t, w.topic, rec("ok", now), rec("refused", now), rec("degraded", now), rec("poison", now), rec("old", now.Add(-time.Hour)))
+	s := newSeen()
+	r := start(t, w, kafka.Handlers{
+		Handle: func(_ context.Context, rc lane.Record) lane.Outcome {
+			s.add(&s.handled, string(rc.Value))
+			switch string(rc.Value) {
+			case "refused":
+				return lane.Refuse(perrors.Code("no_route"))
+			case "degraded":
+				return lane.Degraded("cancel")
+			case "poison":
+				return lane.Poison("unreadable_payload")
+			}
+			return lane.Ok()
+		},
+		Expired: func(_ context.Context, rc lane.Record) lane.Outcome {
+			s.add(&s.expired, string(rc.Value))
+			return lane.Ok()
+		},
+	})
+	s.wait(t, 5)
+	if err := r.stop(t); err != nil {
+		t.Fatal(err)
+	}
+	families, err := reg.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]float64{}
+	for _, f := range families {
+		for _, m := range f.GetMetric() {
+			labels := map[string]string{}
+			for _, l := range m.GetLabel() {
+				labels[l.GetName()] = l.GetValue()
+			}
+			if f.GetName() == "lane_records_total" && labels["group"] == w.group {
+				got[labels["outcome"]] = m.GetCounter().GetValue()
+			}
+		}
+	}
+	want := map[string]float64{"ok": 1, "refused": 1, "degraded": 1, "poison": 1, "expired": 1}
+	if !maps.Equal(got, want) {
+		t.Errorf("lane_records_total = %v, want %v", got, want)
 	}
 }

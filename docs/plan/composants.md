@@ -167,7 +167,7 @@ mutation est auditée avec son acteur, et un lecteur de l'instantané la voit.
 - **021 — `rest-api-svc`** : clé d'API, seaux `redis-state` (sender ID puis compte, fail-closed), quiet
   hours, idempotence, ACK durable sur `mt.inbound.<cat>` (spec 03 §3.2).
 - **022 — `router-svc`** : la lane MT sur le runtime de 008, assemblant les cœurs de 015 et de 017 à 019
-  (I3), segmentation, publication sur `mt.routed.<cat>`, `assignment: broadcast` du runtime ; réservation de crédit en no-op jusqu'en 031a.
+  (I3), segmentation, publication sur `mt.routed.<cat>`, `assignment: broadcast` du runtime, lag par lane et ses règles ; réservation de crédit en no-op jusqu'en 031a.
   Sans statut de compte opérateur, tout message finit `no_route` : le test injecte un record de
   `connector.account-status`.
 - **023a — `connector-pool-svc`** : `assignment: manual` et `fail_open` du runtime, baux (I8), `connector.account-status`, seau, jeton d'annulation,
