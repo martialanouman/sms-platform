@@ -164,21 +164,25 @@ Arbitrage de la revue (Fable, 2026-10-19) :
 
 ## Preuve sur `contabo169`
 
-Procédure jouée le 2026-10-19 au commit `3df8fc9`, de la table rase (`k3s-uninstall.sh`) à la table rase ; images
+Procédure jouée le 2026-10-19 au commit `db80cbb`, de la table rase (`k3s-uninstall.sh`) à la table rase ; images
 du snapshot importées dans le containerd de k3s (`docker save | k3s ctr images import`). Sorties expurgées des
-adresses.
+adresses. Les rouges marqués « avant » viennent des passages précédents, aux commits `fc8a929` à `3df8fc9`.
 
 1. k3s `v1.37.1+k3s1`, SELinux appliqué (`k3s-selinux`) ; `operators.yaml`, puis `kubectl wait` des Jobs
    `helm-install-cert-manager`, `-cloudnative-pg`, `-strimzi` : `complete`.
 2. `namespaces.yaml`, `ca.yaml` : les quatre `Certificate` `Ready`.
-3. `secrets.sh` deux fois : `resourceVersion` des six Secrets inchangés ; `postgres-password` de 64 caractères.
+3. `secrets.sh` deux fois : `resourceVersion` des Secrets inchangés ; `postgres-password` de 64 caractères ;
+   aucune valeur dans sa sortie (8 lignes, aucune suite hexadécimale).
 4. `postgres.yaml`, `kafka.yaml` : `Cluster` sain, `Kafka` `Ready` en 4.3.1 / `4.3-IV0`, trois nœuds.
 5. `networkpolicies.yaml` puis les Jobs, sans attente artificielle :
    - `migrate` : `succeeded 1`, « postgres unreachable, retrying » puis « migration applied », version 1 ;
    - `catalog-apply` : `succeeded 1`, 58 topics et 139 ACL posés, le secret de `admin_api_svc` posé ;
-   - un second `catalog-apply` aussitôt : `succeeded 1, failed 1`, la tentative rejetée sur « topic
-     mt.billing-wait.transactional: UNKNOWN_TOPIC_OR_PARTITION », rejouée ; relancé plus tard, « cluster
-     already matches the catalog » (deux passages).
+   - un second `catalog-apply` aussitôt : `succeeded 1, failed 2`, les tentatives rejetées sur une métadonnée
+     pas encore propagée (« UNKNOWN_TOPIC_OR_PARTITION » au passage précédent, « create topic mo.outcome:
+     TOPIC_ALREADY_EXISTS » ici), rejouées ; relancé plus tard, « cluster already matches the catalog ».
+6. Réplication : chacun des trois brokers porte les 128 partitions de `mt.outcome` (facteur 3).
+7. cert-manager expose `certmanager_certificate_expiration_timestamp_seconds` (5 séries) et
+   `certmanager_certificate_ready_status` (15) sur `:9402`.
 
 Rouges vus :
 
@@ -188,8 +192,38 @@ Rouges vus :
   admin_api_svc: secret outside printable ASCII » (le refus de 007b-2).
 - **Métadonnée pas encore propagée** (avant `backoffLimit: 2`) : le second passage en `Failed`, « topic mo.routed:
   UNKNOWN_TOPIC_OR_PARTITION ».
-- **Certificat de la même CA, CN `intruder`** : `failed 3`, « describe ACLs: CLUSTER_AUTHORIZATION_FAILED ».
+- **Certificat de la même CA, CN `intruder`** (authentification `custom`) : `failed 3`, « describe ACLs:
+  CLUSTER_AUTHORIZATION_FAILED ».
 - **Certificat d'une autre CA** : `failed 3`, « list topics: remote error: tls: unknown certificate ».
-- **`migrate` contre une CA étrangère** : `failed 1`, `verify-full` refuse le certificat de Postgres.
-- **Flux non générés** (busybox, après huit secondes) : `migrate` → Kafka 9093 et un pod sans label → Postgres
-  5432 sortent en `exit=1` ; `migrate` → Postgres et `catalog-apply` → Kafka : `open`.
+- **`migrate` contre une CA étrangère** : `failed 1` au premier essai, sans retentative (`verify-full` refuse le
+  certificat de Postgres, une erreur qui n'est pas de dial).
+- **Sortie non générée** (busybox de `sms`, après huit secondes) : `migrate` → Kafka 9093 et un pod sans label →
+  Postgres 5432 sortent en `exit=1` ; `migrate` → Postgres et `catalog-apply` → Kafka : `open`.
+- **Entrée des briques** (busybox de `default`, sans politique de sortie) : → Postgres 5432 et → Kafka 9093
+  sortent en `exit=1`.
+
+Risque noté : le rejeu immédiat a consommé les trois essais que permet `backoffLimit: 2` ; si un passage en
+demande davantage, le déploiement échoue et le suivant converge. À mesurer en 007d-2, où les déploiements se
+suivent.
+
+## Revue
+
+**Tour 1** (trois axes, aucun bloquant ; arbitrage de Fable ci-dessus) :
+
+- Retenus :
+  - Sécurité : tout `edit` pouvait demander un certificat `CN=catalog-apply` ou `postgres-rw` (agrégation RBAC
+    retirée) ; la clé racine copiée dans `kafka` (authentification `custom`, certificat seul) ; `secrets.sh`
+    pouvait créer un Secret vide jamais réparé (une erreur dans `<(...)` échappe à `set -e`), ou un Secret Strimzi
+    sans ses labels sur un échec partiel (Secrets Strimzi retirés) ; `pgdial` rejouait une alerte TLS du
+    serveur pendant une minute ; aucune alerte pour un certificat jamais émis ; copies de la racine figées.
+  - Preuve : aucun rouge pour l'entrée des briques (un pod de `default` refusé) ; métrique de cert-manager,
+    réplication et sortie de `secrets.sh` non observées ; trois règles de la garde sans cas faussé ;
+    `tcpproxy.Later` ne prouvait pas la durée du refus et taisait un port repris.
+  - Conventions : plan non amendé (`openbao`, `breakglass`) ; marque `debt: #108` posée sur l'image ; garde
+    hors de `guard_test.go` ; borne recopiée dans chaque `cmd/` (désormais interne à `Retry`) ; SAN inutile
+    sur un certificat client ; en-tête de `secrets.sh` qui redisait le code ; `instances: 1` présenté comme
+    provisoire.
+- Écartés : une CA intermédiaire (elle ne borne rien, voir l'arbitrage) ; épingler par digest les images des
+  opérateurs et de Kafka (tags de release, `spec.kafka.version`) ; un test de la borne d'une minute
+  (comparer à la constante serait creux ; la procédure ne l'observe pas non plus) ; retirer les trois clés de
+  réplication des journaux internes que B4 demande.
