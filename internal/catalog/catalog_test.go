@@ -227,7 +227,7 @@ func TestFrozenRefusesNewPartitionCountsOnPerKeyTopics(t *testing.T) {
 
 func TestDeadLettersAreDerivedFromTheirSource(t *testing.T) {
 	dl := parse(t).DeadLetters()
-	want := catalog.Topic{Key: "message_id", Order: "none", Body: "clear_bounded", Partitions: 8, Retention: 96 * time.Hour}
+	want := catalog.Topic{Key: "message_id", Order: "none", Payload: "sms.v1.DeadLetter", Body: "clear_bounded", Partitions: 8, Retention: 96 * time.Hour}
 	if got := dl["router-svc.mt.inbound.otp.dead-letter"]; !reflect.DeepEqual(got, want) {
 		t.Errorf("dead-letter = %+v, want %+v", got, want)
 	}
@@ -246,13 +246,17 @@ func TestMarkdownListsTopicsGroupsAndDeadLetters(t *testing.T) {
 }
 
 func TestMissingPayloadsNamesEveryUnknownMessage(t *testing.T) {
-	known := map[string]bool{"sms.v1.MtInbound": true, "sms.v1.MtRouted": true, "sms.v1.ConnectorAccountStatus": true}
+	known := map[string]bool{"sms.v1.MtInbound": true, "sms.v1.MtRouted": true, "sms.v1.ConnectorAccountStatus": true, "sms.v1.DeadLetter": true}
 	errs := parse(t).MissingPayloads(func(name string) bool { return known[name] })
 	if len(errs) != 1 || !strings.Contains(errs[0].Error(), "sms.v1.MtOutcome") || !strings.Contains(errs[0].Error(), "mt.outcome") {
 		t.Errorf("MissingPayloads = %v, want one error naming mt.outcome and sms.v1.MtOutcome", errs)
 	}
 	if errs := parse(t).MissingPayloads(func(string) bool { return true }); len(errs) > 0 {
 		t.Errorf("MissingPayloads with every message known = %v", errs)
+	}
+	errs = parse(t).MissingPayloads(func(name string) bool { return name != "sms.v1.DeadLetter" })
+	if len(errs) != 4 || !strings.Contains(errs[0].Error(), ".dead-letter") {
+		t.Errorf("MissingPayloads without sms.v1.DeadLetter = %v, want one error per dead-letter", errs)
 	}
 }
 

@@ -211,8 +211,10 @@ func Frozen(base, head Catalog) []error {
 // MissingPayloads returns an error for every topic whose payload message known does not recognise.
 func (c Catalog) MissingPayloads(known func(string) bool) []error {
 	var errs []error
-	for _, name := range sortedKeys(c.Topics) {
-		if p := c.Topics[name].Payload; !known(p) {
+	all := c.DeadLetters()
+	maps.Copy(all, c.Topics)
+	for _, name := range sortedKeys(all) {
+		if p := all[name].Payload; !known(p) {
 			errs = append(errs, fmt.Errorf("topic %s: payload %s does not exist", name, p))
 		}
 	}
@@ -227,6 +229,7 @@ func (c Catalog) DeadLetters() map[string]Topic {
 		dl[g.DeadLetter] = Topic{
 			Key:        src.Key,
 			Order:      "none",
+			Payload:    "sms.v1.DeadLetter",
 			Body:       src.Body,
 			Partitions: 8,
 			Retention:  maxClearRetention,
