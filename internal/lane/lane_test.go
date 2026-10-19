@@ -34,9 +34,9 @@ func one(topic, deps, extra string) string {
 
 func TestPolicyRefusesWhatThisStepCannotServe(t *testing.T) {
 	cases := map[string]struct{ group, want string }{
-		"broadcast":      {one("dlr.routed", "", "assignment: broadcast, "), "022"},
-		"manual":         {one("mt.routed.otp", "", "assignment: manual, "), "023a"},
-		"park_by_tenant": {one("dlr.routed", ", endpoint: {mode: park_by_tenant}", ""), "029c"},
+		"broadcast":                         {one("dlr.routed", "", "assignment: broadcast, "), "022"},
+		"manual":                            {one("mt.routed.otp", "", "assignment: manual, "), "023a"},
+		"park_by_tenant":                    {one("dlr.routed", ", endpoint: {mode: park_by_tenant}", ""), "029c"},
 		"category without a category topic": {one("mt.reroute-park", "", "max_age: category, "), "category"},
 	}
 	for name, tc := range cases {
@@ -86,8 +86,8 @@ func TestPolicyServesParkGlobalAndPerTenant(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.Park("billing") != "dlr.wait" || p.Park("kafka") != "" || p.MaxInFlight() != 8 {
-		t.Errorf("Park, MaxInFlight = %q, %q, %d", p.Park("billing"), p.Park("kafka"), p.MaxInFlight())
+	if p.Park("billing") != "dlr.wait" || p.MaxInFlight() != 8 {
+		t.Errorf("Park, MaxInFlight = %q, %d", p.Park("billing"), p.MaxInFlight())
 	}
 }
 

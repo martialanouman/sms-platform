@@ -24,6 +24,7 @@ import (
 
 const secret = "BODY-7f3a"
 
+// debt: #33
 func send(t *testing.T, topic string, recs ...*kgo.Record) {
 	t.Helper()
 	for _, r := range recs {
@@ -312,36 +313,40 @@ func TestABreachOfContractStopsTheLaneWithoutCommitting(t *testing.T) {
 		"degraded on a blocking dependency":     lane.Degraded("kafka"),
 		"degraded on an undeclared dependency":  lane.Degraded("redis"),
 	}
+	worlds := map[string]func(*testing.T, string) world{"per_partition": newWorld, "per_tenant": newTenantWorld}
 	for name, out := range cases {
-		t.Run(name, func(t *testing.T) {
-			w := newWorld(t, "dependencies: {kafka: {mode: blocking}}")
-			send(t, w.topic, rec("done", time.Now().UTC()), rec("breach", time.Now().UTC()))
-			l, err := kafka.NewLane(w.cat, w.group, kafka.Handlers{
-				Handle: func(_ context.Context, rc lane.Record) lane.Outcome {
-					if string(rc.Value) == "done" {
-						return lane.Ok()
-					}
-					return out
-				},
-				Expired: func(context.Context, lane.Record) lane.Outcome { return lane.Ok() },
-			}, slog.New(slog.DiscardHandler), kgo.SeedBrokers(brokers...))
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer l.Close()
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			defer cancel()
-			err = l.Run(ctx)
-			if err == nil || ctx.Err() != nil {
-				t.Fatalf("Run = %v, want a breach of contract before the deadline", err)
-			}
-			if strings.Contains(err.Error(), secret) {
-				t.Errorf("the error carries the handler's text: %v", err)
-			}
-			if got := committed(t, w); got != 1 {
-				t.Errorf("committed offset %d, want 1: what was done before the breach, nothing after", got)
-			}
-		})
+		for concurrency, newW := range worlds {
+			t.Run(name+" under "+concurrency, func(t *testing.T) {
+				w := newW(t, "dependencies: {kafka: {mode: blocking}}")
+				send(t, w.topic, rec("done", time.Now().UTC()), rec("breach", time.Now().UTC()))
+				l, err := kafka.NewLane(w.cat, w.group, kafka.Handlers{
+					Handle: func(_ context.Context, rc lane.Record) lane.Outcome {
+						if string(rc.Value) == "done" {
+							return lane.Ok()
+						}
+						return out
+					},
+					Expired: func(context.Context, lane.Record) lane.Outcome { return lane.Ok() },
+					Tenant:  byKey,
+				}, slog.New(slog.DiscardHandler), kgo.SeedBrokers(brokers...))
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer l.Close()
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+				err = l.Run(ctx)
+				if err == nil || ctx.Err() != nil {
+					t.Fatalf("Run = %v, want a breach of contract before the deadline", err)
+				}
+				if strings.Contains(err.Error(), secret) {
+					t.Errorf("the error carries the handler's text: %v", err)
+				}
+				if got := committed(t, w); got != 1 {
+					t.Errorf("committed offset %d, want 1: what was done before the breach, nothing after", got)
+				}
+			})
+		}
 	}
 }
 
@@ -369,11 +374,17 @@ func TestOutcomesThatMoveOn(t *testing.T) {
 	}
 }
 
-func TestNewLaneNeedsBothHandlers(t *testing.T) {
-	w := newWorld(t, "dependencies: {kafka: {mode: blocking}}")
-	ok := func(context.Context, lane.Record) lane.Outcome { return lane.Ok() }
-	for name, h := range map[string]kafka.Handlers{"no Handle": {Expired: ok}, "no Expired": {Handle: ok}} {
-		if l, err := kafka.NewLane(w.cat, w.group, h, slog.New(slog.DiscardHandler), kgo.SeedBrokers(brokers...)); err == nil {
+func TestNewLaneNeedsItsHandlers(t *testing.T) {
+	ok := expiredOk
+	for name, tc := range map[string]struct {
+		w world
+		h kafka.Handlers
+	}{
+		"no Handle":             {newWorld(t, "dependencies: {kafka: {mode: blocking}}"), kafka.Handlers{Expired: ok}},
+		"no Expired":            {newWorld(t, "dependencies: {kafka: {mode: blocking}}"), kafka.Handlers{Handle: ok}},
+		"no Tenant, per_tenant": {newTenantWorld(t, "dependencies: {kafka: {mode: blocking}}"), kafka.Handlers{Handle: ok, Expired: ok}},
+	} {
+		if l, err := kafka.NewLane(tc.w.cat, tc.w.group, tc.h, slog.New(slog.DiscardHandler), kgo.SeedBrokers(brokers...)); err == nil {
 			l.Close()
 			t.Errorf("%s: NewLane accepted it", name)
 		}
@@ -430,7 +441,7 @@ func TestATransientOnAParkGlobalDependencyParksTheRecordAndMovesOn(t *testing.T)
 			}
 			return lane.Ok()
 		},
-		Expired: func(context.Context, lane.Record) lane.Outcome { return lane.Ok() },
+		Expired: expiredOk,
 	})
 	s.wait(t, 3)
 	parked := readAll(t, w.park, 1)
@@ -468,7 +479,7 @@ func TestARecordIsNeverCommittedBeforeItIsParked(t *testing.T) {
 			s.add(&s.handled, string(rc.Value))
 			return lane.Transient("billing", errors.New("no envelope"))
 		},
-		Expired: func(context.Context, lane.Record) lane.Outcome { return lane.Ok() },
+		Expired: expiredOk,
 	})
 	s.wait(t, 2)
 	if got := committed(t, w); got != -1 {

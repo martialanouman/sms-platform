@@ -202,14 +202,12 @@ func TestTheGuardOfTopicsAndGroups(t *testing.T) {
 	c, err := catalog.Parse([]byte(`
 topics:
   mt.inbound.otp: {key: message_id, order: none, duplicate_unit: m, payload: sms.v1.A, body: none, partitions: 1, retention: 96h, producers: [front]}
-  mt.billing-wait.otp: {key: message_id, order: none, duplicate_unit: m, payload: sms.v1.A, body: none, partitions: 1, retention: 96h, producers: [back]}
   mt.inbound.transactional: {key: message_id, order: none, duplicate_unit: m, payload: sms.v1.A, body: none, partitions: 1, retention: 96h, producers: [front]}
-  mt.billing-wait.transactional: {key: message_id, order: none, duplicate_unit: m, payload: sms.v1.A, body: none, partitions: 1, retention: 96h, producers: [back]}
   mt.inbound.marketing: {key: message_id, order: none, duplicate_unit: m, payload: sms.v1.A, body: none, partitions: 1, retention: 96h, producers: [front]}
   mt.billing-wait.marketing: {key: message_id, order: none, duplicate_unit: m, payload: sms.v1.A, body: none, partitions: 1, retention: 96h, producers: [back]}
 groups:
-  - {topic: mt.inbound.otp, service: back, tenant: none, dependencies: {kafka: {mode: blocking}, billing: {mode: park_global, park: mt.billing-wait.otp}}, concurrency: per_partition, dead_letter: back.mt.inbound.otp.dead-letter, start: earliest}
-  - {topic: mt.inbound.transactional, service: back, tenant: none, dependencies: {kafka: {mode: blocking}, billing: {mode: park_global, park: mt.billing-wait.transactional}}, concurrency: per_partition, dead_letter: back.mt.inbound.transactional.dead-letter, start: earliest}
+  - {topic: mt.inbound.otp, service: back, tenant: none, dependencies: {kafka: {mode: blocking}}, concurrency: per_partition, dead_letter: back.mt.inbound.otp.dead-letter, start: earliest}
+  - {topic: mt.inbound.transactional, service: back, tenant: none, dependencies: {kafka: {mode: blocking}}, concurrency: per_partition, dead_letter: back.mt.inbound.transactional.dead-letter, start: earliest}
   - {topic: mt.inbound.marketing, service: back, tenant: none, dependencies: {kafka: {mode: blocking}, billing: {mode: park_global, park: mt.billing-wait.marketing}}, concurrency: per_partition, dead_letter: back.mt.inbound.marketing.dead-letter, start: earliest}
 `))
 	if err != nil {

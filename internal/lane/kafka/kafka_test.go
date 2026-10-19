@@ -97,6 +97,16 @@ type world struct {
 
 func newWorld(t *testing.T, groupFields string) world {
 	t.Helper()
+	return newWorldOf(t, "tenant: none, concurrency: per_partition, "+groupFields)
+}
+
+func newTenantWorld(t *testing.T, groupFields string) world {
+	t.Helper()
+	return newWorldOf(t, "tenant: account_id, concurrency: per_tenant, max_in_flight: 8, "+groupFields)
+}
+
+func newWorldOf(t *testing.T, groupFields string) world {
+	t.Helper()
 	n := unique()
 	w := world{topic: n + ".mt.inbound.otp", service: n + "-svc"}
 	w.group = w.service + "." + w.topic
@@ -108,7 +118,7 @@ topics:
   %[5]s: {key: message_id, order: none, duplicate_unit: m, payload: sms.v1.MtInbound, body: clear_bounded, partitions: 1, retention: 96h, producers: [%[2]s]}
   other: {key: message_id, order: none, duplicate_unit: m, payload: sms.v1.MtInbound, body: none, partitions: 2, retention: 96h, producers: [someone-else]}
 groups:
-  - {topic: %[1]s, service: %[2]s, tenant: none, concurrency: per_partition, dead_letter: %[3]s, start: earliest, %[4]s}
+  - {topic: %[1]s, service: %[2]s, dead_letter: %[3]s, start: earliest, %[4]s}
 `, w.topic, w.service, w.dl, strings.ReplaceAll(groupFields, "$park", w.park), w.park))
 	if err != nil {
 		t.Fatal(err)
