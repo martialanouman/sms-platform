@@ -52,7 +52,8 @@ VPS) :
   `breakglass` entrent avec la brique OpenBao, que rien n'exerce avant elle (un rôle géré sans Secret naît à
   mot de passe NULL) ; `managed.roles` tiendra alors « créés sous un autre rôle que `migrator` ». Séquencement,
   plan amendé.
-- **B3 — Une racine** (amendée) : un `Certificate` racine cert-manager (`isCA`, `duration: 87600h`,
+- **B3 — Une racine** (amendée, puis remplacée par l'arbitrage de la revue : clé racine confinée,
+  authentification `custom`) : un `Certificate` racine cert-manager (`isCA`, `duration: 87600h`,
   `privateKey.rotationPolicy: Never` : une racine à clé tournante casserait toute feuille) derrière un
   `ClusterIssuer` `internal-ca`. Elle émet le certificat serveur de Postgres (`serverTLSSecret` et
   `serverCASecret` seuls ; rien de nôtre ne s'authentifie à Postgres par certificat) et celui du listener
@@ -62,7 +63,7 @@ VPS) :
   (CN `catalog-apply` seul, `client auth`). La CA de cluster reste à Strimzi : nos clients ne la voient
   jamais, et la clé racine ne signe pas ses composants internes. `mtls.Files.CA` à un fichier suffit. URL
   `sslmode=verify-full&sslrootcert=/tls/ca.crt` ; `migrate` monte la racine depuis un ConfigMap `internal-ca`.
-- **B4 — Kafka** : un `KafkaNodePool` `kafka` (trois nœuds `controller` et `broker`, `persistent-claim` sur le
+- **B4 — Kafka** (l'authentification `tls` est remplacée par `custom`, voir l'arbitrage de la revue) : un `KafkaNodePool` `kafka` (trois nœuds `controller` et `broker`, `persistent-claim` sur le
   `local-path` de k3s, `resources` et `-Xmx` bornés sur la mesure du VPS) ; `spec.kafka.version` et
   `metadataVersion` explicites ; `default.replication.factor` 3, `min.insync.replicas` 2, journaux internes
   à 3 et 2, `auto.create.topics.enable: false` ; listener `tls` 9093, authentification `tls`, autorisation
@@ -85,7 +86,8 @@ Arbitré pendant la procédure (Fable, 2026-10-19), sur un fait du VPS : le cont
 (kube-router) n'admet l'adresse d'un pod neuf qu'après quelques secondes ; jusque-là sa sortie tombe sous
 `default-deny` (REJECT). `migrate` et `catalog-apply`, qui se connectent dès leur démarrage, échouaient à
 chaque passage ; précédés de dix secondes d'attente, ils passent. Un pod relancé a une adresse neuve et la
-même course. Décision : **retentative dans le code, pour Postgres seul** ; franz-go tient déjà les erreurs de
+même course. Décision (prédicat et borne amendés par l'arbitrage de la revue et son second tour) : **retentative dans le
+code, pour Postgres seul** ; franz-go tient déjà les erreurs de
 dial pour transitoires (`isPermanentDialErr`) et les rejoue jusqu'à `RetryTimeout` (30 s). Un helper
 `internal/platform/pgdial`, `Retry(ctx, attempt)`, rejoue toutes les secondes tant que l'erreur se déplie en
 `net.Error`, et rend toute autre erreur (authentification, `verify-full`) au premier essai ; chaque `cmd/` le
@@ -112,15 +114,16 @@ Arbitrage de la revue (Fable, 2026-10-19) :
   9093 passe en authentification `custom` (`ssl.client.auth: required`, magasin de confiance PEM monté depuis
   le Secret `kafka/internal-ca-cert`, certificat seul) ; le principal reste `User:CN=catalog-apply`
   (`DefaultKafkaPrincipalBuilder`). Plus de `clientsCa` fournie ; 06 §4 amendée.
-- **`pgdial.Retry`** ne rejoue qu'un `*net.OpError` de `dial` (refus, délai, nom non résolu, comme
-  `isAnyDialErr` de franz-go) ; une alerte TLS du serveur, une lecture ou une écriture coupée sortent au
-  premier essai. La borne d'une minute est interne à `Retry`.
+- **`pgdial.Retry`** ne rejoue qu'un `*net.OpError` de `dial` (refus, délai) ou un `*net.DNSError` (pgx résout
+  le nom lui-même, avant tout dial : un nom non résolu ne passe jamais par un `dial`) ; une alerte TLS du
+  serveur, une lecture ou une écriture coupée sortent au premier essai. La borne d'une minute est interne à
+  `Retry`.
 - **Images** : la version du chart épingle le tag de release, que les registres des projets ne réécrivent pas ;
   `spec.kafka.version` fixe l'image Kafka. Le digest reste à Postgres, dont le tag majeur couvre plusieurs builds.
 - **Alertes et rotation** : `CertificateNotReady` (`certmanager_certificate_ready_status{condition="False"}`,
   `for: 10m`) couvre un certificat jamais émis ; les copies du certificat racine (`kafka/internal-ca-cert`,
-  `sms/internal-ca`) passent par `apply` à chaque `secrets.sh`, donc à chaque déploiement. Reste au runbook :
-  un rolling update de Kafka pour relire son magasin de confiance après un renouvellement de la racine.
+  `sms/internal-ca`) passent par `apply` à chaque `secrets.sh`, donc à chaque déploiement. La racine renouvelée
+  garde sa clé (`rotationPolicy: Never`) : les feuilles se vérifient contre l'ancienne copie comme la nouvelle.
 
 ## Design arrêté
 
@@ -149,13 +152,14 @@ Arbitrage de la revue (Fable, 2026-10-19) :
   minute ; chaque retentative journalisée sans URL. `catalog-apply` enveloppe `pgx.Connect`, `migrate` un
   `db.PingContext` avant goose. Tests : un port fermé et un nom non résolu rejoués jusqu'au succès, une
   `PgError`, une erreur x509 et une alerte TLS distante rendues au premier essai, un contexte expiré rend la
-  dernière erreur de dial ; dans chaque `cmd/`, une base derrière `tcpproxy.Later` (refus pendant deux
+  dernière erreur de dial ; le nom non résolu passe par un vrai `pgx.Connect` ; dans chaque `cmd/`, une base derrière `tcpproxy.Later` (refus pendant deux
   secondes, puis relais) atteinte.
 - `.claude/rules/ci-deploy.md` : la course de k3s et le `/readyz` ; la métadonnée Kafka et le rejeu entier ;
   qui demande un certificat ; l'épinglage des images de brique.
 - `deploy/guard_test.go` : `deploy/bricks/` nomme ce que supposent `internal/netpol` et `catalog-apply` :
   `Cluster` `postgres` en `postgres`, `Kafka` `kafka` en `kafka`, listener 9093 TLS à certificat client
-  exigé, autorisation `simple` et `superUsers` `CN=catalog-apply`, ni `entityOperator` ni `clientsCa` ; un cas
+  exigé contre un magasin PEM monté sous `/mnt/internal-ca/` (sans lui, la JVM retomberait sur ses CA
+  publiques), autorisation `simple` et `superUsers` `CN=catalog-apply`, ni `entityOperator` ni `clientsCa` ; un cas
   faussé par règle.
 - `deploy/alerts/certs.yaml` (`CertificateExpiresSoon`, échéance à moins de 7 jours ; `CertificateNotReady`)
   et `certs_test.yaml`.

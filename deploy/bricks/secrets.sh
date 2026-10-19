@@ -7,7 +7,7 @@ cd "$(dirname "$0")/../.."
 exists() { kubectl -n "$1" get secret "$2" >/dev/null 2>&1; }
 read_secret() { kubectl -n "$1" get secret "$2" -o "jsonpath={.data.$3}" | base64 -d; }
 nonempty() { [ -n "$2" ] || { echo "secrets.sh: $1 est vide" >&2; exit 1; }; }
-create() { # create <namespace> <secret> <clé> <valeur> [options]
+create() {
 	nonempty "$1/$2" "$4"
 	printf '%s' "$4" | kubectl -n "$1" create secret generic "$2" "${@:5}" --from-file="$3"=/dev/stdin
 }

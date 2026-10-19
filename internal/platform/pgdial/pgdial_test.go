@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/martialanouman/sms-platform/internal/platform/pgdial"
@@ -86,13 +87,17 @@ func TestRetryStopsWithTheContextOnTheLastNetworkError(t *testing.T) {
 
 func TestRetryReplaysAnUnresolvedName(t *testing.T) {
 	attempts := 0
-	err := pgdial.Retry(context.Background(), slog.New(slog.DiscardHandler), func(context.Context) error {
-		if attempts++; attempts < 2 {
-			return &net.OpError{Op: "dial", Net: "tcp", Err: &net.DNSError{Err: "no such host", Name: "postgres-rw.postgres.svc", IsNotFound: true}}
+	err := pgdial.Retry(context.Background(), slog.New(slog.DiscardHandler), func(ctx context.Context) error {
+		if attempts++; attempts > 1 {
+			return nil
 		}
-		return nil
+		conn, err := pgx.Connect(ctx, "postgres://migrator@no-such-host.invalid:5432/control_plane?connect_timeout=5")
+		if err == nil {
+			_ = conn.Close(ctx)
+		}
+		return err
 	})
 	if err != nil || attempts != 2 {
-		t.Errorf("Retry = %v after %d attempts, want success on the second", err, attempts)
+		t.Errorf("Retry = %v after %d attempts, want the unresolved name of pgx replayed", err, attempts)
 	}
 }

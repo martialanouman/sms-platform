@@ -424,9 +424,11 @@ func checkBricks(dir string) error {
 		return errors.Join(append(errs, errors.New("no Kafka kafka in namespace kafka, which KAFKA_BROKERS of catalog-apply names"))...)
 	}
 	if !slices.ContainsFunc(k.Spec.Kafka.Listeners, func(l listener) bool {
-		return l.Port == 9093 && l.TLS && l.Authentication.Type == "custom" && l.Authentication.ListenerConfig["ssl.client.auth"] == "required"
+		c := l.Authentication.ListenerConfig
+		return l.Port == 9093 && l.TLS && l.Authentication.Type == "custom" && c["ssl.client.auth"] == "required" &&
+			strings.HasPrefix(c["ssl.truststore.location"], "/mnt/internal-ca/") && c["ssl.truststore.type"] == "PEM"
 	}) {
-		errs = append(errs, errors.New("kafka: no listener 9093 with TLS and a required client certificate, which catalog-apply dials"))
+		errs = append(errs, errors.New("kafka: no listener 9093 with TLS and a client certificate required against the internal CA, which catalog-apply dials"))
 	}
 	if k.Spec.Kafka.Authorization.Type != "simple" || !slices.Contains(k.Spec.Kafka.Authorization.SuperUsers, "CN=catalog-apply") {
 		errs = append(errs, errors.New("kafka: authorization is not simple with superUsers CN=catalog-apply"))
@@ -453,6 +455,8 @@ func TestTheBrickGuardFails(t *testing.T) {
 		{"kafka renamed", "kafka.yaml", "kind: Kafka\nmetadata:\n  name: kafka", "kind: Kafka\nmetadata:\n  name: events", "no Kafka kafka"},
 		{"listener on another port", "kafka.yaml", "port: 9093", "port: 9094", "no listener 9093"},
 		{"listener without mTLS", "kafka.yaml", "authentication:\n          type: custom", "authentication:\n          type: scram-sha-512", "no listener 9093"},
+		{"truststore of the JVM", "kafka.yaml", "ssl.truststore.location: /mnt/internal-ca/ca.crt", "ssl.truststore.location: /etc/pki/java/cacerts", "no listener 9093"},
+		{"truststore not PEM", "kafka.yaml", "ssl.truststore.type: PEM", "ssl.truststore.type: JKS", "no listener 9093"},
 		{"client certificate optional", "kafka.yaml", "ssl.client.auth: required", "ssl.client.auth: requested", "no listener 9093"},
 		{"catalog-apply not super", "kafka.yaml", "- CN=catalog-apply", "- CN=admin", "superUsers CN=catalog-apply"},
 		{"kafka elsewhere", "kafka.yaml", "  name: kafka\n  namespace: kafka\nspec:\n  kafka:", "  name: kafka\n  namespace: events\nspec:\n  kafka:", "no Kafka kafka"},
