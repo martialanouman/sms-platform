@@ -133,3 +133,35 @@ un refus déterministe du plan tourne trois fois ; `podFailurePolicy` l'en disti
 - `deploy/alerts/certs.yaml` (`CertificateExpiresSoon`, échéance à moins de 7 jours) et `certs_test.yaml`.
 - Plan §007d-1 : `openbao` et `breakglass` avec la brique OpenBao. Issue `debt` + `go-live` : PITR.
 - Procédure (section suivante), jouée sur `contabo169`, résultats consignés avant la PR.
+
+## Preuve sur `contabo169`
+
+Procédure jouée le 2026-10-19 au commit `3df8fc9`, de la table rase (`k3s-uninstall.sh`) à la table rase ; images
+du snapshot importées dans le containerd de k3s (`docker save | k3s ctr images import`). Sorties expurgées des
+adresses.
+
+1. k3s `v1.37.1+k3s1`, SELinux appliqué (`k3s-selinux`) ; `operators.yaml`, puis `kubectl wait` des Jobs
+   `helm-install-cert-manager`, `-cloudnative-pg`, `-strimzi` : `complete`.
+2. `namespaces.yaml`, `ca.yaml` : les quatre `Certificate` `Ready`.
+3. `secrets.sh` deux fois : `resourceVersion` des six Secrets inchangés ; `postgres-password` de 64 caractères.
+4. `postgres.yaml`, `kafka.yaml` : `Cluster` sain, `Kafka` `Ready` en 4.3.1 / `4.3-IV0`, trois nœuds.
+5. `networkpolicies.yaml` puis les Jobs, sans attente artificielle :
+   - `migrate` : `succeeded 1`, « postgres unreachable, retrying » puis « migration applied », version 1 ;
+   - `catalog-apply` : `succeeded 1`, 58 topics et 139 ACL posés, le secret de `admin_api_svc` posé ;
+   - un second `catalog-apply` aussitôt : `succeeded 1, failed 1`, la tentative rejetée sur « topic
+     mt.billing-wait.transactional: UNKNOWN_TOPIC_OR_PARTITION », rejouée ; relancé plus tard, « cluster
+     already matches the catalog » (deux passages).
+
+Rouges vus :
+
+- **Course du contrôleur de politiques** (avant `pgdial`) : les deux Jobs en `Failed` à chaque passage, « dial
+  tcp …:5432: connect: connection refused » ; avec dix secondes d'attente, `migrate` passe.
+- **Secret à saut de ligne** (avant le correctif de `secrets.sh`) : `catalog-apply` en `Failed`, « role
+  admin_api_svc: secret outside printable ASCII » (le refus de 007b-2).
+- **Métadonnée pas encore propagée** (avant `backoffLimit: 2`) : le second passage en `Failed`, « topic mo.routed:
+  UNKNOWN_TOPIC_OR_PARTITION ».
+- **Certificat de la même CA, CN `intruder`** : `failed 3`, « describe ACLs: CLUSTER_AUTHORIZATION_FAILED ».
+- **Certificat d'une autre CA** : `failed 3`, « list topics: remote error: tls: unknown certificate ».
+- **`migrate` contre une CA étrangère** : `failed 1`, `verify-full` refuse le certificat de Postgres.
+- **Flux non générés** (busybox, après huit secondes) : `migrate` → Kafka 9093 et un pod sans label → Postgres
+  5432 sortent en `exit=1` ; `migrate` → Postgres et `catalog-apply` → Kafka : `open`.
