@@ -81,6 +81,11 @@ linters:
         text: "G402:"
         linters:
           - gosec
+      # G404 : l'aléa du backoff de la lane désynchronise les répliques, il ne protège rien.
+      - path: ^internal/lane/kafka/lane\.go$
+        text: "G404:"
+        linters:
+          - gosec
       # Environnement : le chargeur d'infrastructure est le seul lecteur d'un service ; deux outils de CI lisent celui
       # de la CI, ils ne sont pas des services.
       - path: ^(internal/platform/config/config\.go|tools/(catalog|debtguard)/)
