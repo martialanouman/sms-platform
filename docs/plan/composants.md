@@ -13,7 +13,8 @@ une autre peut s'ajouter au démarrage d'une step, comme au socle.
 
 | Step | Livre | Phase |
 |---|---|---|
-| 008 | Runtime de lane | Fondations |
+| 008a | Runtime de lane : lane `group`, dead-letter, gardes | Fondations |
+| 008b | Runtime de lane : garages, `per_tenant` | Fondations |
 | 009 | Instantané de configuration | Fondations |
 | 010 | OpenBao et `content-key-svc` | Fondations |
 | 011a | Dashboard : BFF, SPA, activation, mot de passe, sessions, journal d'accès | Fondations |
@@ -68,9 +69,12 @@ Des couplages du `CLAUDE.md`, appliqués ici à chaque fois ; une step ne les ra
 
 ## 008 — Runtime de lane
 
-Le runtime unique de la décision 4 (D6), sous `internal/platform/` : classification des échecs, garage
+Le runtime unique de la décision 4 (D6), sous `internal/lane` : classification des échecs, garage
 par tenant (table `lane_parking` du service) ou global (topic), expiration depuis `origin_ts` (I10),
 dead-letter, rejeu, commits. Les gardes du catalogue qui lisent le code (1 à 3, 6) entrent ici.
+
+- **008a** : lane `group`, dépendances `blocking` et `fail_open`, âge, dead-letter, producteur, gardes.
+- **008b** : `park_by_tenant`, `park_global`, `per_tenant` ; le critère I11 se ferme ici.
 
 **Terminé quand** : un poison part en dead-letter sans bloquer sa partition ; une dépendance propre à un
 tenant gare ce tenant et laisse passer les autres (I11) ; chaque garde est rouge sur un consommateur
@@ -163,10 +167,10 @@ mutation est auditée avec son acteur, et un lecteur de l'instantané la voit.
 - **021 — `rest-api-svc`** : clé d'API, seaux `redis-state` (sender ID puis compte, fail-closed), quiet
   hours, idempotence, ACK durable sur `mt.inbound.<cat>` (spec 03 §3.2).
 - **022 — `router-svc`** : la lane MT sur le runtime de 008, assemblant les cœurs de 015 et de 017 à 019
-  (I3), segmentation, publication sur `mt.routed.<cat>` ; réservation de crédit en no-op jusqu'en 031a.
+  (I3), segmentation, publication sur `mt.routed.<cat>`, `assignment: broadcast` du runtime ; réservation de crédit en no-op jusqu'en 031a.
   Sans statut de compte opérateur, tout message finit `no_route` : le test injecte un record de
   `connector.account-status`.
-- **023a — `connector-pool-svc`** : baux (I8), `connector.account-status`, seau, jeton d'annulation,
+- **023a — `connector-pool-svc`** : `assignment: manual` et `fail_open` du runtime, baux (I8), `connector.account-status`, seau, jeton d'annulation,
   SMPP sortant contre `fake-smsc`.
 - **023b** : ordonnancement par catégorie, un premier adaptateur HTTP, reroute et `fallback_chain`,
   réécriture de sender ID (cœur de 016).
