@@ -53,13 +53,42 @@ dépôt (`/usr/local/libexec/sms-deploy-sync`), que le service lance ; après ch
 remplace par la version du tag ; un tag sans `deploy.sh` est reconnu avant la bascule
 (`git cat-file -e`), qui laisse alors l'arbre en place.
 
+Fable a tranché les majeurs de la revue (2026-10-19) :
+
+- **Un tag hors de `main` est refusé** : `sync.sh` exige un tag ancêtre de `origin/main`
+  (`git merge-base --is-ancestor`), car tout tag de la release l'est ; sans lui, un tag poussé sur n'importe
+  quel commit ferait exécuter son `deploy.sh` en root. Le ruleset de tags reste le « devra » de `ci-deploy.md`.
+- **Tout refus sort en 1**, le silence est « rien à faire » : un tag hors de `main`, sans `deploy.sh`, sans image
+  ou dont une image n'est pas tirable (un paquet privé est le cas courant) se lit dans `systemctl status`, et
+  `OnUnitInactiveSec` réarme après un échec.
+- **Auto-remplacement gardé**, derrière `bash -n` : une copie qui ne se parse pas n'est pas installée. Un défaut
+  de logique se répare par la reprise ci-dessous ; les unités ne changent qu'avec elle.
+- **`TimeoutStartSec=3h`**, au-dessus de la somme des bornes de `deploy.sh` (environ 2 h 35) ; il borne seul
+  `ls-remote`, `fetch` et `crictl pull`.
+- **La garde** exige la forme brute `image: ghcr.io/martialanouman/sms-platform/<cmd>` (la seule que le `sed`
+  tague : ni guillemets ni commentaire) et chaque `cmd/` une fois dans la boucle des Jobs de `deploy.sh`.
+- **Rejeu de `catalog-apply`** (risque de 007d-1) : mesuré par la preuve, pas d'issue.
+- **Retour arrière** : prouvé par pièces, `revert` → patch (table de `Next`, 007d-2a), et tout tag plus récent
+  se déploie (ici) ; bout en bout au premier `revert` réel sur `main`. Un `revert` de cette step produit un tag
+  sans `deploy.sh`, que `sync.sh` refuse.
+
 ## Design arrêté
 
 - `deploy/k8s/*.yaml` : `activeDeadlineSeconds` (300 pour `migrate`, 900 pour `catalog-apply`).
 - `deploy/guard_test.go` : chaque Job porte `activeDeadlineSeconds` positif ; cas faussé.
 - `deploy/test-env/deploy.sh <tag>` : la séquence de 007d-1, images à `:<tag>`, Jobs recréés et attendus.
 - `deploy/test-env/sync.sh` : le tirage ci-dessus, lancé depuis sa copie `/usr/local/libexec/sms-deploy-sync`,
-  qu'il remplace après chaque succès ; `deploy/test-env/sms-deploy.service` et `.timer`.
-- `deploy/test-env/bootstrap.sh` : l'amorçage ci-dessus.
+  qu'il remplace après chaque succès si elle se parse ; un tag ancêtre de `origin/main` seulement ; tout refus
+  en 1. `deploy/test-env/sms-deploy.service` (`TimeoutStartSec=3h`) et `.timer` (`OnBootSec=1min`,
+  `OnUnitInactiveSec=1min`).
+- `deploy/test-env/bootstrap.sh` : l'amorçage ci-dessus, rejouable (`enable`, puis `restart` du timer).
+- `deploy/guard_test.go` : forme brute de l'image ; chaque `cmd/` une fois dans `for job in … ; do` de
+  `deploy.sh`.
 - `.claude/rules/ci-deploy.md` : un `cmd/` neuf entre dans `deploy.sh` (ordre) avec son manifest.
 - Preuve : la procédure ci-dessus, consignée avant la PR.
+
+## Reprise
+
+Une copie de `sync.sh` qui tire mal, ou des unités à changer : en root sur la VM,
+`git -C /opt/sms-platform fetch --tags && git -C /opt/sms-platform checkout vX.Y.Z && bash
+/opt/sms-platform/deploy/test-env/bootstrap.sh`, `vX.Y.Z` étant un tag qui contient `deploy/test-env`.
