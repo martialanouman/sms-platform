@@ -28,3 +28,11 @@ spec:
                 secretKeyRef:
                   name: migrate
                   key: postgres-url
+          volumeMounts:
+            - name: internal-ca
+              mountPath: /tls
+              readOnly: true
+      volumes:
+        - name: internal-ca
+          configMap:
+            name: internal-ca

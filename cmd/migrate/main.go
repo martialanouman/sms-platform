@@ -15,6 +15,7 @@ import (
 
 	"github.com/martialanouman/sms-platform/internal/platform/config"
 	"github.com/martialanouman/sms-platform/internal/platform/observability"
+	"github.com/martialanouman/sms-platform/internal/platform/pgdial"
 	"github.com/martialanouman/sms-platform/migrations"
 )
 
@@ -41,6 +42,12 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger) error {
 		return fmt.Errorf("open control_plane: %w", err)
 	}
 	defer func() { _ = db.Close() }()
+	dial, cancel := context.WithTimeout(ctx, pgdial.Bound)
+	err = pgdial.Retry(dial, log, db.PingContext)
+	cancel()
+	if err != nil {
+		return fmt.Errorf("reach control_plane: %w", err)
+	}
 	locker, err := lock.NewPostgresSessionLocker()
 	if err != nil {
 		return err

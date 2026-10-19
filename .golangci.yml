@@ -58,7 +58,7 @@ linters:
     rules:
       # G304, G703 : les outils et la garde de livraison lisent et écrivent des chemins du dépôt, fixés par eux ou
       # par la recette ; aucune entrée non fiable.
-      - path: ^(tools/(catalog|openapi)/|deploy/(guard|alerts)_test\.go$)
+      - path: ^(tools/(catalog|openapi)/|deploy/(guard|alerts|bricks)_test\.go$)
         text: "G304:|G703:"
         linters:
           - gosec

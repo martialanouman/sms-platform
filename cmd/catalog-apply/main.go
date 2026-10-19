@@ -19,6 +19,7 @@ import (
 	"github.com/martialanouman/sms-platform/internal/catalog/kafka"
 	"github.com/martialanouman/sms-platform/internal/platform/config"
 	"github.com/martialanouman/sms-platform/internal/platform/observability"
+	"github.com/martialanouman/sms-platform/internal/platform/pgdial"
 	"github.com/martialanouman/sms-platform/internal/schema/postgres"
 	"github.com/martialanouman/sms-platform/migrations"
 )
@@ -54,7 +55,14 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("kafka mTLS: %w", err)
 	}
-	conn, err := pgx.Connect(ctx, infra.PostgresURL)
+	var conn *pgx.Conn
+	dial, cancel := context.WithTimeout(ctx, pgdial.Bound)
+	err = pgdial.Retry(dial, log, func(ctx context.Context) error {
+		var err error
+		conn, err = pgx.Connect(ctx, infra.PostgresURL)
+		return err
+	})
+	cancel()
 	if err != nil {
 		return fmt.Errorf("connect to control_plane: %w", err)
 	}

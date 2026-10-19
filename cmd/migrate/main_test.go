@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pressly/goose/v3"
 	"github.com/pressly/goose/v3/database"
@@ -85,6 +86,17 @@ func TestTwoSimultaneousRunsBothSucceed(t *testing.T) {
 		if err := <-errs; err != nil {
 			t.Error(err)
 		}
+	}
+}
+
+func TestRunWaitsForTheNetworkToAdmitIt(t *testing.T) {
+	var logs bytes.Buffer
+	err := run(context.Background(), config.Infra{PostgresURL: pgtest.Empty(t).Late(t, 2*time.Second).As("migrator")}, slog.New(slog.NewJSONHandler(&logs, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(logs.String(), "postgres unreachable, retrying") {
+		t.Errorf("log = %s, want the retries", logs.String())
 	}
 }
 

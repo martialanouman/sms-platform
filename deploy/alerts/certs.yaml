@@ -1,0 +1,8 @@
+groups:
+  - name: certs
+    rules:
+      - alert: CertificateExpiresSoon
+        expr: certmanager_certificate_expiration_timestamp_seconds - time() < 7 * 24 * 3600
+        annotations:
+          summary: Un certificat interne expire dans moins de 7 jours
+          description: cert-manager n'a pas renouvelé ce certificat ; ses porteurs perdront leur mTLS à l'échéance.

@@ -75,11 +75,11 @@ func TestRunGrantsPostgresThenDialsKafkaOverTLS(t *testing.T) {
 			first <- b[0]
 		}
 	}()
-	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 7*time.Second)
 	defer cancel()
 	infra := config.Infra{
 		KafkaBrokers:           []string{ln.Addr().String()},
-		PostgresURL:            pg.As("migrator"),
+		PostgresURL:            pg.Late(t, 2*time.Second).As("migrator"),
 		PostgresRoleSecretsDir: dir,
 		TLS:                    mtlstest.New(t).Issue(t, t.TempDir(), "catalog-apply"),
 	}

@@ -1,0 +1,21 @@
+rule_files:
+  - certs.yaml
+evaluation_interval: 1m
+tests:
+  - interval: 1h
+    input_series:
+      - series: certmanager_certificate_expiration_timestamp_seconds{name="catalog-apply-tls", namespace="sms"}
+        values: 608400x3
+    alert_rule_test:
+      - eval_time: 0h
+        alertname: CertificateExpiresSoon
+        exp_alerts: []
+      - eval_time: 2h
+        alertname: CertificateExpiresSoon
+        exp_alerts:
+          - exp_labels:
+              name: catalog-apply-tls
+              namespace: sms
+            exp_annotations:
+              summary: Un certificat interne expire dans moins de 7 jours
+              description: cert-manager n'a pas renouvelé ce certificat ; ses porteurs perdront leur mTLS à l'échéance.
