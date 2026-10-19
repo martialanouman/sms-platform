@@ -86,7 +86,8 @@ func holds(t *testing.T, s *Snapshots, table string, want int) {
 }
 
 func TestAPeriodicResyncUnderNotificationsCountsOnlyTheRowsCommittedSince(t *testing.T) {
-	defer func(d time.Duration) { resyncEvery = d }(resyncEvery)
+	r := resyncEvery
+	t.Cleanup(func() { resyncEvery = r })
 	resyncEvery = 200 * time.Millisecond
 	_, owner, s := counted(t, "probe")
 	notifier := connect(t, s.dsn)
@@ -121,18 +122,35 @@ func TestAPeriodicResyncUnderNotificationsCountsOnlyTheRowsCommittedSince(t *tes
 		`INSERT INTO control_plane.probe VALUES (3)`,
 	)
 	holds(t, s, "probe", 4)
-	if got := observed(t) - before; got != 3 {
-		t.Errorf("propagations observed = %d, want 3: a resync counts the rows committed since, not the columns added", got)
+	exec(t, owner, `BEGIN`, `INSERT INTO control_plane.probe VALUES (4)`, `NOTIFY config, 'probe:{"id": 4}'`, `COMMIT`)
+	holds(t, s, "probe", 5)
+	exec(t, owner, `INSERT INTO control_plane.probe VALUES (5)`)
+	holds(t, s, "probe", 6)
+	if got := observed(t) - before; got != 5 {
+		t.Errorf("propagations observed = %d, want 5: a resync counts the rows committed since its last load or "+
+			"reread, not the columns added", got)
 	}
 }
 
-func TestAResyncStuckOnALockGivesUpAndReconnects(t *testing.T) {
-	defer func(r, q time.Duration) { resyncEvery, queryTimeout = r, q }(resyncEvery, queryTimeout)
-	resyncEvery, queryTimeout = 200*time.Millisecond, 300*time.Millisecond
+func TestALoadStuckOnALockGivesUpAndReconnects(t *testing.T) {
+	t.Run("a periodic resync", func(t *testing.T) { stuck(t, true) })
+	t.Run("a row reread", func(t *testing.T) { stuck(t, false) })
+}
+
+func stuck(t *testing.T, periodic bool) {
+	r, q := resyncEvery, queryTimeout
+	t.Cleanup(func() { resyncEvery, queryTimeout = r, q })
+	queryTimeout = 300 * time.Millisecond
+	if periodic {
+		resyncEvery = 200 * time.Millisecond
+	}
 	pg, owner, s := counted(t, "other", "probe")
 	locker := connect(t, pg.As("migrator"))
 	exec(t, locker, `BEGIN`, `LOCK TABLE control_plane.probe IN ACCESS EXCLUSIVE MODE`)
 	defer exec(t, locker, `ROLLBACK`)
+	if !periodic {
+		exec(t, owner, `NOTIFY config, 'probe:{"id": 0}'`)
+	}
 	super := connect(t, pg.As("postgres"))
 	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(20 * time.Millisecond) {
 		var waiting bool
@@ -144,7 +162,7 @@ func TestAResyncStuckOnALockGivesUpAndReconnects(t *testing.T) {
 			break
 		}
 		if time.Now().After(deadline) {
-			t.Fatal("the resync never waited on the lock")
+			t.Fatal("the load never waited on the lock")
 		}
 	}
 	exec(t, owner, `INSERT INTO control_plane.other VALUES (1)`)

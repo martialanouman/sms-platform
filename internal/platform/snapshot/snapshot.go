@@ -94,11 +94,11 @@ func (s *Snapshots) Run(ctx context.Context) {
 }
 
 func (s *Snapshots) connect(ctx context.Context) error {
-	if s.conn != nil {
-		_ = s.conn.Close(ctx)
-	}
 	bounded, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
+	if s.conn != nil {
+		_ = s.conn.Close(bounded)
+	}
 	conn, err := pgx.Connect(bounded, s.dsn)
 	if err != nil {
 		return err
@@ -202,12 +202,12 @@ func (s *Snapshots) load(ctx context.Context, table, key string) error {
 		pg_xact_commit_timestamp(t.xmin) AS committed
 		FROM %s t`, ident(table))
 	args := []any{ident(table), s.keys[table]}
-	held, loaded := s.rows[table]
+	_, loaded := s.rows[table]
 	next := map[string]string{}
 	if key != "" {
 		q = `SELECT * FROM (` + q + `) r WHERE r.pk::jsonb = $3::jsonb`
 		args = append(args, key)
-		next = held
+		next = s.rows[table]
 		delete(next, key)
 	}
 	rows, err := s.conn.Query(ctx, q, args...)
@@ -219,11 +219,13 @@ func (s *Snapshots) load(ctx context.Context, table, key string) error {
 	var pk, row string
 	var committed *time.Time
 	_, err = pgx.ForEachRow(rows, []any{&pk, &row, &committed}, func() error {
-		if committed != nil && loaded && committed.After(newest) {
-			propagation.Observe(time.Since(*committed).Seconds())
-		}
-		if committed != nil && committed.After(latest) {
-			latest = *committed
+		if committed != nil {
+			if loaded && committed.After(newest) {
+				propagation.Observe(time.Since(*committed).Seconds())
+			}
+			if committed.After(latest) {
+				latest = *committed
+			}
 		}
 		next[pk] = row
 		return nil
