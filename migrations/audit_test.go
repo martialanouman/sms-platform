@@ -30,7 +30,7 @@ func sqlState(err error) string {
 }
 
 func TestAuditJournalsAreAppendOnlyButForThePurgeDoor(t *testing.T) {
-	conn := connect(t, pgtest.ControlPlane(t).Migrator)
+	conn := connect(t, pgtest.ControlPlane(t).As("migrator"))
 	ctx := context.Background()
 	for table, insert := range map[string]string{
 		"control_plane.audit_log": `INSERT INTO control_plane.audit_log

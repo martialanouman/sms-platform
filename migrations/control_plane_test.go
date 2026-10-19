@@ -14,7 +14,7 @@ import (
 
 func TestControlPlaneMigratesUpDownUpAsMigrator(t *testing.T) {
 	pg := pgtest.ControlPlane(t)
-	db, err := sql.Open("pgx", pg.Migrator)
+	db, err := sql.Open("pgx", pg.As("migrator"))
 	if err != nil {
 		t.Fatal(err)
 	}

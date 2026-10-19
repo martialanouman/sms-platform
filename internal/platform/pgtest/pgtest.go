@@ -15,10 +15,14 @@ import (
 	"github.com/martialanouman/sms-platform/migrations"
 )
 
-// DB holds the connection strings of a migrated database, as its superuser and as migrator.
+// DB is a migrated database; each role it holds logs in with its own name as password.
 type DB struct {
-	Super    string
-	Migrator string
+	endpoint string
+}
+
+// As is the connection string of the database as role.
+func (db DB) As(role string) string {
+	return fmt.Sprintf("postgres://%s:%s@%s/control_plane?sslmode=disable", role, role, db.endpoint)
 }
 
 // ControlPlane starts a Postgres whose control_plane database is migrated to the latest version.
@@ -42,16 +46,12 @@ func ControlPlane(t *testing.T) DB {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dsn := func(user, database string) string {
-		return fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", user, user, endpoint, database)
-	}
-	db := DB{Super: dsn("postgres", "control_plane"), Migrator: dsn("migrator", "control_plane")}
-
-	exec(t, dsn("postgres", "postgres"),
+	db := DB{endpoint: endpoint}
+	exec(t, fmt.Sprintf("postgres://postgres:postgres@%s/postgres?sslmode=disable", endpoint),
 		`CREATE ROLE migrator LOGIN PASSWORD 'migrator'`,
 		`CREATE DATABASE control_plane OWNER migrator`,
 	)
-	migrator, err := sql.Open("pgx", db.Migrator)
+	migrator, err := sql.Open("pgx", db.As("migrator"))
 	if err != nil {
 		t.Fatal(err)
 	}
