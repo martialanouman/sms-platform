@@ -9,6 +9,13 @@ builds:
     flags: [-trimpath]
     goos: [linux]
     goarch: [amd64]
+  - id: catalog-apply
+    main: ./cmd/catalog-apply
+    binary: catalog-apply
+    env: [CGO_ENABLED=0]
+    flags: [-trimpath]
+    goos: [linux]
+    goarch: [amd64]
 
 dockers_v2:
   - id: migrate
@@ -18,6 +25,13 @@ dockers_v2:
     platforms: [linux/amd64]
     build_args:
       BINARY: migrate
+  - id: catalog-apply
+    ids: [catalog-apply]
+    images: [ghcr.io/martialanouman/sms-platform/catalog-apply]
+    tags: ["{{ .Version }}"]
+    platforms: [linux/amd64]
+    build_args:
+      BINARY: catalog-apply
 
 archives:
   - formats: [none]

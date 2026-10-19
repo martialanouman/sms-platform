@@ -1,17 +1,10 @@
 package mtls_test
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"crypto/tls"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 	"net"
 	"os"
 	"path/filepath"
@@ -21,76 +14,8 @@ import (
 	"time"
 
 	"github.com/martialanouman/sms-platform/internal/platform/mtls"
+	"github.com/martialanouman/sms-platform/internal/platform/mtls/mtlstest"
 )
-
-type authority struct {
-	cert *x509.Certificate
-	key  *ecdsa.PrivateKey
-	pem  []byte
-}
-
-func newAuthority(t *testing.T) authority {
-	t.Helper()
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	tmpl := &x509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               pkix.Name{CommonName: "internal-ca"},
-		NotBefore:             time.Now().Add(-time.Hour),
-		NotAfter:              time.Now().Add(time.Hour),
-		IsCA:                  true,
-		BasicConstraintsValid: true,
-		KeyUsage:              x509.KeyUsageCertSign,
-	}
-	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cert, err := x509.ParseCertificate(der)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return authority{cert, key, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})}
-}
-
-func (a authority) issue(t *testing.T, dir string, names ...string) mtls.Files {
-	t.Helper()
-	f := mtls.Files{Cert: filepath.Join(dir, "tls.crt"), Key: filepath.Join(dir, "tls.key"), CA: filepath.Join(dir, "ca.crt")}
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	serial, err := rand.Int(rand.Reader, big.NewInt(1<<62))
-	if err != nil {
-		t.Fatal(err)
-	}
-	tmpl := &x509.Certificate{
-		SerialNumber: serial,
-		Subject:      pkix.Name{CommonName: "cn-" + names[0]},
-		DNSNames:     names,
-		NotBefore:    time.Now().Add(-time.Hour),
-		NotAfter:     time.Now().Add(time.Hour),
-		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
-	}
-	der, err := x509.CreateCertificate(rand.Reader, tmpl, a.cert, &key.PublicKey, a.key)
-	if err != nil {
-		t.Fatal(err)
-	}
-	keyDER, err := x509.MarshalECPrivateKey(key)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for path, data := range map[string][]byte{
-		f.Cert: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}),
-		f.Key:  pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER}),
-		f.CA:   a.pem,
-	} {
-		write(t, path, data)
-	}
-	return f
-}
 
 func write(t *testing.T, path string, data []byte) {
 	t.Helper()
@@ -142,9 +67,9 @@ func handshake(t *testing.T, server, client *tls.Config) (tls.ConnectionState, t
 	return r.state, cli.ConnectionState(), r.err, cerr
 }
 
-func pair(t *testing.T, ca authority, serverName, clientName string, allowed ...string) (*tls.Config, *tls.Config, mtls.Files, mtls.Files) {
+func pair(t *testing.T, ca mtlstest.Authority, serverName, clientName string, allowed ...string) (*tls.Config, *tls.Config, mtls.Files, mtls.Files) {
 	t.Helper()
-	sf, cf := ca.issue(t, t.TempDir(), serverName), ca.issue(t, t.TempDir(), clientName)
+	sf, cf := ca.Issue(t, t.TempDir(), serverName), ca.Issue(t, t.TempDir(), clientName)
 	server, err := sf.Server(allowed, []string{"h2", "http/1.1"})
 	if err != nil {
 		t.Fatal(err)
@@ -158,12 +83,12 @@ func pair(t *testing.T, ca authority, serverName, clientName string, allowed ...
 }
 
 func TestANamedCallerIsAdmitted(t *testing.T) {
-	ca := newAuthority(t)
-	server, err := ca.issue(t, t.TempDir(), "admin-api-svc").Server([]string{"billing-svc", "dashboard"}, []string{"h2", "http/1.1"})
+	ca := mtlstest.New(t)
+	server, err := ca.Issue(t, t.TempDir(), "admin-api-svc").Server([]string{"billing-svc", "dashboard"}, []string{"h2", "http/1.1"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	client, err := ca.issue(t, t.TempDir(), "dashboard-canary", "dashboard").Client()
+	client, err := ca.Issue(t, t.TempDir(), "dashboard-canary", "dashboard").Client()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +107,7 @@ func TestANamedCallerIsAdmitted(t *testing.T) {
 }
 
 func TestAnUnnamedCallerIsRefused(t *testing.T) {
-	ca := newAuthority(t)
+	ca := mtlstest.New(t)
 	for name, c := range map[string]struct {
 		setup func(*testing.T, *tls.Config)
 		cause string
@@ -192,7 +117,7 @@ func TestAnUnnamedCallerIsRefused(t *testing.T) {
 			c.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) { return &tls.Certificate{}, nil }
 		}, "didn't provide a certificate"},
 		"other authority": {func(t *testing.T, c *tls.Config) {
-			other, err := newAuthority(t).issue(t, t.TempDir(), "dashboard").Client()
+			other, err := mtlstest.New(t).Issue(t, t.TempDir(), "dashboard").Client()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -210,14 +135,14 @@ func TestAnUnnamedCallerIsRefused(t *testing.T) {
 }
 
 func TestTheAllowlistIsCopied(t *testing.T) {
-	ca := newAuthority(t)
+	ca := mtlstest.New(t)
 	allowed := []string{"dashboard"}
-	server, err := ca.issue(t, t.TempDir(), "admin-api-svc").Server(allowed, nil)
+	server, err := ca.Issue(t, t.TempDir(), "admin-api-svc").Server(allowed, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	allowed[0] = "router-svc"
-	client, err := ca.issue(t, t.TempDir(), "router-svc").Client()
+	client, err := ca.Issue(t, t.TempDir(), "router-svc").Client()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,13 +153,13 @@ func TestTheAllowlistIsCopied(t *testing.T) {
 }
 
 func TestTheClientRefusesTLS12(t *testing.T) {
-	ca := newAuthority(t)
-	sf := ca.issue(t, t.TempDir(), "admin-api-svc")
+	ca := mtlstest.New(t)
+	sf := ca.Issue(t, t.TempDir(), "admin-api-svc")
 	cert, err := tls.LoadX509KeyPair(sf.Cert, sf.Key)
 	if err != nil {
 		t.Fatal(err)
 	}
-	client, err := ca.issue(t, t.TempDir(), "dashboard").Client()
+	client, err := ca.Issue(t, t.TempDir(), "dashboard").Client()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,7 +171,7 @@ func TestTheClientRefusesTLS12(t *testing.T) {
 }
 
 func TestServerRefusesAnEmptyAllowlist(t *testing.T) {
-	f := newAuthority(t).issue(t, t.TempDir(), "admin-api-svc")
+	f := mtlstest.New(t).Issue(t, t.TempDir(), "admin-api-svc")
 	for _, allowed := range [][]string{nil, {}} {
 		if _, err := f.Server(allowed, nil); err == nil {
 			t.Errorf("Server(%v) built a config that admits the whole authority", allowed)
@@ -255,7 +180,7 @@ func TestServerRefusesAnEmptyAllowlist(t *testing.T) {
 }
 
 func TestUnreadableFilesFailAtConstruction(t *testing.T) {
-	good := newAuthority(t).issue(t, t.TempDir(), "admin-api-svc")
+	good := mtlstest.New(t).Issue(t, t.TempDir(), "admin-api-svc")
 	notPEM := filepath.Join(t.TempDir(), "ca.crt")
 	if err := os.WriteFile(notPEM, []byte("not a certificate"), 0o600); err != nil {
 		t.Fatal(err)
@@ -275,7 +200,7 @@ func TestUnreadableFilesFailAtConstruction(t *testing.T) {
 }
 
 func TestTLS12IsRefused(t *testing.T) {
-	server, client, _, _ := pair(t, newAuthority(t), "admin-api-svc", "dashboard", "dashboard")
+	server, client, _, _ := pair(t, mtlstest.New(t), "admin-api-svc", "dashboard", "dashboard")
 	client.MinVersion, client.MaxVersion = tls.VersionTLS12, tls.VersionTLS12
 	if _, _, serr, _ := handshake(t, server, client); serr == nil || !strings.Contains(serr.Error(), "version") {
 		t.Errorf("server error = %v, want a protocol version refusal", serr)
@@ -283,7 +208,7 @@ func TestTLS12IsRefused(t *testing.T) {
 }
 
 func TestRenewedCertificatesAreServedWithoutRestart(t *testing.T) {
-	ca := newAuthority(t)
+	ca := mtlstest.New(t)
 	server, client, sf, cf := pair(t, ca, "admin-api-svc", "dashboard", "dashboard")
 	ss, cs, serr, cerr := handshake(t, server, client)
 	if serr != nil || cerr != nil {
@@ -291,8 +216,8 @@ func TestRenewedCertificatesAreServedWithoutRestart(t *testing.T) {
 	}
 	serverSerial, clientSerial := cs.PeerCertificates[0].SerialNumber, ss.PeerCertificates[0].SerialNumber
 
-	ca.issue(t, filepath.Dir(sf.Cert), "admin-api-svc")
-	ca.issue(t, filepath.Dir(cf.Cert), "dashboard")
+	ca.Issue(t, filepath.Dir(sf.Cert), "admin-api-svc")
+	ca.Issue(t, filepath.Dir(cf.Cert), "dashboard")
 	ss, cs, serr, cerr = handshake(t, server, client)
 	if serr != nil || cerr != nil {
 		t.Fatalf("second handshake: %v, %v", serr, cerr)
@@ -306,7 +231,7 @@ func TestRenewedCertificatesAreServedWithoutRestart(t *testing.T) {
 }
 
 func TestAFailedRereadServesThePreviousGeneration(t *testing.T) {
-	server, client, sf, cf := pair(t, newAuthority(t), "admin-api-svc", "dashboard", "dashboard")
+	server, client, sf, cf := pair(t, mtlstest.New(t), "admin-api-svc", "dashboard", "dashboard")
 	ss, cs, serr, cerr := handshake(t, server, client)
 	if serr != nil || cerr != nil {
 		t.Fatalf("first handshake: %v, %v", serr, cerr)
@@ -324,32 +249,32 @@ func TestAFailedRereadServesThePreviousGeneration(t *testing.T) {
 }
 
 func TestAnAddedAuthorityIsAdmittedWithoutRestart(t *testing.T) {
-	ca, next := newAuthority(t), newAuthority(t)
+	ca, next := mtlstest.New(t), mtlstest.New(t)
 	server, _, sf, _ := pair(t, ca, "admin-api-svc", "dashboard", "dashboard")
-	client, err := next.issue(t, t.TempDir(), "dashboard").Client()
+	client, err := next.Issue(t, t.TempDir(), "dashboard").Client()
 	if err != nil {
 		t.Fatal(err)
 	}
-	client.RootCAs.AppendCertsFromPEM(ca.pem)
+	client.RootCAs.AppendCertsFromPEM(ca.PEM)
 	client.ServerName = "admin-api-svc"
 	if _, _, serr, _ := handshake(t, server, client); serr == nil || !strings.Contains(serr.Error(), "unknown authority") {
 		t.Fatalf("before the rotation: server error = %v, want an unknown authority", serr)
 	}
-	write(t, sf.CA, append(append([]byte{}, ca.pem...), next.pem...))
+	write(t, sf.CA, append(append([]byte{}, ca.PEM...), next.PEM...))
 	if _, _, serr, cerr := handshake(t, server, client); serr != nil || cerr != nil {
 		t.Errorf("after the rotation: server %v, client %v", serr, cerr)
 	}
 }
 
 func TestARemovedAuthorityIsRefusedWithoutRestart(t *testing.T) {
-	ca, next := newAuthority(t), newAuthority(t)
+	ca, next := mtlstest.New(t), mtlstest.New(t)
 	server, _, sf, _ := pair(t, ca, "admin-api-svc", "dashboard", "dashboard")
-	write(t, sf.CA, append(append([]byte{}, ca.pem...), next.pem...))
-	client, err := next.issue(t, t.TempDir(), "dashboard").Client()
+	write(t, sf.CA, append(append([]byte{}, ca.PEM...), next.PEM...))
+	client, err := next.Issue(t, t.TempDir(), "dashboard").Client()
 	if err != nil {
 		t.Fatal(err)
 	}
-	client.RootCAs.AppendCertsFromPEM(ca.pem)
+	client.RootCAs.AppendCertsFromPEM(ca.PEM)
 	client.ServerName = "admin-api-svc"
 	client.ClientSessionCache = tls.NewLRUClientSessionCache(1)
 	if _, _, serr, cerr := handshake(t, server, client); serr != nil || cerr != nil {
@@ -358,14 +283,14 @@ func TestARemovedAuthorityIsRefusedWithoutRestart(t *testing.T) {
 	if _, cs, serr, cerr := handshake(t, server, client); serr != nil || cerr != nil || !cs.DidResume {
 		t.Fatalf("resumed handshake: %v, %v, resumed %v", serr, cerr, cs.DidResume)
 	}
-	write(t, sf.CA, ca.pem)
+	write(t, sf.CA, ca.PEM)
 	if _, _, serr, _ := handshake(t, server, client); serr == nil || !strings.Contains(serr.Error(), "unknown authority") {
 		t.Errorf("after the removal: server error = %v, want an unknown authority", serr)
 	}
 }
 
 func TestConcurrentHandshakesDuringARotation(t *testing.T) {
-	ca := newAuthority(t)
+	ca := mtlstest.New(t)
 	server, client, sf, _ := pair(t, ca, "admin-api-svc", "dashboard", "dashboard")
 	var wg sync.WaitGroup
 	errs := make(chan error, 16)
@@ -378,7 +303,7 @@ func TestConcurrentHandshakesDuringARotation(t *testing.T) {
 			}
 		}()
 	}
-	ca.issue(t, filepath.Dir(sf.Cert), "admin-api-svc")
+	ca.Issue(t, filepath.Dir(sf.Cert), "admin-api-svc")
 	wg.Wait()
 	close(errs)
 	for err := range errs {
