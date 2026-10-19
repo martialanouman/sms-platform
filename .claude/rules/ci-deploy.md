@@ -16,6 +16,9 @@ paths:
 - **k3s (kube-router)** n'admet un pod neuf qu'après quelques secondes : sa sortie tombe d'abord sous
   `default-deny` (REJECT, « connection refused »). Un `cmd/` qui dial Postgres au démarrage passe par
   `pgdial.Retry` ; franz-go rejoue de lui-même. Un `/readyz` ne dépend jamais d'un dial unique au démarrage.
+- La métadonnée Kafka est éventuellement cohérente par broker : `catalog-apply` échoue bruyamment sur une
+  lecture périmée et se rejoue entier (`backoffLimit: 2`), jamais par une retentative partielle de
+  l'adaptateur.
 - **Une alerte** vit dans `deploy/alerts/<groupe>.yaml`, avec un cas qui la fait partir et un qui la laisse
   muette dans `<groupe>_test.yaml` ; elle entre avec le composant qui émet sa métrique.
 - `exit 139` d'un conteneur en CI vient de `fs.aio-max-nr`, jamais de la mémoire : faire parler le

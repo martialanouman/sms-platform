@@ -93,6 +93,15 @@ borne à 60 s : il couvre la course du CNI, pas l'attente d'une brique, que le d
 `kubectl wait`. Rejetés : un `initContainer` d'attente (une image de plus, un délai deviné), une politique
 relâchée (02 §2.5).
 
+Second fait du VPS (Fable, 2026-10-19) : sur trois brokers, un `catalog-apply` relancé dans les secondes qui
+suivent le premier échoue dans `read` (« topic mo.routed: UNKNOWN_TOPIC_OR_PARTITION ») : `ListTopics` et
+`DescribeTopicConfigs` sont servis par des brokers dont la métadonnée n'a pas encore convergé ; une minute plus
+tard, « cluster already matches the catalog ». Aucune lecture périmée ne produit d'écriture nuisible (au pire
+`TOPIC_ALREADY_EXISTS` ou `INVALID_PARTITIONS`, bruyants). Décision : **`catalog-apply` passe à
+`backoffLimit: 2`**, Kubernetes rejoue le Job entier, dont l'idempotence rend le rejeu sûr ; `migrate` reste à
+0. Rejeté : une retentative de `read` sur un seul code d'erreur, qui ne couvre qu'une issue sur quatre. Plafond :
+un refus déterministe du plan tourne trois fois ; `podFailurePolicy` l'en distinguera si cela coûte un jour.
+
 ## Design arrêté
 
 - Namespace de la plateforme : `sms`.
@@ -112,6 +121,7 @@ relâchée (02 §2.5).
     `sms/<service>` (`postgres-password`) par fichier de `contracts/grants/`, `kafka/kafka-clients-ca-cert` et
     `kafka/kafka-clients-ca` depuis la racine, ConfigMap `sms/internal-ca`.
 - `deploy/k8s/migrate.yaml` : la racine montée en `/tls` depuis le ConfigMap `internal-ca`.
+- `deploy/k8s/catalog-apply.yaml` : `backoffLimit: 2`.
 - `internal/platform/pgdial` : `Retry(ctx, func(context.Context) error) error` ; chaque retentative
   journalisée sans URL. `catalog-apply` enveloppe `pgx.Connect`, `migrate` un `db.PingContext` avant goose,
   dans `context.WithTimeout` de 60 s. Tests : un port fermé rejoué jusqu'au succès, une `PgError` et une
