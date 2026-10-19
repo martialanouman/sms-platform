@@ -81,6 +81,18 @@ VPS) :
   politique d'entrée écrite avec la brique), configuration d'une brique et non génération ; l'alerte
   d'échéance des certificats, dont la métrique naît avec cert-manager.
 
+Arbitré pendant la procédure (Fable, 2026-10-19), sur un fait du VPS : le contrôleur de politiques de k3s
+(kube-router) n'admet l'adresse d'un pod neuf qu'après quelques secondes ; jusque-là sa sortie tombe sous
+`default-deny` (REJECT). `migrate` et `catalog-apply`, qui se connectent dès leur démarrage, échouaient à
+chaque passage ; précédés de dix secondes d'attente, ils passent. Un pod relancé a une adresse neuve et la
+même course. Décision : **retentative dans le code, pour Postgres seul** ; franz-go tient déjà les erreurs de
+dial pour transitoires (`isPermanentDialErr`) et les rejoue jusqu'à `RetryTimeout` (30 s). Un helper
+`internal/platform/pgdial`, `Retry(ctx, attempt)`, rejoue toutes les secondes tant que l'erreur se déplie en
+`net.Error`, et rend toute autre erreur (authentification, `verify-full`) au premier essai ; chaque `cmd/` le
+borne à 60 s : il couvre la course du CNI, pas l'attente d'une brique, que le déploiement fait par
+`kubectl wait`. Rejetés : un `initContainer` d'attente (une image de plus, un délai deviné), une politique
+relâchée (02 §2.5).
+
 ## Design arrêté
 
 - Namespace de la plateforme : `sms`.
@@ -96,10 +108,15 @@ VPS) :
     `initdb`, `managed.roles`, certificats serveur), `NetworkPolicy` d'entrée : 5432 depuis `sms`, 5432 depuis
     le cluster, 8000 depuis l'opérateur ;
   - `kafka.yaml` : `KafkaNodePool` et `Kafka` `kafka` (B4), `networkPolicyPeers` vers `sms` ;
-  - `secrets.sh` : `postgres/migrator` (basic-auth), `sms/migrate` et `sms/catalog-apply` (`postgres-url`),
+  - `secrets.sh` (valeurs sans saut de ligne final) : `postgres/migrator` (basic-auth), `sms/migrate` et `sms/catalog-apply` (`postgres-url`),
     `sms/<service>` (`postgres-password`) par fichier de `contracts/grants/`, `kafka/kafka-clients-ca-cert` et
     `kafka/kafka-clients-ca` depuis la racine, ConfigMap `sms/internal-ca`.
 - `deploy/k8s/migrate.yaml` : la racine montée en `/tls` depuis le ConfigMap `internal-ca`.
+- `internal/platform/pgdial` : `Retry(ctx, func(context.Context) error) error` ; chaque retentative
+  journalisée sans URL. `catalog-apply` enveloppe `pgx.Connect`, `migrate` un `db.PingContext` avant goose,
+  dans `context.WithTimeout` de 60 s. Tests : un port fermé rejoué jusqu'au succès, une `PgError` et une
+  erreur x509 rendues au premier essai, un contexte expiré rend la dernière erreur réseau.
+- `.claude/rules/ci-deploy.md` : la course de k3s ; un `/readyz` ne dépend jamais d'un dial unique au démarrage.
 - `deploy/guard_test.go` : `deploy/bricks/` nomme ce que supposent `internal/netpol` et `catalog-apply` :
   `Cluster` `postgres` en `postgres`, `Kafka` `kafka` en `kafka`, listener 9093 `tls`, `superUsers`
   `CN=catalog-apply`, sans `entityOperator` ; cas faussés.
