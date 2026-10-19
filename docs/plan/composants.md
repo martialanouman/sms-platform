@@ -79,7 +79,7 @@ dead-letter, rejeu, commits. Les gardes du catalogue qui lisent le code (1 à 3,
   (humain, 2026-10-19).
 
 **Terminé quand** : un poison part en dead-letter sans bloquer sa partition ; un client lent ne retarde
-que sa file ; chaque garde est rouge sur un consommateur fautif.
+que sa file sous la fenêtre non commitée du pod ; chaque garde est rouge sur un consommateur fautif.
 
 ## 009 — Instantané de configuration
 

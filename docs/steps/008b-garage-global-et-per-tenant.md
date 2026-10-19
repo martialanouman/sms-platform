@@ -103,7 +103,9 @@ Trois axes en lecture seule : correction et concurrence, conformité à la spec,
 
 **Laissé, avec sa raison** :
 
-- *La décision 4 §5.3 promet qu'« un client lent ne ralentit que sa file »* ; la fenêtre de 1 024 records non
-  commités la borne : au-delà, le pod entier attend le client lent. Une fenêtre sans borne garderait en mémoire
-  tout l'arriéré d'un client lent. Point remonté à l'humain dans la PR.
 - *La garde de `pctx.Err()` du lecteur doublonne le `select`* : elle évite un tour à vide, gain nul à la couper.
+
+**Tranché par l'humain** (2026-10-19) : la décision 4 §5.3 promettait qu'« un client lent ne ralentit que sa
+file » ; la fenêtre de 1 024 records non commités par pod la borne, au-delà le pod attend ce client. Une fenêtre
+sans borne garderait tout son arriéré en mémoire. La décision 4 §5.3 et la spec 04 §4.4 disent que la promesse
+vaut sous la fenêtre ; une fenêtre par partition s'ajoutera si une mesure la demande.
