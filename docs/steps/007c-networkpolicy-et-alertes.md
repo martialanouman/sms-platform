@@ -51,10 +51,12 @@ Fable a tranché le 2026-10-19 (N1, N2, N4, A1, A2, A3 tenues ; N3, N5 amendées
   (l'URL vit dans un Secret) : namespace `postgres`, pods `cnpg.io/cluster: postgres`, 5432. DNS : `k8s-app:
   kube-dns` dans `kube-system`, 53 UDP et TCP. Un magasin managé (`ipBlock`) entre avec le déploiement qui
   l'exige (02 §2.6).
-- **A1 — Outil** : `go run github.com/prometheus/prometheus/cmd/promtool@v0.315.0`, version figée dans le
-  `Makefile`, `check rules` et `test rules` dans `make check` ; C1 amendée (la directive `tool` tirerait tous
-  les SDK de découverte de service). Ni image Docker (second épinglage), ni bibliothèque Go (réécrire
-  `promtool test rules`).
+- **A1 — Outil** : `promtool check rules` et `test rules` dans `make check`. Réarbitré en TDD : `go run
+  github.com/prometheus/prometheus/cmd/promtool@v0.315.0` échoue (le module porte des `replace`, que `go run`
+  et `go install` refusent) ; promtool tourne donc par son image officielle épinglée par tag et digest
+  (`prom/prometheus:v3.15.0@sha256:…`), dans le `Makefile` à côté de GoReleaser et grype. Docker est déjà
+  requis (scan en CI, testcontainers en local). C1 amendée. Rejetés : l'archive de release (troisième
+  mécanisme, une somme par plateforme), la bibliothèque Go (réécrire `promtool test rules`, tirer les `replace`).
 - **A2 — Règles** : `MetricsGatheredPartially`, `increase(ops_metrics_gather_errors_total[10m]) > 0`, sans
   `for` ni `severity` (le routage entre avec Alertmanager), annotations sans interpolation. Légitime : sa
   métrique existe (005d), le tableau de 10.1 est une liste de départ ; un compteur sans règle est mort.
@@ -76,8 +78,8 @@ Fable a tranché le 2026-10-19 (N1, N2, N4, A1, A2, A3 tenues ; N3, N5 amendées
 - `deploy/k8s/*.yaml` : label `app.kubernetes.io/name` sur chaque pod ; `KAFKA_BROKERS` qualifié.
 - `deploy/guard_test.go` : `networkpolicies.yaml` admis hors des `cmd/`, de `NetworkPolicy` seules ; chaque
   pod porte son label. Cas faussés : un `Job` dans ce fichier, un pod sans label, un label d'un autre nom.
-- `deploy/alerts/ops.yaml` et `ops_test.yaml` ; `Makefile` : cible `alerts` (`promtool check rules`, `test
-  rules`) dans `check` ; `deploy/alerts_test.go` : la garde A3, cas faussés (sans cas qui part, sans cas muet,
+- `deploy/alerts/ops.yaml` et `ops_test.yaml` ; `Makefile` : `PROMTOOL` (image par digest, `-w /alerts`), cible
+  `alerts` (`check rules`, `test rules`) dans `check` ; `deploy/alerts_test.go` : la garde A3, cas faussés (sans cas qui part, sans cas muet,
   alerte renommée).
 - Docs : C1 (promtool), plan §007c (un flux entre avec le workload qui le déclare), `.claude/rules/ci-deploy.md`
   (un `cmd/` qui pose `TLS_ALLOWED_CLIENTS` ou sert `OPS_ADDR` étend le générateur dans sa PR).
