@@ -41,6 +41,9 @@ paths:
   conteneur mort.
 - minio a disparu de Docker Hub : RustFS le remplace.
 - Le cache golangci est partagé entre worktrees.
+- **Cache Go de la CI** : `check` et `release` le clent sur `go.sum` et le `Makefile`, où vivent les versions de
+  GoReleaser et grype ; sinon `codeql`, premier fini, enregistre la clé commune sans eux, et ils se recompilent
+  à chaque run (6 min).
 - **PromQL** : une expression à deux opérandes nomme ses labels des deux côtés, sinon elle n'apparie
   rien et ne part jamais ; une jauge muette se couvre par `absent(g >= 0)`. `promtool test rules` le
   prouve.
