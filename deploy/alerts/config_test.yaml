@@ -1,0 +1,32 @@
+rule_files:
+  - config.yaml
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: config_propagation_seconds_bucket{le="1", instance="10.0.0.1:9090"}
+        values: 0 0 0 0 0 0 0 0 0 0 0
+      - series: config_propagation_seconds_bucket{le="5", instance="10.0.0.1:9090"}
+        values: 0 0 0 0 0 0 0 0 0 0 0
+      - series: config_propagation_seconds_bucket{le="10", instance="10.0.0.1:9090"}
+        values: 0 10 20 30 30 30 30 30 30 30 30
+      - series: config_propagation_seconds_bucket{le="+Inf", instance="10.0.0.1:9090"}
+        values: 0 10 20 30 30 30 30 30 30 30 30
+      - series: config_propagation_seconds_bucket{le="1", instance="10.0.0.2:9090"}
+        values: 0 100 200 300 400 500 600 700 800 900 1000
+      - series: config_propagation_seconds_bucket{le="5", instance="10.0.0.2:9090"}
+        values: 0 100 200 300 400 500 600 700 800 900 1000
+      - series: config_propagation_seconds_bucket{le="10", instance="10.0.0.2:9090"}
+        values: 0 100 200 300 400 500 600 700 800 900 1000
+      - series: config_propagation_seconds_bucket{le="+Inf", instance="10.0.0.2:9090"}
+        values: 0 100 200 300 400 500 600 700 800 900 1000
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: ConfigPropagationSlow
+        exp_alerts:
+          - exp_annotations:
+              summary: La configuration met plus de 5 s à atteindre les services
+              description: "Le p99 de propagation de la configuration dépasse 5 s : des services servent un instantané en retard, ou ont manqué des notifications rattrapées par une resync."
+      - eval_time: 10m
+        alertname: ConfigPropagationSlow
+        exp_alerts: []

@@ -39,7 +39,8 @@ Fable, 2026-10-19, sauf les deux points tranchés par l'humain.
    `pg_xact_commit_timestamp(xmin)` lu avec la ligne. Histogramme `config_propagation_seconds`, sans
    label, observé pour chaque ligne dont le JSON change, sur notification comme en resync : une
    notification perdue se voit en minutes. Suppression ou horodatage NULL : pas d'observation.
-   Paramètre absent : Postgres lève une erreur et `Open` échoue. Pas de jauge d'âge de resync.
+   Paramètre absent : Postgres ne lève d'erreur que sur une table non vide ; la garde de la brique
+   tient le paramètre (amendé à l'implémentation). Pas de jauge d'âge de resync.
 8. **Cuttable** : `pgtest.DB.Cuttable(t) (DB, *tcpproxy.Proxy)`, miroir de `Late`.
 9. **Dettes** : aucune ouverte, aucune reportée.
 
@@ -65,5 +66,8 @@ Fable, 2026-10-19, sauf les deux points tranchés par l'humain.
   - écoute coupée par le proxy, écriture par un client non coupé, reprise : la ligne arrive (resync) ;
   - écriture trigger désactivé, puis `pg_notify('config', 'probe:*')` : la table est rechargée ;
   - écriture trigger désactivé, sans notification : la resync périodique l'amène ;
-  - `config_propagation_seconds` observé ; `Open` échoue sans `track_commit_timestamp` et sur une
-    table sans GRANT ; une charge utile illisible ne casse pas la boucle.
+  - `config_propagation_seconds` observé pour l'écriture et la mise à jour, ni au chargement, ni à la
+    suppression, ni pour une ligne inchangée en resync ;
+  - `Open` échoue sur une table sans GRANT, sans clé primaire, ou dont `Build` échoue ; un `Build` en
+    échec ensuite garde la vue précédente sans bloquer les autres tables ;
+  - une charge utile illisible ou d'une table non tenue est ignorée, sans resync.

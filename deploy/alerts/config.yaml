@@ -1,0 +1,8 @@
+groups:
+  - name: config
+    rules:
+      - alert: ConfigPropagationSlow
+        expr: histogram_quantile(0.99, sum by (le) (rate(config_propagation_seconds_bucket[5m]))) > 5
+        annotations:
+          summary: La configuration met plus de 5 s à atteindre les services
+          description: "Le p99 de propagation de la configuration dépasse 5 s : des services servent un instantané en retard, ou ont manqué des notifications rattrapées par une resync."
