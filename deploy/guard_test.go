@@ -14,6 +14,7 @@ import (
 	"go.yaml.in/yaml/v3"
 
 	"github.com/martialanouman/sms-platform/internal/platform/config"
+	"github.com/martialanouman/sms-platform/internal/schema"
 )
 
 const registry = "ghcr.io/martialanouman/sms-platform/"
@@ -57,6 +58,19 @@ type workload struct {
 			Spec struct {
 				Containers     []container `yaml:"containers"`
 				InitContainers []container `yaml:"initContainers"`
+				Volumes        []struct {
+					Projected struct {
+						Sources []struct {
+							Secret struct {
+								Name  string `yaml:"name"`
+								Items []struct {
+									Key  string `yaml:"key"`
+									Path string `yaml:"path"`
+								} `yaml:"items"`
+							} `yaml:"secret"`
+						} `yaml:"sources"`
+					} `yaml:"projected"`
+				} `yaml:"volumes"`
 			} `yaml:"spec"`
 		} `yaml:"template"`
 	} `yaml:"spec"`
@@ -112,6 +126,7 @@ func check(root string) error {
 		manifests = append(manifests, name)
 		errs = append(errs, checkManifest(filepath.Join(root, "deploy", "k8s", f.Name()), name)...)
 	}
+	errs = append(errs, roleSecrets(root)...)
 	errs = append(errs, same("build", cmds, builds)...)
 	errs = append(errs, same("image", cmds, images)...)
 	errs = append(errs, same("manifest", cmds, manifests)...)
@@ -137,6 +152,39 @@ func same(what string, cmds, got []string) []error {
 		}
 	}
 	return errs
+}
+
+func roleSecrets(root string) []error {
+	grants, err := filepath.Glob(filepath.Join(root, "contracts", "grants", "*.yaml"))
+	if err != nil {
+		return []error{err}
+	}
+	var want, got []string
+	for _, g := range grants {
+		service := strings.TrimSuffix(filepath.Base(g), ".yaml")
+		want = append(want, service+" postgres-password "+schema.Role(service))
+	}
+	data, err := os.ReadFile(filepath.Join(root, "deploy", "k8s", "catalog-apply.yaml"))
+	if err != nil {
+		return []error{err}
+	}
+	var w workload
+	if err := yaml.Unmarshal(data, &w); err != nil {
+		return []error{err}
+	}
+	for _, v := range w.Spec.Template.Spec.Volumes {
+		for _, src := range v.Projected.Sources {
+			for _, item := range src.Secret.Items {
+				got = append(got, src.Secret.Name+" "+item.Key+" "+item.Path)
+			}
+		}
+	}
+	slices.Sort(want)
+	slices.Sort(got)
+	if !slices.Equal(got, want) {
+		return []error{fmt.Errorf("catalog-apply role secrets %q, want one per contracts/grants declaration %q", got, want)}
+	}
+	return nil
 }
 
 func checkManifest(path, name string) []error {
@@ -226,6 +274,10 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 		{"no seccomp profile", "deploy/k8s/migrate.yaml", "type: RuntimeDefault", "type: Unconfined", "seccompProfile"},
 		{"variable config does not read", "deploy/k8s/migrate.yaml", "- name: POSTGRES_URL", "- name: DATABASE_URL", "DATABASE_URL is not read by config"},
 		{"literal URL", "deploy/k8s/migrate.yaml", "valueFrom:\n                secretKeyRef:\n                  name: migrate\n                  key: postgres-url", "value: postgres://x", "secretKeyRef"},
+		{"declaration without role secret", "contracts/grants/billing-svc.yaml", "", "control_plane: {}\n", "billing-svc postgres-password billing_svc"},
+		{"role secret without declaration", "contracts/grants/admin-api-svc.yaml", "", "", "declaration []"},
+		{"role secret under another key", "deploy/k8s/catalog-apply.yaml", "key: postgres-password", "key: password", "admin-api-svc password admin_api_svc"},
+		{"role secret under another path", "deploy/k8s/catalog-apply.yaml", "path: admin_api_svc", "path: admin-api-svc", "admin-api-svc postgres-password admin-api-svc"},
 		{"envFrom", "deploy/k8s/migrate.yaml", "          env:\n", "          envFrom:\n            - configMapRef: {name: x}\n          env:\n", "envFrom"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -241,7 +293,8 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 			if err := os.MkdirAll(filepath.Join(root, "deploy", "k8s"), 0o750); err != nil {
 				t.Fatal(err)
 			}
-			files := []string{".goreleaser.yaml", "deploy/k8s/migrate.yaml", "cmd/migrate/main.go"}
+			files := []string{".goreleaser.yaml", "deploy/k8s/migrate.yaml", "cmd/migrate/main.go",
+				"deploy/k8s/catalog-apply.yaml", "cmd/catalog-apply/main.go", "contracts/grants/admin-api-svc.yaml"}
 			for _, f := range files {
 				data, err := os.ReadFile(filepath.Join("..", f))
 				if err != nil {

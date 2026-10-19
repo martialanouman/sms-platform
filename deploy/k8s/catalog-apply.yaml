@@ -28,11 +28,29 @@ spec:
               value: /tls/tls.key
             - name: TLS_CA_FILE
               value: /tls/ca.crt
+            - name: POSTGRES_URL
+              valueFrom:
+                secretKeyRef:
+                  name: catalog-apply
+                  key: postgres-url
+            - name: POSTGRES_ROLE_SECRETS_DIR
+              value: /secrets/postgres
           volumeMounts:
             - name: tls
               mountPath: /tls
+              readOnly: true
+            - name: role-secrets
+              mountPath: /secrets/postgres
               readOnly: true
       volumes:
         - name: tls
           secret:
             secretName: catalog-apply-tls
+        - name: role-secrets
+          projected:
+            sources:
+              - secret:
+                  name: admin-api-svc
+                  items:
+                    - key: postgres-password
+                      path: admin_api_svc

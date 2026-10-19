@@ -11,7 +11,9 @@ goose pour Postgres et ClickHouse, un répertoire par base. **Une table neuve** 
 `migrations/control_plane/audit.yaml`, et une table `diff` porte le trigger `control_plane.audit_capture()`
 (sur les trois écritures, sans `UPDATE OF` ni `WHEN`) et une clé primaire. Elle entre aussi dans la déclaration de
 GRANT de chaque service qui la lit ; les gardes refusent sinon. Une migration reste compatible avec la version précédente du
-code pendant un déploiement progressif.
+code pendant un déploiement progressif. **Aucune migration ne crée de rôle** : `migrator` ne crée que les
+rôles de service, par `migrations/grants/control_plane.sql`, qui retire tout rôle qu'il a créé et ne déclare
+plus (`NOLOGIN`, mot de passe effacé, droits révoqués). Un autre rôle naît hors de `migrator` (007b-2).
 
 ## Postgres
 

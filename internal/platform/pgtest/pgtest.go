@@ -3,8 +3,11 @@ package pgtest
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"testing"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -18,11 +21,39 @@ import (
 // DB is a migrated database; each role it holds logs in with its own name as password.
 type DB struct {
 	endpoint string
+	ctr      testcontainers.Container
+}
+
+// Logs is what the server has logged so far.
+func (db DB) Logs(t *testing.T) string {
+	t.Helper()
+	r, err := db.ctr.Logs(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = r.Close() }()
+	data, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
 }
 
 // As is the connection string of the database as role.
 func (db DB) As(role string) string {
-	return fmt.Sprintf("postgres://%s:%s@%s/control_plane?sslmode=disable", role, role, db.endpoint)
+	return db.AsWith(role, role)
+}
+
+// AsWith is the connection string of the database as role, logging in with password.
+func (db DB) AsWith(role, password string) string {
+	return fmt.Sprintf("postgres://%s:%s@%s/control_plane?sslmode=disable", role, password, db.endpoint)
+}
+
+// Secret is a random service-role secret of 32 printable ASCII characters, safe in a connection string.
+func Secret() string {
+	b := make([]byte, 24)
+	_, _ = rand.Read(b)
+	return base64.RawURLEncoding.EncodeToString(b)
 }
 
 // ControlPlane starts a Postgres whose control_plane database is migrated to the latest version.
@@ -65,7 +96,7 @@ func Empty(t *testing.T) DB {
 	if err != nil {
 		t.Fatal(err)
 	}
-	db := DB{endpoint: endpoint}
+	db := DB{endpoint: endpoint, ctr: pg}
 	super, err := sql.Open("pgx", fmt.Sprintf("postgres://postgres:postgres@%s/postgres?sslmode=disable", endpoint))
 	if err != nil {
 		t.Fatal(err)

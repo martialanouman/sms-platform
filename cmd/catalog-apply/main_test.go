@@ -4,35 +4,60 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/martialanouman/sms-platform/internal/catalog"
 	"github.com/martialanouman/sms-platform/internal/platform/config"
+	"github.com/martialanouman/sms-platform/internal/platform/mtls"
 	"github.com/martialanouman/sms-platform/internal/platform/mtls/mtlstest"
+	"github.com/martialanouman/sms-platform/internal/platform/pgtest"
 )
 
-func TestRunRefusesEmptyBrokers(t *testing.T) {
-	err := run(context.Background(), config.Infra{}, slog.New(slog.DiscardHandler))
-	if !errors.Is(err, errNoBrokers) {
-		t.Fatalf("run = %v, want %v", err, errNoBrokers)
+func TestRunRefusesAnyMissingSettingBeforeConnecting(t *testing.T) {
+	complete := func() config.Infra {
+		return config.Infra{
+			KafkaBrokers:           []string{"127.0.0.1:1"},
+			PostgresURL:            "postgres://migrator@127.0.0.1:1/control_plane",
+			PostgresRoleSecretsDir: t.TempDir(),
+			TLS:                    mtlstest.New(t).Issue(t, t.TempDir(), "catalog-apply"),
+		}
+	}
+	for name, c := range map[string]struct {
+		drop func(*config.Infra)
+		want string
+	}{
+		"brokers":     {func(i *config.Infra) { i.KafkaBrokers = nil }, errNoBrokers.Error()},
+		"postgres":    {func(i *config.Infra) { i.PostgresURL = "" }, errNoPostgresURL.Error()},
+		"secrets dir": {func(i *config.Infra) { i.PostgresRoleSecretsDir = "" }, errNoSecretsDir.Error()},
+		"mTLS":        {func(i *config.Infra) { i.TLS = mtls.Files{} }, "kafka mTLS"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			infra := complete()
+			c.drop(&infra)
+			if err := run(context.Background(), infra, slog.New(slog.DiscardHandler)); err == nil || !strings.Contains(err.Error(), c.want) {
+				t.Fatalf("run = %v, want %q", err, c.want)
+			}
+		})
 	}
 }
 
-func TestRunRefusesToDialWithoutMTLS(t *testing.T) {
-	err := run(context.Background(), config.Infra{KafkaBrokers: []string{"127.0.0.1:1"}}, slog.New(slog.DiscardHandler))
-	if err == nil || !strings.Contains(err.Error(), "kafka mTLS") {
-		t.Fatalf("run = %v, want a refusal of the missing mTLS files", err)
+func TestRunGrantsPostgresThenDialsKafkaOverTLS(t *testing.T) {
+	pg := pgtest.ControlPlane(t)
+	dir := t.TempDir()
+	secret := pgtest.Secret()
+	if err := os.WriteFile(filepath.Join(dir, "admin_api_svc"), []byte(secret), 0o600); err != nil {
+		t.Fatal(err)
 	}
-}
-
-func TestRunDialsTheBrokersOverTLS(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -50,10 +75,16 @@ func TestRunDialsTheBrokersOverTLS(t *testing.T) {
 			first <- b[0]
 		}
 	}()
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
-	infra := config.Infra{KafkaBrokers: []string{ln.Addr().String()}, TLS: mtlstest.New(t).Issue(t, t.TempDir(), "catalog-apply")}
-	if err := run(ctx, infra, slog.New(slog.DiscardHandler)); err == nil {
+	infra := config.Infra{
+		KafkaBrokers:           []string{ln.Addr().String()},
+		PostgresURL:            pg.As("migrator"),
+		PostgresRoleSecretsDir: dir,
+		TLS:                    mtlstest.New(t).Issue(t, t.TempDir(), "catalog-apply"),
+	}
+	var logs bytes.Buffer
+	if err := run(ctx, infra, slog.New(slog.NewJSONHandler(&logs, nil))); err == nil {
 		t.Fatal("run succeeded against a listener that speaks no Kafka")
 	}
 	select {
@@ -63,6 +94,27 @@ func TestRunDialsTheBrokersOverTLS(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Error("run never wrote to the broker")
+	}
+	svc, err := pgx.Connect(context.Background(), pg.AsWith("admin_api_svc", secret))
+	if err != nil {
+		t.Fatalf("admin_api_svc cannot log in with its secret: %v", err)
+	}
+	_ = svc.Close(context.Background())
+	if !strings.Contains(logs.String(), `"msg":"role secret set","role":"admin_api_svc"`) || strings.Contains(logs.String(), secret) ||
+		strings.Contains(logs.String(), "migrator:migrator") {
+		t.Errorf("log = %s, want the role named, without its secret nor the URL", logs.String())
+	}
+}
+
+func TestRunFailsOnAMissingServiceSecret(t *testing.T) {
+	infra := config.Infra{
+		KafkaBrokers:           []string{"127.0.0.1:1"},
+		PostgresURL:            pgtest.ControlPlane(t).As("migrator"),
+		PostgresRoleSecretsDir: t.TempDir(),
+		TLS:                    mtlstest.New(t).Issue(t, t.TempDir(), "catalog-apply"),
+	}
+	if err := run(context.Background(), infra, slog.New(slog.DiscardHandler)); err == nil || !strings.Contains(err.Error(), "admin_api_svc") {
+		t.Fatalf("run = %v, want a refusal naming admin_api_svc", err)
 	}
 }
 

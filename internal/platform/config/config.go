@@ -18,31 +18,33 @@ import (
 
 // Infra is the closed list of the environment variables a service reads.
 type Infra struct {
-	LogLevel          slog.Level
-	OpsAddr           string
-	DrainDelay        time.Duration
-	DrainBudget       time.Duration
-	ShutdownTimeout   time.Duration
-	TLS               mtls.Files
-	TLSAllowedClients []string
-	TraceSampleRatio  float64
-	PostgresURL       string
-	KafkaBrokers      []string
+	LogLevel               slog.Level
+	OpsAddr                string
+	DrainDelay             time.Duration
+	DrainBudget            time.Duration
+	ShutdownTimeout        time.Duration
+	TLS                    mtls.Files
+	TLSAllowedClients      []string
+	TraceSampleRatio       float64
+	PostgresURL            string
+	KafkaBrokers           []string
+	PostgresRoleSecretsDir string
 }
 
 var defaults = map[string]string{
-	"LOG_LEVEL":           "info",
-	"OPS_ADDR":            ":9090",
-	"DRAIN_DELAY":         "5s",
-	"DRAIN_BUDGET":        "90s",
-	"SHUTDOWN_TIMEOUT":    "30s",
-	"TLS_CERT_FILE":       "",
-	"TLS_KEY_FILE":        "",
-	"TLS_CA_FILE":         "",
-	"TLS_ALLOWED_CLIENTS": "",
-	"TRACE_SAMPLE_RATIO":  "1",
-	"POSTGRES_URL":        "",
-	"KAFKA_BROKERS":       "",
+	"LOG_LEVEL":                 "info",
+	"OPS_ADDR":                  ":9090",
+	"DRAIN_DELAY":               "5s",
+	"DRAIN_BUDGET":              "90s",
+	"SHUTDOWN_TIMEOUT":          "30s",
+	"TLS_CERT_FILE":             "",
+	"TLS_KEY_FILE":              "",
+	"TLS_CA_FILE":               "",
+	"TLS_ALLOWED_CLIENTS":       "",
+	"TRACE_SAMPLE_RATIO":        "1",
+	"POSTGRES_URL":              "",
+	"KAFKA_BROKERS":             "",
+	"POSTGRES_ROLE_SECRETS_DIR": "",
 }
 
 // Variables is the sorted closed list of the environment variables Load reads.
@@ -78,14 +80,15 @@ func Load() (Infra, error) {
 		return d
 	}
 	c := Infra{
-		OpsAddr:           value("OPS_ADDR"),
-		DrainDelay:        duration("DRAIN_DELAY"),
-		DrainBudget:       duration("DRAIN_BUDGET"),
-		ShutdownTimeout:   duration("SHUTDOWN_TIMEOUT"),
-		TLS:               mtls.Files{Cert: value("TLS_CERT_FILE"), Key: value("TLS_KEY_FILE"), CA: value("TLS_CA_FILE")},
-		PostgresURL:       value("POSTGRES_URL"),
-		TLSAllowedClients: list("TLS_ALLOWED_CLIENTS"),
-		KafkaBrokers:      list("KAFKA_BROKERS"),
+		OpsAddr:                value("OPS_ADDR"),
+		DrainDelay:             duration("DRAIN_DELAY"),
+		DrainBudget:            duration("DRAIN_BUDGET"),
+		ShutdownTimeout:        duration("SHUTDOWN_TIMEOUT"),
+		TLS:                    mtls.Files{Cert: value("TLS_CERT_FILE"), Key: value("TLS_KEY_FILE"), CA: value("TLS_CA_FILE")},
+		PostgresURL:            value("POSTGRES_URL"),
+		TLSAllowedClients:      list("TLS_ALLOWED_CLIENTS"),
+		KafkaBrokers:           list("KAFKA_BROKERS"),
+		PostgresRoleSecretsDir: value("POSTGRES_ROLE_SECRETS_DIR"),
 	}
 	if err := c.LogLevel.UnmarshalText([]byte(value("LOG_LEVEL"))); err != nil {
 		errs = append(errs, fmt.Errorf("LOG_LEVEL: %w", err))
