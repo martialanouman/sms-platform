@@ -13,6 +13,7 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
+	"github.com/martialanouman/sms-platform/internal/netpol"
 	"github.com/martialanouman/sms-platform/internal/platform/config"
 	"github.com/martialanouman/sms-platform/internal/schema"
 )
@@ -55,6 +56,9 @@ type workload struct {
 	Kind string `yaml:"kind"`
 	Spec struct {
 		Template struct {
+			Metadata struct {
+				Labels map[string]string `yaml:"labels"`
+			} `yaml:"metadata"`
 			Spec struct {
 				Containers     []container `yaml:"containers"`
 				InitContainers []container `yaml:"initContainers"`
@@ -123,6 +127,10 @@ func check(root string) error {
 			errs = append(errs, fmt.Errorf("deploy/k8s/%s is not a .yaml", f.Name()))
 			continue
 		}
+		if f.Name() == netpol.File {
+			errs = append(errs, checkPolicies(filepath.Join(root, "deploy", "k8s", f.Name()))...)
+			continue
+		}
 		manifests = append(manifests, name)
 		errs = append(errs, checkManifest(filepath.Join(root, "deploy", "k8s", f.Name()), name)...)
 	}
@@ -187,6 +195,28 @@ func roleSecrets(root string) []error {
 	return nil
 }
 
+func checkPolicies(path string) []error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return []error{err}
+	}
+	var errs []error
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	for {
+		var doc struct {
+			Kind string `yaml:"kind"`
+		}
+		if err := dec.Decode(&doc); errors.Is(err, io.EOF) {
+			return errs
+		} else if err != nil {
+			return append(errs, fmt.Errorf("%s: %w", path, err))
+		}
+		if doc.Kind != "NetworkPolicy" {
+			errs = append(errs, fmt.Errorf("%s: kind %q, want NetworkPolicy", netpol.File, doc.Kind))
+		}
+	}
+}
+
 func checkManifest(path, name string) []error {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -207,6 +237,9 @@ func checkManifest(path, name string) []error {
 		if w.Kind != "Job" {
 			errs = append(errs, fmt.Errorf("%s: kind %q is not guarded", name, w.Kind))
 			continue
+		}
+		if got := w.Spec.Template.Metadata.Labels["app.kubernetes.io/name"]; got != name {
+			errs = append(errs, fmt.Errorf("%s: pod label app.kubernetes.io/name %q, want %q", name, got, name))
 		}
 		pod := w.Spec.Template.Spec
 		if len(pod.Containers) == 0 {
@@ -278,6 +311,9 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 		{"role secret without declaration", "contracts/grants/admin-api-svc.yaml", "", "", "declaration []"},
 		{"role secret under another key", "deploy/k8s/catalog-apply.yaml", "key: postgres-password", "key: password", "admin-api-svc password admin_api_svc"},
 		{"role secret under another path", "deploy/k8s/catalog-apply.yaml", "path: admin_api_svc", "path: admin-api-svc", "admin-api-svc postgres-password admin-api-svc"},
+		{"Job among the network policies", "deploy/k8s/networkpolicies.yaml", "", "kind: Job\n", "networkpolicies.yaml: kind \"Job\""},
+		{"pod without its label", "deploy/k8s/migrate.yaml", "app.kubernetes.io/name: migrate", "app.kubernetes.io/part-of: migrate", "label app.kubernetes.io/name"},
+		{"pod labelled for another", "deploy/k8s/migrate.yaml", "app.kubernetes.io/name: migrate", "app.kubernetes.io/name: other", "label app.kubernetes.io/name"},
 		{"envFrom", "deploy/k8s/migrate.yaml", "          env:\n", "          envFrom:\n            - configMapRef: {name: x}\n          env:\n", "envFrom"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -294,7 +330,7 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 				t.Fatal(err)
 			}
 			files := []string{".goreleaser.yaml", "deploy/k8s/migrate.yaml", "cmd/migrate/main.go",
-				"deploy/k8s/catalog-apply.yaml", "cmd/catalog-apply/main.go", "contracts/grants/admin-api-svc.yaml"}
+				"deploy/k8s/catalog-apply.yaml", "cmd/catalog-apply/main.go", "contracts/grants/admin-api-svc.yaml", "deploy/k8s/networkpolicies.yaml"}
 			for _, f := range files {
 				data, err := os.ReadFile(filepath.Join("..", f))
 				if err != nil {

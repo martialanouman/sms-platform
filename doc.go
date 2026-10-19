@@ -5,3 +5,4 @@ package smsplatform
 //go:generate go run ./tools/catalog -doc docs/topics.md
 //go:generate go run ./tools/openapi -gen internal/platform/scopes/scopes.gen.go
 //go:generate go run ./tools/grants
+//go:generate go run ./tools/netpol
