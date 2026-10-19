@@ -1,4 +1,5 @@
-// Command catalog-apply brings the Kafka cluster to contracts/topics.yaml: topics, configs and ACLs, then exits.
+// Command catalog-apply applies the grants of control_plane and the secrets of its service roles, then brings the Kafka
+// cluster to contracts/topics.yaml: topics, configs and ACLs; then it exits.
 package main
 
 import (
@@ -10,6 +11,7 @@ import (
 	"os"
 	"slices"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/twmb/franz-go/pkg/kgo"
 
 	"github.com/martialanouman/sms-platform/contracts"
@@ -17,9 +19,15 @@ import (
 	"github.com/martialanouman/sms-platform/internal/catalog/kafka"
 	"github.com/martialanouman/sms-platform/internal/platform/config"
 	"github.com/martialanouman/sms-platform/internal/platform/observability"
+	"github.com/martialanouman/sms-platform/internal/schema/postgres"
+	"github.com/martialanouman/sms-platform/migrations"
 )
 
-var errNoBrokers = errors.New("KAFKA_BROKERS is empty")
+var (
+	errNoBrokers     = errors.New("KAFKA_BROKERS is empty")
+	errNoPostgresURL = errors.New("POSTGRES_URL is empty")
+	errNoSecretsDir  = errors.New("POSTGRES_ROLE_SECRETS_DIR is empty")
+)
 
 func main() {
 	infra, err := config.Load()
@@ -34,12 +42,29 @@ func main() {
 }
 
 func run(ctx context.Context, infra config.Infra, log *slog.Logger) error {
-	if len(infra.KafkaBrokers) == 0 {
+	switch {
+	case len(infra.KafkaBrokers) == 0:
 		return errNoBrokers
+	case infra.PostgresURL == "":
+		return errNoPostgresURL
+	case infra.PostgresRoleSecretsDir == "":
+		return errNoSecretsDir
 	}
 	tlsConfig, err := infra.TLS.Client()
 	if err != nil {
 		return fmt.Errorf("kafka mTLS: %w", err)
+	}
+	conn, err := pgx.Connect(ctx, infra.PostgresURL)
+	if err != nil {
+		return fmt.Errorf("connect to control_plane: %w", err)
+	}
+	defer func() { _ = conn.Close(context.WithoutCancel(ctx)) }()
+	roles, err := postgres.Apply(ctx, conn, migrations.Grants(), os.DirFS(infra.PostgresRoleSecretsDir))
+	if err != nil {
+		return err
+	}
+	for _, role := range roles {
+		log.Info("role secret set", "role", role)
 	}
 	c, err := catalog.Parse(contracts.Topics())
 	if err != nil {

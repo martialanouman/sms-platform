@@ -71,6 +71,11 @@ linters:
       - path: ^internal/gen/
         linters:
           - gosec
+      # G101 : le test de la configuration donne un chemin à POSTGRES_ROLE_SECRETS_DIR, pas un secret.
+      - path: ^internal/platform/config/config_test\.go$
+        text: "G101:"
+        linters:
+          - gosec
       # G402 : le test du mTLS dresse un pair en TLS 1.2 pour prouver qu'il est refusé.
       - path: ^internal/platform/mtls/mtls_test\.go$
         text: "G402:"
