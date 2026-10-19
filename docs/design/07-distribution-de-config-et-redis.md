@@ -33,7 +33,7 @@ servent pas la configuration.
 
 - Le trigger de la décision 5 sur chaque table auditée appelle aussi `pg_notify('config',
   '<table>:<pk>')`. Postgres ne délivre qu'au commit : aucune annonce d'un changement qui n'a pas eu
-  lieu, aucune outbox.
+  lieu, aucune outbox. Un changement de clé notifie aussi l'ancienne (amendé, step 009).
 - **Import de masse** : un trigger *par instruction* émet une seule notification `<table>:*`.
 - **Opt-outs** : canal `optout`, qui porte la clé de la ligne ; le routeur l'ajoute à son Bloom au fil
   de l'eau, sans reconstruction. Les opt-outs sortent du rechargement de configuration.
@@ -46,7 +46,8 @@ servent pas la configuration.
   `<table>:*`, il recharge la table.
 - **Resync** complète à chaque reconnexion de l'écoute, puis toutes les 5 min (step-399) : une
   notification perdue pendant une déconnexion est rattrapée au plus à la reconnexion.
-- **Fraîcheur** : propagation p99 < 5 s, mesurée et alertée.
+- **Fraîcheur** : propagation p99 < 5 s, mesurée du commit de la ligne (`track_commit_timestamp`) à son
+  arrivée dans le snapshot, et alertée (amendé, step 009).
 
 ### 3.3 Ce qui reste hors du snapshot
 

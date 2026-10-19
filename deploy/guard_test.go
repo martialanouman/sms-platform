@@ -433,6 +433,9 @@ type brick struct {
 		Namespace string `yaml:"namespace"`
 	} `yaml:"metadata"`
 	Spec struct {
+		PostgreSQL struct {
+			Parameters map[string]string `yaml:"parameters"`
+		} `yaml:"postgresql"`
 		Kafka struct {
 			Listeners     []listener `yaml:"listeners"`
 			Authorization struct {
@@ -474,6 +477,8 @@ func checkBricks(dir string) error {
 	var errs []error
 	if pg := find("Cluster"); pg == nil || pg.Metadata.Name != "postgres" || pg.Metadata.Namespace != "postgres" {
 		errs = append(errs, errors.New("no Cluster postgres in namespace postgres, which internal/netpol targets"))
+	} else if pg.Spec.PostgreSQL.Parameters["track_commit_timestamp"] != "on" {
+		errs = append(errs, errors.New("postgres: track_commit_timestamp is not on, which config_propagation_seconds reads"))
 	}
 	k := find("Kafka")
 	if k == nil || k.Metadata.Name != "kafka" || k.Metadata.Namespace != "kafka" {
@@ -507,6 +512,7 @@ func TestTheBricksAreWhatTheJobsAndPoliciesAssume(t *testing.T) {
 func TestTheBrickGuardFails(t *testing.T) {
 	for _, tc := range []struct{ name, file, old, new, want string }{
 		{"postgres renamed", "postgres.yaml", "kind: Cluster\nmetadata:\n  name: postgres", "kind: Cluster\nmetadata:\n  name: pg", "no Cluster postgres"},
+		{"commit timestamps off", "postgres.yaml", `track_commit_timestamp: "on"`, `track_commit_timestamp: "off"`, "track_commit_timestamp"},
 		{"postgres elsewhere", "postgres.yaml", "  name: postgres\n  namespace: postgres\nspec:\n  instances", "  name: postgres\n  namespace: db\nspec:\n  instances", "no Cluster postgres"},
 		{"kafka renamed", "kafka.yaml", "kind: Kafka\nmetadata:\n  name: kafka", "kind: Kafka\nmetadata:\n  name: events", "no Kafka kafka"},
 		{"listener on another port", "kafka.yaml", "port: 9093", "port: 9094", "no listener 9093"},
