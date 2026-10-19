@@ -61,7 +61,8 @@ Fable a tranché les majeurs de la revue (2026-10-19) :
 - **Tout refus sort en 1**, le silence est « rien à faire » : un tag hors de `main`, sans `deploy.sh`, sans image
   ou dont une image n'est pas tirable (un paquet privé est le cas courant) se lit dans `systemctl status`, et
   `OnUnitInactiveSec` réarme après un échec.
-- **Auto-remplacement gardé**, derrière `bash -n` : une copie qui ne se parse pas n'est pas installée. Un défaut
+- **Auto-remplacement gardé**, derrière `bash -n`, joué avant `deploy.sh` : un tag dont la copie ne se parse pas
+  n'est ni déployé ni installé, et le refus reste visible. Un défaut
   de logique se répare par la reprise ci-dessous ; les unités ne changent qu'avec elle.
 - **`TimeoutStartSec=3h`**, au-dessus de la somme des bornes de `deploy.sh` (environ 2 h 35) ; il borne seul
   `ls-remote`, `fetch` et `crictl pull`.
@@ -78,7 +79,7 @@ Fable a tranché les majeurs de la revue (2026-10-19) :
 - `deploy/guard_test.go` : chaque Job porte `activeDeadlineSeconds` positif ; cas faussé.
 - `deploy/test-env/deploy.sh <tag>` : la séquence de 007d-1, images à `:<tag>`, Jobs recréés et attendus.
 - `deploy/test-env/sync.sh` : le tirage ci-dessus, lancé depuis sa copie `/usr/local/libexec/sms-deploy-sync`,
-  qu'il remplace après chaque succès si elle se parse ; un tag ancêtre de `origin/main` seulement ; tout refus
+  qu'il remplace après chaque succès, un tag dont la copie ne se parse pas étant refusé avant `deploy.sh` ; un tag ancêtre de `origin/main` seulement ; tout refus
   en 1. `deploy/test-env/sms-deploy.service` (`TimeoutStartSec=3h`) et `.timer` (`OnBootSec=1min`,
   `OnUnitInactiveSec=1min`).
 - `deploy/test-env/bootstrap.sh` : l'amorçage ci-dessus, rejouable (`enable`, puis `restart` du timer).
@@ -121,9 +122,9 @@ qui fait déployer ce code avec les vraies images `:v0.1.0` de 007d-2a.
 - **Rejeu de `catalog-apply`** (risque de 007d-1) : `failed` vide à la table rase, au redéploiement qui suit
   l'échec et à celui de la reprise : aucun essai consommé. Le rejeu immédiat de 007d-1 ne se produit pas dans
   le flux automatique, où deux déploiements sont espacés d'une release.
-- Garde : chaque nouveau cas faussé (échéance négative, image entre guillemets ou suivie d'un commentaire, `cmd/`
-  absent ou doublé dans `deploy.sh`) vu rouge, et vu tomber sous mutation (`<= 0` → `== 0`, sans le saut de ligne,
-  comparaison neutralisée). `make check` vert.
+- Garde : chaque nouveau cas faussé (échéance négative, image entre guillemets, suivie d'un commentaire ou en tête
+  d'élément de liste, `cmd/` absent ou doublé dans `deploy.sh`) vu rouge, et vu tomber sous mutation (`<= 0` →
+  `== 0`, ancre `^` ou `$` retirée, comparaison neutralisée). `make check` vert.
 
 ## Revue
 
@@ -137,3 +138,11 @@ qui fait déployer ce code avec les vraies images `:v0.1.0` de 007d-2a.
   commentaires de `deploy.sh` et `bootstrap.sh` retirés ; `HOME` absent de l'unité (vu en preuve).
 - Écartés : attentes lisant un état périmé (chaque Job est supprimé avec `--wait` avant d'être recréé) ;
   `fetch --tags` qui refuse un tag recréé (sortie en 1, visible ; un tag de release ne se recrée pas).
+
+**Tour 2** (un axe sur les correctifs, aucun bloquant) :
+
+- Retenus : le contrôle de forme cherchait une sous-chaîne (`- image: …` passait), il reprend l'ancre du `sed` ;
+  `bash -n` après le marqueur laissait le refus visible un seul tick, il passe avant `deploy.sh` ; la règle
+  prêtait à la garde le contrôle de l'ordre.
+- Écarté : un tag `v*` plus haut que les releases, hors de `main`, fige la VM (sortie en 1 à chaque tick) jusqu'à
+  sa suppression ; il faut l'écriture sur le dépôt, et le refus est visible.
