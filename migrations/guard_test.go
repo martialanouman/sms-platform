@@ -25,13 +25,15 @@ func classification(t *testing.T) schema.Classification {
 	return c
 }
 
-// observe counts as captured only an enabled row trigger running audit_capture after all three writes.
+// observe counts as captured only a row trigger running audit_capture after every insert, update and delete,
+// unconditionally, outside replica mode.
 func observe(t *testing.T, conn *pgx.Conn) map[string]schema.Observed {
 	rows, err := conn.Query(context.Background(), `
 		SELECT c.relname,
 		  EXISTS (SELECT 1 FROM pg_trigger tg
 		    WHERE tg.tgrelid = c.oid AND tg.tgfoid = 'control_plane.audit_capture'::regproc
-		      AND tg.tgtype & 31 = 29 AND tg.tgenabled <> 'D'),
+		      AND tg.tgtype & 31 = 29 AND tg.tgenabled IN ('O', 'A')
+		      AND cardinality(tg.tgattr::int2[]) = 0 AND tg.tgqual IS NULL),
 		  EXISTS (SELECT 1 FROM pg_index i WHERE i.indrelid = c.oid AND i.indisprimary)
 		FROM pg_class c
 		WHERE c.relnamespace = 'control_plane'::regnamespace AND c.relkind IN ('r', 'p')
@@ -73,6 +75,16 @@ func TestTheGuardReadsTheDatabase(t *testing.T) {
 		`CREATE TABLE control_plane.disabled (id int PRIMARY KEY)`,
 		`CREATE TRIGGER audit_capture AFTER INSERT OR UPDATE OR DELETE ON control_plane.disabled`+capture,
 		`ALTER TABLE control_plane.disabled DISABLE TRIGGER audit_capture`,
+		`CREATE TABLE control_plane.replica (id int PRIMARY KEY)`,
+		`CREATE TRIGGER audit_capture AFTER INSERT OR UPDATE OR DELETE ON control_plane.replica`+capture,
+		`ALTER TABLE control_plane.replica ENABLE REPLICA TRIGGER audit_capture`,
+		`CREATE TABLE control_plane.some_columns (id int PRIMARY KEY, name text)`,
+		`CREATE TRIGGER audit_capture AFTER INSERT OR UPDATE OF name OR DELETE ON control_plane.some_columns`+capture,
+		`CREATE TABLE control_plane.conditional (id int PRIMARY KEY)`,
+		`CREATE TRIGGER audit_capture AFTER INSERT OR UPDATE OR DELETE ON control_plane.conditional
+			FOR EACH ROW WHEN (true) EXECUTE FUNCTION control_plane.audit_capture()`,
+		`CREATE TABLE control_plane.keyless (id int)`,
+		`CREATE TRIGGER audit_capture AFTER INSERT OR UPDATE OR DELETE ON control_plane.keyless`+capture,
 		`CREATE TABLE control_plane.other (id int PRIMARY KEY)`,
 		`CREATE TRIGGER other AFTER INSERT OR UPDATE OR DELETE ON control_plane.other
 			FOR EACH ROW EXECUTE FUNCTION control_plane.audit_append_only()`,
@@ -83,12 +95,18 @@ func TestTheGuardReadsTheDatabase(t *testing.T) {
 	c["captured"] = schema.Table{Audit: schema.Diff}
 	c["inserts_only"] = schema.Table{Audit: schema.Diff}
 	c["disabled"] = schema.Table{Audit: schema.Diff}
-	c["other"] = schema.Table{Audit: schema.Diff}
+	for _, name := range []string{"other", "replica", "some_columns", "conditional", "keyless"} {
+		c[name] = schema.Table{Audit: schema.Diff}
+	}
 	c["parted"] = schema.Table{Audit: schema.Exempt, Reason: "sonde"}
 	want := []string{
+		`"conditional": diff without audit_capture`,
 		`"disabled": diff without audit_capture`,
 		`"inserts_only": diff without audit_capture`,
+		`"keyless": diff without a primary key`,
 		`"other": diff without audit_capture`,
+		`"replica": diff without audit_capture`,
+		`"some_columns": diff without audit_capture`,
 		`"unclassified": not classified`,
 	}
 	if got := c.Check(observe(t, conn)); !reflect.DeepEqual(got, want) {

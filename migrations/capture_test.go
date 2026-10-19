@@ -20,8 +20,6 @@ func exec(t *testing.T, conn *pgx.Conn, statements ...string) {
 	}
 }
 
-// probe is a configuration table carrying audit_capture, written by a role that holds no right on the
-// journal.
 func probe(t *testing.T) (pg pgtest.DB, writer *pgx.Conn) {
 	pg = pgtest.ControlPlane(t)
 	exec(t, connect(t, pg.As("migrator")),
@@ -34,20 +32,19 @@ func probe(t *testing.T) (pg pgtest.DB, writer *pgx.Conn) {
 		`CREATE ROLE writer LOGIN PASSWORD 'writer'`,
 		`GRANT USAGE ON SCHEMA control_plane TO writer`,
 		`GRANT SELECT, INSERT, UPDATE, DELETE ON control_plane.probe TO writer`,
-		`GRANT CREATE ON DATABASE control_plane TO writer`,
 	)
 	return pg, connect(t, pg.As("writer"))
 }
 
 func TestAWriteWithoutActorFails(t *testing.T) {
-	_, writer := probe(t)
+	pg, _ := probe(t)
 	ctx := context.Background()
 	for name, setActor := range map[string]string{
 		"unset": `SELECT 1`,
 		"empty": `SET LOCAL app.actor = ''`,
 	} {
 		t.Run(name, func(t *testing.T) {
-			tx, err := writer.Begin(ctx)
+			tx, err := connect(t, pg.As("writer")).Begin(ctx)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -139,7 +136,8 @@ func TestAnAttributedWriteNotifiesItsKeyAtCommit(t *testing.T) {
 }
 
 func TestTheCaptureIgnoresTheWritersSearchPath(t *testing.T) {
-	_, writer := probe(t)
+	pg, writer := probe(t)
+	exec(t, connect(t, pg.As("postgres")), `GRANT CREATE ON DATABASE control_plane TO writer`)
 	exec(t, writer,
 		`CREATE SCHEMA hijack`,
 		`GRANT USAGE ON SCHEMA hijack TO migrator`,
@@ -151,4 +149,14 @@ func TestTheCaptureIgnoresTheWritersSearchPath(t *testing.T) {
 		`INSERT INTO control_plane.probe (id) VALUES (1)`,
 		`COMMIT`,
 	)
+}
+
+func TestNoServiceCanCaptureATableIntoTheJournal(t *testing.T) {
+	_, writer := probe(t)
+	exec(t, writer, `CREATE TEMP TABLE customers (id int PRIMARY KEY)`)
+	_, err := writer.Exec(context.Background(), `CREATE TRIGGER audit_capture AFTER INSERT ON customers
+		FOR EACH ROW EXECUTE FUNCTION control_plane.audit_capture()`)
+	if sqlState(err) != "42501" {
+		t.Fatalf("err = %v, want 42501", err)
+	}
 }

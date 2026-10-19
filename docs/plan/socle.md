@@ -139,7 +139,8 @@ GRANT, qui lisent le classement.
   fichier de déclaration par service (décision 6). Une garde refuse un droit non déclaré.
 - **Audit et notification** : `audit_log`, `audit_changes`, la fonction de trigger (acteur obligatoire,
   avant/après, colonnes scellées exclues, `pg_notify`), le classement des tables et sa garde. Aucune
-  table métier encore : chacune arrivera avec son composant et devra se classer.
+  table métier encore : chacune arrivera avec son composant et devra se classer ; le trigger par
+  instruction (`<table>:*`) et le canal `optout` arrivent avec `exact_routes` et `suppressions`.
 
 **Terminé quand** : une écriture sans `app.actor` échoue ; une table non classée fait échouer la garde ;
 un rôle de service ne lit rien hors de sa déclaration (testé sous un rôle non superuser).

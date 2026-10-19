@@ -40,7 +40,8 @@ Fable a tranché le 2026-10-18 ; l'humain a tranché le partitionnement le même
 - **Trigger de diff** : `SECURITY DEFINER`, `search_path` figé, tout qualifié, pour qu'aucun service
   n'ait d'`INSERT` sur `audit_changes`. Acteur absent ou vide : 22023 (distinct du 42501 d'un droit
   manquant). `pk` est toujours l'objet jsonb des colonnes de la clé primaire, et la notification
-  `config` porte `<table>:<pk>` sous ce seul format. Le trigger par instruction (`<table>:*`) et le
+  `config` porte `<table>:<pk>` sous ce seul format, `<pk>` en JSON (le `pk` chaîne du contrat
+  `AuditChange` en est le texte). Le trigger par instruction (`<table>:*`) et le
   canal `optout` arrivent avec leurs tables.
 - **Classement** : `migrations/control_plane/audit.yaml`, lu hors base parce que 006b génère les GRANT
   sans base. `COMMENT ON TABLE` écarté.
@@ -52,9 +53,9 @@ Fable a tranché le 2026-10-18 ; l'humain a tranché le partitionnement le même
   statement `TRUNCATE`) ; `control_plane.audit_capture()`, prête à poser sur chaque table `diff`.
 - `migrations/control_plane/audit.yaml` : `table → {audit: diff|event|exempt, reason}`, `reason`
   obligatoire hors `diff` ; `audit_log`, `audit_changes` en `exempt`.
-- `migrations` (paquet Go) : `ControlPlane fs.FS`, les fichiers de la base.
+- `migrations` (paquet Go) : `ControlPlane() fs.FS`, les fichiers de la base.
 - `internal/schema` (cœur) : `ParseClassification` refuse un classement inconnu et une raison manquante.
-- `internal/platform/pgtest` : un `postgres:18` par processus, le rôle `migrator` non superuser
+- `internal/platform/pgtest` : un `postgres:18-alpine` par test, le rôle `migrator` non superuser
   propriétaire de la base, les migrations appliquées par lui ; de quoi s'y connecter en superuser et en
   `migrator`.
 - Tests d'intégration (`migrations`) : up/down/up ; sur une table sonde portant `audit_capture`, une
@@ -63,3 +64,26 @@ Fable a tranché le 2026-10-18 ; l'humain a tranché le partitionnement le même
   au-delà du plancher seulement ; la garde : toute table de `control_plane` est classée, toute entrée
   existe, une `diff` porte `audit_capture` et une clé primaire, une autre ne la porte pas.
 - `go.mod` : `pressly/goose/v3`, `jackc/pgx/v5` en directe.
+
+## Revue
+
+Trois axes en lecture seule (justesse et sécurité, code en trop, conformité). Correctifs :
+
+- **Bloquant** : `EXECUTE` de `audit_capture` restait à `PUBLIC` ; tout rôle pouvait la poser sur une
+  table temporaire et forger le journal sous l'identité du propriétaire. `REVOKE … FROM PUBLIC` :
+  `CREATE TRIGGER` exige le droit, un trigger posé s'exécute sans lui. Testé.
+- **Garde** : ne compte comme capturée qu'une table au trigger actif hors mode `REPLICA`, sans
+  `UPDATE OF` ni `WHEN` ; une table `diff` sans clé primaire est prouvée sur la vraie base.
+- **Test d'acteur** : une connexion par sous-test ; après un `SET LOCAL`, la GUC vaut `''` dans la
+  session, et l'ordre de la map décidait de ce qui était testé.
+- Code en trop retiré : l'`exec` de `pgtest`, un commentaire, un `GRANT CREATE` donné à tous les tests.
+
+Écartés, avec raison :
+
+- Les mutants `'365 days'` et `'1 year'` du plancher sont équivalents en UTC hors année bissextile :
+  aucun test déterministe ne les distingue ; le littéral en heures et son commentaire portent l'ADR-0018.
+- Exclure les partitions de la garde reste : le grand livre sera partitionné.
+- `CHECK` sur `status` reste (arbitrage) ; le cas « classe manquante » reste (seul à tuer `case Diff, ""`).
+- Notes pour l'écrivain d'`audit_log` (admin-api-svc) : `at` antidaté par l'appelant serait purgeable
+  aussitôt ; 006b ne déclare `DELETE` qu'à lui. Une clé primaire modifiée ne notifie que la nouvelle :
+  les clés sont des `uuid` immuables.

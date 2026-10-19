@@ -79,5 +79,8 @@ BEGIN
 END $$;
 -- +goose StatementEnd
 
+-- CREATE TRIGGER checks EXECUTE: without this, any role could capture a temporary table into the journal.
+REVOKE EXECUTE ON FUNCTION control_plane.audit_capture() FROM PUBLIC;
+
 -- +goose Down
 DROP SCHEMA control_plane CASCADE;

@@ -47,10 +47,19 @@ func ControlPlane(t *testing.T) DB {
 		t.Fatal(err)
 	}
 	db := DB{endpoint: endpoint}
-	exec(t, fmt.Sprintf("postgres://postgres:postgres@%s/postgres?sslmode=disable", endpoint),
+	super, err := sql.Open("pgx", fmt.Sprintf("postgres://postgres:postgres@%s/postgres?sslmode=disable", endpoint))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = super.Close() }()
+	for _, s := range []string{
 		`CREATE ROLE migrator LOGIN PASSWORD 'migrator'`,
 		`CREATE DATABASE control_plane OWNER migrator`,
-	)
+	} {
+		if _, err := super.Exec(s); err != nil {
+			t.Fatalf("%s: %v", s, err)
+		}
+	}
 	migrator, err := sql.Open("pgx", db.As("migrator"))
 	if err != nil {
 		t.Fatal(err)
@@ -64,18 +73,4 @@ func ControlPlane(t *testing.T) DB {
 		t.Fatalf("migrate control_plane: %v", err)
 	}
 	return db
-}
-
-func exec(t testing.TB, dsn string, statements ...string) {
-	t.Helper()
-	db, err := sql.Open("pgx", dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = db.Close() }()
-	for _, s := range statements {
-		if _, err := db.Exec(s); err != nil {
-			t.Fatalf("%s: %v", s, err)
-		}
-	}
 }
