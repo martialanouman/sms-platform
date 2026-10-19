@@ -92,3 +92,48 @@ Fable a tranché les majeurs de la revue (2026-10-19) :
 Une copie de `sync.sh` qui tire mal, ou des unités à changer : en root sur la VM,
 `git -C /opt/sms-platform fetch --tags && git -C /opt/sms-platform checkout vX.Y.Z && bash
 /opt/sms-platform/deploy/test-env/bootstrap.sh`, `vX.Y.Z` étant un tag qui contient `deploy/test-env`.
+
+## Preuve
+
+Sur `contabo169`, 2026-10-19. Le dépôt n'est pas tagué pour la preuve : la VM tire d'un dépôt nu local
+(`/srv/sms-origin.git`, clone du dépôt public) où `main` et `v0.1.0` pointent sur la tête de cette branche, ce
+qui fait déployer ce code avec les vraies images `:v0.1.0` de 007d-2a.
+
+- **Table rase** (k3s désinstallé, `/opt`, marqueur et unités effacés), puis `bootstrap.sh` : sans geste, le
+  timer déploie `v0.1.0` en 240 s ; `migrate` et `catalog-apply` `succeeded 1`, images `:v0.1.0` ; la copie
+  `/usr/local/libexec/sms-deploy-sync` est celle du tag.
+- **Rouges, chacun par le timer** :
+  - `v0.1.1` sur `main`, sans image : `exit-code`, « catalog-apply:v0.1.1 pas tirable », deux ticks de suite ;
+    marqueur `v0.1.0`.
+  - `v0.2.0` sur un commit enfant de `main`, hors de `main` : `exit-code`, « v0.2.0 n'est pas sur main ».
+  - Déploiement en échec (marqueur `v0.0.0`, quota `pods=0` dans `sms`) : `migrate` en `Failed`
+    `DeadlineExceeded` à 300 s, « le Job migrate a échoué », `exit-code` ; le marqueur reste `v0.0.0` (le tick
+    suivant redéploie).
+  - Quota retiré et `sync.sh` de l'arbre rendu imparsable : le tick suivant converge (« v0.1.0 déployé »,
+    marqueur `v0.1.0`), puis `bash -n` refuse la copie (`exit-code`, « syntax error ») : la copie installée reste
+    celle du commit.
+  - Marqueur égal au dernier tag : `success`, rien.
+- **`deploy.sh` à la main** : `v0.1.0` rejoué en 40 s (« cluster already matches the catalog ») ; `not-a-tag`
+  refusé ; `v9.9.9` : `migrate` `DeadlineExceeded` à 300 s, la séquence s'arrête, `catalog-apply` reste à
+  `:v0.1.0`.
+- **Reprise** : l'arbre de la branche, `bootstrap.sh` rejoué : exit 0, unité rechargée (`HOME=/root`), timer
+  actif ; marqueur remis à `v0.0.0`, redéploiement automatique en 110 s, sans avertissement de `crictl`.
+- **Rejeu de `catalog-apply`** (risque de 007d-1) : `failed` vide à la table rase, au redéploiement qui suit
+  l'échec et à celui de la reprise : aucun essai consommé. Le rejeu immédiat de 007d-1 ne se produit pas dans
+  le flux automatique, où deux déploiements sont espacés d'une release.
+- Garde : chaque nouveau cas faussé (échéance négative, image entre guillemets ou suivie d'un commentaire, `cmd/`
+  absent ou doublé dans `deploy.sh`) vu rouge, et vu tomber sous mutation (`<= 0` → `== 0`, sans le saut de ligne,
+  comparaison neutralisée). `make check` vert.
+
+## Revue
+
+**Tour 1** (deux axes : sécurité et justesse ; preuve et code en trop ; arbitrage de Fable ci-dessus) :
+
+- Retenus : un tag hors de `main` exécutait son `deploy.sh` en root ; une copie de `sync.sh` cassée pouvait se
+  verrouiller, sans reprise écrite ; les refus sortaient en 0, donc un blocage permanent restait vert ;
+  `TimeoutStartSec` sous la somme des bornes ; la garde admettait des formes d'image que le `sed` ne tague pas,
+  et ne liait pas `deploy.sh` aux `cmd/` ; échéance négative sans cas ; preuve non consignée, sans rouge de
+  `sync.sh` ; risque de rejeu de 007d-1 et retour arrière sans suite ; attente redondante du cluster Postgres et
+  commentaires de `deploy.sh` et `bootstrap.sh` retirés ; `HOME` absent de l'unité (vu en preuve).
+- Écartés : attentes lisant un état périmé (chaque Job est supprimé avec `--wait` avant d'être recréé) ;
+  `fetch --tags` qui refuse un tag recréé (sortie en 1, visible ; un tag de release ne se recrée pas).
