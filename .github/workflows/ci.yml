@@ -60,3 +60,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: "! ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}"
+
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    concurrency:
+      group: release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          next=$(go run ./tools/release)
+          [ -n "$next" ] || { echo "aucun commit ne change le binaire : rien à publier"; exit 0; }
+          git tag "$next"
+          docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin <<<"$GITHUB_TOKEN"
+          make release

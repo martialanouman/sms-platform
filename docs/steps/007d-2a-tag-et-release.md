@@ -46,7 +46,8 @@ Fable a tranché le reste (2026-10-19) :
   échec avant laisse zéro tag, et le run suivant recalcule la même version ; notes `changelog.use: github-native`.
   `gh release create` rejeté (un pas de plus, et le tag poussé d'abord).
 - **Calcul de version** : `tools/release`, Go, une fonction pure `Next(current string, commits []string)
-  (string, bool)` table-testée ; plomberie git (`describe --tags --abbrev=0`, `log`) dans la racine. `svu` rejeté :
+  (string, bool, error)` table-testée (l'erreur distingue un tag illisible de « rien à publier », qui
+  sauterait sinon la release en silence) ; plomberie git (`describe --tags --abbrev=0`, `log`) dans la racine. `svu` rejeté :
   ses types de patch ne se configurent pas, et ce serait une exception C1 de plus pour trois expressions.
 - **Premier tag** : `v0.1.0`, depuis un dépôt sans tag.
 - **Visibilité GHCR** : geste unique par paquet, dans ses réglages ; deux paquets à la première release.
@@ -61,18 +62,22 @@ Fable a tranché le reste (2026-10-19) :
 
 ## Design arrêté
 
-- `internal/release` : `Next(current string, commits []string) (string, bool)` : `current` vide ou absent →
-  `v0.1.0` s'il y a au moins un commit qui publie ; chaque commit est un message complet (`%B`) ; type pris au
-  titre (`type(scope)!: …`), rupture par `!` ou une ligne `BREAKING CHANGE:` ; la plus forte montée l'emporte ;
-  en `0.x`, une rupture monte la mineure ; un titre non conventionnel ne publie pas. Cœur pur (ADR 0025), testé
-  en table.
-- `tools/release` : lit le dernier tag `v*` (`git describe --tags --abbrev=0 --match 'v*'`, absent toléré) et les
-  messages depuis lui (`git log`, séparateur NUL), imprime la version suivante, ou rien.
+- `internal/release` : `Next(current string, commits []string) (string, bool, error)` : `current` vide →
+  `v0.1.0` s'il y a au moins un commit qui publie ; un `current` hors `vMAJOR.MINOR.PATCH` est une erreur ; chaque
+  commit est un message complet (`%B`) ; type pris au titre (`type(scope)!: …`), rupture par `!` ou une ligne
+  `BREAKING CHANGE:` en tête de ligne, et seulement pour un type qui publie (une rupture dans un `docs` ne
+  livre rien) ; la plus forte montée l'emporte, quel que soit l'ordre ; en `0.x`, une rupture monte la mineure ;
+  un titre non conventionnel ne publie pas. Cœur pur (ADR 0025), testé en table.
+- `tools/release` : le dernier tag `v*` fusionné dans HEAD (`git tag --list 'v*' --merged HEAD
+  --sort=-v:refname`, liste vide sans tag) et les messages depuis lui (`git log`, séparateur NUL) ; imprime la
+  version suivante, ou rien ; sort en 1 sur un tag illisible.
 - `.goreleaser.yaml` : `tags: ["{{ .Tag }}"]` ; `release.target_commitish: "{{ .FullCommit }}"` ;
   `changelog.use: github-native`.
 - `Makefile` : `release` (`$(GORELEASER) release --clean`).
 - `ci.yml` : job `release` (ci-dessus).
 - Docs : C2, spec 10 §10.2, plan §007, CLAUDE.md (paquet public après la première release).
-- Tests : table de `Next` (chaque type, `!`, `BREAKING CHANGE`, rupture en `0.x` et en `1.x`, montée la plus forte,
-  titre non conventionnel, aucun tag, rien à publier) vue tomber sous mutation ; `make check` construit encore le
-  snapshot avec `{{ .Tag }}` ; `go run ./tools/release` sur le dépôt rend `v0.1.0`.
+- Tests : table de `Next` (chaque type, `!`, `BREAKING CHANGE`, rupture en `0.x` et en `1.x`, montée la plus forte
+  dans les deux ordres, « BREAKING CHANGE: » cité dans un titre, titre non conventionnel, aucun tag, rien à
+  publier, tag illisible ou préfixé) vue tomber sous mutation ; `goreleaser check` ; `make check` construit encore
+  le snapshot avec `{{ .Tag }}` ; `tools/release` sur le dépôt rend `v0.1.0`, sur une copie taguée rend la
+  suivante, rien après un seul `docs`, et sort en 1 sur un tag `v1.2` ; `actionlint` sur `ci.yml`.
