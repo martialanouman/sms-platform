@@ -148,8 +148,9 @@ func TestAKeyChangeNotifiesTheOldKeyAndTheNewOne(t *testing.T) {
 	exec(t, listener, `LISTEN config`)
 	write(`UPDATE control_plane.probe SET id = 8 WHERE id = 7`)
 	write(`UPDATE control_plane.probe SET name = 'n' WHERE id = 8`)
+	write(`INSERT INTO control_plane.probe (id) VALUES (9)`)
 	var got []string
-	for range 3 {
+	for range 4 {
 		n, err := listener.WaitForNotification(ctx)
 		if err != nil {
 			t.Fatalf("after %v: %v", got, err)
@@ -157,7 +158,7 @@ func TestAKeyChangeNotifiesTheOldKeyAndTheNewOne(t *testing.T) {
 		got = append(got, n.Payload)
 	}
 	slices.Sort(got[:2])
-	want := []string{`probe:{"id": 7}`, `probe:{"id": 8}`, `probe:{"id": 8}`}
+	want := []string{`probe:{"id": 7}`, `probe:{"id": 8}`, `probe:{"id": 8}`, `probe:{"id": 9}`}
 	if !slices.Equal(got, want) {
 		t.Fatalf("payloads = %q, want %q", got, want)
 	}

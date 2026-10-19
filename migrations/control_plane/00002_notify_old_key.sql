@@ -1,5 +1,4 @@
 -- +goose Up
--- A key change notifies the old key too: a snapshot would otherwise keep the old row until its resync.
 -- +goose StatementBegin
 CREATE OR REPLACE FUNCTION control_plane.audit_capture() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$
@@ -20,19 +19,15 @@ BEGIN
       AND (attname ~ '(_sealed|_hash|_kms_key_ref)$' OR attname = 'wrapped_key'));
   IF TG_OP <> 'INSERT' THEN row_before := to_jsonb(OLD) - sealed; END IF;
   IF TG_OP <> 'DELETE' THEN row_after := to_jsonb(NEW) - sealed; END IF;
-  SELECT jsonb_object_agg(a.attname, coalesce(row_after, row_before) -> a.attname::text) INTO pk
+  SELECT jsonb_object_agg(a.attname, coalesce(row_after, row_before) -> a.attname::text),
+         jsonb_object_agg(a.attname, row_before -> a.attname::text) INTO pk, old_pk
     FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey)
     WHERE i.indrelid = TG_RELID AND i.indisprimary;
   INSERT INTO control_plane.audit_changes (request_id, actor, table_name, pk, op, before, after)
     VALUES (nullif(current_setting('app.request_id', true), ''), actor, TG_TABLE_NAME, pk,
             lower(TG_OP), row_before, row_after);
   IF TG_OP = 'UPDATE' THEN
-    SELECT jsonb_object_agg(a.attname, row_before -> a.attname::text) INTO old_pk
-      FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey)
-      WHERE i.indrelid = TG_RELID AND i.indisprimary;
-    IF old_pk IS DISTINCT FROM pk THEN
-      PERFORM pg_notify('config', TG_TABLE_NAME || ':' || old_pk::text);
-    END IF;
+    PERFORM pg_notify('config', TG_TABLE_NAME || ':' || old_pk::text);
   END IF;
   PERFORM pg_notify('config', TG_TABLE_NAME || ':' || pk::text);
   RETURN NULL;
