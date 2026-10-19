@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -24,20 +26,40 @@ type Infra struct {
 	TLS               mtls.Files
 	TLSAllowedClients []string
 	TraceSampleRatio  float64
+	PostgresURL       string
+}
+
+var defaults = map[string]string{
+	"LOG_LEVEL":           "info",
+	"OPS_ADDR":            ":9090",
+	"DRAIN_DELAY":         "5s",
+	"DRAIN_BUDGET":        "90s",
+	"SHUTDOWN_TIMEOUT":    "30s",
+	"TLS_CERT_FILE":       "",
+	"TLS_KEY_FILE":        "",
+	"TLS_CA_FILE":         "",
+	"TLS_ALLOWED_CLIENTS": "",
+	"TRACE_SAMPLE_RATIO":  "1",
+	"POSTGRES_URL":        "",
+}
+
+// Variables is the sorted closed list of the environment variables Load reads.
+func Variables() []string {
+	return slices.Sorted(maps.Keys(defaults))
 }
 
 // Load reads Infra from the environment and reports every unreadable or inconsistent variable at once.
 func Load() (Infra, error) {
 	var errs []error
 	unreadable := map[string]bool{}
-	value := func(name, fallback string) string {
+	value := func(name string) string {
 		if v := os.Getenv(name); v != "" {
 			return v
 		}
-		return fallback
+		return defaults[name]
 	}
-	duration := func(name, fallback string) time.Duration {
-		d, err := time.ParseDuration(value(name, fallback))
+	duration := func(name string) time.Duration {
+		d, err := time.ParseDuration(value(name))
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", name, err))
 			unreadable[name] = true
@@ -45,21 +67,22 @@ func Load() (Infra, error) {
 		return d
 	}
 	c := Infra{
-		OpsAddr:         value("OPS_ADDR", ":9090"),
-		DrainDelay:      duration("DRAIN_DELAY", "5s"),
-		DrainBudget:     duration("DRAIN_BUDGET", "90s"),
-		ShutdownTimeout: duration("SHUTDOWN_TIMEOUT", "30s"),
-		TLS:             mtls.Files{Cert: value("TLS_CERT_FILE", ""), Key: value("TLS_KEY_FILE", ""), CA: value("TLS_CA_FILE", "")},
+		OpsAddr:         value("OPS_ADDR"),
+		DrainDelay:      duration("DRAIN_DELAY"),
+		DrainBudget:     duration("DRAIN_BUDGET"),
+		ShutdownTimeout: duration("SHUTDOWN_TIMEOUT"),
+		TLS:             mtls.Files{Cert: value("TLS_CERT_FILE"), Key: value("TLS_KEY_FILE"), CA: value("TLS_CA_FILE")},
+		PostgresURL:     value("POSTGRES_URL"),
 	}
-	if err := c.LogLevel.UnmarshalText([]byte(value("LOG_LEVEL", "info"))); err != nil {
+	if err := c.LogLevel.UnmarshalText([]byte(value("LOG_LEVEL"))); err != nil {
 		errs = append(errs, fmt.Errorf("LOG_LEVEL: %w", err))
 	}
-	for _, client := range strings.Split(value("TLS_ALLOWED_CLIENTS", ""), ",") {
+	for _, client := range strings.Split(value("TLS_ALLOWED_CLIENTS"), ",") {
 		if client = strings.TrimSpace(client); client != "" {
 			c.TLSAllowedClients = append(c.TLSAllowedClients, client)
 		}
 	}
-	ratio, err := strconv.ParseFloat(value("TRACE_SAMPLE_RATIO", "1"), 64)
+	ratio, err := strconv.ParseFloat(value("TRACE_SAMPLE_RATIO"), 64)
 	switch {
 	case err != nil:
 		errs = append(errs, fmt.Errorf("TRACE_SAMPLE_RATIO: %w", err))
