@@ -99,3 +99,21 @@ Trois revues (correction, tests creux, code en trop) ; Fable, 2026-10-19.
    resserrée autour de 5 s ; aucune connexion laissée par un `Open` en échec.
 7. Écarté : un horodatage NULL n'arrive qu'au-delà de la rétention des commit timestamps, intestable ; la
    condition reste, sans test ni dette.
+
+## Correctifs de revue, tour 2
+
+Aucun bloquant. Retenus :
+
+1. **Tests** : le maximum de commit avance aussi sur la relecture d'une ligne (une ligne notifiée n'est pas
+   recomptée par la resync) ; la borne de 10 s couvre la relecture d'une ligne autant que la resync ; la
+   somme observée tolère 0,5 s de dérive entre l'horloge du pod et celle de Postgres ; une charge utile sans
+   `:` d'une table tenue est ignorée ; le test de `LISTEN` ne bloque pas si `Open` échoue.
+2. **Migration `00002`** : Postgres fusionne les notifications identiques d'une transaction ; l'ancienne
+   clé est notifiée à chaque `UPDATE`, sans comparaison, et les deux clés sortent d'une seule lecture de
+   `pg_index`.
+3. **Connexion** : la connexion, le `LISTEN` et la fermeture de l'ancienne connexion sont sous la même borne
+   de 10 s qu'un chargement ; un serveur gelé à cet instant ne se reproduit pas sans un proxy qui fige, non
+   testé.
+4. **Acceptés** : sous une rafale de réécritures, des échantillons de propagation peuvent manquer, jamais un
+   faux ; une clé d'un domaine sur `timestamptz`, d'`interval`, de `money` ou de flottant n'est pas refusée,
+   aucune table de la spec n'en porte.
