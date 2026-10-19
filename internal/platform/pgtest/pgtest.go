@@ -52,6 +52,12 @@ func (db DB) Late(t *testing.T, delay time.Duration) DB {
 	return DB{endpoint: tcpproxy.Later(t, db.endpoint, delay), ctr: db.ctr}
 }
 
+// Cuttable is the database behind a proxy the test can cut.
+func (db DB) Cuttable(t *testing.T) (DB, *tcpproxy.Proxy) {
+	p := tcpproxy.New(t, db.endpoint)
+	return DB{endpoint: p.Addr(), ctr: db.ctr}, p
+}
+
 // AsWith is the connection string of the database as role, logging in with password.
 func (db DB) AsWith(role, password string) string {
 	return fmt.Sprintf("postgres://%s:%s@%s/control_plane?sslmode=disable", role, password, db.endpoint)
@@ -90,6 +96,7 @@ func Empty(t *testing.T) DB {
 	ctx := context.Background()
 	pg, err := testcontainers.Run(ctx, "postgres:18-alpine",
 		testcontainers.WithExposedPorts("5432/tcp"),
+		testcontainers.WithCmd("postgres", "-c", "track_commit_timestamp=on"),
 		testcontainers.WithEnv(map[string]string{"POSTGRES_PASSWORD": "postgres"}),
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("database system is ready to accept connections").WithOccurrence(2),
