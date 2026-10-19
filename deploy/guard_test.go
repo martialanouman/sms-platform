@@ -236,7 +236,7 @@ func checkManifest(path, name string) []error {
 		return []error{err}
 	}
 	var errs []error
-	if !bytes.Contains(data, []byte("image: "+registry+name+"\n")) {
+	if !regexp.MustCompile(`(?m)^ *image: ` + regexp.QuoteMeta(registry+name) + `$`).Match(data) {
 		errs = append(errs, fmt.Errorf("%s: image not in the form deploy.sh tags, %q", name, "image: "+registry+name))
 	}
 	dec := yaml.NewDecoder(bytes.NewReader(data))
@@ -338,6 +338,7 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 		{"negative Job deadline", "deploy/k8s/migrate.yaml", "activeDeadlineSeconds: 300", "activeDeadlineSeconds: -1", "activeDeadlineSeconds"},
 		{"image in quotes", "deploy/k8s/migrate.yaml", "image: ghcr.io/martialanouman/sms-platform/migrate\n", "image: \"ghcr.io/martialanouman/sms-platform/migrate\"\n", "not in the form deploy.sh tags"},
 		{"image behind a comment", "deploy/k8s/migrate.yaml", "image: ghcr.io/martialanouman/sms-platform/migrate\n", "image: ghcr.io/martialanouman/sms-platform/migrate # pinned\n", "not in the form deploy.sh tags"},
+		{"image opening its list item", "deploy/k8s/migrate.yaml", "        - name: migrate\n          image: ghcr.io/martialanouman/sms-platform/migrate\n", "        - image: ghcr.io/martialanouman/sms-platform/migrate\n          name: migrate\n", "not in the form deploy.sh tags"},
 		{"manifest missing from deploy.sh", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for job in migrate; do", "cmd/catalog-apply: 0 deploy.sh job"},
 		{"manifest twice in deploy.sh", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for job in migrate catalog-apply migrate; do", "cmd/migrate: 2 deploy.sh job"},
 		{"envFrom", "deploy/k8s/migrate.yaml", "          env:\n", "          envFrom:\n            - configMapRef: {name: x}\n          env:\n", "envFrom"},
