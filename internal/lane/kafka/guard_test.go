@@ -136,9 +136,18 @@ func guard(root string, c catalog.Catalog) (errs []error, pending []string) {
 	for _, g := range c.Groups {
 		declared[g.Name()] = g
 	}
-	for g := range u.groups {
-		if _, ok := declared[g]; !ok {
-			errs = append(errs, fmt.Errorf("group %s is consumed but not declared", g))
+	for name := range u.groups {
+		g, ok := declared[name]
+		if !ok {
+			errs = append(errs, fmt.Errorf("group %s is consumed but not declared", name))
+		}
+		for _, d := range g.Dependencies {
+			if d.Park != "" {
+				if u.produced[g.Service] == nil {
+					u.produced[g.Service] = map[string]bool{}
+				}
+				u.produced[g.Service][d.Park] = true
+			}
 		}
 	}
 	for svc, topics := range u.produced {
@@ -193,12 +202,15 @@ func TestTheGuardOfTopicsAndGroups(t *testing.T) {
 	c, err := catalog.Parse([]byte(`
 topics:
   mt.inbound.otp: {key: message_id, order: none, duplicate_unit: m, payload: sms.v1.A, body: none, partitions: 1, retention: 96h, producers: [front]}
+  mt.billing-wait.otp: {key: message_id, order: none, duplicate_unit: m, payload: sms.v1.A, body: none, partitions: 1, retention: 96h, producers: [back]}
   mt.inbound.transactional: {key: message_id, order: none, duplicate_unit: m, payload: sms.v1.A, body: none, partitions: 1, retention: 96h, producers: [front]}
+  mt.billing-wait.transactional: {key: message_id, order: none, duplicate_unit: m, payload: sms.v1.A, body: none, partitions: 1, retention: 96h, producers: [back]}
   mt.inbound.marketing: {key: message_id, order: none, duplicate_unit: m, payload: sms.v1.A, body: none, partitions: 1, retention: 96h, producers: [front]}
+  mt.billing-wait.marketing: {key: message_id, order: none, duplicate_unit: m, payload: sms.v1.A, body: none, partitions: 1, retention: 96h, producers: [back]}
 groups:
-  - {topic: mt.inbound.otp, service: back, tenant: none, dependencies: {kafka: {mode: blocking}}, concurrency: per_partition, dead_letter: back.mt.inbound.otp.dead-letter, start: earliest}
-  - {topic: mt.inbound.transactional, service: back, tenant: none, dependencies: {kafka: {mode: blocking}}, concurrency: per_partition, dead_letter: back.mt.inbound.transactional.dead-letter, start: earliest}
-  - {topic: mt.inbound.marketing, service: back, tenant: none, dependencies: {kafka: {mode: blocking}}, concurrency: per_partition, dead_letter: back.mt.inbound.marketing.dead-letter, start: earliest}
+  - {topic: mt.inbound.otp, service: back, tenant: none, dependencies: {kafka: {mode: blocking}, billing: {mode: park_global, park: mt.billing-wait.otp}}, concurrency: per_partition, dead_letter: back.mt.inbound.otp.dead-letter, start: earliest}
+  - {topic: mt.inbound.transactional, service: back, tenant: none, dependencies: {kafka: {mode: blocking}, billing: {mode: park_global, park: mt.billing-wait.transactional}}, concurrency: per_partition, dead_letter: back.mt.inbound.transactional.dead-letter, start: earliest}
+  - {topic: mt.inbound.marketing, service: back, tenant: none, dependencies: {kafka: {mode: blocking}, billing: {mode: park_global, park: mt.billing-wait.marketing}}, concurrency: per_partition, dead_letter: back.mt.inbound.marketing.dead-letter, start: earliest}
 `))
 	if err != nil {
 		t.Fatal(err)
@@ -218,6 +230,7 @@ groups:
 		"an undeclared group":     {map[string]string{"internal/x/x.go": head + `func f() { lk.NewLane(c, "back.nowhere", h, l) }`}, "back.nowhere is consumed but not declared"},
 		"a producer not declared": {map[string]string{"internal/x/x.go": head + `func f() { lk.NewProducer(c, "back", []string{"mt.inbound.otp"}) }`}, "back produces mt.inbound.otp"},
 		"a group never consumed":  {map[string]string{"cmd/front/main.go": good["cmd/front/main.go"], "cmd/back/main.go": head + `func f() { lk.NewLane(c, "back.mt.inbound.otp", h, l) }`}, "back.mt.inbound.marketing is declared but back never consumes it"},
+		"a park never produced":   {map[string]string{"cmd/front/main.go": good["cmd/front/main.go"], "cmd/back/main.go": head + `func f() { lk.NewLane(c, "back.mt.inbound.otp", h, l) }`}, "back is declared a producer of mt.billing-wait.marketing but never produces it"},
 		"a topic never produced":  {map[string]string{"cmd/back/main.go": good["cmd/back/main.go"], "cmd/front/main.go": head + `func f() { lk.NewProducer(c, "front", []string{"mt.inbound.otp"}) }`}, "front is declared a producer of mt.inbound.marketing but never produces it"},
 		"a group in a variable":   {map[string]string{"internal/x/x.go": head + `func f() { lk.NewLane(c, name, h, l) }`}, "neither a string literal"},
 		"topics in a variable":    {map[string]string{"internal/x/x.go": head + `func f() { lk.NewProducer(c, "front", topics) }`}, "topics must be a literal list"},
