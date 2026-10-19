@@ -156,8 +156,8 @@ func checkManifest(path, name string) []error {
 		} else if err != nil {
 			return append(errs, fmt.Errorf("%s: %w", path, err))
 		}
-		if w.Kind != "Job" && w.Kind != "Deployment" {
-			errs = append(errs, fmt.Errorf("%s: kind %s is not guarded", name, w.Kind))
+		if w.Kind != "Job" {
+			errs = append(errs, fmt.Errorf("%s: kind %q is not guarded", name, w.Kind))
 			continue
 		}
 		pod := w.Spec.Template.Spec
@@ -217,7 +217,7 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 		{"cmd without manifest", "deploy/k8s/migrate.yaml", "", "", "cmd/migrate: 0 manifest"},
 		{"empty manifest", "deploy/k8s/migrate.yaml", "", "\n", "migrate holds no workload"},
 		{"manifest of another extension", "deploy/k8s/other.yml", "", "kind: Job\n", "other.yml is not a .yaml"},
-		{"kind not guarded", "deploy/k8s/migrate.yaml", "kind: Job", "kind: CronJob", "kind CronJob"},
+		{"kind not guarded", "deploy/k8s/migrate.yaml", "kind: Job", "kind: Deployment", "kind \"Deployment\""},
 		{"workload without container", "deploy/k8s/migrate.yaml", "      containers:", "      container:", "Job without container"},
 		{"wrong image in manifest", "deploy/k8s/migrate.yaml", "image: ghcr.io/martialanouman/sms-platform/migrate", "image: ghcr.io/martialanouman/sms-platform/migrate:latest", "image \""},
 		{"root container", "deploy/k8s/migrate.yaml", "runAsNonRoot: true", "runAsNonRoot: false", "runAsNonRoot"},
@@ -238,6 +238,9 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			if err := os.MkdirAll(filepath.Join(root, "deploy", "k8s"), 0o750); err != nil {
+				t.Fatal(err)
+			}
 			files := []string{".goreleaser.yaml", "deploy/k8s/migrate.yaml", "cmd/migrate/main.go"}
 			for _, f := range files {
 				data, err := os.ReadFile(filepath.Join("..", f))
@@ -252,9 +255,6 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 					}
 					data = bytes.Replace(data, []byte(tc.old), []byte(tc.new), 1)
 				case tc.new == "":
-					if err := os.MkdirAll(filepath.Dir(filepath.Join(root, f)), 0o750); err != nil {
-						t.Fatal(err)
-					}
 					continue
 				default:
 					data = []byte(tc.new)
