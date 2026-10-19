@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -19,6 +20,8 @@ import (
 )
 
 const registry = "ghcr.io/martialanouman/sms-platform/"
+
+var deployedJobs = regexp.MustCompile(`(?m)^for job in ([a-z -]+); do$`)
 
 type goreleaser struct {
 	Builds []struct {
@@ -135,10 +138,19 @@ func check(root string) error {
 		manifests = append(manifests, name)
 		errs = append(errs, checkManifest(filepath.Join(root, "deploy", "k8s", f.Name()), name)...)
 	}
+	script, err := os.ReadFile(filepath.Join(root, "deploy", "test-env", "deploy.sh"))
+	if err != nil {
+		return err
+	}
+	var jobs []string
+	if m := deployedJobs.FindSubmatch(script); m != nil {
+		jobs = strings.Fields(string(m[1]))
+	}
 	errs = append(errs, roleSecrets(root)...)
 	errs = append(errs, same("build", cmds, builds)...)
 	errs = append(errs, same("image", cmds, images)...)
 	errs = append(errs, same("manifest", cmds, manifests)...)
+	errs = append(errs, same("deploy.sh job", cmds, jobs)...)
 	return errors.Join(errs...)
 }
 
@@ -224,6 +236,9 @@ func checkManifest(path, name string) []error {
 		return []error{err}
 	}
 	var errs []error
+	if !bytes.Contains(data, []byte("image: "+registry+name+"\n")) {
+		errs = append(errs, fmt.Errorf("%s: image not in the form deploy.sh tags, %q", name, "image: "+registry+name))
+	}
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	for docs := 0; ; docs++ {
 		var w workload
@@ -320,6 +335,11 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 		{"pod without its label", "deploy/k8s/migrate.yaml", "app.kubernetes.io/name: migrate", "app.kubernetes.io/part-of: migrate", "label app.kubernetes.io/name"},
 		{"pod labelled for another", "deploy/k8s/migrate.yaml", "app.kubernetes.io/name: migrate", "app.kubernetes.io/name: other", "label app.kubernetes.io/name"},
 		{"unbounded Job", "deploy/k8s/migrate.yaml", "  activeDeadlineSeconds: 300\n", "", "activeDeadlineSeconds"},
+		{"negative Job deadline", "deploy/k8s/migrate.yaml", "activeDeadlineSeconds: 300", "activeDeadlineSeconds: -1", "activeDeadlineSeconds"},
+		{"image in quotes", "deploy/k8s/migrate.yaml", "image: ghcr.io/martialanouman/sms-platform/migrate\n", "image: \"ghcr.io/martialanouman/sms-platform/migrate\"\n", "not in the form deploy.sh tags"},
+		{"image behind a comment", "deploy/k8s/migrate.yaml", "image: ghcr.io/martialanouman/sms-platform/migrate\n", "image: ghcr.io/martialanouman/sms-platform/migrate # pinned\n", "not in the form deploy.sh tags"},
+		{"manifest missing from deploy.sh", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for job in migrate; do", "cmd/catalog-apply: 0 deploy.sh job"},
+		{"manifest twice in deploy.sh", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for job in migrate catalog-apply migrate; do", "cmd/migrate: 2 deploy.sh job"},
 		{"envFrom", "deploy/k8s/migrate.yaml", "          env:\n", "          envFrom:\n            - configMapRef: {name: x}\n          env:\n", "envFrom"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -336,7 +356,7 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 				t.Fatal(err)
 			}
 			files := []string{".goreleaser.yaml", "deploy/k8s/migrate.yaml", "cmd/migrate/main.go",
-				"deploy/k8s/catalog-apply.yaml", "cmd/catalog-apply/main.go", "contracts/grants/admin-api-svc.yaml", "deploy/k8s/networkpolicies.yaml"}
+				"deploy/k8s/catalog-apply.yaml", "cmd/catalog-apply/main.go", "contracts/grants/admin-api-svc.yaml", "deploy/k8s/networkpolicies.yaml", "deploy/test-env/deploy.sh"}
 			for _, f := range files {
 				data, err := os.ReadFile(filepath.Join("..", f))
 				if err != nil {
