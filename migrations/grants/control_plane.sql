@@ -4,13 +4,16 @@ BEGIN;
 DO $$ BEGIN
   IF EXISTS (SELECT FROM pg_catalog.pg_roles r WHERE r.rolname = 'admin_api_svc'
       AND (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolbypassrls
-        OR r.rolreplication OR EXISTS (SELECT FROM pg_catalog.pg_auth_members m WHERE m.member = r.oid))) THEN
+        OR r.rolreplication OR EXISTS (SELECT FROM pg_catalog.pg_auth_members m WHERE m.member = r.oid)
+        OR EXISTS (SELECT FROM pg_catalog.pg_auth_members m
+          WHERE m.roleid = r.oid AND (m.inherit_option OR m.set_option)))) THEN
     RAISE EXCEPTION 'role admin_api_svc is not a plain service role';
   END IF;
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'admin_api_svc') THEN
     CREATE ROLE admin_api_svc NOLOGIN;
   END IF;
 END $$;
+REVOKE CREATE ON DATABASE control_plane FROM admin_api_svc;
 REVOKE ALL ON SCHEMA control_plane FROM admin_api_svc;
 GRANT USAGE ON SCHEMA control_plane TO admin_api_svc;
 REVOKE ALL ON ALL TABLES IN SCHEMA control_plane FROM admin_api_svc;

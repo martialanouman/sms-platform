@@ -39,6 +39,7 @@ func granted(t *testing.T) pgtest.DB {
 		exec(t, migrator,
 			`GRANT ALL ON ALL TABLES IN SCHEMA control_plane TO `+role+` WITH GRANT OPTION`,
 			`GRANT CREATE ON SCHEMA control_plane TO `+role,
+			`GRANT CREATE ON DATABASE control_plane TO `+role,
 			`GRANT UPDATE (target) ON control_plane.audit_log TO `+role,
 		)
 	}
@@ -81,13 +82,15 @@ func TestEachServiceRoleHoldsExactlyItsDeclaration(t *testing.T) {
 				want = append(want, role+" "+table+" "+p)
 			}
 		}
-		var usage, create bool
+		var usage, create, createSchema bool
 		if err := conn.QueryRow(context.Background(), `SELECT has_schema_privilege($1, 'control_plane', 'USAGE'),
-			has_schema_privilege($1, 'control_plane', 'CREATE')`, role).Scan(&usage, &create); err != nil {
+			has_schema_privilege($1, 'control_plane', 'CREATE'), has_database_privilege($1, 'control_plane', 'CREATE')`,
+			role).Scan(&usage, &create, &createSchema); err != nil {
 			t.Fatal(err)
 		}
-		if !usage || create {
-			t.Errorf("%s on control_plane: usage %v, create %v; want usage only", role, usage, create)
+		if !usage || create || createSchema {
+			t.Errorf("%s: usage %v, create in control_plane %v, create schemas %v; want usage only",
+				role, usage, create, createSchema)
 		}
 	}
 	slices.Sort(want)
@@ -123,10 +126,12 @@ func TestAServiceRoleIsRefusedWhatItDidNotDeclare(t *testing.T) {
 func TestTheGrantsAdoptOnlyAPlainRole(t *testing.T) {
 	pg := pgtest.ControlPlane(t)
 	super := connect(t, pg.As("postgres"))
-	exec(t, super, `CREATE ROLE admin_api_svc NOLOGIN`)
+	exec(t, super, `CREATE ROLE admin_api_svc NOLOGIN`, `CREATE ROLE intruder LOGIN`)
 	migrator := connect(t, pg.As("migrator"))
 	for _, privileged := range []struct{ grant, revoke string }{
 		{`GRANT migrator TO admin_api_svc`, `REVOKE migrator FROM admin_api_svc`},
+		{`GRANT admin_api_svc TO intruder`, `REVOKE admin_api_svc FROM intruder`},
+		{`GRANT admin_api_svc TO intruder WITH INHERIT FALSE`, `REVOKE admin_api_svc FROM intruder`},
 		{`ALTER ROLE admin_api_svc SUPERUSER`, `ALTER ROLE admin_api_svc NOSUPERUSER`},
 		{`ALTER ROLE admin_api_svc CREATEROLE`, `ALTER ROLE admin_api_svc NOCREATEROLE`},
 		{`ALTER ROLE admin_api_svc CREATEDB`, `ALTER ROLE admin_api_svc NOCREATEDB`},

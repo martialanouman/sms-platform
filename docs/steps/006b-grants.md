@@ -71,6 +71,9 @@ Trois axes en lecture seule. Correctifs :
   entrent dans la comparaison ; la dérive du test les pose tous.
 - **Tests** : le fichier commité est appliqué, et non plus le rendu en mémoire ; le refus d'`UPDATE` porte sur
   une requête sans ligne (le trigger d'immuabilité rend aussi 42501) ; chaque droit déclaré est exercé.
+- **Second tour** : un rôle qui a des membres, par héritage ou par `SET`, est refusé lui aussi (le lien
+  `ADMIN OPTION` que Postgres 16+ donne à `migrator` sur les rôles qu'il crée reste admis) ; `CREATE` sur
+  la base est révoqué et gardé, un service créait sinon un schéma hors de toute garde.
 - Code en trop retiré : le type `Privilege` et ses constantes exportées, la double map, le `MkdirAll`,
   `TestRole`. Un privilège déclaré deux fois est refusé.
 
