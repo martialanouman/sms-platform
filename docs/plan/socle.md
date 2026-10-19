@@ -191,7 +191,7 @@ topics et leurs ACL.
 
 ## Après le socle
 
-Les composants, dans un second plan, dans l'ordre des dépendances : runtime de lane et instantané de
+Les composants : `docs/plan/composants.md`. Ordre esquissé à l'origine, dans l'ordre des dépendances : runtime de lane et instantané de
 configuration (partagés), `content-key-svc`, `admin-api-svc` et le dashboard, puis le chemin MT
 (ingestion, routeur, `billing-svc`, pool), `message-state-svc`, la voie retour. Chaque composant est
 porté ou réécrit selon ce que la spec en exige.
