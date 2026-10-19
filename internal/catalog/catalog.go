@@ -61,7 +61,8 @@ type Group struct {
 	StartJustification string                `yaml:"start_justification"`
 }
 
-func (g Group) name() string {
+// Name is the consumer group id, <service>[.<lane>].<topic>.
+func (g Group) Name() string {
 	if g.Lane != "" {
 		return g.Service + "." + g.Lane + "." + g.Topic
 	}
@@ -118,7 +119,7 @@ func (c Catalog) Validate() []error {
 
 	seen := map[string]bool{}
 	for _, g := range c.Groups {
-		name := g.name()
+		name := g.Name()
 		if seen[name] {
 			fail("group %s: duplicate", name)
 		}
@@ -258,7 +259,7 @@ func (c Catalog) ACLs() []ACL {
 	}
 	for _, g := range c.Groups {
 		grant(g.Service, "TOPIC", g.Topic, "READ")
-		grant(g.Service, "GROUP", g.name(), "READ")
+		grant(g.Service, "GROUP", g.Name(), "READ")
 		grant(g.Service, "TOPIC", g.DeadLetter, "WRITE")
 	}
 	slices.SortFunc(acls, func(a, b ACL) int {
@@ -395,7 +396,7 @@ func (c Catalog) Markdown() []byte {
 			maxAge = "—"
 		}
 		fmt.Fprintf(&b, "| `%s` | %s | %s | %s | %s | %s | %s |\n",
-			g.name(), assignment, g.Tenant, strings.Join(deps, ", "), concurrency, maxAge, g.Start)
+			g.Name(), assignment, g.Tenant, strings.Join(deps, ", "), concurrency, maxAge, g.Start)
 	}
 	dl := c.DeadLetters()
 	b.WriteString("\n## Dead-letters\n\nDérivées de chaque groupe : clé et corps de la source, ordre `none`.\n\n| Topic | Corps | Partitions | Rétention |\n|---|---|---|---|\n")
