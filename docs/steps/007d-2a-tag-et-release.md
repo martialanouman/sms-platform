@@ -47,12 +47,14 @@ Fable a tranché le reste (2026-10-19) :
   {contents: write, packages: write}` à ce seul job ; `concurrency: {group: release}`, sans annulation du run en
   cours (deux merges rapprochés : le second voit le tag du premier ; trois : le run en attente est remplacé, le
   dernier bumpe pour tous). Corps : checkout complet ; fin si `main` a avancé depuis ce commit (le run du commit suivant publie, et un
-  run hors d'ordre publierait sinon une version plus ancienne marquée « Latest ») ; `next=$(go run ./tools/release)` (sortie vide : rien à
+  run hors d'ordre publierait sinon une version plus ancienne marquée « Latest » ; prix admis : si la CI du
+  commit suivant échoue, ce commit n'est publié qu'au merge suivant ou à la relance) ; `next=$(go run ./tools/release)` (sortie vide : rien à
   publier, fin) ; `git tag "$next"` en local ; `docker login ghcr.io` par le `GITHUB_TOKEN` ; `make release`.
 - **GoReleaser** : images taguées `{{ .Tag }}` (le même mot que le tag git) ; `release.target_commitish:
   "{{ .FullCommit }}"` : GitHub crée le tag distant à la création de la release, après le push des images ; un
-  échec avant laisse zéro tag, et le run suivant recalcule la même version ; notes `changelog.use: git`, calculées
-  en local (l'API de notes de GitHub ne reçoit pas `target_commitish` d'un tag pas encore poussé).
+  échec avant laisse zéro tag, et le run suivant recalcule la même version ; notes par défaut de GoReleaser
+  (`git`, calculées en local : l'API de notes de GitHub ne reçoit pas `target_commitish` d'un tag pas encore
+  poussé).
   `gh release create` rejeté (un pas de plus, et le tag poussé d'abord).
 - **Calcul de version** : `tools/release`, Go, une fonction pure `Next(current string, commits []string)
   (string, bool, error)` table-testée (l'erreur distingue un tag illisible de « rien à publier », qui
@@ -80,8 +82,8 @@ Fable a tranché le reste (2026-10-19) :
 - `tools/release` : le dernier tag `v*` fusionné dans HEAD (`git tag --list 'v*' --merged HEAD
   --sort=-v:refname`, liste vide sans tag) et les messages depuis lui (`git log`, séparateur NUL) ; imprime la
   version suivante, ou rien ; sort en 1 sur un tag illisible.
-- `.goreleaser.yaml` : `tags: ["{{ .Tag }}"]` ; `release.target_commitish: "{{ .FullCommit }}"` ;
-  `changelog.use: git`.
+- `.goreleaser.yaml` : `tags: ["{{ .Tag }}"]` ; `release.target_commitish: "{{ .FullCommit }}"` ; plus de
+  `release.disable` ni de `changelog.disable`.
 - `Makefile` : `release` (`$(GORELEASER) release --clean`).
 - `ci.yml` : job `release` (ci-dessus).
 - Docs : C2, spec 10 §10.2, plan §007, CLAUDE.md (paquet public après la première release).
@@ -89,7 +91,8 @@ Fable a tranché le reste (2026-10-19) :
   dans les deux ordres, « BREAKING CHANGE: » cité dans un titre, titre non conventionnel, aucun tag, rien à
   publier, tag illisible ou préfixé) vue tomber sous mutation ; `goreleaser check` ; `make check` construit encore
   le snapshot avec `{{ .Tag }}` ; `actionlint` sur `ci.yml`. `tools/release` testé sur un dépôt git jetable :
-  premier tag, plage depuis le dernier tag, tri de version (`v0.11.0` après `v0.9.0`), tag d'une autre branche
+  premier tag, plage depuis le dernier tag, tri de version (`v0.11.0` après `v0.9.0`, `v0.2.0` après `v0.1.0` :
+  ni l'ordre alphabétique ni son inverse ne passent), tag d'une autre branche
   ignoré, `docs` seul, rupture lue dans le corps.
 
 ## Revue
@@ -105,3 +108,8 @@ Fable a tranché le reste (2026-10-19) :
 - Écartés : resserrer `title` (`pr-title` impose la même grammaire en amont ; la liste des types vit en deux
   endroits, couplage noté dans `ci-deploy.md`) ; un tag `v*` hors `vX.Y.Z` posé à la main rend les runs rouges, voulu ;
   un `revert` d'un `feat` dans la même fenêtre compte encore le `feat`, admis.
+
+**Tour 2** (un axe sur les correctifs, aucun bloquant) : le tri de version n'était pas prouvé (la paire
+`v0.9.0`/`v0.11.0` donne le même premier tag sans tri) ; branche morte dans `tools/release` ; `changelog.use: git`
+est le défaut de GoReleaser ; la garde « main a avancé » a un prix, désormais écrit ; la règle prêtait à
+`pr-title` la validation du corps.

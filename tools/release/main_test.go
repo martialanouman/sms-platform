@@ -32,6 +32,8 @@ func TestNextReadsTheTagsAndTheCommitsSinceTheLast(t *testing.T) {
 	}
 	commit("feat: a")
 	expect("v0.1.0")
+	git("tag", "v0.1.0")
+	git("tag", "v0.2.0")
 	git("tag", "v0.9.0")
 	commit("fix: b")
 	git("tag", "v0.11.0")

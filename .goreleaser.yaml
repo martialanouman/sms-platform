@@ -39,5 +39,3 @@ archives:
 release:
   target_commitish: "{{ .FullCommit }}"
 
-changelog:
-  use: git

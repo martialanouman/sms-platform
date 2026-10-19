@@ -41,9 +41,6 @@ func next() (string, error) {
 			commits = append(commits, c)
 		}
 	}
-	v, ok, err := release.Next(current, commits)
-	if !ok {
-		v = ""
-	}
+	v, _, err := release.Next(current, commits)
 	return v, err
 }

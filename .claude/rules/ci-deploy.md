@@ -23,7 +23,8 @@ paths:
   le premier compte ou outil qui reçoit `edit` ou `admin` sur un namespace apporte approver-policy (ou un
   `Issuer` par namespace) dans sa PR. La clé racine ne quitte jamais `cert-manager`.
 - **Release** : le job `release` de `ci.yml` pose `vX.Y.Z` depuis les commits conventionnels de `main` ; le
-  titre et le corps squashés sont ceux de la PR (réglage du dépôt), seul texte que `pr-title` valide. La liste
+  titre et le corps squashés sont ceux de la PR (réglage du dépôt) : `pr-title` valide le titre ; le corps ne
+  l'est pas, et une ligne qui y commence par `BREAKING CHANGE:` monte la version. La liste
   des types vit deux fois, dans `pr-title` et dans `internal/release` : on change l'une avec l'autre. Un
   ruleset de tags devra exempter `github-actions`, qui crée le tag par la release.
 - **Une image de brique** est épinglée par la version de son chart ou de sa release ; par digest quand le
