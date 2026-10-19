@@ -8,4 +8,4 @@ Type=oneshot
 Environment=KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 ExecStart=/usr/local/libexec/sms-deploy-sync
-TimeoutStartSec=1h
+TimeoutStartSec=3h

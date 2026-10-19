@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
-# La séquence éprouvée en 007d-1, sur l'arbre d'un tag ; le premier rouge arrête tout avant les services.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 tag=$1
 [[ $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "deploy.sh: $tag n'est pas un tag de release" >&2; exit 1; }
 
-exists() { # exists <namespace> <ressource> : la ressource apparaît dans les cinq minutes
+exists() {
 	for _ in $(seq 150); do kubectl -n "$1" get "$2" >/dev/null 2>&1 && return; sleep 2; done
 	echo "deploy.sh: $1/$2 absent" >&2
 	return 1
 }
-finish() { # finish <job> : succès, ou échec du Job, borné par son activeDeadlineSeconds
+finish() {
 	for _ in $(seq 600); do
 		case $(kubectl -n sms get job "$1" -o jsonpath='{.status.succeeded}/{.status.conditions[?(@.type=="Failed")].status}') in
 		1/*) return ;;
@@ -36,7 +35,6 @@ bash deploy/bricks/secrets.sh
 
 kubectl -n kafka wait --for=condition=available deploy/strimzi-cluster-operator --timeout=5m
 kubectl apply -f deploy/bricks/postgres.yaml -f deploy/bricks/kafka.yaml
-exists postgres cluster/postgres
 kubectl -n postgres wait --for=condition=ready cluster/postgres --timeout=15m
 kubectl -n kafka wait --for=condition=ready kafka/kafka --timeout=20m
 

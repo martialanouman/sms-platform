@@ -7,12 +7,14 @@ latest=$(git ls-remote --tags --refs origin 'v*' | awk -F/ '{print $3}' | grep -
 [ -n "$latest" ] || exit 0
 [ "$latest" != "$(cat "$marker" 2>/dev/null || true)" ] || exit 0
 git fetch -q --tags origin
-git cat-file -e "$latest:deploy/test-env/deploy.sh" 2>/dev/null || { echo "sync.sh: $latest ne sait pas se déployer"; exit 0; }
+git merge-base --is-ancestor "$latest" origin/main || { echo "sync.sh: $latest n'est pas sur main" >&2; exit 1; }
+git cat-file -e "$latest:deploy/test-env/deploy.sh" 2>/dev/null || { echo "sync.sh: $latest ne sait pas se déployer" >&2; exit 1; }
 git checkout -q --detach "$latest"
-while read -r image; do
-	k3s crictl pull "$image:$latest" >/dev/null || { echo "sync.sh: $image:$latest pas encore tirable"; exit 0; }
-done < <(grep -hoE 'ghcr\.io/martialanouman/sms-platform/[a-z-]+' deploy/k8s/*.yaml | sort -u)
+images=$(grep -hoE 'ghcr\.io/martialanouman/sms-platform/[a-z-]+' deploy/k8s/*.yaml | sort -u) || { echo "sync.sh: $latest n'a aucune image" >&2; exit 1; }
+for image in $images; do
+	k3s crictl pull "$image:$latest" >/dev/null || { echo "sync.sh: $image:$latest pas tirable" >&2; exit 1; }
+done
 deploy/test-env/deploy.sh "$latest"
 mkdir -p "$(dirname "$marker")"
 echo "$latest" >"$marker"
-install -m 755 deploy/test-env/sync.sh /usr/local/libexec/sms-deploy-sync
+bash -n deploy/test-env/sync.sh && install -m 755 deploy/test-env/sync.sh /usr/local/libexec/sms-deploy-sync
