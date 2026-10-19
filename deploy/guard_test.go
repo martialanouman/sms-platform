@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -14,6 +15,8 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
+	"github.com/martialanouman/sms-platform/contracts"
+	"github.com/martialanouman/sms-platform/internal/catalog"
 	"github.com/martialanouman/sms-platform/internal/netpol"
 	"github.com/martialanouman/sms-platform/internal/platform/config"
 	"github.com/martialanouman/sms-platform/internal/schema"
@@ -58,6 +61,10 @@ type container struct {
 type workload struct {
 	Kind string `yaml:"kind"`
 	Spec struct {
+		MaxReplicas    int32 `yaml:"maxReplicas"`
+		ScaleTargetRef struct {
+			Name string `yaml:"name"`
+		} `yaml:"scaleTargetRef"`
 		ActiveDeadlineSeconds int `yaml:"activeDeadlineSeconds"`
 		Template              struct {
 			Metadata struct {
@@ -250,6 +257,16 @@ func checkManifest(path, name string) []error {
 		} else if err != nil {
 			return append(errs, fmt.Errorf("%s: %w", path, err))
 		}
+		if w.Kind == "HorizontalPodAutoscaler" {
+			c, err := catalog.Parse(contracts.Topics())
+			if err != nil {
+				return append(errs, err)
+			}
+			if bound, by := partitionsBound(c, w.Spec.ScaleTargetRef.Name); w.Spec.MaxReplicas > bound {
+				errs = append(errs, fmt.Errorf("%s: maxReplicas %d above the %d partitions of %s", name, w.Spec.MaxReplicas, bound, by))
+			}
+			continue
+		}
 		if w.Kind != "Job" {
 			errs = append(errs, fmt.Errorf("%s: kind %q is not guarded", name, w.Kind))
 			continue
@@ -292,6 +309,18 @@ func checkManifest(path, name string) []error {
 		}
 	}
 	return errs
+}
+
+// partitionsBound is the partition count of the smallest topic service consumes by group (spec 09 §9.1, guard 6):
+// replicas beyond it sit idle.
+func partitionsBound(c catalog.Catalog, service string) (int32, string) {
+	bound, by := int32(math.MaxInt32), ""
+	for _, g := range c.Groups {
+		if p := c.Topics[g.Topic].Partitions; g.Service == service && g.Assignment != "broadcast" && g.Assignment != "manual" && p < bound {
+			bound, by = p, g.Topic
+		}
+	}
+	return bound, by
 }
 
 func TestTheTreeHoldsTheDeliveryRules(t *testing.T) {
@@ -341,6 +370,7 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 		{"image opening its list item", "deploy/k8s/migrate.yaml", "        - name: migrate\n          image: ghcr.io/martialanouman/sms-platform/migrate\n", "        - image: ghcr.io/martialanouman/sms-platform/migrate\n          name: migrate\n", "not in the form deploy.sh tags"},
 		{"manifest missing from deploy.sh", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for job in migrate; do", "cmd/catalog-apply: 0 deploy.sh job"},
 		{"manifest twice in deploy.sh", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for job in migrate catalog-apply migrate; do", "cmd/migrate: 2 deploy.sh job"},
+		{"HPA beyond its partitions", "deploy/k8s/migrate.yaml", "apiVersion: batch/v1\n", "apiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\nspec: {scaleTargetRef: {name: router-svc}, maxReplicas: 1000}\n---\napiVersion: batch/v1\n", "maxReplicas 1000 above the"},
 		{"envFrom", "deploy/k8s/migrate.yaml", "          env:\n", "          envFrom:\n            - configMapRef: {name: x}\n          env:\n", "envFrom"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -512,5 +542,27 @@ func TestTheBrickGuardFails(t *testing.T) {
 				t.Fatalf("checkBricks = %v, want an error with %q", err, tc.want)
 			}
 		})
+	}
+}
+
+func TestOnlyGroupAssignmentsBoundReplicas(t *testing.T) {
+	c, err := catalog.Parse([]byte(`
+topics:
+  small: {key: manual, order: per_partition, duplicate_unit: s, payload: sms.v1.A, body: none, partitions: 2, retention: 96h, producers: [p]}
+  tiny: {key: k, order: none, duplicate_unit: s, payload: sms.v1.A, body: none, partitions: 1, retention: 96h, producers: [p]}
+  large: {key: k, order: none, duplicate_unit: s, payload: sms.v1.A, body: none, partitions: 64, retention: 96h, producers: [p]}
+  medium: {key: k, order: none, duplicate_unit: s, payload: sms.v1.A, body: none, partitions: 32, retention: 96h, producers: [p]}
+groups:
+  - {topic: tiny, service: other, tenant: none, dependencies: {kafka: {mode: blocking}}, concurrency: per_partition, dead_letter: other.tiny.dead-letter, start: earliest}
+  - {topic: medium, service: s, tenant: none, dependencies: {kafka: {mode: blocking}}, concurrency: per_partition, dead_letter: s.medium.dead-letter, start: earliest}
+  - {topic: small, service: s, assignment: manual, tenant: none, dependencies: {kafka: {mode: blocking}}, concurrency: per_partition, dead_letter: s.small.dead-letter, start: earliest}
+  - {topic: tiny, service: s, assignment: broadcast, tenant: none, dependencies: {kafka: {mode: blocking}}, concurrency: per_partition, dead_letter: s.tiny.dead-letter, start: earliest}
+  - {topic: large, service: s, tenant: none, dependencies: {kafka: {mode: blocking}}, concurrency: per_partition, dead_letter: s.large.dead-letter, start: earliest}
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bound, by := partitionsBound(c, "s"); bound != 32 || by != "medium" {
+		t.Errorf("partitionsBound = %d by %s, want 32 by medium", bound, by)
 	}
 }
