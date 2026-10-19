@@ -1,0 +1,29 @@
+version: 2
+project_name: sms-platform
+
+builds:
+  - id: migrate
+    main: ./cmd/migrate
+    binary: migrate
+    env: [CGO_ENABLED=0]
+    flags: [-trimpath]
+    goos: [linux]
+    goarch: [amd64]
+
+dockers_v2:
+  - id: migrate
+    ids: [migrate]
+    images: [ghcr.io/martialanouman/sms-platform/migrate]
+    tags: ["{{ .Version }}"]
+    platforms: [linux/amd64]
+    build_args:
+      BINARY: migrate
+
+archives:
+  - formats: [none]
+
+release:
+  disable: true
+
+changelog:
+  disable: true
