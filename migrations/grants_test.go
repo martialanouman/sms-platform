@@ -5,6 +5,7 @@ import (
 	"os"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -126,10 +127,11 @@ func TestAServiceRoleIsRefusedWhatItDidNotDeclare(t *testing.T) {
 func TestTheGrantsAdoptOnlyAPlainRole(t *testing.T) {
 	pg := pgtest.ControlPlane(t)
 	super := connect(t, pg.As("postgres"))
-	exec(t, super, `CREATE ROLE admin_api_svc NOLOGIN`, `CREATE ROLE intruder LOGIN`)
+	exec(t, super, `CREATE ROLE admin_api_svc NOLOGIN`, `CREATE ROLE intruder LOGIN`,
+		`GRANT admin_api_svc TO migrator WITH ADMIN OPTION, INHERIT FALSE, SET FALSE`)
 	migrator := connect(t, pg.As("migrator"))
 	for _, privileged := range []struct{ grant, revoke string }{
-		{`GRANT migrator TO admin_api_svc`, `REVOKE migrator FROM admin_api_svc`},
+		{`GRANT pg_read_all_data TO admin_api_svc`, `REVOKE pg_read_all_data FROM admin_api_svc`},
 		{`GRANT admin_api_svc TO intruder`, `REVOKE admin_api_svc FROM intruder`},
 		{`GRANT admin_api_svc TO intruder WITH INHERIT FALSE`, `REVOKE admin_api_svc FROM intruder`},
 		{`ALTER ROLE admin_api_svc SUPERUSER`, `ALTER ROLE admin_api_svc NOSUPERUSER`},
@@ -146,4 +148,43 @@ func TestTheGrantsAdoptOnlyAPlainRole(t *testing.T) {
 		exec(t, super, privileged.revoke)
 	}
 	exec(t, migrator, grantsFile(t))
+}
+
+func TestEachDeclaredRoleCanLogIn(t *testing.T) {
+	conn := connect(t, granted(t).As("migrator"))
+	for _, g := range declarations(t) {
+		var login bool
+		if err := conn.QueryRow(context.Background(), `SELECT rolcanlogin FROM pg_roles WHERE rolname = $1`, schema.Role(g.Service)).Scan(&login); err != nil || !login {
+			t.Errorf("%s: rolcanlogin %v, %v; want LOGIN", g.Service, login, err)
+		}
+	}
+}
+
+func TestARetiredRoleLosesItsRightsAndItsLogin(t *testing.T) {
+	pg := pgtest.ControlPlane(t)
+	migrator := connect(t, pg.As("migrator"))
+	exec(t, connect(t, pg.As("postgres")), `CREATE ROLE foreign_svc NOLOGIN`, `GRANT foreign_svc TO migrator`)
+	exec(t, migrator,
+		`CREATE ROLE retired_svc LOGIN`,
+		`GRANT CREATE ON DATABASE control_plane TO retired_svc`,
+		`GRANT USAGE, CREATE ON SCHEMA control_plane TO retired_svc`,
+		`GRANT SELECT ON control_plane.audit_log TO retired_svc, foreign_svc`,
+	)
+	exec(t, migrator, grantsFile(t))
+	var login, usage, create, createSchema bool
+	if err := migrator.QueryRow(context.Background(), `SELECT rolcanlogin, has_schema_privilege('retired_svc', 'control_plane', 'USAGE'),
+		has_schema_privilege('retired_svc', 'control_plane', 'CREATE'), has_database_privilege('retired_svc', 'control_plane', 'CREATE')
+		FROM pg_roles WHERE rolname = 'retired_svc'`).Scan(&login, &usage, &create, &createSchema); err != nil {
+		t.Fatal(err)
+	}
+	if login || usage || create || createSchema {
+		t.Errorf("retired_svc: login %v, usage %v, create in control_plane %v, create schemas %v; want nothing", login, usage, create, createSchema)
+	}
+	got := privileges(t, migrator)
+	if slices.ContainsFunc(got, func(p string) bool { return strings.HasPrefix(p, "retired_svc ") }) {
+		t.Errorf("retired_svc keeps %q", got)
+	}
+	if !slices.Contains(got, "foreign_svc audit_log select") {
+		t.Errorf("a role migrator does not administer lost its rights: %q", got)
+	}
 }
