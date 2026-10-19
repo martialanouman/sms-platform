@@ -18,6 +18,7 @@ topics:
   mt.reroute-park: {key: message_id, order: none, duplicate_unit: m, payload: sms.v1.A, body: clear_bounded, partitions: 4, retention: 96h, producers: [connector-pool-svc]}
   mt.routed.otp: {key: manual, order: per_partition, duplicate_unit: s, payload: sms.v1.A, body: clear_bounded, partitions: 4, retention: 96h, producers: [router-svc]}
   dlr.routed: {key: account_id, order: per_key, duplicate_unit: e, payload: sms.v1.A, body: none, partitions: 4, retention: 96h, producers: [message-state-svc]}
+  dlr.wait: {key: account_id, order: none, duplicate_unit: e, payload: sms.v1.A, body: none, partitions: 4, retention: 96h, producers: [s]}
 groups:
 ` + groups))
 	if err != nil {
@@ -35,9 +36,7 @@ func TestPolicyRefusesWhatThisStepCannotServe(t *testing.T) {
 	cases := map[string]struct{ group, want string }{
 		"broadcast":      {one("dlr.routed", "", "assignment: broadcast, "), "022"},
 		"manual":         {one("mt.routed.otp", "", "assignment: manual, "), "023a"},
-		"park_by_tenant": {one("dlr.routed", ", endpoint: {mode: park_by_tenant}", ""), "008b"},
-		"per_tenant": {strings.Replace(one("dlr.routed", "", "max_in_flight: 8, "),
-			"per_partition", "per_tenant", 1), "008b"},
+		"park_by_tenant": {one("dlr.routed", ", endpoint: {mode: park_by_tenant}", ""), "029c"},
 		"category without a category topic": {one("mt.reroute-park", "", "max_age: category, "), "category"},
 	}
 	for name, tc := range cases {
@@ -74,6 +73,21 @@ func TestPolicyModes(t *testing.T) {
 	}
 	if p.Topic() != "dlr.routed" || p.DeadLetter() != "s.dlr.routed.dead-letter" || p.Name() != "s.dlr.routed" {
 		t.Errorf("Topic, DeadLetter, Name = %q, %q, %q", p.Topic(), p.DeadLetter(), p.Name())
+	}
+}
+
+func TestPolicyServesParkGlobalAndPerTenant(t *testing.T) {
+	c := fixture(t, strings.Replace(one("dlr.routed", ", billing: {mode: park_global, park: dlr.wait}", "max_in_flight: 8, "),
+		"per_partition", "per_tenant", 1))
+	if errs := c.Validate(); len(errs) > 0 {
+		t.Fatal(errs)
+	}
+	p, err := lane.NewPolicy(c, "s.dlr.routed", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Park("billing") != "dlr.wait" || p.Park("kafka") != "" || p.MaxInFlight() != 8 {
+		t.Errorf("Park, MaxInFlight = %q, %q, %d", p.Park("billing"), p.Park("kafka"), p.MaxInFlight())
 	}
 }
 

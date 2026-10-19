@@ -167,12 +167,9 @@ func NewPolicy(c catalog.Catalog, group string, category func(Record) (string, e
 	default:
 		return Policy{}, fmt.Errorf("lane: group %s: assignment %s arrives with step 023a", group, g.Assignment)
 	}
-	if g.Concurrency == "per_tenant" {
-		return Policy{}, fmt.Errorf("lane: group %s: concurrency per_tenant arrives with step 008b", group)
-	}
 	for dep, d := range g.Dependencies {
-		if strings.HasPrefix(d.Mode, "park_") {
-			return Policy{}, fmt.Errorf("lane: group %s: dependency %s in %s arrives with step 008b", group, dep, d.Mode)
+		if d.Mode == "park_by_tenant" {
+			return Policy{}, fmt.Errorf("lane: group %s: dependency %s in park_by_tenant arrives with step 029c", group, dep)
 		}
 	}
 	p := Policy{group: g}
@@ -208,6 +205,12 @@ func (p Policy) DeadLetter() string { return p.group.DeadLetter }
 
 // StartsFromEnd reports whether a group with no committed offset begins at the end of its topic.
 func (p Policy) StartsFromEnd() bool { return p.group.Start == "latest" }
+
+// Park returns the park topic of a park_global dep.
+func (p Policy) Park(dep string) string { return p.group.Dependencies[dep].Park }
+
+// MaxInFlight returns the ceiling of records in flight per tenant of a per_tenant group, 0 otherwise.
+func (p Policy) MaxInFlight() int { return p.group.MaxInFlight }
 
 // Mode returns the declared mode of dep, empty when the group does not declare it.
 func (p Policy) Mode(dep string) string { return p.group.Dependencies[dep].Mode }
