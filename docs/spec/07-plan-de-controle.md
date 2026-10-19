@@ -29,7 +29,8 @@ n'est montré qu'une fois, à la création ou à la rotation (I2).
 Un seul mécanisme : **`LISTEN/NOTIFY` Postgres, plus une resync** (décision 7).
 
 1. Le trigger d'audit de chaque table auditée appelle `pg_notify('config', '<table>:<pk>')`. Postgres
-   ne délivre qu'au commit. Un import de masse émet une seule notification `<table>:*`.
+   ne délivre qu'au commit. Un changement de clé notifie aussi l'ancienne. Un import de masse émet une seule
+   notification `<table>:*`.
 2. Chaque service charge au démarrage les tables qu'il déclare lire (sa déclaration de GRANT, décision
    6), puis écoute sur une **connexion directe et dédiée** (pas par PgBouncer).
 3. Sur une notification, il relit la ligne et échange atomiquement un nouvel **instantané immuable**.
@@ -40,7 +41,8 @@ Un seul mécanisme : **`LISTEN/NOTIFY` Postgres, plus une resync** (décision 7)
 **Hors instantané** : `exact_routes` (cache read-through sur `redis-cache`, ADR-0015 ; le Bloom se
 recharge sur `exact_routes:*`) et les secrets scellés.
 
-**Fraîcheur** : propagation p99 < 5 s, mesurée et alertée. Postgres injoignable : l'instantané courant
+**Fraîcheur** : propagation p99 < 5 s, mesurée du commit de la ligne (`track_commit_timestamp`) à son
+arrivée dans l'instantané, et alertée. Postgres injoignable : l'instantané courant
 sert, la resync reprend au retour.
 
 ## 7.3 Admin API (`admin-api-svc`)
