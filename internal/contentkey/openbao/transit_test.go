@@ -430,3 +430,32 @@ func TestAResponseWithoutItsFieldIsAnError(t *testing.T) {
 		t.Fatalf("Decrypt = %q, %v; want a transient error", plain, err)
 	}
 }
+
+func TestARedirectIsNotFollowed(t *testing.T) {
+	var reached atomic.Int32
+	elsewhere := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		reached.Add(1)
+		_, _ = fmt.Fprint(w, `{"auth":{"client_token":"t","lease_duration":3600},"data":{"ciphertext":"vault:v1:x"}}`)
+	}))
+	t.Cleanup(elsewhere.Close)
+	redirecting := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		http.Redirect(w, r, elsewhere.URL+"/v1/auth/kubernetes/login", http.StatusTemporaryRedirect)
+	}))
+	t.Cleanup(redirecting.Close)
+	jwt := filepath.Join(t.TempDir(), "token")
+	if err := os.WriteFile(jwt, []byte("jwt"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	client := &http.Client{Timeout: 5 * time.Second}
+	tr := openbao.New(redirecting.URL, client, role, jwt)
+	if _, err := tr.Encrypt(t.Context(), "config-secrets", []byte("x")); err == nil {
+		t.Fatal("Encrypt followed a redirect")
+	}
+	if n := reached.Load(); n != 0 {
+		t.Fatalf("the redirect target received %d requests", n)
+	}
+	if client.CheckRedirect != nil {
+		t.Fatal("New changed the caller's client")
+	}
+}
