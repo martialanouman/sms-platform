@@ -166,4 +166,12 @@ l'image de la branche, avant les correctifs de revue) ; timer suspendu pendant l
 3. **Drain d'un vrai pod** (`rollout restart`) : SIGTERM, « draining » à 08:12:52, pod disparu avant 08:12:59
    (`DRAIN_DELAY` de 5 s, puis arrêt) ; ni « drain budget exceeded » ni « content-key-svc failed ».
 
-Reste non joué sur le VPS : `/readyz` avec OpenBao scellé (geste humain : sceller, puis desceller par les parts).
+4. **OpenBao scellé** (scellement et descellement par l'humain, le 2026-10-20) : avant, `/readyz` 200, pod prêt,
+   `Seal` admis. Scellé à 08:36 : `/readyz` reste 200, le pod reste prêt (ni rollout ni timer bloqué) ; `Seal` rend
+   `Unavailable`, « KMS unavailable », sans détail d'OpenBao. Descellé à 08:39 : `Seal` réussit sans nouveau login,
+   le jeton survit au scellement.
+
+Constat : scellé après un descellement, OpenBao sert deux séries, `vault_core_unsealed{cluster="vault-cluster-…"} 0`
+et un résidu `{cluster=""} 1` de son démarrage scellé, quand il ne connaissait pas encore le nom de son cluster.
+`OpenBaoSealed` (`vault_core_unsealed == 0 or absent(…)`) part quand même, puisqu'elle retient toute série à 0 ; une
+règle qui agrégerait les séries par `min` ou `max` devrait en tenir compte.
