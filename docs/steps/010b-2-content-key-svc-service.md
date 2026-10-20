@@ -124,3 +124,23 @@ Trois revues (correction et sécurité, tests creux, code en trop). Bloquants : 
    service) ; trois découpages de listes à virgules dans trois paquets ; le chemin du jeton projeté et l'ordre des
    composants, prouvés sur le VPS et par le superviseur ; l'hypothèse d'`OPENBAO_ADDR` (port et nom du Service égaux à
    ceux des pods), vraie pour la brique, à revoir avec un OpenBao managé (D1).
+
+## Correctifs de revue, tour 2
+
+Constats : 1 bloquant, 8 mineurs.
+
+1. **`targetPort` n'était plus gardé** (bloquant, régression du tour 1) : la garde refuse tout `targetPort` sur le
+   Service du `cmd/`, dont le port est déjà celui de `GRPC_ADDR` ; un `targetPort` faux laisserait le Service sans
+   endpoint utile alors que `rollout status` passe.
+2. **`rollout status` cherché dans la boucle**, ligne exacte, entre l'en-tête des services et son `done` : un
+   commentaire, une ligne après `done` ou un `|| true` ne passent plus.
+3. **`automountServiceAccountToken: false`** exigé sur chaque pod gardé : seul le jeton projeté d'OpenBao doit être
+   monté.
+4. **L'échéance de `Stop` mesurée** : l'appel en vol est coupé en moins d'une seconde pour 200 ms ; l'attente de
+   l'appel est bornée.
+5. **Retraits** : la règle « `TLS_ALLOWED_CLIENTS` présent » (le démarrage et `netpol` refusent déjà son absence) ; le
+   saut d'une adresse vide dans le test des refus.
+6. **Gardés tels quels** : la borne exacte du handshake n'est prouvée qu'à un facteur près (la connexion muette prouve
+   l'arrêt borné, pas la valeur de la borne) ; le câblage du client OpenBao dans `run`, que seul le VPS prouve (le
+   chemin du jeton projeté est une constante) ; `SHUTDOWN_TIMEOUT` borne désormais aussi chaque handshake en régime
+   normal, à ne pas abaisser sous quelques secondes.
