@@ -347,8 +347,8 @@ func TestAnUnrecordedDeliveryWaitsItsTickAndASlowBodyIsCut(t *testing.T) {
 	}
 	start := time.Now()
 	_ = conn.SetReadDeadline(time.Now().Add(20 * time.Second))
-	_, _ = io.Copy(io.Discard, conn)
+	got, err := io.ReadAll(conn)
 	if held := time.Since(start); held > 15*time.Second {
-		t.Fatalf("a body sent slowly held its connection %v, want it cut by the read timeout", held)
+		t.Fatalf("a body sent slowly held its connection %v (received %q, %v), want it cut by the read timeout", held, got, err)
 	}
 }
