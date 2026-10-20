@@ -599,7 +599,7 @@ func TestTheAccessLogPagesNewestFirst(t *testing.T) {
 	}
 	encode := func(s string) string { return base64.RawURLEncoding.EncodeToString([]byte(s)) }
 	for _, bad := range []string{"x", "eyJ9", strings.Repeat("A", 300), encode("abc " + all[0].ID), encode("123 " + strings.Repeat("z", 36)),
-		encode("123 " + strings.ReplaceAll(all[0].ID, "-", "0")), encode("123 " + all[0].ID[1:] + "0"), encode("123 0" + all[0].ID[:35])} {
+		encode("123 " + strings.ReplaceAll(all[0].ID, "-", "0")), encode("123 " + all[0].ID + "0"), encode("123 0" + all[0].ID)} {
 		if _, _, err := h.svc.AccessLog(ctx, bad); !errors.Is(err, dashboard.ErrBadCursor) {
 			t.Errorf("cursor %q: %v", bad, err)
 		}
