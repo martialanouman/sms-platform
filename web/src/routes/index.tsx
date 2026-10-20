@@ -1,7 +1,9 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { api, json, send, unreachable } from '../api'
-import { Unauthenticated, useActivity, useMe, useSessionClosed } from '../session'
+import { TotpReplacement } from '../factor'
+import { meQuery, Unauthenticated, useActivity, useMe, useSessionClosed } from '../session'
 import { AuthLayout } from '../ui'
 
 export const Route = createFileRoute('/')({ component: Home })
@@ -10,6 +12,7 @@ function Home() {
   const me = useMe()
   const closed = useSessionClosed()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [leaving, setLeaving] = useState(false)
   const [failure, setFailure] = useState('')
   useActivity(leaving ? undefined : me.data?.idleTimeoutSeconds)
@@ -22,6 +25,11 @@ function Home() {
       closed()
     }
   }, [me.error, closed])
+  useEffect(() => {
+    if (me.data && !me.data.elevated) {
+      void navigate({ to: '/login', search: { avis: 'verification-interrompue' } })
+    }
+  }, [me.data, navigate])
 
   async function logout() {
     setFailure('')
@@ -42,7 +50,7 @@ function Home() {
           {failure || unreachable}
         </p>
       )}
-      {me.data && (
+      {me.data?.elevated && (
         <>
           <p className="auth__intro">
             Connecté en tant que {me.data.operator.displayName} ({me.data.operator.email})
@@ -50,6 +58,12 @@ function Home() {
           <button className="ui-button ui-button--secondary" type="button" onClick={logout}>
             Se déconnecter
           </button>
+          {me.data.secondFactors.totp && (
+            <TotpReplacement
+              remaining={me.data.secondFactors.recoveryCodesRemaining}
+              onReplaced={() => queryClient.invalidateQueries({ queryKey: meQuery.queryKey })}
+            />
+          )}
         </>
       )}
     </AuthLayout>

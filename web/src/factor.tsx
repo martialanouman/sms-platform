@@ -1,7 +1,7 @@
 import { QRCodeSVG } from 'qrcode.react'
 import { type FormEvent, useEffect, useId, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import type { send } from './api'
+import { api, type send } from './api'
 import type { components } from './api.gen'
 import { Field, useSubmission } from './ui'
 
@@ -179,5 +179,49 @@ function CopyButton({ label, value }: { label: string; value: string }) {
         {outcome}
       </p>
     </>
+  )
+}
+
+export function TotpReplacement({ remaining, onReplaced }: { remaining: number; onReplaced: () => void }) {
+  const id = useId()
+  const [step, setStep] = useState<'idle' | 'proof' | components['schemas']['TotpEnrollment']>('idle')
+
+  return (
+    <section className="auth__form" aria-labelledby={id}>
+      <h2 className="auth__subtitle" id={id}>
+        Application d'authentification
+      </h2>
+      {step === 'idle' && (
+        <>
+          <p className="auth__aside">{remaining} codes de récupération restants.</p>
+          <button className="ui-button ui-button--secondary" type="button" onClick={() => setStep('proof')}>
+            Remplacer l'application
+          </button>
+        </>
+      )}
+      {step === 'proof' && (
+        <>
+          <p className="auth__intro">Prouvez d'abord l'application actuelle, ou présentez un code de récupération.</p>
+          <FactorProof
+            action="Continuer"
+            prove={(method, code) => api.POST('/auth/mfa/totp/enroll', { body: { method, code } })}
+            onProved={setStep}
+          />
+          <button className="ui-button ui-button--secondary" type="button" onClick={() => setStep('idle')}>
+            Annuler
+          </button>
+        </>
+      )}
+      {typeof step === 'object' && (
+        <TotpEnrollment
+          enrollment={step}
+          confirm={(code) => api.POST('/auth/mfa/totp/confirm', { body: { code } })}
+          onDone={() => {
+            setStep('idle')
+            onReplaced()
+          }}
+        />
+      )}
+    </section>
   )
 }
