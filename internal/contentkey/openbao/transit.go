@@ -9,10 +9,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/martialanouman/sms-platform/internal/contentkey"
@@ -23,14 +21,14 @@ type Transit struct {
 	addr, role, jwtFile string
 	client              *http.Client
 
-	mu    sync.Mutex
+	sem   chan struct{}
 	token string
 	renew time.Time
 }
 
 // New returns the Transit of the OpenBao at addr, which logs in as role with the service account token in jwtFile.
 func New(addr string, client *http.Client, role, jwtFile string) *Transit {
-	return &Transit{addr: addr, role: role, jwtFile: jwtFile, client: client}
+	return &Transit{addr: addr, role: role, jwtFile: jwtFile, client: client, sem: make(chan struct{}, 1)}
 }
 
 type statusError struct {
@@ -52,6 +50,9 @@ func (t *Transit) Encrypt(ctx context.Context, key string, plaintext []byte) ([]
 	if err := t.call(ctx, "transit/encrypt/"+key, map[string]string{"plaintext": base64.StdEncoding.EncodeToString(plaintext)}, &out); err != nil {
 		return nil, err
 	}
+	if out.Data.Ciphertext == "" {
+		return nil, errors.New("openbao: transit/encrypt: no ciphertext")
+	}
 	return []byte(out.Data.Ciphertext), nil
 }
 
@@ -62,8 +63,9 @@ func (t *Transit) Decrypt(ctx context.Context, key string, sealed []byte) ([]byt
 			Plaintext string `json:"plaintext"`
 		} `json:"data"`
 	}
-	err := t.call(ctx, "transit/decrypt/"+key, map[string]string{"ciphertext": string(sealed)}, &out)
-	if s := (statusError{}); errors.As(err, &s) && s.code == http.StatusBadRequest {
+	path := "transit/decrypt/" + key
+	err := t.call(ctx, path, map[string]string{"ciphertext": string(sealed)}, &out)
+	if s := (statusError{}); errors.As(err, &s) && s.path == path && s.code == http.StatusBadRequest {
 		return nil, contentkey.ErrUndecryptable
 	}
 	if err != nil {
@@ -79,18 +81,19 @@ func (t *Transit) call(ctx context.Context, path string, in, out any) error {
 	}
 	err = t.post(ctx, path, token, in, out)
 	if s := (statusError{}); errors.As(err, &s) && s.code == http.StatusForbidden {
-		t.mu.Lock()
-		if t.token == token {
+		if t.acquire(ctx) == nil {
 			t.token = ""
+			<-t.sem
 		}
-		t.mu.Unlock()
 	}
 	return err
 }
 
 func (t *Transit) login(ctx context.Context) (string, error) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	if err := t.acquire(ctx); err != nil {
+		return "", err
+	}
+	defer func() { <-t.sem }()
 	if t.token != "" && time.Now().Before(t.renew) {
 		return t.token, nil
 	}
@@ -107,11 +110,17 @@ func (t *Transit) login(ctx context.Context) (string, error) {
 	if err := t.post(ctx, "auth/kubernetes/login", "", map[string]string{"role": t.role, "jwt": string(jwt)}, &out); err != nil {
 		return "", err
 	}
-	if out.Auth.ClientToken == "" {
-		return "", errors.New("openbao: login returned no token")
-	}
 	t.token, t.renew = out.Auth.ClientToken, time.Now().Add(time.Duration(out.Auth.LeaseDuration)*time.Second/2)
 	return t.token, nil
+}
+
+func (t *Transit) acquire(ctx context.Context) error {
+	select {
+	case t.sem <- struct{}{}:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (t *Transit) post(ctx context.Context, path, token string, in, out any) error {
@@ -132,7 +141,6 @@ func (t *Transit) post(ctx context.Context, path, token string, in, out any) err
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
-		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<16))
 		return statusError{path, resp.StatusCode}
 	}
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {

@@ -52,7 +52,8 @@ Fable, 2026-10-20 ; aucun renvoi à l'humain.
 10. **Test** : vrai OpenBao (`openbao/openbao:2.7.1`, version de la brique, en `-dev`) ; méthode `kubernetes` dont
     `kubernetes_host` vise un faux TokenReview servi par le test (`HostAccessPorts`), qui répond `authenticated`,
     `system:serviceaccount:sms:content-key-svc` et l'audience `openbao` ; le jeton envoyé est un JWT aux claims
-    `kubernetes.io`, signé en ES256 (OpenBao refuse HS256 même sans vérifier la signature). Serveur gRPC en processus sous `mtlstest`.
+    `kubernetes.io`, signé en ES256 (OpenBao refuse HS256 même sans vérifier la signature), écrit sans saut de ligne comme le kubelet
+    (OpenBao le transmet tel quel au TokenReview). Serveur gRPC en processus sous `mtlstest`.
 11. **ADR** : ADR-0011 et 06 §11 (`LocalKMS` non porté, 010a arbitrage 3) ; ADR-0016 (clé par domaine au lieu du tag,
     `transit/encrypt` au lieu de `WrapDataKey`, carte dans l'adaptateur gRPC, `kms_key_ref` nom de clé Transit).
 12. **Pour 010b-2** (arrêté ici, conçu là) : `/readyz` sans dépendance à OpenBao ; `GRPC_ADDR` et `OPENBAO_ADDR`
@@ -99,8 +100,8 @@ Trois revues (correction et sécurité, tests creux, code en trop). Bloquants : 
 4. **Le contexte de l'appelant borne aussi l'attente du login** : un sémaphore à canal remplace le mutex, un appel
    dont l'échéance tombe pendant le login d'un autre revient.
 5. **Un 200 sans chiffré est une erreur** : `Seal` aurait rendu un `sealed` vide, persisté comme un secret perdu.
-6. **Une réponse indécodable ne cite pas son contenu** : l'erreur de `json` peut citer une valeur du corps, donc un
-   clair ; l'erreur ne garde que le chemin.
+6. **Non reproduit** : une réponse indécodable citerait un clair dans l'erreur de `json` ; le test le dément (Go ne
+   cite pas la valeur d'un `UnmarshalTypeError`), rien ne change.
 7. **Tests resserrés** : moitié du bail encadrée au plus près, un seul login après des 400, clair vide `[]byte{}`,
    déchiffrement d'un chiffré produit par OpenBao hors de l'adaptateur.
 8. **Retraits** : la comparaison au jeton oublié (un 403 sur un ancien jeton coûte au pire un login de plus) ; la

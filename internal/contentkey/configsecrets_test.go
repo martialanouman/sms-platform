@@ -45,8 +45,10 @@ func TestSealEncryptsUnderTheConfigSecretsKey(t *testing.T) {
 
 func TestSealRefusesAnEmptySecretWithoutTheKMS(t *testing.T) {
 	k := &kms{}
-	if _, _, err := (contentkey.ConfigSecrets{KMS: k}).Seal(t.Context(), nil); !errors.Is(err, contentkey.ErrEmptySecret) {
-		t.Fatalf("err = %v, want ErrEmptySecret", err)
+	for _, empty := range [][]byte{nil, {}} {
+		if _, _, err := (contentkey.ConfigSecrets{KMS: k}).Seal(t.Context(), empty); !errors.Is(err, contentkey.ErrEmptySecret) {
+			t.Fatalf("Seal(%#v) err = %v, want ErrEmptySecret", empty, err)
+		}
 	}
 	if len(k.calls) != 0 {
 		t.Fatalf("calls %+v", k.calls)

@@ -14,6 +14,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -43,15 +44,25 @@ type bao struct {
 
 func start(t *testing.T, ttl string) *bao {
 	t.Helper()
-	b := &bao{}
+	b := &bao{jwt: filepath.Join(t.TempDir(), "token")}
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
 	review := http.NewServeMux()
-	review.HandleFunc("POST /apis/authentication.k8s.io/v1/tokenreviews", func(w http.ResponseWriter, _ *http.Request) {
+	review.HandleFunc("POST /apis/authentication.k8s.io/v1/tokenreviews", func(w http.ResponseWriter, r *http.Request) {
 		b.reviews.Add(1)
+		var in struct {
+			Spec struct {
+				Token string `json:"token"`
+			} `json:"spec"`
+		}
+		current, err := os.ReadFile(b.jwt)
+		if json.NewDecoder(r.Body).Decode(&in) != nil || err != nil || in.Spec.Token != string(current) {
+			_, _ = fmt.Fprint(w, `{"apiVersion":"authentication.k8s.io/v1","kind":"TokenReview","status":{"authenticated":false}}`)
+			return
+		}
 		_, _ = fmt.Fprint(w, `{"apiVersion":"authentication.k8s.io/v1","kind":"TokenReview","status":{"authenticated":true,`+
 			`"user":{"username":"system:serviceaccount:sms:content-key-svc","uid":"sa-uid"},"audiences":["openbao"]}}`)
 	})
@@ -99,14 +110,18 @@ path "transit/decrypt/config-secrets" { capabilities = ["update"] }`}},
 	} {
 		b.admin(t, step.path, step.body)
 	}
-	b.jwt = filepath.Join(t.TempDir(), "token")
-	if err := os.WriteFile(b.jwt, []byte(serviceAccountJWT(t)+"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	b.rotate(t)
 	return b
 }
 
-func (b *bao) admin(t *testing.T, path string, body any) {
+func (b *bao) rotate(t *testing.T) {
+	t.Helper()
+	if err := os.WriteFile(b.jwt, []byte(serviceAccountJWT(t)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func (b *bao) admin(t *testing.T, path string, body any) []byte {
 	t.Helper()
 	data, err := json.Marshal(body)
 	if err != nil {
@@ -126,6 +141,11 @@ func (b *bao) admin(t *testing.T, path string, body any) {
 		msg, _ := io.ReadAll(resp.Body)
 		t.Fatalf("%s: status %d: %s", path, resp.StatusCode, msg)
 	}
+	out, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
 }
 
 func serviceAccountJWT(t *testing.T) string {
@@ -177,6 +197,19 @@ func TestASealedSecretOpensUnderTheSameKey(t *testing.T) {
 	if !bytes.Equal(plain, secret) {
 		t.Fatalf("opened %q, want %q", plain, secret)
 	}
+	var byOpenBao struct {
+		Data struct {
+			Ciphertext string `json:"ciphertext"`
+		} `json:"data"`
+	}
+	resp := b.admin(t, "transit/encrypt/config-secrets", map[string]string{"plaintext": base64.StdEncoding.EncodeToString(secret)})
+	if err := json.Unmarshal(resp, &byOpenBao); err != nil {
+		t.Fatal(err)
+	}
+	plain, err = tr.Decrypt(t.Context(), "config-secrets", []byte(byOpenBao.Data.Ciphertext))
+	if err != nil || !bytes.Equal(plain, secret) {
+		t.Fatalf("opened OpenBao's own ciphertext as %q, %v; want %q", plain, err, secret)
+	}
 }
 
 func TestATamperedSealedSecretIsUndecryptable(t *testing.T) {
@@ -194,6 +227,29 @@ func TestATamperedSealedSecretIsUndecryptable(t *testing.T) {
 	for _, s := range [][]byte{tampered, []byte("vault:v1:" + base64.StdEncoding.EncodeToString([]byte("garbage-garbage-garbage")))} {
 		if _, err := tr.Decrypt(t.Context(), "config-secrets", s); !errors.Is(err, contentkey.ErrUndecryptable) {
 			t.Fatalf("Decrypt(%q) err = %v, want ErrUndecryptable", s, err)
+		}
+	}
+	if n := b.reviews.Load(); n != 1 {
+		t.Fatalf("%d logins, want 1: a refused ciphertext keeps the token", n)
+	}
+}
+
+func TestARefusedLoginIsTransient(t *testing.T) {
+	b := start(t, "1h")
+	sealed, err := b.transit().Encrypt(t.Context(), "config-secrets", []byte("bind-pw"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	empty := filepath.Join(t.TempDir(), "empty")
+	if err := os.WriteFile(empty, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for name, tr := range map[string]*openbao.Transit{
+		"unknown role": openbao.New(b.addr, &http.Client{Timeout: 10 * time.Second}, "no-such-role", b.jwt),
+		"empty token":  openbao.New(b.addr, &http.Client{Timeout: 10 * time.Second}, role, empty),
+	} {
+		if _, err := tr.Decrypt(t.Context(), "config-secrets", sealed); err == nil || errors.Is(err, contentkey.ErrUndecryptable) {
+			t.Fatalf("%s: err = %v, want a transient error", name, err)
 		}
 	}
 }
@@ -243,7 +299,7 @@ func TestConcurrentFirstCallsLogInOnce(t *testing.T) {
 }
 
 func TestTheTokenIsRenewedPastHalfItsLease(t *testing.T) {
-	b := start(t, "4s")
+	b := start(t, "6s")
 	tr := b.transit()
 	call := func() {
 		t.Helper()
@@ -251,13 +307,14 @@ func TestTheTokenIsRenewedPastHalfItsLease(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	loggedIn := time.Now()
 	call()
-	time.Sleep(time.Second)
+	time.Sleep(time.Until(loggedIn.Add(2400 * time.Millisecond)))
 	call()
 	if n := b.reviews.Load(); n != 1 {
 		t.Fatalf("%d logins before half the lease, want 1", n)
 	}
-	time.Sleep(1500 * time.Millisecond)
+	time.Sleep(time.Until(loggedIn.Add(3600 * time.Millisecond)))
 	call()
 	if n := b.reviews.Load(); n != 2 {
 		t.Fatalf("%d logins past half the lease, want 2", n)
@@ -279,5 +336,86 @@ func TestARevokedTokenIsForgotten(t *testing.T) {
 	}
 	if n := b.reviews.Load(); n != 2 {
 		t.Fatalf("%d logins, want 2", n)
+	}
+}
+
+func TestEachLoginReadsTheRotatedToken(t *testing.T) {
+	b := start(t, "1h")
+	tr := b.transit()
+	if _, err := tr.Encrypt(t.Context(), "config-secrets", []byte("x")); err != nil {
+		t.Fatal(err)
+	}
+	b.rotate(t)
+	b.admin(t, "sys/leases/revoke-prefix/auth/kubernetes/login", map[string]any{})
+	_, _ = tr.Encrypt(t.Context(), "config-secrets", []byte("x"))
+	if _, err := tr.Encrypt(t.Context(), "config-secrets", []byte("x")); err != nil {
+		t.Fatalf("login after the token rotated: %v", err)
+	}
+}
+
+func hanging(t *testing.T, transit string) string {
+	t.Helper()
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/auth/kubernetes/login" && transit != "" {
+			_, _ = fmt.Fprint(w, `{"auth":{"client_token":"t","lease_duration":3600}}`)
+			return
+		}
+		if transit != "" {
+			_, _ = fmt.Fprint(w, transit)
+			return
+		}
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(srv.Close)
+	t.Cleanup(func() { close(release) })
+	return srv.URL
+}
+
+func TestTheCallersDeadlineBoundsTheLogin(t *testing.T) {
+	jwt := filepath.Join(t.TempDir(), "token")
+	if err := os.WriteFile(jwt, []byte("jwt"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	tr := openbao.New(hanging(t, ""), &http.Client{}, role, jwt)
+	deadline := func() error {
+		ctx, cancel := context.WithTimeout(t.Context(), 200*time.Millisecond)
+		defer cancel()
+		done := make(chan error, 1)
+		go func() {
+			_, err := tr.Encrypt(ctx, "config-secrets", []byte("x"))
+			done <- err
+		}()
+		select {
+		case err := <-done:
+			return err
+		case <-time.After(5 * time.Second):
+			t.Fatal("the call outlived its deadline")
+			return nil
+		}
+	}
+	if err := deadline(); err == nil {
+		t.Fatal("a hanging login succeeded")
+	}
+	holder, cancel := context.WithCancel(context.WithoutCancel(t.Context()))
+	t.Cleanup(cancel)
+	go func() { _, _ = tr.Encrypt(holder, "config-secrets", []byte("x")) }()
+	time.Sleep(100 * time.Millisecond)
+	if err := deadline(); err == nil {
+		t.Fatal("a call behind a hanging login succeeded")
+	}
+}
+
+func TestAResponseWithoutItsFieldIsAnError(t *testing.T) {
+	jwt := filepath.Join(t.TempDir(), "token")
+	if err := os.WriteFile(jwt, []byte("jwt"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	tr := openbao.New(hanging(t, `{}`), &http.Client{Timeout: 5 * time.Second}, role, jwt)
+	if sealed, err := tr.Encrypt(t.Context(), "config-secrets", []byte("x")); err == nil {
+		t.Fatalf("Encrypt = %q without error", sealed)
 	}
 }

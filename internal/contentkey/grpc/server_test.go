@@ -3,7 +3,6 @@ package grpc_test
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"net"
 	"strings"
@@ -154,11 +153,9 @@ func TestATLSPeerWithoutVerifiedCertificateIsDenied(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	creds := credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{cert}})
+	creds := credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{cert}, ClientAuth: tls.RequestClientCert})
 	addr := serve(t, &kms{}, grpc.Creds(creds), grpc.UnaryInterceptor(contentkeygrpc.Authorize))
-	pool := x509.NewCertPool()
-	pool.AppendCertsFromPEM(ca.PEM)
-	c := client(t, addr, credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS13, RootCAs: pool, ServerName: "content-key-svc"}))
+	c := client(t, addr, authority{t, ca}.creds("admin-api-svc"))
 	if _, err := c.Seal(t.Context(), &contentkeyv1.SealRequest{Plaintext: []byte("x")}); code(err) != codes.PermissionDenied {
 		t.Fatalf("Seal err = %v, want PermissionDenied", err)
 	}

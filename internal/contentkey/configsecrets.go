@@ -1,5 +1,5 @@
-// Package contentkey holds the master key of the platform's sealed data: it seals and opens the replayed configuration
-// secrets (ADR-0016) under a key that never leaves the KMS (docs/design/06-confiance-interne.md D5).
+// Package contentkey seals and opens the replayed configuration secrets (ADR-0016) under a key that never leaves the KMS
+// (docs/design/06-confiance-interne.md D5).
 package contentkey
 
 import (
