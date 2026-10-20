@@ -249,11 +249,19 @@ func TestRenderRefusesAServerItCannotBound(t *testing.T) {
 }
 
 func TestPrometheusReachesTheOpsPortOnly(t *testing.T) {
-	ports := "          ports:\n            - name: ops\n              containerPort: 9191\n            - name: grpc\n              containerPort: 7002\n"
+	port := func(name, number string) string {
+		return "            - name: " + name + "\n              containerPort: " + number + "\n"
+	}
+	ports := "          ports:\n" + port("grpc", "7002") + port("ops", "9191") + port("metrics", "9292")
+	initOps := strings.Replace(job("unprobed"), "      containers:", "      initContainers:\n        - name: init\n          ports:\n"+port("ops", "9191")+"      containers:", 1)
 	got := render(t, fstest.MapFS{
-		"server.yaml": {Data: []byte(job("server", [2]string{"GRPC_ADDR", ":7002"}, [2]string{"TLS_ALLOWED_CLIENTS", "dashboard"}) + ports)},
-		"probed.yaml": {Data: []byte(job("probed") + ports)},
+		"server.yaml":   {Data: []byte(job("server", [2]string{"GRPC_ADDR", ":7002"}, [2]string{"TLS_ALLOWED_CLIENTS", "dashboard"}) + ports)},
+		"probed.yaml":   {Data: []byte(job("probed") + ports)},
+		"unprobed.yaml": {Data: []byte(initOps + "          ports:\n" + port("metrics", "9292"))},
 	})
+	if p, ok := got["unprobed"]; ok {
+		t.Errorf("unprobed = %+v, want no policy: neither metrics nor an init container's ops is the ops port", p.Spec)
+	}
 	for _, name := range []string{"server", "probed"} {
 		p := got[name]
 		if !reflect.DeepEqual(p.Spec.PolicyTypes, []string{"Ingress", "Egress"}) {
