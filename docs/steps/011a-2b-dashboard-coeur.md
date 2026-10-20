@@ -71,3 +71,12 @@ Tranchés par l'agent, sans contredire la spec ni les arbitrages 1 à 36.
   ferme les sessions, inactivité et 12 h par lignes antidatées, `Resolve` qui ne prolonge pas, `Activity` qui
   prolonge, journal et curseur, livraison et backoff, purge) ; SMTP contre `axllent/mailpit:v1.31.4` (clair, STARTTLS,
   `PLAIN` refusé sans TLS, `PLAIN` accepté sous TLS) ; aucun corps de mot de passe ni jeton dans les erreurs.
+
+## Écarts au design, constatés à l'implémentation
+
+- **Pas de cas d'usage `Me`** : `Resolve` rend `Current`, que 011a-3 traduit en DTO (permissions vides, non élevée,
+  `IdleTimeout` en secondes) ; un cas d'usage qui ne ferait que recopier serait du code en trop.
+- **L'exclusion du code généré vise gosec (G101)**, pas revive : sqlc nomme `SetPassword` la requête qui pose
+  `password_hash`, et revive ne signale rien.
+- **sqlc** : `2 ^ attempts` casse sa réécriture des paramètres nommés ; le backoff s'écrit `power(2, attempts)` sous
+  `sqlc.arg`. Les uuid, textes nullables et `timestamptz` sont surchargés en `string`, `*string` et `time.Time`.
