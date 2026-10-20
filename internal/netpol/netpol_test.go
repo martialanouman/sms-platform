@@ -247,3 +247,33 @@ func TestRenderRefusesAServerItCannotBound(t *testing.T) {
 		}
 	}
 }
+
+func TestPrometheusReachesTheOpsPortOnly(t *testing.T) {
+	ports := "          ports:\n            - name: ops\n              containerPort: 9191\n            - name: grpc\n              containerPort: 7002\n"
+	got := render(t, fstest.MapFS{
+		"server.yaml": {Data: []byte(job("server", [2]string{"GRPC_ADDR", ":7002"}, [2]string{"TLS_ALLOWED_CLIENTS", "dashboard"}) + ports)},
+		"probed.yaml": {Data: []byte(job("probed") + ports)},
+	})
+	for _, name := range []string{"server", "probed"} {
+		p := got[name]
+		if !reflect.DeepEqual(p.Spec.PolicyTypes, []string{"Ingress", "Egress"}) {
+			t.Errorf("%s: policy types %v", name, p.Spec.PolicyTypes)
+		}
+		in := p.Spec.Ingress
+		if len(in) == 0 {
+			t.Fatalf("%s: no ingress", name)
+		}
+		ops := in[len(in)-1]
+		if len(ops.From) != 1 || len(ops.Ports) != 1 || ops.Ports[0].Protocol != "TCP" || ops.Ports[0].Port != 9191 ||
+			!reflect.DeepEqual(ops.From[0].NamespaceSelector.MatchLabels, map[string]string{"kubernetes.io/metadata.name": "monitoring"}) ||
+			!reflect.DeepEqual(ops.From[0].PodSelector.MatchLabels, map[string]string{"app.kubernetes.io/name": "prometheus"}) {
+			t.Errorf("%s: ops ingress %+v, want Prometheus on 9191", name, ops)
+		}
+	}
+	if in := got["server"].Spec.Ingress; len(in) != 2 || in[0].Ports[0].Port != 7002 {
+		t.Errorf("server ingress %+v, want its callers on 7002 then Prometheus", in)
+	}
+	if len(got["probed"].Spec.Ingress) != 1 || len(got["probed"].Spec.Egress) != 0 {
+		t.Errorf("probed = %+v, want the ops ingress alone", got["probed"].Spec)
+	}
+}
