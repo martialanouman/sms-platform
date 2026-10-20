@@ -4,11 +4,13 @@ import { cleanup, render } from '@testing-library/react'
 import axeCore from 'axe-core'
 import { afterEach, vi } from 'vitest'
 import { routeTree } from './routeTree.gen'
+import { rememberChallenge } from './session'
 
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
   vi.useRealTimers()
+  rememberChallenge(undefined)
 })
 
 export function renderAt(path: string) {
@@ -54,8 +56,10 @@ export async function violations(container: Element) {
 export const me = {
   operator: { id: '01a159b0-0000-7000-8000-000000000001', email: 'operateur@example.test', displayName: 'Opérateur' },
   permissions: [],
-  elevated: false,
-  secondFactors: { totp: false, recoveryCodesRemaining: 0, passkeys: 0 },
+  elevated: true,
+  secondFactors: { totp: true, recoveryCodesRemaining: 10, passkeys: 0 },
   idleTimeoutSeconds: 900,
   absoluteExpiresAt: '2026-10-21T02:00:00Z',
 }
+
+export const challenge = { challenge: 'c'.repeat(43), expiresAt: '2026-10-20T12:05:00Z' }

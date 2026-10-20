@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect } from 'react'
 import { api, json, send } from './api'
@@ -7,20 +7,42 @@ const activityEvery = 60_000
 
 export class Unauthenticated extends Error {}
 
+let loginChallenge: string | undefined
+
+export function rememberChallenge(challenge: string | undefined) {
+  loginChallenge = challenge
+}
+
+export function pendingChallenge() {
+  return loginChallenge
+}
+
+export const meQuery = queryOptions({
+  queryKey: ['me'],
+  queryFn: async () => {
+    const { data, response } = await api.GET('/auth/me')
+    if (response.status === 401) {
+      throw new Unauthenticated()
+    }
+    if (!data) {
+      throw new Error(`me: ${response.status}`)
+    }
+    return data
+  },
+})
+
 export function useMe() {
-  return useQuery({
-    queryKey: ['me'],
-    queryFn: async () => {
-      const { data, response } = await api.GET('/auth/me')
-      if (response.status === 401) {
-        throw new Unauthenticated()
-      }
-      if (!data) {
-        throw new Error(`me: ${response.status}`)
-      }
-      return data
-    },
-  })
+  return useQuery(meQuery)
+}
+
+export function useElevated() {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  return useCallback(async () => {
+    rememberChallenge(undefined)
+    queryClient.removeQueries({ queryKey: meQuery.queryKey })
+    await navigate({ to: '/' })
+  }, [navigate, queryClient])
 }
 
 export function useSessionClosed() {

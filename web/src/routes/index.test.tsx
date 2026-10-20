@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
-import { empty, json, me, renderAt, stubFetch, violations } from '../test'
+import { challenge, empty, json, me, renderAt, stubFetch, violations } from '../test'
 
 test('the dashboard shows who is signed in', async () => {
   stubFetch({ 'GET /api/auth/me': () => json(200, me) })
@@ -131,20 +131,22 @@ test('without an idle timeout, no timer sends to the login', async () => {
 
 test('after a logout, the next login shows the new operator only', async () => {
   let current = me
+  let gated = false
   let open: () => void = () => {}
   const gate = new Promise<void>((resolve) => {
     open = resolve
   })
   stubFetch({
     'GET /api/auth/me': async () => {
-      if (current !== me) {
+      if (gated) {
         await gate
       }
       return json(200, current)
     },
     'POST /api/auth/activity': () => empty(204),
     'POST /api/auth/logout': () => empty(204),
-    'POST /api/auth/login': () => json(200, { challenge: 'c'.repeat(43), expiresAt: '2026-10-20T12:05:00Z' }),
+    'POST /api/auth/login': () => json(200, challenge),
+    'POST /api/auth/mfa/verify': () => empty(204),
   })
   const { router } = renderAt('/')
   const user = userEvent.setup()
@@ -153,6 +155,9 @@ test('after a logout, the next login shows the new operator only', async () => {
   await user.type(await screen.findByLabelText('Adresse e-mail'), 'autre@example.test')
   await user.type(screen.getByLabelText('Mot de passe'), 'Correct-horse-9')
   await user.click(screen.getByRole('button', { name: 'Se connecter' }))
+  gated = true
+  await user.type(await screen.findByLabelText('Code à six chiffres'), '123456')
+  await user.click(screen.getByRole('button', { name: 'Vérifier' }))
   await waitFor(() => expect(router.state.location.pathname).toBe('/'))
   await act(async () => {})
   expect(screen.queryByText(/Opérateur/)).toBeNull()

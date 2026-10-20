@@ -1,7 +1,8 @@
 import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
-import { json, me, renderAt, stubFetch, violations } from '../test'
+import { pendingChallenge } from '../session'
+import { challenge, json, me, renderAt, stubFetch, violations } from '../test'
 
 const unreachable = 'Le service ne répond pas ; réessayez.'
 
@@ -11,20 +12,45 @@ async function fill(email: string, password: string, user = userEvent.setup()) {
   await user.click(screen.getByRole('button', { name: 'Se connecter' }))
 }
 
-test('a login opens the dashboard and sends the credentials as JSON', async () => {
+test('a login keeps the challenge and asks for the second factor', async () => {
   const calls = stubFetch({
-    'POST /api/auth/login': () => json(200, { challenge: 'c'.repeat(43), expiresAt: '2026-10-20T12:05:00Z' }),
-    'GET /api/auth/me': () => json(200, me),
+    'POST /api/auth/login': () => json(200, challenge),
+    'GET /api/auth/me': () => json(200, { ...me, elevated: false }),
   })
   const { router } = renderAt('/login')
   const email = await screen.findByLabelText('Adresse e-mail')
   await waitFor(() => expect(document.activeElement).toBe(email))
   expect(document.title).toBe('Connexion — Tableau de bord')
   await fill('operateur@example.test', 'Correct-horse-9')
-  await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+  await waitFor(() => expect(router.state.location.pathname).toBe('/mfa'))
+  expect(pendingChallenge()).toBe(challenge.challenge)
   const login = calls[0]
   expect(login?.headers.get('Content-Type')).toBe('application/json')
   expect(await login?.json()).toEqual({ email: 'operateur@example.test', password: 'Correct-horse-9' })
+})
+
+test('a login without a factor leads to the enrolment', async () => {
+  stubFetch({
+    'POST /api/auth/login': () => json(200, challenge),
+    'GET /api/auth/me': () =>
+      json(200, { ...me, elevated: false, secondFactors: { totp: false, recoveryCodesRemaining: 0, passkeys: 0 } }),
+  })
+  const { router } = renderAt('/login')
+  await fill('operateur@example.test', 'Correct-horse-9')
+  await waitFor(() => expect(router.state.location.pathname).toBe('/enroll'))
+  expect(pendingChallenge()).toBe(challenge.challenge)
+})
+
+test('a login whose session cannot be read is told, and the login stays', async () => {
+  stubFetch({
+    'POST /api/auth/login': () => json(200, challenge),
+    'GET /api/auth/me': () => new Response(null, { status: 502 }),
+  })
+  const { router } = renderAt('/login')
+  await fill('operateur@example.test', 'Correct-horse-9')
+  expect((await screen.findByRole('alert')).textContent).toBe(unreachable)
+  expect(router.state.location.pathname).toBe('/login')
+  expect(screen.getByRole('button', { name: 'Se connecter' })).toHaveProperty('disabled', false)
 })
 
 test('a refused login shows the server message, focuses it and frees the button', async () => {
