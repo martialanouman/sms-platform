@@ -107,3 +107,24 @@ Trois revues (correction et accessibilité ; tests creux ; code en trop). Aucun 
    `/mfa` ; test de déconnexion ramené à ce qu'il prouve encore ; mocks restaurés entre les tests.
 6. **Gardé** : le minuteur de `Retry-After` n'est pas annulé au démontage (un `setState` démonté est sans effet en
    React 19) et ne lit que des secondes (le BFF n'en envoie pas d'autres).
+
+## Preuve sur `contabo169`
+
+Jouée le 2026-10-20 depuis la branche, sur le cluster en v0.15.0 : image construite par GoReleaser en snapshot,
+importée sous `proof-011b2b`, timer suspendu ; compte de test réinitialisé par un lien `reset` (aucun facteur). Dans
+Chromium (`agent-browser`), par tunnel SSH vers `port-forward`, sur `localhost:8080`, chaque code TOTP calculé
+depuis la clé affichée. Clé, QR et codes sont floutés sur les captures ; un second `reset`, en fin de preuve, les a
+annulés (aucun facteur au compte).
+
+1. Connexion sans facteur : `/enroll` ([capture](011b-2b/enrolement.png)) ; « Configurer l'application », focus sur
+   l'intro, QR SVG de 200 px, deux chemins, fond `#FFFFFF` ([capture](011b-2b/qr.png)) ; le code élève la session,
+   focus sur « Codes de récupération », dix codes ([capture](011b-2b/codes.png)) ; `/` dit « 10 codes de
+   récupération restants. » ([capture](011b-2b/accueil.png)).
+2. Connexion suivante : `/mfa`, focus sur le champ ([capture](011b-2b/verification.png)) ; un code faux, refus
+   focalisé ([capture](011b-2b/refus.png)) ; le code de l'application ouvre `/`.
+3. Connexion suivante, code de récupération ([capture](011b-2b/recuperation.png)) : `/` dit « 9 codes ».
+4. Remplacement depuis `/`, prouvé par l'application : nouvelle clé, distincte ([capture](011b-2b/remplacement.png)) ;
+   son code confirme, titre des codes en `h3` ; retour, focus sur « Application d'authentification », « 10 codes ».
+5. Connexion suivante : un code de l'ancienne clé est refusé, un code de la nouvelle élève.
+6. axe dans la page, `color-contrast` comprise : aucune violation sur les dix états ; quatre-vingt-dix-neuf
+   requêtes, toutes vers l'origine ; aucune violation de CSP ni erreur de console.
