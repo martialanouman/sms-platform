@@ -18,6 +18,7 @@ linters:
             - $gostd
             - github.com/martialanouman/sms-platform
             - go.yaml.in/yaml/v3
+            - golang.org/x/crypto/argon2
           deny:
             - pkg: "net$"
               desc: le cœur ne fait pas d'I/O (ADR 0025)
