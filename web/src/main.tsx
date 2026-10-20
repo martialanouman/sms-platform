@@ -3,18 +3,23 @@ import { RouterProvider } from '@tanstack/react-router'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { newRouter } from './router'
+import { Unauthenticated } from './session'
 
-export function mount(root: HTMLElement) {
+const root = document.getElementById('root')
+if (root) {
   createRoot(root).render(
     <StrictMode>
-      <QueryClientProvider client={new QueryClient()}>
+      <QueryClientProvider
+        client={
+          new QueryClient({
+            defaultOptions: {
+              queries: { retry: (count, error) => !(error instanceof Unauthenticated) && count < 3 },
+            },
+          })
+        }
+      >
         <RouterProvider router={newRouter()} />
       </QueryClientProvider>
     </StrictMode>,
   )
-}
-
-const root = document.getElementById('root')
-if (root) {
-  mount(root)
 }
