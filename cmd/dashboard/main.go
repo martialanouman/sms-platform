@@ -29,6 +29,7 @@ import (
 	"github.com/martialanouman/sms-platform/internal/platform/ops"
 	"github.com/martialanouman/sms-platform/internal/platform/pgdial"
 	"github.com/martialanouman/sms-platform/internal/platform/supervisor"
+	"github.com/martialanouman/sms-platform/web"
 )
 
 const (
@@ -129,7 +130,7 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger, registry pro
 	if err := pgdial.Retry(ctx, log, func(ctx context.Context) error { return svc.Bootstrap(ctx, infra.BootstrapEmail) }); err != nil {
 		return fmt.Errorf("bootstrap: %w", err)
 	}
-	handler, err := dashboardhttp.New(dashboardhttp.Config{Service: svc, Origin: expected, TrustedProxies: infra.TrustedProxies, Log: log})
+	handler, err := dashboardhttp.New(dashboardhttp.Config{Service: svc, Origin: expected, TrustedProxies: infra.TrustedProxies, Log: log, Assets: web.FS()})
 	if err != nil {
 		return err
 	}

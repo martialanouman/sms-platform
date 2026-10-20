@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -27,6 +28,11 @@ import (
 )
 
 const origin = "http://localhost:8080"
+
+var spa = fstest.MapFS{
+	"index.html":           {Data: []byte(`<!doctype html><html lang="fr"><title>Tableau de bord</title></html>`)},
+	"assets/index-Ab12.js": {Data: []byte(`console.log(1)`)},
+}
 
 type mailbox struct {
 	mu   sync.Mutex
@@ -73,7 +79,7 @@ func newAPI(t *testing.T, trusted ...netip.Prefix) *api {
 	}
 	mail := &mailbox{}
 	svc := dashboard.Service{Store: postgres.New(pool), Hasher: dashboard.NewHasher(), Keys: keys, Mailer: mail, PublicURL: origin}
-	h, err := dashboardhttp.New(dashboardhttp.Config{Service: svc, Origin: origin, TrustedProxies: trusted, Log: slog.New(slog.DiscardHandler)})
+	h, err := dashboardhttp.New(dashboardhttp.Config{Service: svc, Origin: origin, TrustedProxies: trusted, Log: slog.New(slog.DiscardHandler), Assets: spa})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -374,5 +380,46 @@ func TestTheSourceSkipsEveryTrustedHopAndNeverVanishes(t *testing.T) {
 	}
 	if got := a.do(t, call{method: "POST", path: "/api/auth/login", body: `{"email":"z@example.test","password":"x"}`}); got.status != 401 {
 		t.Errorf("a trusted proxy without X-Forwarded-For: %d %s, want the proxy as the source", got.status, got.raw)
+	}
+}
+
+func TestTheSPAIsServedWithItsCachePolicy(t *testing.T) {
+	a := newAPI(t)
+	for name, tc := range map[string]struct {
+		c           call
+		status      int
+		body, cache string
+	}{
+		"root":              {call{method: "GET", path: "/"}, 200, "Tableau de bord", "no-cache"},
+		"a route":           {call{method: "GET", path: "/login"}, 200, "Tableau de bord", "no-cache"},
+		"a deep route":      {call{method: "GET", path: "/access/x"}, 200, "Tableau de bord", "no-cache"},
+		"a hashed asset":    {call{method: "GET", path: "/assets/index-Ab12.js"}, 200, "console.log(1)", "public, max-age=31536000, immutable"},
+		"a missing asset":   {call{method: "GET", path: "/assets/gone.js"}, 200, "Tableau de bord", "no-cache"},
+		"head":              {call{method: "HEAD", path: "/"}, 200, "", "no-cache"},
+		"the shell by name": {call{method: "GET", path: "/index.html"}, 301, "", "no-cache"},
+		"post":              {call{method: "POST", path: "/"}, 405, "", ""},
+	} {
+		got := a.do(t, tc.c)
+		if got.status != tc.status || !strings.Contains(got.raw, tc.body) || got.header.Get("Cache-Control") != tc.cache {
+			t.Errorf("%s: %d %q cache %q, want %d %q cache %q", name, got.status, got.raw, got.header.Get("Cache-Control"), tc.status, tc.body, tc.cache)
+		}
+	}
+}
+
+func TestEveryResponseCarriesTheSecurityHeaders(t *testing.T) {
+	a := newAPI(t)
+	for _, c := range []call{{method: "GET", path: "/"}, {method: "GET", path: "/assets/index-Ab12.js"}, {method: "GET", path: "/api/health"},
+		{method: "GET", path: "/api/auth/me"}, {method: "POST", path: "/"}} {
+		h := a.do(t, c).header
+		for name, want := range map[string]string{
+			"X-Content-Type-Options":  "nosniff",
+			"X-Frame-Options":         "DENY",
+			"Referrer-Policy":         "same-origin",
+			"Content-Security-Policy": "default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+		} {
+			if got := h.Get(name); got != want {
+				t.Errorf("%s %s: %s %q, want %q", c.method, c.path, name, got, want)
+			}
+		}
 	}
 }
