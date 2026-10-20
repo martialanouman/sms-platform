@@ -55,22 +55,10 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("kafka mTLS: %w", err)
 	}
-	var conn *pgx.Conn
-	err = pgdial.Retry(ctx, log, func(ctx context.Context) error {
-		var err error
-		conn, err = pgx.Connect(ctx, infra.PostgresURL)
-		return err
-	})
-	if err != nil {
-		return fmt.Errorf("connect to control_plane: %w", err)
-	}
-	defer func() { _ = conn.Close(context.WithoutCancel(ctx)) }()
-	roles, err := postgres.Apply(ctx, conn, migrations.Grants("control_plane"), os.DirFS(infra.PostgresRoleSecretsDir))
-	if err != nil {
-		return err
-	}
-	for _, role := range roles {
-		log.Info("role secret set", "role", role)
+	for _, database := range migrations.Databases {
+		if err := grant(ctx, infra, database, log); err != nil {
+			return fmt.Errorf("%s: %w", database, err)
+		}
 	}
 	c, err := catalog.Parse(contracts.Topics())
 	if err != nil {
@@ -87,6 +75,26 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger) error {
 	}
 	report(log, p)
 	return nil
+}
+
+func grant(ctx context.Context, infra config.Infra, database string, log *slog.Logger) error {
+	url, err := pgdial.Database(infra.PostgresURL, database)
+	if err != nil {
+		return err
+	}
+	var conn *pgx.Conn
+	if err := pgdial.Retry(ctx, log, func(ctx context.Context) (err error) {
+		conn, err = pgx.Connect(ctx, url)
+		return err
+	}); err != nil {
+		return fmt.Errorf("connect: %w", err)
+	}
+	defer func() { _ = conn.Close(context.WithoutCancel(ctx)) }()
+	roles, err := postgres.Apply(ctx, conn, migrations.Grants(database), os.DirFS(infra.PostgresRoleSecretsDir))
+	for _, role := range roles {
+		log.Info("role secret set", "database", database, "role", role)
+	}
+	return err
 }
 
 func report(log *slog.Logger, p catalog.Plan) {

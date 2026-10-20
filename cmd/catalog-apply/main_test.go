@@ -58,7 +58,8 @@ func TestRunGrantsPostgresThenDialsKafkaOverTLS(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "admin_api_svc"), []byte(secret), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "dashboard"), []byte(pgtest.Secret()), 0o600); err != nil {
+	dashboardSecret := pgtest.Secret()
+	if err := os.WriteFile(filepath.Join(dir, "dashboard"), []byte(dashboardSecret), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -103,7 +104,15 @@ func TestRunGrantsPostgresThenDialsKafkaOverTLS(t *testing.T) {
 		t.Fatalf("admin_api_svc cannot log in with its secret: %v", err)
 	}
 	_ = svc.Close(context.Background())
-	if !strings.Contains(logs.String(), `"msg":"role secret set","role":"admin_api_svc"`) || strings.Contains(logs.String(), secret) ||
+	dashboard, err := pgx.Connect(context.Background(), pg.In("dashboard").AsWith("dashboard", dashboardSecret))
+	if err != nil {
+		t.Fatalf("dashboard cannot log in to its database: %v", err)
+	}
+	defer func() { _ = dashboard.Close(context.Background()) }()
+	if _, err := dashboard.Exec(context.Background(), `SELECT count(*) FROM dashboard.operators`); err != nil {
+		t.Errorf("dashboard cannot read its table: %v", err)
+	}
+	if !strings.Contains(logs.String(), `"msg":"role secret set","database":"control_plane","role":"admin_api_svc"`) || strings.Contains(logs.String(), secret) ||
 		strings.Contains(logs.String(), "migrator:migrator") {
 		t.Errorf("log = %s, want the role named, without its secret nor the URL", logs.String())
 	}
