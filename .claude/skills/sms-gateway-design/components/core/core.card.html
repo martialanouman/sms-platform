@@ -1,0 +1,60 @@
+<!-- @dsCard group="Components" viewport="700x340" name="Core — actions, badges, statuts" subtitle="Button, IconButton, Badge, Tag, StatusPill, Segmented, Card, Icon" -->
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{padding:16px;background:var(--surface-page);color:var(--text-primary)}.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.stack{display:flex;flex-direction:column;gap:14px}.lbl{font:var(--text-overline);letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--text-faint);min-width:74px}</style></head><body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+(() => {
+const { Button, IconButton, Icon, Dot, Badge, Tag, StatusPill, Segmented, Card, Field, Input, Textarea, Select, Checkbox, Switch, RadioGroup, DataTable, MetricTile, KeyValueList, SpanBar, Pagination, Banner, Modal, EmptyState, Toast, ToastStack, Skeleton, SkeletonRows, ErrorState, SideNav, TopBar, Tabs, BalanceCard, MaskedSecret } = window.PasserelleDesignSystem_18220e;
+function Demo(){const [seg,setSeg]=React.useState('5m');return (
+  <div className="stack">
+    <div className="row"><span className="lbl">Button</span>
+      <Button variant="primary" icon="plus">Nouvelle règle</Button>
+      <Button variant="secondary" icon="refresh">Rebind</Button>
+      <Button variant="ghost">Réinitialiser</Button>
+      <Button variant="danger">Déconnecter</Button>
+      <Button variant="dangerGhost" size="sm">Révoquer</Button>
+      <Button variant="link">Voir la trace</Button>
+      <Button variant="secondary" loading>Export…</Button>
+      <Button variant="primary" disabled>Publier</Button>
+    </div>
+    <div className="row"><span className="lbl">Tailles</span>
+      <Button size="sm" variant="primary">sm · 28</Button>
+      <Button variant="primary">md · 34</Button>
+      <Button size="lg" variant="primary">lg · 40</Button>
+      <IconButton icon="refresh" label="Rafraîchir" variant="secondary" />
+      <IconButton icon="ellipsis-vertical" label="Plus d’actions" />
+      <IconButton icon="times" label="Fermer" variant="danger" />
+      <Segmented value={seg} onChange={setSeg} items={[{value:'5m',label:'5 min'},{value:'1h',label:'1 h'},{value:'24h',label:'24 h'}]} />
+    </div>
+    <div className="row"><span className="lbl">Badge</span>
+      <Badge tone="success">active</Badge><Badge tone="warning">degraded</Badge>
+      <Badge tone="danger">down</Badge><Badge tone="domain">restricted</Badge>
+      <Badge tone="info">alertmanager</Badge><Badge tone="domain">bff</Badge>
+      <Badge tone="mt">MT</Badge><Badge tone="mo">MO</Badge>
+      <Badge tone="accent">PROD</Badge><Badge tone="neutral" appearance="outline">masqué</Badge>
+      <Tag mono onRemove={()=>{}}>INFO-CI</Tag>
+      <Tag>Groupe · Banques CI</Tag>
+    </div>
+    <div className="row"><span className="lbl">link_status</span>
+      <StatusPill state="up" live meta="3/4 binds" />
+      <StatusPill state="reconnecting" meta="rebind en cours" />
+      <StatusPill state="down" meta="action requise" />
+      <span className="lbl" style={{minWidth:0,marginLeft:12}}>breaker</span>
+      <StatusPill state="closed" note="nominal" />
+      <StatusPill state="open" note="circuit ouvert · pause" />
+      <StatusPill state="half_open" note="test de reprise" />
+    </div>
+    <Card title="Connecteur orange-ci-1" subtitle="pool de 4 binds · dernier rebind il y a 6 min"
+      actions={<><Button size="sm" variant="secondary" icon="refresh">Rebind</Button><IconButton icon="ellipsis-vertical" label="Plus" size="sm" /></>}>
+      <div className="row"><StatusPill state="up" live meta="3/4 binds" /><StatusPill state="half_open" note="test de reprise" /><Dot tone="accent" live /><span style={{font:'var(--text-data-sm)',color:'var(--text-faint)'}}>metrics.connectors</span></div>
+    </Card>
+  </div>);}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo/>);
+})();
+</script>
+</body></html>

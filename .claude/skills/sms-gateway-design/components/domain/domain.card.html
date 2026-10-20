@@ -1,0 +1,32 @@
+<!-- @dsCard group="Components" viewport="700x300" name="Domaine SMS" subtitle="BalanceCard (MT teal vs MO bleu), MaskedSecret" -->
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{padding:16px;background:var(--surface-page);color:var(--text-primary)}.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.stack{display:flex;flex-direction:column;gap:14px}.lbl{font:var(--text-overline);letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--text-faint);min-width:74px}.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}</style></head><body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+(() => {
+const { Button, IconButton, Icon, Dot, Badge, Tag, StatusPill, Segmented, Card, Field, Input, Textarea, Select, Checkbox, Switch, RadioGroup, DataTable, MetricTile, KeyValueList, SpanBar, Pagination, Banner, Modal, EmptyState, Toast, ToastStack, Skeleton, SkeletonRows, ErrorState, SideNav, TopBar, Tabs, BalanceCard, MaskedSecret } = window.PasserelleDesignSystem_18220e;
+function Demo(){return (
+  <div className="stack">
+    <div className="two">
+      <BalanceCard direction="mt" value={504219} meterPct={62} scope="Pool partagé"
+        note="Un vrai solde : bloque à zéro en prépayé sans découvert."
+        actions={<Button size="sm" variant="primary" icon="plus">Recharger</Button>} />
+      <BalanceCard direction="mo" value={3120} unit="crédits consommés" meterPct={31} scope="Plancher 10 000"
+        note="Compteur d’usage postpayé. Le MO est toujours remis : un dépassement MO ne bloque jamais les envois MT." />
+    </div>
+    <div className="two">
+      <MaskedSecret kind="Identifiant SMPP" last4="X01B" lastUsedAt="il y a 12 s" liveSessions={8}
+        actions={<><Button size="sm" variant="secondary" icon="refresh">Rotation</Button><Button size="sm" variant="dangerGhost">Révoquer</Button></>} />
+      <MaskedSecret kind="Clé API" last4="7F2A" rotationState="grâce jusqu’au 12/03 08:00" lastUsedAt="il y a 2 min"
+        actions={<><Button size="sm" variant="secondary" icon="refresh">Rotation</Button><Button size="sm" variant="dangerGhost">Révoquer</Button></>} />
+    </div>
+  </div>);}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo/>);
+})();
+</script>
+</body></html>

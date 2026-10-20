@@ -1,0 +1,25 @@
+<!-- @dsCard group="Brand" viewport="700x200" name="Sémantique de statut" subtitle="link_status = point + libellé · breaker_state = pilule — jamais fusionnés" -->
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>body{padding:16px;background:var(--surface-page);font:var(--text-body);color:var(--text-primary)}
+.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.stack{display:flex;flex-direction:column;gap:12px}
+.grid{display:grid;gap:10px}
+.k{font:var(--text-data-sm);color:var(--text-primary)}.v{font:var(--text-data-sm);color:var(--text-faint)}
+.cap{font:var(--text-overline);letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--text-faint)}
+.tile{border:1px solid var(--border-default);border-radius:var(--r-card);overflow:hidden;background:var(--surface-card)}
+.tile .chip{height:44px;border-bottom:1px solid var(--border-subtle)}
+.tile .meta{padding:7px 9px;display:flex;flex-direction:column;gap:2px}
+.note{font-size:var(--fs-12);color:var(--text-faint);line-height:var(--lh-normal);margin:12px 0 0}
+</style></head><body><div class="grid" style="grid-template-columns:1fr 1fr;gap:16px">
+<div class="pl-card"><div class="pl-card__body"><div class="k" style="margin-bottom:10px">link_status</div>
+<div class="stack">
+<span class="pl-status pl-status--up"><span class="pl-status__dot"></span><span class="pl-status__label">up</span><span class="pl-status__meta">lien vivant</span></span>
+<span class="pl-status pl-status--degraded"><span class="pl-status__dot"></span><span class="pl-status__label">reconnecting</span><span class="pl-status__meta">rebind en cours</span></span>
+<span class="pl-status pl-status--down"><span class="pl-status__dot"></span><span class="pl-status__label">down</span><span class="pl-status__meta">bind mort · action requise</span></span>
+</div></div></div>
+<div class="pl-card"><div class="pl-card__body"><div class="k" style="margin-bottom:10px">breaker_state</div>
+<div class="stack">
+<span><span class="pl-breaker pl-breaker--closed">closed</span><span class="pl-breaker__note">nominal</span></span>
+<span><span class="pl-breaker pl-breaker--open">open</span><span class="pl-breaker__note">circuit ouvert · pause</span></span>
+<span><span class="pl-breaker pl-breaker--half_open">half_open</span><span class="pl-breaker__note">test de reprise</span></span>
+</div></div></div></div>
+<div class="pl-banner pl-banner--success" style="margin-top:12px"><span class="pl-banner__body"><span class="pl-banner__text">Règle : ne jamais dériver ces deux dimensions d'un champ unique. Un disjoncteur ouvert sur un lien vivant et un bind mort demandent des actions opposées.</span></span></div></body></html>

@@ -1,0 +1,22 @@
+<!-- @dsCard group="Brand" viewport="700x230" name="Champs, sélecteurs & bascules" subtitle="Fond creux, bordure 1px, micro-label en caps, validation en ligne" -->
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>body{padding:16px;background:var(--surface-page);font:var(--text-body);color:var(--text-primary)}
+.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.stack{display:flex;flex-direction:column;gap:12px}
+.grid{display:grid;gap:10px}
+.k{font:var(--text-data-sm);color:var(--text-primary)}.v{font:var(--text-data-sm);color:var(--text-faint)}
+.cap{font:var(--text-overline);letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--text-faint)}
+.tile{border:1px solid var(--border-default);border-radius:var(--r-card);overflow:hidden;background:var(--surface-card)}
+.tile .chip{height:44px;border-bottom:1px solid var(--border-subtle)}
+.tile .meta{padding:7px 9px;display:flex;flex-direction:column;gap:2px}
+.note{font-size:var(--fs-12);color:var(--text-faint);line-height:var(--lh-normal);margin:12px 0 0}
+</style></head><body><div class="grid" style="grid-template-columns:1fr 1fr;gap:16px">
+<div class="stack">
+<div class="pl-field"><span class="pl-field__label">Champ texte</span><input class="pl-input pl-input--mono" value="^225(05|06|07)…" readonly></div>
+<div class="pl-field"><span class="pl-field__label">Menu déroulant</span><span class="pl-selectwrap"><select class="pl-select"><option>weighted</option></select><span class="pl-selectwrap__caret"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 6.4 8 10.4 12 6.4"/></svg></span></span></div>
+<label class="pl-switch"><input type="checkbox" checked><span class="pl-switch__track"><span class="pl-switch__knob"></span></span><span>Toggle · actif</span></label>
+</div>
+<div class="stack">
+<div class="pl-field"><span class="pl-field__label">Poids (weighted)</span><input class="pl-input pl-input--invalid pl-input--mono" value="-30" readonly><span class="pl-field__error">Le poids doit être un entier positif.</span></div>
+<div class="pl-field"><span class="pl-field__label">Sender ID</span><input class="pl-input pl-input--valid pl-input--mono" value="INFO-CI" readonly><span class="pl-field__hint">11 caractères max · alphanumérique.</span></div>
+<div class="pl-seg"><button class="pl-seg__item is-active">5 min</button><button class="pl-seg__item">1 h</button><button class="pl-seg__item">24 h</button></div>
+</div></div></body></html>

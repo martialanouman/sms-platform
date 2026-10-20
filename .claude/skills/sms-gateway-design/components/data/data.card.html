@@ -1,0 +1,54 @@
+<!-- @dsCard group="Components" viewport="700x430" name="Données" subtitle="DataTable, MetricTile, KeyValueList, SpanBar, Pagination" -->
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{padding:16px;background:var(--surface-page);color:var(--text-primary)}.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.stack{display:flex;flex-direction:column;gap:14px}.lbl{font:var(--text-overline);letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--text-faint);min-width:74px}.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}</style></head><body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+(() => {
+const { Button, IconButton, Icon, Dot, Badge, Tag, StatusPill, Segmented, Card, Field, Input, Textarea, Select, Checkbox, Switch, RadioGroup, DataTable, MetricTile, KeyValueList, SpanBar, Pagination, Banner, Modal, EmptyState, Toast, ToastStack, Skeleton, SkeletonRows, ErrorState, SideNav, TopBar, Tabs, BalanceCard, MaskedSecret } = window.PasserelleDesignSystem_18220e;
+const rows=[
+ {id:'1',ts:'12:04:19.221',dest:'2250701020304',sender:'INFO-CI',status:'delivered',credits:1,conn:'orange-ci-1',part:82},
+ {id:'2',ts:'12:04:19.198',dest:'2250509080706',sender:'INFO-CI',status:'pending',credits:1,conn:'orange-ci-1',part:12},
+ {id:'3',ts:'12:04:18.902',dest:'2250102030405',sender:'ALERTE',status:'failed',credits:0,conn:'orange-sn-1',part:6}];
+function Demo(){const [sel,setSel]=React.useState('2');return (
+  <div className="stack">
+    <div className="tiles">
+      <MetricTile label="MT / s" value="8 123" tone="mt" live delta="4,2 %" />
+      <MetricTile label="MO / s" value="1 987" tone="mo" live />
+      <MetricTile label="Taux de succès" value="99,64" unit="%" live />
+      <MetricTile label="Latence p99" value="1,24" unit="s" tone="danger" delta="+38 ms" deltaDirection="down" />
+    </div>
+    <Card flush>
+      <DataTable dense selectedKey={sel} onRowClick={(r)=>setSel(r.id)} rows={rows} columns={[
+        {key:'ts',header:'Horodatage',mono:true,width:120},
+        {key:'dest',header:'Destination',mono:true},
+        {key:'sender',header:'Expéditeur',mono:true,width:96},
+        {key:'conn',header:'Connecteur',muted:true,width:110},
+        {key:'status',header:'Statut',width:118,render:(r)=><StatusPill state={r.status} />},
+        {key:'part',header:'Part',width:90,render:(r)=><span className="pl-meter"><span className="pl-meter__fill" style={{width:r.part+'%'}} /></span>},
+        {key:'credits',header:'Crédits',numeric:true,width:70}]} />
+      <Pagination range="50 lignes" total="~1,24 M au total" pageSize={50} onPageSizeChange={()=>{}} hasNext note="curseur serveur · fraîcheur ~15 s" />
+    </Card>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+      <Card title="Trace" flat><div>
+        <SpanBar name="ingestion" startPct={0} widthPct={8} duration="6 ms" />
+        <SpanBar name="autorisation expéditeur" depth={1} startPct={8} widthPct={5} duration="3 ms" />
+        <SpanBar name="opt-out" depth={1} startPct={13} widthPct={4} duration="2 ms" />
+        <SpanBar name="facturation" depth={1} startPct={17} widthPct={26} duration="61 ms" state="slow" />
+        <SpanBar name="envoi SMSC" startPct={43} widthPct={40} duration="94 ms" state="ok" />
+        <SpanBar name="DLR" startPct={83} widthPct={9} duration="échec" state="failed" />
+      </div></Card>
+      <Card title="Métadonnées" flat><KeyValueList mono items={[
+        {label:'ID de message',value:'msg_01J9K2A7QF'},{label:'Compte SMPP',value:'bulk-sms-ci'},
+        {label:'Route',value:'CI-mobile-priorité'},{label:'Décision',value:'réservé · 1 crédit MT'},
+        {label:'breaker_state',value:'half_open'}]} /></Card>
+    </div>
+  </div>);}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo/>);
+})();
+</script>
+</body></html>

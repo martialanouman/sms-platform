@@ -1,0 +1,52 @@
+<!-- @dsCard group="Components" viewport="700x420" name="Retour & états" subtitle="Banner, Modal, EmptyState, Skeleton, ErrorState, Toast" -->
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{padding:16px;background:var(--surface-page);color:var(--text-primary)}.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.stack{display:flex;flex-direction:column;gap:14px}.lbl{font:var(--text-overline);letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--text-faint);min-width:74px}</style></head><body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+(() => {
+const { Button, IconButton, Icon, Dot, Badge, Tag, StatusPill, Segmented, Card, Field, Input, Textarea, Select, Checkbox, Switch, RadioGroup, DataTable, MetricTile, KeyValueList, SpanBar, Pagination, Banner, Modal, EmptyState, Toast, ToastStack, Skeleton, SkeletonRows, ErrorState, SideNav, TopBar, Tabs, BalanceCard, MaskedSecret } = window.PasserelleDesignSystem_18220e;
+function Demo(){return (
+  <div className="stack">
+    <Banner tone="info" title="Le compte bulk-sms-ci a un script de routage actif">Il prévaudra sur cette route en production.</Banner>
+    <Banner tone="warning" title="Bac à sable : timeout 50 ms · mémoire 8 Mo">En cas d’échec, le routage déclaratif prend le relais.</Banner>
+    <Banner tone="danger" title="Connecteur orange-sn-1 en panne (link down) depuis 2 min"
+      actions={<Button size="sm" variant="secondary" icon="refresh">Rebind</Button>}>
+      Évalué par Alertmanager, indépendamment du tableau de bord.
+    </Banner>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:14}}>
+      <EmptyState inline icon="diamond" title="Aucune règle d’alerte" action={<Button size="sm" variant="primary" icon="plus">Nouvelle règle</Button>}>
+        Créez une règle pour être notifié des incidents.
+      </EmptyState>
+      <EmptyState inline icon="search" title="Aucun message trouvé" action={<Button size="sm" variant="secondary">Réinitialiser</Button>}>
+        Élargissez la plage de dates ou retirez un filtre.
+      </EmptyState>
+      <ErrorState request="GET /api/connectors · 504 · req_8f2c…" action={<Button size="sm" variant="secondary">Réessayer</Button>}>
+        La passerelle n’a pas répondu (504). Vos données locales restent affichées.
+      </ErrorState>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+      <Card title="Chargement — skeleton" flat><SkeletonRows rows={3} columns={[150,80,50]} dense /></Card>
+      <div className="stack">
+        <Toast severity="critical" title="orange-sn-1 : taux d’erreur > 5 %" source="alertmanager" onClose={()=>{}} />
+        <Toast severity="success" title="Route « MTN CI direct » enregistrée" onClose={()=>{}} />
+      </div>
+    </div>
+    <div style={{position:'relative',height:190,overflow:'hidden',borderRadius:'var(--radius-card)',border:'1px solid var(--border-default)'}}>
+      <div className="pl-scrim" style={{position:'absolute',padding:16}}>
+        <Modal title="Déconnecter la session ?" onClose={null}
+          footer={<><Button variant="ghost">Annuler</Button><Button variant="danger">Déconnecter</Button></>}>
+          <div style={{fontSize:'var(--fs-13)',color:'var(--text-muted)'}}>Un unbind gracieux sera envoyé à <span style={{font:'var(--text-data)',color:'var(--text-primary)'}}>ses_9f2a…</span>. Le compte devra se reconnecter.</div>
+          <div style={{font:'var(--text-data-sm)',color:'var(--text-faint)'}}>Action journalisée dans audit_log.</div>
+        </Modal>
+      </div>
+    </div>
+  </div>);}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo/>);
+})();
+</script>
+</body></html>

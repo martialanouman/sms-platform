@@ -1,0 +1,16 @@
+<!-- @dsCard group="Brand" viewport="700x200" name="Boutons & actions" subtitle="Contour + teinte, jamais un aplat plein — le destructif reste en contour" -->
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>body{padding:16px;background:var(--surface-page);font:var(--text-body);color:var(--text-primary)}
+.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.stack{display:flex;flex-direction:column;gap:12px}
+.grid{display:grid;gap:10px}
+.k{font:var(--text-data-sm);color:var(--text-primary)}.v{font:var(--text-data-sm);color:var(--text-faint)}
+.cap{font:var(--text-overline);letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--text-faint)}
+.tile{border:1px solid var(--border-default);border-radius:var(--r-card);overflow:hidden;background:var(--surface-card)}
+.tile .chip{height:44px;border-bottom:1px solid var(--border-subtle)}
+.tile .meta{padding:7px 9px;display:flex;flex-direction:column;gap:2px}
+.note{font-size:var(--fs-12);color:var(--text-faint);line-height:var(--lh-normal);margin:12px 0 0}
+</style></head><body><div class="row"><button class="pl-btn pl-btn--primary">Primaire</button><button class="pl-btn pl-btn--secondary">Secondaire</button><button class="pl-btn pl-btn--danger">Destructif</button><button class="pl-btn pl-btn--ghost">Ghost</button><a href="#" class="pl-btn pl-btn--link">Lien</a><button class="pl-btn pl-btn--primary" disabled>Désactivé</button></div>
+<div class="row" style="margin-top:12px"><button class="pl-btn pl-btn--primary pl-btn--sm">sm · 28px</button><button class="pl-btn pl-btn--primary">md · 34px</button><button class="pl-btn pl-btn--primary pl-btn--lg">lg · 40px</button>
+<span class="v">survol = teinte renforcée · pression = teinte 30 % · aucun déplacement</span></div>
+<div class="row" style="margin-top:12px"><button class="pl-btn pl-btn--secondary" style="background:var(--surface-hover);border-color:var(--border-strong)">survol</button><button class="pl-btn pl-btn--secondary" style="background:var(--surface-active)">pression</button><button class="pl-btn pl-btn--primary" style="box-shadow:var(--focus-ring)">focus</button></div>
+<p class="note">Anneau de focus : 2px de fond + 2px teal, sur tous les éléments interactifs (WCAG 2.1 AA).</p></body></html>

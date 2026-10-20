@@ -1,0 +1,15 @@
+<!-- @dsCard group="Colors" viewport="700x160" name="Teintes" subtitle="14 % de la couleur sur le fond — fonds de pilule, bandeaux, aires de graphe" -->
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>body{padding:16px;background:var(--surface-page);font:var(--text-body);color:var(--text-primary)}
+.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.stack{display:flex;flex-direction:column;gap:12px}
+.grid{display:grid;gap:10px}
+.k{font:var(--text-data-sm);color:var(--text-primary)}.v{font:var(--text-data-sm);color:var(--text-faint)}
+.cap{font:var(--text-overline);letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--text-faint)}
+.tile{border:1px solid var(--border-default);border-radius:var(--r-card);overflow:hidden;background:var(--surface-card)}
+.tile .chip{height:44px;border-bottom:1px solid var(--border-subtle)}
+.tile .meta{padding:7px 9px;display:flex;flex-direction:column;gap:2px}
+.note{font-size:var(--fs-12);color:var(--text-faint);line-height:var(--lh-normal);margin:12px 0 0}
+</style></head><body><div class="grid" style="grid-template-columns:repeat(5,1fr)">
+<div style="border:1px solid var(--border-default);border-radius:var(--r-card);padding:12px;background:var(--tint-teal)"><span class="k">teal</span><br><span class="v">--tint-teal</span></div><div style="border:1px solid var(--border-default);border-radius:var(--r-card);padding:12px;background:var(--tint-green)"><span class="k">green</span><br><span class="v">--tint-green</span></div><div style="border:1px solid var(--border-default);border-radius:var(--r-card);padding:12px;background:var(--tint-amber)"><span class="k">amber</span><br><span class="v">--tint-amber</span></div><div style="border:1px solid var(--border-default);border-radius:var(--r-card);padding:12px;background:var(--tint-red)"><span class="k">red</span><br><span class="v">--tint-red</span></div><div style="border:1px solid var(--border-default);border-radius:var(--r-card);padding:12px;background:var(--tint-violet)"><span class="k">violet</span><br><span class="v">--tint-violet</span></div>
+</div>
+<p class="note">Une teinte ne porte jamais de texte de couleur différente de sa propre famille : fond <span class="k">--tint-red</span> + texte <span class="k">--red-500</span>. Contraste vérifié AA sur <span class="k">#11161e</span> et <span class="k">#0c0f14</span>.</p></body></html>

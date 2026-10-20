@@ -1,0 +1,22 @@
+<!-- @dsCard group="Brand" viewport="700x170" name="Mouvement" subtitle="120–240 ms · une seule boucle : le point « live » · skeleton 1,4 s" -->
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>body{padding:16px;background:var(--surface-page);font:var(--text-body);color:var(--text-primary)}
+.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.stack{display:flex;flex-direction:column;gap:12px}
+.grid{display:grid;gap:10px}
+.k{font:var(--text-data-sm);color:var(--text-primary)}.v{font:var(--text-data-sm);color:var(--text-faint)}
+.cap{font:var(--text-overline);letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--text-faint)}
+.tile{border:1px solid var(--border-default);border-radius:var(--r-card);overflow:hidden;background:var(--surface-card)}
+.tile .chip{height:44px;border-bottom:1px solid var(--border-subtle)}
+.tile .meta{padding:7px 9px;display:flex;flex-direction:column;gap:2px}
+.note{font-size:var(--fs-12);color:var(--text-faint);line-height:var(--lh-normal);margin:12px 0 0}
+</style></head><body><div class="row" style="gap:20px">
+<span class="pl-status pl-status--up pl-status--live"><span class="pl-status__dot"></span><span class="pl-status__label">live · WS connecté</span></span>
+<span class="pl-btn__spin" style="color:var(--teal-500)"></span>
+<span class="pl-skel" style="width:120px"></span>
+</div>
+<div class="grid" style="grid-template-columns:1fr 1fr;gap:6px 18px;margin-top:14px;font-size:var(--fs-12);color:var(--text-muted)">
+<div><span class="k">--dur-fast 120</span> · survol, bascules</div><div><span class="k">--dur-base 160</span> · surfaces</div>
+<div><span class="k">--dur-slow 240</span> · modale, toast</div><div><span class="k">--dur-pulse 1800</span> · point live</div>
+<div><span class="k">--ease-productive</span> · contrôles</div><div><span class="k">--ease-entrance</span> · apparitions</div>
+</div>
+<p class="note">Pas de rebond, pas de parallaxe, pas de spinner plein écran. Les compteurs temps réel changent de valeur sans transition. <span class="k">prefers-reduced-motion</span> coupe tout.</p></body></html>

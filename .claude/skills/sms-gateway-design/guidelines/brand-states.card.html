@@ -1,0 +1,27 @@
+<!-- @dsCard group="Brand" viewport="700x230" name="États de contenu" subtitle="Chargement · vide · aucun résultat · module désactivé · erreur" -->
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>body{padding:16px;background:var(--surface-page);font:var(--text-body);color:var(--text-primary)}
+.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.stack{display:flex;flex-direction:column;gap:12px}
+.grid{display:grid;gap:10px}
+.k{font:var(--text-data-sm);color:var(--text-primary)}.v{font:var(--text-data-sm);color:var(--text-faint)}
+.cap{font:var(--text-overline);letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--text-faint)}
+.tile{border:1px solid var(--border-default);border-radius:var(--r-card);overflow:hidden;background:var(--surface-card)}
+.tile .chip{height:44px;border-bottom:1px solid var(--border-subtle)}
+.tile .meta{padding:7px 9px;display:flex;flex-direction:column;gap:2px}
+.note{font-size:var(--fs-12);color:var(--text-faint);line-height:var(--lh-normal);margin:12px 0 0}
+</style></head><body><div class="grid" style="grid-template-columns:1fr 1fr;gap:14px">
+<div class="pl-card"><div class="pl-card__body">
+<div class="k" style="margin-bottom:8px">Chargement — skeleton</div>
+<div class="pl-skelrow"><span class="pl-skel" style="width:150px"></span><span class="pl-skel" style="width:70px"></span><span class="pl-skel" style="width:48px"></span></div>
+<div class="pl-skelrow"><span class="pl-skel" style="width:130px"></span><span class="pl-skel" style="width:70px"></span><span class="pl-skel" style="width:48px"></span></div>
+<div class="pl-skelrow"><span class="pl-skel" style="width:160px"></span><span class="pl-skel" style="width:70px"></span><span class="pl-skel" style="width:48px"></span></div>
+</div></div>
+<div class="pl-empty"><span class="pl-empty__icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2.6 13.4 8 8 13.4 2.6 8Z"/></svg></span><span class="pl-empty__title">Aucune règle d'alerte</span><span class="pl-empty__text">Créez une règle pour être notifié des incidents.</span><button class="pl-btn pl-btn--primary pl-btn--sm">Nouvelle règle</button></div>
+<div class="pl-empty"><span class="pl-empty__icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="5.4"/><path d="M4.2 11.8 11.8 4.2"/></svg></span><span class="pl-empty__title">Facturation indisponible</span><span class="pl-empty__text">Module désactivé sur la passerelle. Dégradation propre — jamais une erreur.</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:18px;text-align:center;background:var(--tint-red);border:1px solid color-mix(in srgb,var(--red-500) 30%,transparent);border-radius:var(--r-card)">
+<span style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:var(--r-field);background:color-mix(in srgb,var(--red-500) 18%,transparent);color:var(--red-500)"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 3.4v6"/><path d="M8 12.2h.01"/></svg></span>
+<span style="font:var(--text-card-title)">Impossible de joindre l'API Admin</span>
+<span style="font-size:var(--fs-12);color:var(--text-muted)">La passerelle n'a pas répondu (504). Vos données locales restent affichées.</span>
+<span class="v">GET /api/connectors · 504 · req_8f2c…</span>
+<button class="pl-btn pl-btn--secondary pl-btn--sm">Réessayer</button></div>
+</div></body></html>

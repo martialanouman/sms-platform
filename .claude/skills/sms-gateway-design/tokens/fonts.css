@@ -1,0 +1,14 @@
+/* SMS Gateway — familles typographiques.
+   La charte (§03) nomme explicitement IBM Plex Sans (interface) et IBM Plex Mono
+   (valeurs machine). Les binaires n'étant pas fournis, elles sont chargées depuis
+   Google Fonts ; remplacer par des @font-face auto-hébergées dès réception. */
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+
+:root{
+  --font-sans:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --font-ui:var(--font-sans);
+  --font-data:var(--font-mono);
+  --font-display:var(--font-sans);
+  --font-condensed:var(--font-sans);
+}

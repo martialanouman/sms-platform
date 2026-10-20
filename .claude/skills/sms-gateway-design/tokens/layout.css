@@ -1,0 +1,23 @@
+:root{
+  /* Charte §04 — shell fixe, contenu scrollable. */
+  --nav-width:236px;
+  --nav-width-collapsed:56px;
+  --topbar-height:56px;
+  --subbar-height:44px;
+  --detail-panel-width:420px;
+  --row-height:38px;
+  --row-height-dense:32px;
+  --control-height-sm:28px;
+  --control-height:34px;
+  --control-height-lg:40px;
+  --content-max:1600px;/* @kind spacing */
+  --breakpoint-tablet:768px;/* @kind other */
+  --breakpoint-desktop:1280px;/* @kind other */
+  --breakpoint-wide:1680px;/* @kind other */
+  --z-base:0;/* @kind other */
+  --z-sticky:10;/* @kind other */
+  --z-nav:20;/* @kind other */
+  --z-popover:40;/* @kind other */
+  --z-modal:60;/* @kind other */
+  --z-toast:80;/* @kind other */
+}
