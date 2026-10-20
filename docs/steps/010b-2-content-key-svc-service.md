@@ -75,3 +75,25 @@ Arrêtés en 010b-1 (Fable), rappelés ici ; les points 9 à 12 sont tranchés p
   admis ; `/readyz` 200 OpenBao scellé, `Seal` en `Unavailable` ; sondes du kubelet admises ; refus de handshake dans
   les journaux JSON.
 - **Après la release** (geste humain) : rendre public le paquet GHCR `content-key-svc`.
+
+## Preuve sur `contabo169`
+
+Jouée le 2026-10-20 depuis la branche (image construite localement, importée dans k3s sous le tag `proof` ; timer
+de déploiement suspendu pendant la preuve), sur le cluster en v0.7.0, OpenBao descellé.
+
+1. `ca.yaml` : `Certificate` `content-key-svc-tls` `Ready`. `networkpolicies.yaml` et le manifest appliqués :
+   `rollout status` réussi, pod `1/1`. La sonde `/readyz` du kubelet passe le default-deny alors que la politique du
+   service n'ouvre aucune entrée sur le port ops (règle `--src-type LOCAL` de kube-router).
+2. Client au SAN `admin-api-svc` (certificat ad hoc, pod au label `admin-api-svc`, sortie temporaire vers 7002) :
+   `Seal` rend `vault:v1:…` et `kmsKeyRef: config-secrets` ; l'audit d'OpenBao montre `auth/kubernetes/login` puis
+   `transit/encrypt/config-secrets`. `Open` : `PermissionDenied`, « caller not allowed on this method ».
+3. Client au SAN `router-svc` depuis un pod admis par la NetworkPolicy : handshake refusé ; le service le journalise
+   en JSON (`"logger":"grpc"`, « mtls: client [router-svc] is not an allowed caller [admin-api-svc] »).
+4. Pod au label `other` : `connection refused` (entrée refusée par la NetworkPolicy).
+5. Non joué sur le VPS : `/readyz` avec OpenBao scellé, qui demande le jeton racine et les parts (geste humain) ;
+   le test du `cmd/` le prouve contre un OpenBao injoignable.
+
+Rouge vu : les premiers clients appelaient dès leur démarrage et prenaient « connection refused » avant que
+kube-router n'admette leur sortie (`.claude/rules/ci-deploy.md`) ; relancés en `restartPolicy: OnFailure`.
+
+Objets de preuve supprimés ; `content-key-svc` reste déployé sous `proof` jusqu'à la release.
