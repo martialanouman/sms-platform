@@ -52,9 +52,9 @@ Fable, 2026-10-19, sauf le point 3 tranché par l'humain.
 9. **Alerte** `OpenBaoSealed` : `vault_core_unsealed == 0`, et `absent` pour un OpenBao arrêté ou
    injoignable. Elle entre avec la brique qui émet la métrique. Amendé sur le VPS : scellé, OpenBao sert
    ses métriques (200, `vault_core_unsealed{cluster=""} 0`) ; Fable le supposait muet.
-10. **Dettes** : droits de `breakglass` (014a) ; authentification humaine à OpenBao pour lire
-    `database/creds/breakglass` (`go-live`) ; snapshot chiffré d'OpenBao (10 §10.3, `go-live`). #108 :
-    reportée, hors territoire.
+10. **Dettes** : droits de `breakglass` (#119, 014a) ; authentification humaine à OpenBao pour lire
+    `database/creds/breakglass` (#120, `go-live`) ; snapshot chiffré d'OpenBao (#121, 10 §10.3, `go-live`).
+    #108 : reportée, hors territoire.
 
 ## Design arrêté
 

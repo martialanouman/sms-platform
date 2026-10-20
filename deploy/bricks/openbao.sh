@@ -6,10 +6,12 @@ set -euo pipefail
 
 password=$(kubectl -n postgres get secret openbao -o 'jsonpath={.data.password}' | base64 -d)
 [ -n "$password" ] || { echo "openbao.sh: postgres/openbao est vide" >&2; exit 1; }
+# debt: #120
 read -rsp "Jeton racine : " token
 echo >&2
 [ -n "$token" ] || { echo "openbao.sh: jeton vide" >&2; exit 1; }
 
+# debt: #119
 primary=$(kubectl -n postgres get cluster postgres -o 'jsonpath={.status.currentPrimary}')
 kubectl -n postgres exec -i "$primary" -c postgres -- psql -v ON_ERROR_STOP=1 -d control_plane <<'SQL'
 SET ROLE openbao;

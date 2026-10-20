@@ -30,6 +30,7 @@ spec:
         replicas: 1
         disruptionBudget:
           enabled: false
+        # debt: #121
         raft:
           enabled: true
           setNodeId: true
