@@ -116,3 +116,8 @@ Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloq
 
 Mutations du tour : 31, toutes tombent après comblement (le refus répété sur `/access`, `removeQueries` du login,
 `setLeaving(false)`) ; `disabled` posé sur la déconnexion survivait, retiré.
+
+Preuve rejouée après le tour, sur `proof-011a4b-3` : lien, refus 422 focalisé, mot de passe, connexion, déconnexion sur
+`/login` sans avis, `/` rouvert renvoyé à l'avis, session antidatée renvoyée à l'avis ; `/login?avis=toString` n'affiche
+aucun avis. Les connexions répétées de la preuve ont déclenché l'anti-force brute : 429, bouton désactivé le temps de
+`Retry-After`, puis réactivé, dans le navigateur.
