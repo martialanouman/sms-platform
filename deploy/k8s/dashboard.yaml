@@ -68,6 +68,8 @@ spec:
               value: dashboard@example.test
             - name: COOKIE_KEY_FILE
               value: /secrets/cookie-key
+            - name: TOTP_KEY_FILE
+              value: /secrets/totp-key
             - name: TLS_CA_FILE
               value: /ca/ca.crt
             - name: POSTGRES_URL
@@ -97,6 +99,8 @@ spec:
             items:
               - key: cookie-key
                 path: cookie-key
+              - key: totp-key
+                path: totp-key
         - name: ca
           configMap:
             name: internal-ca

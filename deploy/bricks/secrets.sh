@@ -42,6 +42,7 @@ ensure_key() {
 	printf '{"data":{"%s":"%s"}}' "$3" "$(printf '%s' "$4" | base64 | tr -d '\n')" | kubectl -n "$1" patch secret "$2" --type merge --patch-file /dev/stdin >/dev/null
 }
 ensure_key sms dashboard cookie-key "$(openssl rand -hex 32)"
+ensure_key sms dashboard totp-key "$(openssl rand -hex 32)"
 password=$(read_secret sms dashboard postgres-password)
 nonempty sms/dashboard "$password"
 ensure_key sms dashboard postgres-url "postgres://dashboard:$password@postgres-pooler-rw.postgres.svc:5432/dashboard?sslmode=verify-full&sslrootcert=/ca/ca.crt"

@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"crypto/x509"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -61,6 +62,19 @@ func origin(raw string) (string, error) {
 	return u.Scheme + "://" + u.Host, nil
 }
 
+// debt: #141
+func totpKey(path string) (dashboard.TotpKey, error) {
+	held, err := os.ReadFile(path)
+	if err != nil {
+		return dashboard.TotpKey{}, err
+	}
+	key, err := hex.DecodeString(strings.TrimSpace(string(held)))
+	if err != nil {
+		return dashboard.TotpKey{}, errors.New("TOTP_KEY_FILE is not hexadecimal")
+	}
+	return dashboard.NewTotpKey(key)
+}
+
 func validate(infra config.Infra) error {
 	_, smtpPort, smtpErr := net.SplitHostPort(infra.SMTPAddr)
 	switch {
@@ -78,6 +92,8 @@ func validate(infra config.Infra) error {
 		return errors.New("SMTP_USERNAME and SMTP_PASSWORD_FILE go together")
 	case infra.CookieKeyFile == "":
 		return errors.New("COOKIE_KEY_FILE is empty")
+	case infra.TotpKeyFile == "":
+		return errors.New("TOTP_KEY_FILE is empty")
 	case infra.TLS.CA == "":
 		return errors.New("TLS_CA_FILE is empty, and the relay is verified by it")
 	}
@@ -97,6 +113,10 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger, registry pro
 		return err
 	}
 	keys, err := dashboard.NewKeys(secret)
+	if err != nil {
+		return err
+	}
+	totp, err := totpKey(infra.TotpKeyFile)
 	if err != nil {
 		return err
 	}
@@ -126,7 +146,7 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger, registry pro
 		return errors.New("POSTGRES_URL is unreadable")
 	}
 	defer pool.Close()
-	svc := dashboard.Service{Store: postgres.New(pool), Hasher: dashboard.NewHasher(), Keys: keys, Mailer: mailer, PublicURL: expected}
+	svc := dashboard.Service{Store: postgres.New(pool), Hasher: dashboard.NewHasher(), Keys: keys, Totp: totp, Mailer: mailer, PublicURL: expected}
 	if err := pgdial.Retry(ctx, log, func(ctx context.Context) error { return svc.Bootstrap(ctx, infra.BootstrapEmail) }); err != nil {
 		return fmt.Errorf("bootstrap: %w", err)
 	}
