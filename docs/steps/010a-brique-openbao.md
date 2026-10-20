@@ -83,3 +83,31 @@ Fable, 2026-10-19, sauf le point 3 tranché par l'humain.
   jeton de la politique ; refus de `transit/keys/*` et d'une autre clé ; identifiants `breakglass` qui se
   connectent à `control_plane` puis expirent ; métrique `vault_core_unsealed` lue scellée et descellée ;
   entrée refusée depuis un pod non admis.
+
+## Preuve sur `contabo169`
+
+Procédure jouée le 2026-10-20 depuis la branche (fichiers de `deploy/` copiés sur le VPS, timer de déploiement
+suspendu pendant la preuve), sur le cluster de 007d-2b. Sorties expurgées des adresses et des secrets.
+
+1. `namespaces.yaml`, `ca.yaml` : `Certificate` `openbao` `Ready`. `secrets.sh` : Secret `postgres/openbao`
+   créé, 64 caractères. `postgres.yaml` et `openbao.yaml` appliqués : Job `helm-install-openbao` `complete`,
+   pod `openbao-0` `Running` et `0/1` (scellé), OpenBao v2.7.1, stockage raft, PVC de 1 Gi, aucun PDB.
+2. Scellé : `/v1/sys/metrics` rend 200 et `vault_core_unsealed{cluster=""} 0`.
+3. Init et descellement par l'humain (5 parts, seuil 3), hors dépôt : `Sealed false`, `HA Mode active`,
+   `vault_core_unsealed 1`, pod `1/1`.
+4. `openbao.sh` deux fois : le premier passage active `transit`, `kubernetes` et `database`, crée la clé
+   (`aes256-gcm96`, ni exportable ni supprimable) et écrit politique, rôles et connexion (vérifiée par
+   OpenBao à l'écriture, mot de passe lu sur l'entrée standard) ; le second saute activations et clé.
+   Postgres : `breakglass` `NOLOGIN`, `openbao` en détient l'`ADMIN OPTION`.
+5. Pod de `sms` sous le SA `content-key-svc` (jeton projeté, audience `openbao`) : connexion, aller-retour
+   `encrypt`/`decrypt` sur `config-secrets` identique (`vault:v1`) ; 403 sur `transit/keys/config-secrets`,
+   `transit/encrypt/content`, `rotate`, `database/creds/breakglass`, `sys/policies/acl/content-key-svc` ;
+   chiffré altéré : 400.
+6. `database/creds/breakglass` sous le jeton racine : rôle `v-root-breakgla-…` qui se connecte à
+   `control_plane`, membre de `breakglass`, `rolvaliduntil` à une heure.
+
+Rouges vus :
+
+- **Jeton racine révoqué par la première version d'`openbao.sh`** : `generate-root` rend 403 « permission
+  denied » (OpenBao ≥ 2.5.3) ; OpenBao réinitialisé (PVC supprimé), script amendé (arbitrage 8).
+- **Entrée d'OpenBao** depuis un pod de `default` (sans politique de sortie) : `connection refused` sur 8200.
