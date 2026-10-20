@@ -22,3 +22,9 @@ func HoldEverySlot(h *Hasher) (release func()) {
 		returned.Wait()
 	}
 }
+
+var (
+	TotpCode   = totpCode
+	TotpMatch  = totpMatch
+	OtpauthURI = otpauthURI
+)
