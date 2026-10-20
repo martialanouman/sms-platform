@@ -6,20 +6,24 @@ import (
 	"io/fs"
 )
 
-//go:embed control_plane
+// Databases lists the Postgres databases of the platform, each a directory of migrations and a grants file.
+var Databases = []string{"control_plane", "dashboard"}
+
+//go:embed control_plane dashboard grants
 var files embed.FS
 
-//go:embed grants/control_plane.sql
-var grants []byte
-
-// Grants is the generated grants file of control_plane, applied by catalog-apply.
-func Grants() []byte {
-	return grants
+// Grants is the generated grants file of database, applied by catalog-apply.
+func Grants(database string) []byte {
+	data, err := fs.ReadFile(files, "grants/"+database+".sql")
+	if err != nil {
+		panic(err)
+	}
+	return data
 }
 
-// ControlPlane is the control_plane directory: its migrations and its audit classification.
-func ControlPlane() fs.FS {
-	sub, err := fs.Sub(files, "control_plane")
+// Database is the directory of database: its migrations and its audit classification.
+func Database(name string) fs.FS {
+	sub, err := fs.Sub(files, name)
 	if err != nil {
 		panic(err)
 	}

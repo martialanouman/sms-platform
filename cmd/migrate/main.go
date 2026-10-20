@@ -49,7 +49,7 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	p, err := goose.NewProvider(goose.DialectPostgres, db, migrations.ControlPlane(), goose.WithSessionLocker(locker))
+	p, err := goose.NewProvider(goose.DialectPostgres, db, migrations.Database("control_plane"), goose.WithSessionLocker(locker))
 	if err != nil {
 		return err
 	}

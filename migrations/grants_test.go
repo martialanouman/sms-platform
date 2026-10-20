@@ -12,56 +12,61 @@ import (
 
 	"github.com/martialanouman/sms-platform/internal/platform/pgtest"
 	"github.com/martialanouman/sms-platform/internal/schema"
+	"github.com/martialanouman/sms-platform/migrations"
 )
 
-func grantsFile(t *testing.T) string {
-	data, err := os.ReadFile("grants/control_plane.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return string(data)
-}
-
 func declarations(t *testing.T) []schema.Grants {
-	declared, err := schema.LoadGrants(os.DirFS("../contracts/grants"), classification(t))
+	classifications := map[string]schema.Classification{}
+	for _, database := range migrations.Databases {
+		classifications[database] = classification(t, database)
+	}
+	declared, err := schema.LoadGrants(os.DirFS("../contracts/grants"), classifications)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return declared
 }
 
-// granted applies the committed file over a drift, as catalog-apply does over a running database.
+func applyGrants(t *testing.T, pg pgtest.DB, databases ...string) {
+	for _, database := range databases {
+		exec(t, connect(t, pg.In(database).As("migrator")), string(migrations.Grants(database)))
+	}
+}
+
+// granted applies the committed files over a drift, as catalog-apply does over a running database.
 func granted(t *testing.T) pgtest.DB {
 	pg := pgtest.ControlPlane(t)
-	migrator := connect(t, pg.As("migrator"))
-	exec(t, migrator, grantsFile(t))
-	for _, g := range declarations(t) {
-		role := schema.Role(g.Service)
-		exec(t, migrator,
-			`GRANT ALL ON ALL TABLES IN SCHEMA control_plane TO `+role+` WITH GRANT OPTION`,
-			`GRANT CREATE ON SCHEMA control_plane TO `+role,
-			`GRANT CREATE ON DATABASE control_plane TO `+role,
-			`GRANT UPDATE (target) ON control_plane.audit_log TO `+role,
-		)
+	applyGrants(t, pg, migrations.Databases...)
+	for _, database := range migrations.Databases {
+		migrator := connect(t, pg.In(database).As("migrator"))
+		for _, g := range declarations(t) {
+			role := schema.Role(g.Service)
+			exec(t, migrator,
+				`GRANT ALL ON ALL TABLES IN SCHEMA `+database+` TO `+role+` WITH GRANT OPTION`,
+				`GRANT CREATE ON SCHEMA `+database+` TO `+role,
+				`GRANT CREATE, CONNECT, TEMPORARY ON DATABASE `+database+` TO `+role+` WITH GRANT OPTION`,
+			)
+		}
 	}
-	exec(t, migrator, grantsFile(t))
+	exec(t, connect(t, pg.As("migrator")), `GRANT UPDATE (target) ON control_plane.audit_log TO admin_api_svc, dashboard`)
+	applyGrants(t, pg, migrations.Databases...)
 	return pg
 }
 
-func privileges(t *testing.T, conn *pgx.Conn) []string {
+func privileges(t *testing.T, conn *pgx.Conn, database string) []string {
 	rows, err := conn.Query(context.Background(), `
 		SELECT coalesce(nullif(a.grantee, 0)::regrole::text, 'PUBLIC') || ' ' || c.relname || ' '
 		  || lower(a.privilege_type) || CASE WHEN a.is_grantable THEN ' grantable' ELSE '' END
 		FROM pg_class c, aclexplode(c.relacl) a
-		WHERE c.relnamespace = 'control_plane'::regnamespace AND a.grantee <> c.relowner
+		WHERE c.relnamespace = $1::regnamespace AND a.grantee <> c.relowner
 		UNION ALL
 		SELECT 'column acl on ' || c.relname || '.' || a.attname
 		FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid
-		WHERE c.relnamespace = 'control_plane'::regnamespace AND a.attacl IS NOT NULL
+		WHERE c.relnamespace = $1::regnamespace AND a.attacl IS NOT NULL
 		UNION ALL
 		SELECT c.relname || ' owned by ' || c.relowner::regrole
 		FROM pg_class c
-		WHERE c.relnamespace = 'control_plane'::regnamespace AND c.relowner <> 'migrator'::regrole`)
+		WHERE c.relnamespace = $1::regnamespace AND c.relowner <> 'migrator'::regrole`, database)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,35 +79,63 @@ func privileges(t *testing.T, conn *pgx.Conn) []string {
 }
 
 func TestEachServiceRoleHoldsExactlyItsDeclaration(t *testing.T) {
-	conn := connect(t, granted(t).As("migrator"))
-	var want []string
-	for _, g := range declarations(t) {
-		role := schema.Role(g.Service)
-		for table, ps := range g.Tables {
-			for _, p := range ps {
-				want = append(want, role+" "+table+" "+p)
-			}
-		}
-		var usage, create, createSchema bool
-		if err := conn.QueryRow(context.Background(), `SELECT has_schema_privilege($1, 'control_plane', 'USAGE'),
-			has_schema_privilege($1, 'control_plane', 'CREATE'), has_database_privilege($1, 'control_plane', 'CREATE')`,
-			role).Scan(&usage, &create, &createSchema); err != nil {
+	pg := granted(t)
+	for _, database := range migrations.Databases {
+		conn := connect(t, pg.In(database).As("migrator"))
+		var public, publicTemp bool
+		if err := conn.QueryRow(context.Background(), `SELECT
+			EXISTS (SELECT FROM pg_database d, aclexplode(coalesce(d.datacl, acldefault('d', d.datdba))) a
+			  WHERE d.datname = $1 AND a.grantee = 0 AND a.privilege_type = 'CONNECT'),
+			EXISTS (SELECT FROM pg_database d, aclexplode(coalesce(d.datacl, acldefault('d', d.datdba))) a
+			  WHERE d.datname = $1 AND a.grantee = 0 AND a.privilege_type = 'TEMPORARY')`, database).Scan(&public, &publicTemp); err != nil {
 			t.Fatal(err)
 		}
-		if !usage || create || createSchema {
-			t.Errorf("%s: usage %v, create in control_plane %v, create schemas %v; want usage only",
-				role, usage, create, createSchema)
+		var want []string
+		for _, g := range declarations(t) {
+			role := schema.Role(g.Service)
+			tables := g.Databases[database]
+			for table, ps := range tables {
+				for _, p := range ps {
+					want = append(want, role+" "+table+" "+p)
+				}
+			}
+			var usage, create, createSchema, connectTo, temp, grantable bool
+			if err := conn.QueryRow(context.Background(), `SELECT has_schema_privilege($1, $2, 'USAGE'),
+				has_schema_privilege($1, $2, 'CREATE'), has_database_privilege($1, $2, 'CREATE'),
+				has_database_privilege($1, $2, 'CONNECT'), has_database_privilege($1, $2, 'TEMPORARY'),
+				has_database_privilege($1, $2, 'CONNECT WITH GRANT OPTION')`, role, database).Scan(&usage, &create, &createSchema, &connectTo, &temp, &grantable); err != nil {
+				t.Fatal(err)
+			}
+			declares := len(tables) > 0
+			if usage != declares || create || createSchema || connectTo != (declares || public) || temp != publicTemp || grantable {
+				t.Errorf("%s in %s: usage %v, create in the schema %v, create schemas %v, connect %v, temporary %v, grant option %v; want usage and connect %v, temporary %v as PUBLIC (PUBLIC connects: %v)",
+					role, database, usage, create, createSchema, connectTo, temp, grantable, declares, publicTemp, public)
+			}
+		}
+		slices.Sort(want)
+		if got := privileges(t, conn, database); !reflect.DeepEqual(got, want) {
+			t.Errorf("%s:\ngot  %q\nwant %q", database, got, want)
 		}
 	}
-	slices.Sort(want)
-	if got := privileges(t, conn); !reflect.DeepEqual(got, want) {
-		t.Fatalf("got  %q\nwant %q", got, want)
+}
+
+func TestEachDatabaseFileKeepsTheRolesOfTheOthers(t *testing.T) {
+	pg := pgtest.ControlPlane(t)
+	applyGrants(t, pg, "dashboard", "control_plane")
+	conn := connect(t, pg.In("dashboard").As("migrator"))
+	var login bool
+	if err := conn.QueryRow(context.Background(), `SELECT rolcanlogin FROM pg_roles WHERE rolname = 'dashboard'`).Scan(&login); err != nil || !login {
+		t.Errorf("dashboard: rolcanlogin %v, %v after control_plane.sql; want LOGIN", login, err)
+	}
+	if got := privileges(t, conn, "dashboard"); !slices.Contains(got, "dashboard operators select") {
+		t.Errorf("dashboard lost its rights in dashboard after control_plane.sql: %q", got)
 	}
 }
 
 func TestAServiceRoleIsRefusedWhatItDidNotDeclare(t *testing.T) {
 	pg := granted(t)
-	exec(t, connect(t, pg.As("postgres")), `ALTER ROLE admin_api_svc LOGIN PASSWORD 'admin_api_svc'`)
+	super := connect(t, pg.As("postgres"))
+	exec(t, super, `ALTER ROLE admin_api_svc LOGIN PASSWORD 'admin_api_svc'`, `ALTER ROLE dashboard LOGIN PASSWORD 'dashboard'`)
 	exec(t, connect(t, pg.As("migrator")), `CREATE TABLE control_plane.undeclared (id int)`)
 	svc := connect(t, pg.As("admin_api_svc"))
 	exec(t, svc,
@@ -112,15 +145,42 @@ func TestAServiceRoleIsRefusedWhatItDidNotDeclare(t *testing.T) {
 		`DELETE FROM control_plane.audit_log WHERE false`,
 		`DELETE FROM control_plane.audit_changes WHERE false`,
 	)
-	for _, refused := range []string{
-		`UPDATE control_plane.audit_changes SET actor = actor WHERE false`,
-		`INSERT INTO control_plane.audit_changes (actor, table_name, pk, op) VALUES ('s', 't', '{}', 'insert')`,
-		`SELECT count(*) FROM control_plane.undeclared`,
-		`CREATE TABLE control_plane.own (id int)`,
+	dashboard := connect(t, pg.In("dashboard").As("dashboard"))
+	exec(t, dashboard,
+		`INSERT INTO dashboard.operators (email, display_name) VALUES ('a@example.test', 'a')`,
+		`UPDATE dashboard.operators SET status = 'disabled'`,
+		`INSERT INTO dashboard.access_log (event, outcome) VALUES ('login', 'failure')`,
+		`INSERT INTO dashboard.access_log (event, outcome, target) VALUES ('role_deleted', 'success', 'role-support')`,
+		`SELECT count(*) FROM dashboard.access_log`,
+		`DELETE FROM dashboard.sessions WHERE false`,
+		`DELETE FROM dashboard.login_attempt_counters WHERE false`,
+	)
+	for conn, refused := range map[*pgx.Conn][]string{
+		svc: {
+			`UPDATE control_plane.audit_changes SET actor = actor WHERE false`,
+			`INSERT INTO control_plane.audit_changes (actor, table_name, pk, op) VALUES ('s', 't', '{}', 'insert')`,
+			`SELECT count(*) FROM control_plane.undeclared`,
+			`CREATE TABLE control_plane.own (id int)`,
+		},
+		dashboard: {
+			`DELETE FROM dashboard.operators WHERE false`,
+			`DELETE FROM dashboard.access_links WHERE false`,
+			`DELETE FROM dashboard.access_log WHERE false`,
+			`UPDATE dashboard.access_log SET outcome = outcome WHERE false`,
+			`CREATE TABLE dashboard.own (id int)`,
+		},
+		connect(t, pg.As("dashboard")): {
+			`SELECT count(*) FROM control_plane.audit_log`,
+		},
 	} {
-		if _, err := svc.Exec(context.Background(), refused); sqlState(err) != "42501" {
-			t.Errorf("%s: err = %v, want 42501", refused, err)
+		for _, s := range refused {
+			if _, err := conn.Exec(context.Background(), s); sqlState(err) != "42501" {
+				t.Errorf("%s: err = %v, want 42501", s, err)
+			}
 		}
+	}
+	if _, err := pgx.Connect(context.Background(), pg.In("dashboard").As("admin_api_svc")); sqlState(err) != "42501" {
+		t.Errorf("admin_api_svc connects to dashboard: err = %v, want 42501", err)
 	}
 }
 
@@ -141,13 +201,13 @@ func TestTheGrantsAdoptOnlyAPlainRole(t *testing.T) {
 		{`ALTER ROLE admin_api_svc REPLICATION`, `ALTER ROLE admin_api_svc NOREPLICATION`},
 	} {
 		exec(t, super, privileged.grant)
-		if _, err := migrator.Exec(context.Background(), grantsFile(t)); sqlState(err) != "P0001" {
+		if _, err := migrator.Exec(context.Background(), string(migrations.Grants("control_plane"))); sqlState(err) != "P0001" {
 			t.Errorf("after %s: err = %v, want P0001", privileged.grant, err)
 		}
 		exec(t, migrator, `ROLLBACK`)
 		exec(t, super, privileged.revoke)
 	}
-	exec(t, migrator, grantsFile(t))
+	exec(t, migrator, string(migrations.Grants("control_plane")))
 }
 
 func TestEachDeclaredRoleCanLogIn(t *testing.T) {
@@ -170,7 +230,7 @@ func TestARetiredRoleLosesItsRightsAndItsLogin(t *testing.T) {
 		`GRANT USAGE, CREATE ON SCHEMA control_plane TO retired_svc`,
 		`GRANT SELECT ON control_plane.audit_log TO retired_svc, foreign_svc`,
 	)
-	exec(t, migrator, grantsFile(t))
+	exec(t, migrator, string(migrations.Grants("control_plane")))
 	var login, usage, create, createSchema bool
 	if err := migrator.QueryRow(context.Background(), `SELECT rolcanlogin, has_schema_privilege('retired_svc', 'control_plane', 'USAGE'),
 		has_schema_privilege('retired_svc', 'control_plane', 'CREATE'), has_database_privilege('retired_svc', 'control_plane', 'CREATE')
@@ -180,7 +240,7 @@ func TestARetiredRoleLosesItsRightsAndItsLogin(t *testing.T) {
 	if login || usage || create || createSchema {
 		t.Errorf("retired_svc: login %v, usage %v, create in control_plane %v, create schemas %v; want nothing", login, usage, create, createSchema)
 	}
-	got := privileges(t, migrator)
+	got := privileges(t, migrator, "control_plane")
 	if slices.ContainsFunc(got, func(p string) bool { return strings.HasPrefix(p, "retired_svc ") }) {
 		t.Errorf("retired_svc keeps %q", got)
 	}
@@ -197,7 +257,7 @@ func TestARetiredRoleLosesItsRightsAndItsLogin(t *testing.T) {
 func TestTheGrantsRefuseAnyRoleButMigrator(t *testing.T) {
 	pg := pgtest.ControlPlane(t)
 	super := connect(t, pg.As("postgres"))
-	if _, err := super.Exec(context.Background(), grantsFile(t)); sqlState(err) != "P0001" {
+	if _, err := super.Exec(context.Background(), string(migrations.Grants("control_plane"))); sqlState(err) != "P0001" {
 		t.Fatalf("grants as postgres: err = %v, want P0001", err)
 	}
 	exec(t, super, `ROLLBACK`)

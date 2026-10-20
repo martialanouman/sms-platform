@@ -1,4 +1,4 @@
-// Package pgtest starts a Postgres for a test, migrated by a migrator role that is not a superuser.
+// Package pgtest starts a Postgres for a test, its databases migrated by a migrator role that is not a superuser.
 package pgtest
 
 import (
@@ -20,10 +20,18 @@ import (
 	"github.com/martialanouman/sms-platform/migrations"
 )
 
-// DB is a migrated database; each role it holds logs in with its own name as password.
+// DB is a database of the server, control_plane unless In names another; each role logs in with its own name as
+// password.
 type DB struct {
 	endpoint string
 	ctr      testcontainers.Container
+	database string
+}
+
+// In is the database name of the same server.
+func (db DB) In(name string) DB {
+	db.database = name
+	return db
 }
 
 // Logs is what the server has logged so far.
@@ -49,18 +57,20 @@ func (db DB) As(role string) string {
 // Late is the database behind an address that refuses connections for delay, as a network that has not admitted its
 // client yet.
 func (db DB) Late(t *testing.T, delay time.Duration) DB {
-	return DB{endpoint: tcpproxy.Later(t, db.endpoint, delay), ctr: db.ctr}
+	db.endpoint = tcpproxy.Later(t, db.endpoint, delay)
+	return db
 }
 
 // Cuttable is the database behind a proxy the test can cut.
 func (db DB) Cuttable(t *testing.T) (DB, *tcpproxy.Proxy) {
 	p := tcpproxy.New(t, db.endpoint)
-	return DB{endpoint: p.Addr(), ctr: db.ctr}, p
+	db.endpoint = p.Addr()
+	return db, p
 }
 
 // AsWith is the connection string of the database as role, logging in with password.
 func (db DB) AsWith(role, password string) string {
-	return fmt.Sprintf("postgres://%s:%s@%s/control_plane?sslmode=disable", role, password, db.endpoint)
+	return fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", role, password, db.endpoint, db.database)
 }
 
 // Secret is a random service-role secret of 32 printable ASCII characters, safe in a connection string.
@@ -70,26 +80,33 @@ func Secret() string {
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
-// ControlPlane starts a Postgres whose control_plane database is migrated to the latest version.
+// ControlPlane starts a Postgres whose databases are migrated to the latest version, and is its control_plane.
 func ControlPlane(t *testing.T) DB {
 	t.Helper()
 	db := Empty(t)
+	for _, database := range migrations.Databases {
+		migrate(t, db.In(database))
+	}
+	return db
+}
+
+func migrate(t *testing.T, db DB) {
+	t.Helper()
 	migrator, err := sql.Open("pgx", db.As("migrator"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { _ = migrator.Close() }()
-	p, err := goose.NewProvider(goose.DialectPostgres, migrator, migrations.ControlPlane())
+	p, err := goose.NewProvider(goose.DialectPostgres, migrator, migrations.Database(db.database))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := p.Up(context.Background()); err != nil {
-		t.Fatalf("migrate control_plane: %v", err)
+		t.Fatalf("migrate %s: %v", db.database, err)
 	}
-	return db
 }
 
-// Empty starts a Postgres whose control_plane database, owned by migrator, holds no migration.
+// Empty starts a Postgres whose databases, owned by migrator, hold no migration, and is its control_plane.
 func Empty(t *testing.T) DB {
 	t.Helper()
 	testcontainers.SkipIfProviderIsNotHealthy(t)
@@ -111,16 +128,17 @@ func Empty(t *testing.T) DB {
 	if err != nil {
 		t.Fatal(err)
 	}
-	db := DB{endpoint: endpoint, ctr: pg}
+	db := DB{endpoint: endpoint, ctr: pg, database: "control_plane"}
 	super, err := sql.Open("pgx", fmt.Sprintf("postgres://postgres:postgres@%s/postgres?sslmode=disable", endpoint))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { _ = super.Close() }()
-	for _, s := range []string{
-		`CREATE ROLE migrator LOGIN CREATEROLE PASSWORD 'migrator'`,
-		`CREATE DATABASE control_plane OWNER migrator`,
-	} {
+	statements := []string{`CREATE ROLE migrator LOGIN CREATEROLE PASSWORD 'migrator'`}
+	for _, database := range migrations.Databases {
+		statements = append(statements, `CREATE DATABASE `+database+` OWNER migrator`)
+	}
+	for _, s := range statements {
 		if _, err := super.Exec(s); err != nil {
 			t.Fatalf("%s: %v", s, err)
 		}

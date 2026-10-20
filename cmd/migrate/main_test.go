@@ -32,7 +32,7 @@ func TestRunAppliesEveryMigrationOnceAsMigrator(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	p, err := goose.NewProvider(goose.DialectPostgres, db, migrations.ControlPlane())
+	p, err := goose.NewProvider(goose.DialectPostgres, db, migrations.Database("control_plane"))
 	if err != nil {
 		t.Fatal(err)
 	}

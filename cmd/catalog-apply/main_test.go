@@ -58,6 +58,9 @@ func TestRunGrantsPostgresThenDialsKafkaOverTLS(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "admin_api_svc"), []byte(secret), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(dir, "dashboard"), []byte(pgtest.Secret()), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)

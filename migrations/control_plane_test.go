@@ -12,30 +12,37 @@ import (
 	"github.com/martialanouman/sms-platform/migrations"
 )
 
-func TestControlPlaneMigratesUpDownUpAsMigrator(t *testing.T) {
+func TestEachDatabaseMigratesUpDownUpAsMigrator(t *testing.T) {
 	pg := pgtest.ControlPlane(t)
-	db, err := sql.Open("pgx", pg.As("migrator"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	p, err := goose.NewProvider(goose.DialectPostgres, db, migrations.ControlPlane())
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx := context.Background()
-	if _, err := p.DownTo(ctx, 0); err != nil {
-		t.Fatalf("down: %v", err)
-	}
-	var schemas int
-	if err := db.QueryRowContext(ctx,
-		`SELECT count(*) FROM pg_namespace WHERE nspname = 'control_plane'`).Scan(&schemas); err != nil {
-		t.Fatal(err)
-	}
-	if schemas != 0 {
-		t.Fatal("down left the control_plane schema")
-	}
-	if _, err := p.Up(ctx); err != nil {
-		t.Fatalf("up again: %v", err)
+	for _, database := range migrations.Databases {
+		db, err := sql.Open("pgx", pg.In(database).As("migrator"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = db.Close() })
+		p, err := goose.NewProvider(goose.DialectPostgres, db, migrations.Database(database))
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx := context.Background()
+		if _, err := p.DownTo(ctx, 0); err != nil {
+			t.Fatalf("%s down: %v", database, err)
+		}
+		var schemas int
+		if err := db.QueryRowContext(ctx, `SELECT count(*) FROM pg_namespace WHERE nspname = $1`, database).Scan(&schemas); err != nil {
+			t.Fatal(err)
+		}
+		if schemas != 0 {
+			t.Fatalf("down left the %s schema", database)
+		}
+		var public int
+		if err := db.QueryRowContext(ctx, `SELECT count(*) FROM pg_database d,
+			aclexplode(coalesce(d.datacl, acldefault('d', d.datdba))) a
+			WHERE d.datname = $1 AND a.grantee = 0 AND a.privilege_type IN ('CONNECT', 'TEMPORARY')`, database).Scan(&public); err != nil || public != 2 {
+			t.Fatalf("down left %s with %d of the default rights of PUBLIC (%v), want CONNECT and TEMPORARY", database, public, err)
+		}
+		if _, err := p.Up(ctx); err != nil {
+			t.Fatalf("%s up again: %v", database, err)
+		}
 	}
 }

@@ -65,7 +65,7 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger) error {
 		return fmt.Errorf("connect to control_plane: %w", err)
 	}
 	defer func() { _ = conn.Close(context.WithoutCancel(ctx)) }()
-	roles, err := postgres.Apply(ctx, conn, migrations.Grants(), os.DirFS(infra.PostgresRoleSecretsDir))
+	roles, err := postgres.Apply(ctx, conn, migrations.Grants("control_plane"), os.DirFS(infra.PostgresRoleSecretsDir))
 	if err != nil {
 		return err
 	}

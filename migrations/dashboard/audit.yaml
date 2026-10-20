@@ -1,0 +1,5 @@
+operators: {audit: exempt, reason: "les faits sur un opérateur vont au journal d'accès du dashboard, pas au plan de contrôle"}
+access_links: {audit: exempt, reason: "état d'exécution de l'outbox ; demande et usage d'un lien vont au journal d'accès"}
+sessions: {audit: exempt, reason: "état d'exécution ; connexions et fermetures vont au journal d'accès"}
+login_attempt_counters: {audit: exempt, reason: "état d'exécution de l'anti-brute-force, aux sujets hachés"}
+access_log: {audit: exempt, reason: le journal lui-même}
