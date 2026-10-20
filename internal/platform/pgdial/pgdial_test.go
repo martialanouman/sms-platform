@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"net"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -104,8 +105,9 @@ func TestRetryReplaysAnUnresolvedName(t *testing.T) {
 }
 
 func TestDatabaseNamesAnotherDatabaseOfTheSameServer(t *testing.T) {
-	got, err := pgdial.Database("postgres://migrator:s%40cret@postgres-rw.postgres.svc:5432/control_plane?sslmode=verify-full&sslrootcert=/tls/ca.crt", "dashboard")
-	if want := "postgres://migrator:s%40cret@postgres-rw.postgres.svc:5432/dashboard?sslmode=verify-full&sslrootcert=/tls/ca.crt"; err != nil || got != want {
+	server := "postgres://migrator:" + url.QueryEscape("s@cret") + "@postgres-rw.postgres.svc:5432/"
+	got, err := pgdial.Database(server+"control_plane?sslmode=verify-full&sslrootcert=/tls/ca.crt", "dashboard")
+	if want := server + "dashboard?sslmode=verify-full&sslrootcert=/tls/ca.crt"; err != nil || got != want {
 		t.Fatalf("got %q, %v; want %q", got, err, want)
 	}
 	for _, bad := range []string{"::not a url pass1", "mysql://u:pass1@h/control_plane", "postgres://u:pass1@h", "postgres://u:pass1@h/x\x7f"} {
