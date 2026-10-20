@@ -75,8 +75,13 @@ linters:
           - gosec
       # G401, G505 : TOTP est HMAC-SHA1 (RFC 6238), seul algorithme que lisent les applications d'authentification ;
       # HMAC-SHA1 n'est pas atteint par les collisions de SHA-1.
-      - path: ^internal/dashboard/totp\.go$
+      - path: ^internal/dashboard/(totp\.go|http/mfa_test\.go)$
         text: "G401:|G505:"
+        linters:
+          - gosec
+      # G117 : l'enrôlement TOTP rend son secret une fois, par contrat (I2) ; c'est la réponse, pas une fuite.
+      - path: ^internal/dashboard/http/bff\.gen\.go$
+        text: "G117:"
         linters:
           - gosec
       # Code de protoc : gosec y voit des constantes et unsafe qu'on ne réécrit pas.

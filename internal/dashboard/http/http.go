@@ -72,9 +72,16 @@ func New(c Config) (http.Handler, error) {
 		write(w, http.StatusNotFound, ErrorCodeNotFound, "Aucune ressource à cette adresse.", nil)
 	})
 	root := http.NewServeMux()
-	root.Handle("/api/", c.guard(validate(HandlerWithOptions(strict, StdHTTPServerOptions{BaseURL: "/api", BaseRouter: mux}))))
+	root.Handle("/api/", noStore(c.guard(validate(HandlerWithOptions(strict, StdHTTPServerOptions{BaseURL: "/api", BaseRouter: mux})))))
 	root.Handle("/", spa(c.Assets))
 	return secured(root), nil
+}
+
+func noStore(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		next.ServeHTTP(w, r)
+	})
 }
 
 func secured(next http.Handler) http.Handler {
@@ -229,6 +236,10 @@ func (s server) session(next StrictHandlerFunc, operation string) StrictHandlerF
 	if !protected {
 		return next
 	}
+	unauthenticated := "Aucune session ouverte."
+	if operation == "VerifyMfa" {
+		unauthenticated = factorRefused
+	}
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error) {
 		cookie, _ := r.Cookie(cookieName)
 		var value string
@@ -238,7 +249,7 @@ func (s server) session(next StrictHandlerFunc, operation string) StrictHandlerF
 		current, err := s.Service.Resolve(ctx, value)
 		switch {
 		case errors.Is(err, dashboard.ErrUnauthenticated):
-			write(w, http.StatusUnauthorized, ErrorCodeUnauthenticated, "Aucune session ouverte.", nil)
+			write(w, http.StatusUnauthorized, ErrorCodeUnauthenticated, unauthenticated, nil)
 			return nil, nil
 		case err != nil:
 			return nil, err

@@ -27,11 +27,7 @@ func (s server) Login(ctx context.Context, request LoginRequestObject) (LoginRes
 	var limited dashboard.RateLimited
 	switch {
 	case errors.As(err, &limited):
-		retry := int(limited.RetryAfter.Seconds())
-		return Login429JSONResponse{RateLimitedJSONResponse{
-			Body:    Error{Code: ErrorCodeRateLimited, Message: "Trop de tentatives ; réessayez dans " + strconv.Itoa(retry) + " s."},
-			Headers: RateLimitedResponseHeaders{RetryAfter: retry},
-		}}, nil
+		return Login429JSONResponse{tooMany(limited)}, nil
 	case errors.Is(err, dashboard.ErrUnauthenticated):
 		return Login401JSONResponse{UnauthorizedJSONResponse{Code: ErrorCodeUnauthenticated, Message: "Adresse ou mot de passe refusé."}}, nil
 	case errors.Is(err, dashboard.ErrBusy):
@@ -44,6 +40,14 @@ func (s server) Login(ctx context.Context, request LoginRequestObject) (LoginRes
 }
 
 const busy = "Le service est saturé ; réessayez dans un instant."
+
+func tooMany(limited dashboard.RateLimited) RateLimitedJSONResponse {
+	retry := int(limited.RetryAfter.Seconds())
+	return RateLimitedJSONResponse{
+		Body:    Error{Code: ErrorCodeRateLimited, Message: "Trop de tentatives ; réessayez dans " + strconv.Itoa(retry) + " s."},
+		Headers: RateLimitedResponseHeaders{RetryAfter: retry},
+	}
+}
 
 func (s server) SetPasswordFromAccessLink(ctx context.Context, request SetPasswordFromAccessLinkRequestObject) (SetPasswordFromAccessLinkResponseObject, error) {
 	err := s.Service.UseAccessLink(ctx, request.Body.Token, request.Body.Password)
@@ -67,6 +71,8 @@ func (s server) Me(ctx context.Context, _ MeRequestObject) (MeResponseObject, er
 	return Me200JSONResponse{
 		Operator:           CurrentOperator{Id: c.OperatorID, Email: c.Email, DisplayName: c.DisplayName},
 		Permissions:        []Permission{},
+		Elevated:           c.Elevated,
+		SecondFactors:      SecondFactors{Totp: c.Totp, RecoveryCodesRemaining: c.RecoveryCodesRemaining},
 		IdleTimeoutSeconds: &idle,
 		AbsoluteExpiresAt:  c.ExpiresAt,
 	}, nil
@@ -93,6 +99,74 @@ func (s server) Logout(ctx context.Context, _ LogoutRequestObject) (LogoutRespon
 	}
 	http.SetCookie(e.w, sessionCookie("", -1))
 	return Logout204Response{}, nil
+}
+
+const factorRefused = "Second facteur refusé ; si la connexion date de plus de 5 minutes, reconnectez-vous."
+
+func (s server) EnrollTotp(ctx context.Context, request EnrollTotpRequestObject) (EnrollTotpResponseObject, error) {
+	var proof *dashboard.Proof
+	if request.Body.Method != nil {
+		proof = &dashboard.Proof{Method: dashboard.Method(*request.Body.Method), Code: *request.Body.Code}
+	}
+	e, err := s.Service.EnrollTotp(ctx, cookie(ctx), proof)
+	var limited dashboard.RateLimited
+	switch {
+	case errors.As(err, &limited):
+		return EnrollTotp429JSONResponse{tooMany(limited)}, nil
+	case errors.Is(err, dashboard.ErrAlreadyEnrolled):
+		return EnrollTotp409JSONResponse{Code: ErrorCodeMfaAlreadyEnrolled, Message: "Un facteur est en place ; présentez-en un code pour le remplacer."}, nil
+	case errors.Is(err, dashboard.ErrReplacementRefused):
+		return EnrollTotp409JSONResponse{Code: ErrorCodeMfaReplacementRefused, Message: "Le code du facteur en place est refusé."}, nil
+	case errors.Is(err, dashboard.ErrUnauthenticated):
+		return EnrollTotp401JSONResponse{UnauthorizedJSONResponse{Code: ErrorCodeUnauthenticated, Message: "Aucune session ouverte."}}, nil
+	case err != nil:
+		return nil, err
+	}
+	return EnrollTotp200JSONResponse{Secret: e.Secret, OtpauthUri: e.URI, RecoveryCodes: e.RecoveryCodes}, nil
+}
+
+func (s server) ConfirmTotp(ctx context.Context, request ConfirmTotpRequestObject) (ConfirmTotpResponseObject, error) {
+	err := s.Service.ConfirmTotp(ctx, cookie(ctx), request.Body.Code)
+	var limited dashboard.RateLimited
+	switch {
+	case errors.As(err, &limited):
+		return ConfirmTotp429JSONResponse{tooMany(limited)}, nil
+	case errors.Is(err, dashboard.ErrElevationRequired):
+		return ConfirmTotp409JSONResponse{Code: ErrorCodeMfaElevationRequired, Message: "Vérifiez d'abord votre second facteur."}, nil
+	case errors.Is(err, dashboard.ErrNothingToConfirm):
+		return ConfirmTotp409JSONResponse{Code: ErrorCodeMfaNothingToConfirm, Message: "Aucune application n'attend de confirmation."}, nil
+	case errors.Is(err, dashboard.ErrCodeRefused):
+		return ConfirmTotp422JSONResponse{Code: ErrorCodeMfaCodeRefused, Message: "Ce code n'est pas accepté."}, nil
+	case errors.Is(err, dashboard.ErrUnauthenticated):
+		return ConfirmTotp401JSONResponse{UnauthorizedJSONResponse{Code: ErrorCodeUnauthenticated, Message: "Aucune session ouverte."}}, nil
+	case err != nil:
+		return nil, err
+	}
+	return ConfirmTotp204Response{}, nil
+}
+
+func (s server) VerifyMfa(ctx context.Context, request VerifyMfaRequestObject) (VerifyMfaResponseObject, error) {
+	var code string
+	if request.Body.Code != nil {
+		code = *request.Body.Code
+	}
+	next, err := s.Service.Verify(ctx, cookie(ctx), request.Body.Challenge, dashboard.Proof{Method: dashboard.Method(request.Body.Method), Code: code})
+	var limited dashboard.RateLimited
+	switch {
+	case errors.As(err, &limited):
+		return VerifyMfa429JSONResponse{tooMany(limited)}, nil
+	case errors.Is(err, dashboard.ErrUnauthenticated):
+		return VerifyMfa401JSONResponse{Code: ErrorCodeUnauthenticated, Message: factorRefused}, nil
+	case err != nil:
+		return nil, err
+	}
+	http.SetCookie(from(ctx).w, sessionCookie(next, 0))
+	return VerifyMfa204Response{}, nil
+}
+
+func cookie(ctx context.Context) string {
+	c, _ := from(ctx).r.Cookie(cookieName)
+	return c.Value
 }
 
 func (s server) ListAccessLog(ctx context.Context, request ListAccessLogRequestObject) (ListAccessLogResponseObject, error) {
