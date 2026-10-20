@@ -68,3 +68,35 @@ Fable, 2026-10-20, sauf U à W, tranchés par l'humain le même jour.
 - **Preuve sur `contabo169`**, dans Chromium par `port-forward` : les trois écrans dans la charte, captures jointes ;
   polices servies depuis l'origine (`immutable`), aucune requête hors origine ; console sans violation de CSP ;
   focus visible au clavier ; axe dans le vrai navigateur, `color-contrast` comprise.
+
+## Écarts au design, constatés à l'implémentation
+
+- **Vitest traite les feuilles de `src/styles/`** (`test.css.include`) : sans cela, il vide toute feuille, lecture brute
+  (`?raw`) comprise, et les tests de la charte ne liraient rien. Le projet n'a pas les types de Node : les tests lisent
+  les feuilles par `import.meta.glob`, pas par `fs`.
+- **Deux commentaires de valeur survivent dans `colors.css`** : les écarts assumés de l'origine à la charte
+  (`--n-300` éclairci, `--red-400` ajouté), sans lesquels on « corrigerait » une valeur vers une couleur qui échoue AA.
+- **Le bouton désactivé** se sélectionne par `:disabled` natif, et non par les attributs de `@base-ui/react` de
+  l'origine.
+- **`/`** emploie la même carte que la connexion, en attendant la coquille.
+
+## Mutations
+
+Douze, à la main : un token mal nommé, un token déclaré hors des tokens, une graisse non chargée (sans et mono), une
+graisse déclarée sans police, quatre couleurs assombries sous AA, l'import de la feuille retiré de `main.tsx`, le lien
+du libellé au champ coupé de deux façons. Toutes tombent.
+
+## Preuve sur `contabo169`
+
+Jouée le 2026-10-20 depuis la branche, sur le cluster en v0.15.0 : image construite par GoReleaser en snapshot,
+importée sous `proof-011b2a`, timer suspendu, puis réarmé et image de la release rétablie. Dans Chromium
+(`agent-browser`), par tunnel SSH vers `port-forward`, sur `localhost:8080` :
+
+1. `/login` ([capture](011b-2a/connexion.png)) : fond `rgb(12, 15, 20)`, carte `rgb(17, 22, 30)`, titres en IBM Plex
+   Sans ; polices chargées 400, 500 et 600 ; douze requêtes, toutes vers l'origine ; ni erreur de console ni violation
+   de CSP ; axe-core injecté dans la page : aucune violation, `color-contrast` comprise.
+2. Refus ([capture](011b-2a/refus.png)) : bandeau rouge teinté, axe sans violation ; focus clavier
+   ([capture](011b-2a/focus.png)) : anneau `0 0 0 2px` couleur de page, `0 0 0 4px` teal.
+3. `/access` sans jeton ([capture](011b-2a/lien-incomplet.png)) et `/` après connexion ([capture](011b-2a/accueil.png)) :
+   axe sans violation.
+4. Une police, `ibm-plex-sans-latin-400-normal-….woff2` : 200, `font/woff2`, `public, max-age=31536000, immutable`.
