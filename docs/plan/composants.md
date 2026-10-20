@@ -20,7 +20,8 @@ une autre peut s'ajouter au démarrage d'une step, comme au socle.
 | 010b-1 | `content-key-svc` : cœur et adaptateurs | Fondations |
 | 010b-2 | `content-key-svc` : service et déploiement | Fondations |
 | 011a-1 | Prometheus et Alertmanager | Fondations |
-| 011a-2 | Dashboard : cœur et adaptateurs | Fondations |
+| 011a-2a | Dashboard : schéma et GRANT par base | Fondations |
+| 011a-2b | Dashboard : cœur et adaptateurs | Fondations |
 | 011a-3 | Dashboard : service et déploiement | Fondations |
 | 011a-4 | Dashboard : SPA et écrans | Fondations |
 | 011b | Dashboard : TOTP, WebAuthn, session élevée | Fondations |
@@ -118,6 +119,8 @@ l'atteignent.
   ouvre l'entrée 8200 d'OpenBao à sa collecte (010a).
   Coupée en quatre (Fable, 2026-10-20) : Prometheus et Alertmanager ; cœur et adaptateurs ; service et
   déploiement ; SPA et écrans (`docs/steps/011a-1-prometheus-et-alertmanager.md`).
+  011a-2 coupée en deux (humain, 2026-10-20) : schéma et GRANT par base ; cœur et adaptateurs
+  (`docs/steps/011a-2a-schema-par-base.md`).
 - **011b** : TOTP, codes de récupération, WebAuthn, session élevée, remplacement d'un facteur ; écrans
   d'enrôlement.
 
