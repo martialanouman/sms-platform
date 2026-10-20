@@ -51,9 +51,8 @@ VPS) :
   propriétaire `migrator`) et `managed.roles` (`migrator`, `LOGIN CREATEROLE`, même Secret). `openbao` et
   `breakglass` entrent avec la brique OpenBao, que rien n'exerce avant elle (un rôle géré sans Secret naît à
   mot de passe NULL) ; `managed.roles` tiendra alors « créés sous un autre rôle que `migrator` ». Séquencement,
-  plan amendé. Amendé le 2026-10-20 (#124) : aucun rôle géré par CloudNativePG, qui réconcilie les adhésions
-  d'un rôle géré contre son `inRoles` et a retiré à `migrator` l'`ADMIN OPTION` de PG 16 sur `admin_api_svc` ;
-  `migrator` reçoit `CREATEROLE` par `postInitSQL`, à l'initdb.
+  plan amendé. Amendé le 2026-10-20 (#124) : aucun rôle géré (`.claude/rules/migrations.md`) ; `migrator`
+  reçoit `CREATEROLE` par `postInitSQL`, à l'initdb.
 - **B3 — Une racine** (amendée, puis remplacée par l'arbitrage de la revue : clé racine confinée,
   authentification `custom`) : un `Certificate` racine cert-manager (`isCA`, `duration: 87600h`,
   `privateKey.rotationPolicy: Never` : une racine à clé tournante casserait toute feuille) derrière un
@@ -140,7 +139,7 @@ Arbitrage de la revue (Fable, 2026-10-19) :
     (`sms`, CN seul, `client auth`) ;
   - `namespaces.yaml` : `sms` et `postgres` ;
   - `postgres.yaml` : `Cluster` `postgres` (image par digest, une instance,
-    `initdb`, `managed.roles`, certificats serveur), `NetworkPolicy` d'entrée : 5432 depuis `sms`, 5432 depuis
+    `initdb`, certificats serveur), `NetworkPolicy` d'entrée : 5432 depuis `sms`, 5432 depuis
     le cluster, 8000 depuis l'opérateur ;
   - `kafka.yaml` : `KafkaNodePool` et `Kafka` `kafka` (B4), listener en authentification `custom` contre la
     racine montée, `networkPolicyPeers` vers `sms` ;
