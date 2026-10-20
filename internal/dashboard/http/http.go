@@ -37,9 +37,10 @@ type Config struct {
 	Origin         string
 	TrustedProxies []netip.Prefix
 	Log            *slog.Logger
+	Assets         fs.FS
 }
 
-// New serves the contract under /api.
+// New serves the contract under /api and the SPA everywhere else.
 func New(c Config) (http.Handler, error) {
 	loader := openapi3.NewLoader()
 	loader.IsExternalRefsAllowed = true
@@ -70,7 +71,43 @@ func New(c Config) (http.Handler, error) {
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		write(w, http.StatusNotFound, ErrorCodeNotFound, "Aucune ressource à cette adresse.", nil)
 	})
-	return c.guard(validate(HandlerWithOptions(strict, StdHTTPServerOptions{BaseURL: "/api", BaseRouter: mux}))), nil
+	root := http.NewServeMux()
+	root.Handle("/api/", c.guard(validate(HandlerWithOptions(strict, StdHTTPServerOptions{BaseURL: "/api", BaseRouter: mux}))))
+	root.Handle("/", spa(c.Assets))
+	return secured(root), nil
+}
+
+func secured(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Referrer-Policy", "same-origin")
+		h.Set("Content-Security-Policy", "default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+		next.ServeHTTP(w, r)
+	})
+}
+
+func spa(assets fs.FS) http.Handler {
+	files := http.FileServerFS(assets)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			w.Header().Set("Allow", "GET, HEAD")
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		if name := strings.TrimPrefix(r.URL.Path, "/"); strings.HasPrefix(name, "assets/") {
+			if info, err := fs.Stat(assets, name); err != nil || info.IsDir() {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			files.ServeHTTP(w, r)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-cache")
+		http.ServeFileFS(w, r, assets, "index.html")
+	})
 }
 
 func permissions(spec *openapi3.T) map[string][]string {

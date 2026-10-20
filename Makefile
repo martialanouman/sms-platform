@@ -1,6 +1,6 @@
 SHELL := /bin/bash -o pipefail
 
-.PHONY: help lint vuln test ciguard check-generated debtguard catalog proto openapi alerts image scan release check
+.PHONY: help web lint vuln test ciguard check-generated debtguard catalog proto openapi alerts image scan release check
 
 # Hors de la directive tool (décision 9, C1) : une version ici, la seule. GoReleaser exige Go 1.27 ; setup-go pose
 # GOTOOLCHAIN=local en CI.
@@ -13,21 +13,28 @@ PROMTOOL := docker run --rm -v $(CURDIR)/deploy/alerts:/alerts:ro -w /alerts --e
 help: ## Liste les cibles
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "%-16s %s\n", $$1, $$2}'
 
-lint: ## golangci-lint, gofmt compris ; une exclusion vit dans .golangci.yml, jamais en nolint ni go:linkname
+web: ## Construit la SPA dans web/dist, que le binaire du dashboard embarque
+	cd web && pnpm install --frozen-lockfile && pnpm build
+
+lint: web ## golangci-lint, gofmt compris ; Biome et tsc ; une exclusion vit dans .golangci.yml, jamais en nolint ni go:linkname
 	go tool golangci-lint run ./...
 	@! git grep --untracked -nE 'nolint|go:linkname' -- '*.go'
+	cd web && pnpm lint && pnpm typecheck
 
-vuln: ## govulncheck : une vulnérabilité connue atteinte par le code échoue
+vuln: ## govulncheck (une vulnérabilité atteinte par le code) et pnpm audit (tout avis, devDependencies comprises) échouent
 	go tool govulncheck ./...
+	cd web && pnpm audit --audit-level=low
 
-test: ## Tests avec -race ; un test peut sauter
+test: web ## Tests avec -race, puis Vitest ; un test peut sauter
 	go test -race ./...
+	cd web && pnpm test
 
 # debt: #2
-ciguard: ## Tests avec -race ; un test qui saute échoue
+ciguard: web ## Tests avec -race, puis Vitest ; un test qui saute échoue
 	go test -race -v ./... | tee /dev/stderr | { ! grep -- '--- SKIP'; }
+	cd web && pnpm test
 
-check-generated: ## La génération ne change rien à l'arbre
+check-generated: web ## La génération ne change rien à l'arbre
 	@before="$$(git status --porcelain -uall; git diff)"; go generate ./... || exit 1; \
 		[ "$$before" = "$$(git status --porcelain -uall; git diff)" ] \
 		|| { echo "go generate a modifié l'arbre :"; git status --porcelain -uall; exit 1; }

@@ -1,4 +1,7 @@
-dist/
+/dist/
+/web/dist/*
+!/web/dist/.gitkeep
+/web/node_modules/
 /migrate
 /catalog-apply
 /content-key-svc

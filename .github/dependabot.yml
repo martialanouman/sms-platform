@@ -23,6 +23,18 @@ updates:
     commit-message:
       prefix: build
       include: scope
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+    groups:
+      web:
+        patterns: ["*"]
+    commit-message:
+      prefix: build
+      include: scope
   - package-ecosystem: github-actions
     directory: /
     schedule:

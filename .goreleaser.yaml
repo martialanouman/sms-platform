@@ -1,6 +1,10 @@
 version: 2
 project_name: sms-platform
 
+before:
+  hooks:
+    - make web
+
 builds:
   - id: migrate
     main: ./cmd/migrate

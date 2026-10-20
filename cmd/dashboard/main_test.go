@@ -270,6 +270,15 @@ func TestTheDashboardServesAnOperatorFromActivationToLogout(t *testing.T) {
 		t.Fatalf("login: %d", login.StatusCode)
 	}
 	cookie := login.Cookies()[0].Value
+	shell, err := http.Get("http://" + d.infra.HTTPAddr + "/login")
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, _ := io.ReadAll(shell.Body)
+	_ = shell.Body.Close()
+	if shell.StatusCode != 200 || !strings.Contains(string(page), `<html lang="fr">`) {
+		t.Fatalf("GET /login: %d %.80q, want the embedded SPA (make web builds it)", shell.StatusCode, page)
+	}
 	r, err := http.NewRequest("GET", base+"/auth/me", nil)
 	if err != nil {
 		t.Fatal(err)
