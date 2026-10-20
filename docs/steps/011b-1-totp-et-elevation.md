@@ -154,3 +154,31 @@ v0.14.0, compatible avec le schéma 2. Par `port-forward`, un script Python qui 
 Rouge vu : la première passe rendait 500 sur `enroll` et `me` (`permission denied for table totp_factors`). Seul
 `migrate` avait été joué, alors que les GRANT viennent de `catalog-apply`, joué après lui par `deploy.sh`. Rejoué dans
 l'ordre du script.
+
+## Correctifs de revue, tour 1
+
+Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloquant ; 29 constats.
+
+1. **Le compteur ne s'oublie qu'après une preuve vérifiée** (arbitrage 91) : l'oubli vit dans `prove`, sur sa seule
+   branche de succès. Une preuve offerte à l'enrôlement d'un compte sans facteur confirmé l'effaçait sans rien prouver,
+   ce qui aurait ouvert un trou en 011b-3 (compte gardé par une seule passkey).
+2. **Un enrôlement en attente se remplace par un upsert** sur son index partiel, ses codes recréés : deux enrôlements
+   concurrents sur un compte sans ligne heurtaient l'index (500), le `FOR UPDATE` ne verrouillant rien d'absent.
+3. **Retraits** : la sentinelle `errRefused` (le refus est `ErrUnauthenticated`), `MethodWebauthn` (011b-3 l'apportera),
+   l'`ORDER BY` de `Factors`, deux commentaires de champ.
+4. **Tests** : la réinitialisation retire aussi l'application en attente (sans quoi elle élèverait le compte vidé de
+   facteur confirmé) ; double enrôlement ; queue exacte du journal au remplacement ; `webauthn` sur un défi frais ;
+   code faux de sept chiffres, sans `t.Skip` ; franchissement de pas toléré au premier code ; aucune ligne
+   `factor_removed` sans facteur ; journal applicatif sans secret ni code ; enrôlement en attente qui survit à une
+   nouvelle connexion (arbitrage 84).
+5. **Gardés tels quels** :
+   - `created_at`, nommé par l'arbitrage 97 ;
+   - la double résolution de session d'`EnrollTotp` et `ConfirmTotp`, qui garde au cœur une signature par cookie ;
+   - `CurrentStep` en port distinct ;
+   - le `totpAt` du test HTTP, oracle indépendant du code de production.
+6. **Fenêtre de déploiement progressif**, acceptée : un pod de la version précédente qui traite une réinitialisation
+   ferme les sessions sans retirer les facteurs ; l'opérateur refait le lien. Le schéma reste compatible dans les deux
+   sens.
+
+Mutations du tour : neuf, toutes tombent (dont l'ordre des lignes du journal, le retrait limité aux facteurs
+confirmés, l'upsert et la recréation des codes).
