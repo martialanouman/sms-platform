@@ -60,3 +60,29 @@ Tranchés par l'agent, sans contredire 1 à 58.
   drain qui ferme le pool) ; `netpol` ; garde ; alerte.
 - **Preuve sur `contabo169`** : rollout, `/readyz`, parcours complet par `port-forward`, Mailpit sous STARTTLS,
   sondes, refus d'un pod non admis vers Mailpit.
+
+## Preuve sur `contabo169`
+
+Jouée le 2026-10-20 depuis la branche, sur le cluster en v0.12.0 : image construite localement et importée sous le tag
+`proof`, timer de déploiement suspendu pendant la preuve, puis réarmé.
+
+1. `secrets.sh` ajoute `cookie-key` et `postgres-url` au Secret `sms/dashboard` existant ; Mailpit sert sous le
+   certificat `mailpit-tls` ; le dashboard tourne à deux répliques prêtes.
+2. Par `port-forward`, le lien d'activation de l'opérateur de bootstrap arrive dans Mailpit (objet « Activation de
+   votre compte », lien `http://localhost:8080/access#…`). Ensuite :
+   - `access-link` : 204 ;
+   - `login` : 200, cookie `__Host-dashboard_session` avec `Path=/`, `HttpOnly`, `Secure` et `SameSite=Strict` ;
+   - `me` : 200 (`permissions []`, `elevated false`, `idleTimeoutSeconds 900`) ;
+   - `access-log` : 403 `forbidden_scope` (`audit:read`) ;
+   - `logout` : 204, puis `me` : 401.
+3. Une session antidatée de 15 min en base rend `me` 401. Le journal porte, dans l'ordre :
+   - `access_link_requested` ;
+   - `access_link_used` ;
+   - `login`, puis `logout` ;
+   - un second `login`, puis `session_refused`.
+4. Prometheus collecte les deux répliques : `dashboard_access_links_undeliverable` vaut 0 sur chacune.
+5. Mailpit : un pod au label `dashboard` lit la bannière `220`, un pod `other` est refusé.
+6. `rollout restart` : drain sans dépassement ; les rejets d'admission de kube-router au démarrage sont absorbés par
+   `pgdial.Retry`.
+
+Rouge vu : un premier sondage de Mailpit concluait « admis » sur le statut de `head` ; rejoué en exigeant `220`.
