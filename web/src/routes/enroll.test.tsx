@@ -1,5 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { QRCodeSVG } from 'qrcode.react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, test, vi } from 'vitest'
 import { pendingChallenge, rememberChallenge } from '../session'
 import { challenge, empty, json, me, renderAt, stubFetch, violations } from '../test'
@@ -35,7 +37,11 @@ test('the app is configured, proved, and only then its codes are shown', async (
   expect(calls).toEqual([])
   const user = await configure()
   const qr = await screen.findByRole('img', { name: "QR code de configuration de l'application" })
-  expect(qr.tagName).toBe('svg')
+  const drawn = new DOMParser().parseFromString(
+    renderToStaticMarkup(<QRCodeSVG value={enrollment.otpauthUri} marginSize={4} />),
+    'image/svg+xml',
+  )
+  expect(qr.querySelectorAll('path')[1]?.getAttribute('d')).toBe(drawn.querySelectorAll('path')[1]?.getAttribute('d'))
   expect(screen.getByText(enrollment.secret)).toBeDefined()
   expect(screen.queryByText('CODE0ABCDE')).toBeNull()
   expect(await violations(container)).toEqual([])

@@ -34,9 +34,11 @@ test('a recovery code is sent as such, and the app comes back', async () => {
   const calls = stubFetch({ 'POST /api/auth/mfa/verify': () => empty(204), 'GET /api/auth/me': () => json(200, me) })
   const { router } = renderAt('/mfa')
   const user = userEvent.setup()
-  await user.click(await screen.findByRole('button', { name: 'Utiliser un code de récupération' }))
+  await user.type(await screen.findByLabelText('Code à six chiffres'), '12')
+  await user.click(screen.getByRole('button', { name: 'Utiliser un code de récupération' }))
   const field = screen.getByLabelText('Code de récupération')
   expect(document.activeElement).toBe(field)
+  expect(field).toHaveProperty('value', '')
   await user.click(screen.getByRole('button', { name: "Utiliser l'application" }))
   expect(document.activeElement).toBe(screen.getByLabelText('Code à six chiffres'))
   await user.click(screen.getByRole('button', { name: 'Utiliser un code de récupération' }))
@@ -74,4 +76,25 @@ test('the verification has no accessibility violation', async () => {
   expect(await violations(container)).toEqual([])
   await userEvent.setup().click(screen.getByRole('button', { name: 'Utiliser un code de récupération' }))
   expect(await violations(container)).toEqual([])
+})
+
+test('a login completed by its second factor shows the dashboard', async () => {
+  let elevated = false
+  stubFetch({
+    'POST /api/auth/login': () => json(200, challenge),
+    'GET /api/auth/me': () => json(200, { ...me, elevated }),
+    'POST /api/auth/mfa/verify': () => {
+      elevated = true
+      return empty(204)
+    },
+  })
+  const { router } = renderAt('/login')
+  const user = userEvent.setup()
+  await user.type(await screen.findByLabelText('Adresse e-mail'), 'operateur@example.test')
+  await user.type(screen.getByLabelText('Mot de passe'), 'Correct-horse-9')
+  await user.click(screen.getByRole('button', { name: 'Se connecter' }))
+  await user.type(await screen.findByLabelText('Code à six chiffres'), '123456')
+  await user.click(screen.getByRole('button', { name: 'Vérifier' }))
+  expect(await screen.findByText('Connecté en tant que Opérateur (operateur@example.test)')).toBeDefined()
+  expect(router.state.location.pathname).toBe('/')
 })

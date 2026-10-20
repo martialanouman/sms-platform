@@ -252,3 +252,13 @@ test('a refused new code is told, and no code is shown', async () => {
   expect((await screen.findByRole('alert')).textContent).toBe('Code refusé.')
   expect(screen.queryByRole('heading', { name: 'Codes de récupération' })).toBeNull()
 })
+
+test('an account without an app is offered no replacement', async () => {
+  stubFetch({
+    'GET /api/auth/me': () =>
+      json(200, { ...me, secondFactors: { totp: false, recoveryCodesRemaining: 0, passkeys: 1 } }),
+  })
+  renderAt('/')
+  await screen.findByRole('button', { name: 'Se déconnecter' })
+  expect(screen.queryByRole('button', { name: "Remplacer l'application" })).toBeNull()
+})

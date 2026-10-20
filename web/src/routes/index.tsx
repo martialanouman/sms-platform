@@ -50,7 +50,7 @@ function Home() {
           {failure || unreachable}
         </p>
       )}
-      {me.data?.elevated && (
+      {me.data && (
         <>
           <p className="auth__intro">
             Connecté en tant que {me.data.operator.displayName} ({me.data.operator.email})
