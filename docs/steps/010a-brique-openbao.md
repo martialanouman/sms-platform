@@ -125,6 +125,14 @@ Trois revues (correction et sécurité, tests creux, code en trop) ; Fable, 2026
    (`ui`, `prometheus_retention_time`, coupé après lecture des métriques sur le VPS) ; `setNodeId` ; les
    noms `openbao` et `openbao.openbao` du certificat, que personne ne compose.
 
+## Correctifs de revue, tours 2 et 3
+
+Constats par tour : 15, 4, 2 ; aucun bloquant. Tour 2 arbitré par Fable (points 3 et 6 ci-dessus), tour 3
+par l'humain (2026-10-20) : `deploy.sh` lit les deux révisions dans des variables avant de les comparer.
+Placées dans le `[ … ]`, deux lectures en échec rendaient `[ "" = "" ]`, vrai, et le déploiement continuait ;
+une seule en échec accusait une dérive. Prouvé par un faux `kubectl` : rouge, puis vert dans les quatre cas
+(aucune dérive, dérive, une lecture en échec, deux).
+
 ## Preuve sur `contabo169`
 
 Procédure jouée les 2026-10-19 et 20 depuis la branche (fichiers de `deploy/` copiés sur le VPS, timer de

@@ -45,8 +45,9 @@ exists openbao pod/openbao-0
 kubectl -n openbao wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 --timeout=5m
 generation=$(kubectl -n openbao get statefulset openbao -o 'jsonpath={.metadata.generation}')
 kubectl -n openbao wait --for=jsonpath='{.status.observedGeneration}'="$generation" statefulset/openbao --timeout=1m
-[ "$(kubectl -n openbao get pod openbao-0 -o 'jsonpath={.metadata.labels.controller-revision-hash}')" = \
-	"$(kubectl -n openbao get statefulset openbao -o 'jsonpath={.status.updateRevision}')" ] || { echo "deploy.sh: la configuration d'OpenBao n'est pas appliquée ; supprimer le pod openbao-0, puis le desceller" >&2; exit 1; }
+running=$(kubectl -n openbao get pod openbao-0 -o 'jsonpath={.metadata.labels.controller-revision-hash}')
+wanted=$(kubectl -n openbao get statefulset openbao -o 'jsonpath={.status.updateRevision}')
+[ "$running" = "$wanted" ] || { echo "deploy.sh: la configuration d'OpenBao n'est pas appliquée ; supprimer le pod openbao-0, puis le desceller" >&2; exit 1; }
 
 kubectl -n sms apply -f deploy/k8s/networkpolicies.yaml
 for job in migrate catalog-apply; do
