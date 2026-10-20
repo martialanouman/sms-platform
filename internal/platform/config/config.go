@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"net/netip"
 	"os"
 	"slices"
 	"strconv"
@@ -31,6 +32,15 @@ type Infra struct {
 	PostgresRoleSecretsDir string
 	GRPCAddr               string
 	OpenBaoAddr            string
+	HTTPAddr               string
+	PublicURL              string
+	BootstrapEmail         string
+	SMTPAddr               string
+	SMTPFrom               string
+	SMTPUsername           string
+	SMTPPasswordFile       string
+	TrustedProxies         []netip.Prefix
+	CookieKeyFile          string
 }
 
 var defaults = map[string]string{
@@ -49,6 +59,15 @@ var defaults = map[string]string{
 	"POSTGRES_ROLE_SECRETS_DIR": "",
 	"GRPC_ADDR":                 "",
 	"OPENBAO_ADDR":              "",
+	"HTTP_ADDR":                 "",
+	"DASHBOARD_PUBLIC_URL":      "",
+	"DASHBOARD_BOOTSTRAP_EMAIL": "",
+	"SMTP_ADDR":                 "",
+	"SMTP_FROM":                 "",
+	"SMTP_USERNAME":             "",
+	"SMTP_PASSWORD_FILE":        "",
+	"TRUSTED_PROXIES":           "",
+	"COOKIE_KEY_FILE":           "",
 }
 
 // Default is the value Load reads for name when the environment leaves it unset.
@@ -100,6 +119,22 @@ func Load() (Infra, error) {
 		PostgresRoleSecretsDir: value("POSTGRES_ROLE_SECRETS_DIR"),
 		GRPCAddr:               value("GRPC_ADDR"),
 		OpenBaoAddr:            value("OPENBAO_ADDR"),
+		HTTPAddr:               value("HTTP_ADDR"),
+		PublicURL:              value("DASHBOARD_PUBLIC_URL"),
+		BootstrapEmail:         value("DASHBOARD_BOOTSTRAP_EMAIL"),
+		SMTPAddr:               value("SMTP_ADDR"),
+		SMTPFrom:               value("SMTP_FROM"),
+		SMTPUsername:           value("SMTP_USERNAME"),
+		SMTPPasswordFile:       value("SMTP_PASSWORD_FILE"),
+		CookieKeyFile:          value("COOKIE_KEY_FILE"),
+	}
+	for _, p := range list("TRUSTED_PROXIES") {
+		prefix, err := netip.ParsePrefix(p)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("TRUSTED_PROXIES: %w", err))
+			continue
+		}
+		c.TrustedProxies = append(c.TrustedProxies, prefix)
 	}
 	if err := c.LogLevel.UnmarshalText([]byte(value("LOG_LEVEL"))); err != nil {
 		errs = append(errs, fmt.Errorf("LOG_LEVEL: %w", err))
