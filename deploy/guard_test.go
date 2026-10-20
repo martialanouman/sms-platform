@@ -619,12 +619,23 @@ type brick struct {
 		PodSelector struct {
 			MatchLabels map[string]string `yaml:"matchLabels"`
 		} `yaml:"podSelector"`
-		PolicyTypes     []string `yaml:"policyTypes"`
-		Ingress         []any    `yaml:"ingress"`
-		Chart           string   `yaml:"chart"`
-		TargetNamespace string   `yaml:"targetNamespace"`
-		ValuesContent   string   `yaml:"valuesContent"`
+		PolicyTypes     []string      `yaml:"policyTypes"`
+		Ingress         []ingressRule `yaml:"ingress"`
+		Chart           string        `yaml:"chart"`
+		TargetNamespace string        `yaml:"targetNamespace"`
+		ValuesContent   string        `yaml:"valuesContent"`
 	} `yaml:"spec"`
+}
+
+type ingressRule struct {
+	From []struct {
+		PodSelector struct {
+			MatchLabels map[string]string `yaml:"matchLabels"`
+		} `yaml:"podSelector"`
+	} `yaml:"from"`
+	Ports []struct {
+		Port int `yaml:"port"`
+	} `yaml:"ports"`
 }
 
 type relabel struct {
@@ -769,6 +780,16 @@ func checkBricks(dir string) error {
 	}) {
 		errs = append(errs, errors.New("monitoring: no default deny of ingress, which 06 §4 requires of every namespace"))
 	}
+	if !slices.ContainsFunc(docs, func(b brick) bool {
+		return b.Kind == "NetworkPolicy" && b.Metadata.Namespace == "monitoring" &&
+			b.Spec.PodSelector.MatchLabels["app.kubernetes.io/name"] == "alertmanager" &&
+			slices.ContainsFunc(b.Spec.Ingress, func(in ingressRule) bool {
+				return len(in.From) == 1 && in.From[0].PodSelector.MatchLabels["app.kubernetes.io/name"] == "prometheus" &&
+					len(in.Ports) == 1 && in.Ports[0].Port == 9093
+			})
+	}) {
+		errs = append(errs, errors.New("monitoring: Prometheus does not reach Alertmanager on 9093 through the deny"))
+	}
 	k := find("Kafka")
 	if k == nil || k.Metadata.Name != "kafka" || k.Metadata.Namespace != "kafka" {
 		return errors.Join(append(errs, errors.New("no Kafka kafka in namespace kafka, which KAFKA_BROKERS of catalog-apply names"))...)
@@ -835,7 +856,11 @@ func TestTheBrickGuardFails(t *testing.T) {
 		{"ops port not scraped", "monitoring.yaml", "            regex: ops\n", "            regex: metrics\n", "port named ops"},
 		{"ops on another label", "monitoring.yaml", "[__meta_kubernetes_pod_container_port_name]\n            regex: ops", "[__meta_kubernetes_pod_label_app]\n            regex: ops", "port named ops"},
 		{"ops port dropped", "monitoring.yaml", "            regex: ops\n            action: keep", "            regex: ops\n            action: drop", "port named ops"},
-		{"monitoring opened by a rule", "monitoring.yaml", "  policyTypes:\n    - Ingress\n---", "  policyTypes:\n    - Ingress\n  ingress:\n    - {}\n---", "deny"},
+		{"monitoring opened by a rule", "monitoring.yaml", "  name: default-deny\n  namespace: monitoring\nspec:\n  podSelector: {}\n  policyTypes:\n    - Ingress\n", "  name: default-deny\n  namespace: monitoring\nspec:\n  podSelector: {}\n  policyTypes:\n    - Ingress\n  ingress:\n    - {}\n", "deny"},
+		{"alertmanager on another port", "monitoring.yaml", "          port: 9093\n", "          port: 9094\n", "Alertmanager"},
+		{"alertmanager admits another peer", "monitoring.yaml", "              app.kubernetes.io/name: prometheus\n      ports:", "              app.kubernetes.io/name: grafana\n      ports:", "Alertmanager"},
+		{"alertmanager policy elsewhere", "monitoring.yaml", "  name: alertmanager\n  namespace: monitoring", "  name: alertmanager\n  namespace: sms", "Alertmanager"},
+		{"alertmanager not selected", "monitoring.yaml", "      app.kubernetes.io/name: alertmanager\n  policyTypes", "      app.kubernetes.io/name: other\n  policyTypes", "Alertmanager"},
 		{"monitoring partly denied", "monitoring.yaml", "  namespace: monitoring\nspec:\n  podSelector: {}", "  namespace: monitoring\nspec:\n  podSelector:\n    matchLabels:\n      app.kubernetes.io/name: alertmanager", "deny"},
 		{"deny in another namespace", "monitoring.yaml", "  name: default-deny\n  namespace: monitoring", "  name: default-deny\n  namespace: sms", "deny"},
 		{"monitoring open", "monitoring.yaml", "  name: default-deny\n  namespace: monitoring\nspec:\n  podSelector: {}\n  policyTypes:\n    - Ingress", "  name: default-deny\n  namespace: monitoring\nspec:\n  podSelector: {}\n  policyTypes:\n    - Egress", "deny"},
