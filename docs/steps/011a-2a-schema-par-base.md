@@ -104,3 +104,28 @@ Fable, 2026-10-20, sauf E à H, tranchés par l'humain le même jour sur recomma
   (classement, droits exacts, refus de ce qui n'est pas déclaré sous le rôle du service, retrait, montée-descente-
   remontée de `dashboard`, `CONNECT` de `PUBLIC` absent de `dashboard`, porte du journal d'accès, `CHECK` égal au
   contrat) ; garde de livraison inchangée, satisfaite par la source ajoutée.
+
+## Correctifs de revue, tour 1
+
+Trois revues (correction et sécurité, tests creux, code en trop). Aucun bloquant ; 12 constats.
+
+1. **Droits sur la base remis à zéro** : chaque fichier fait `REVOKE ALL ON DATABASE` pour chaque rôle de l'union,
+   puis `GRANT CONNECT` à qui déclare une table de la base. Une dérive (`TEMP`, `CONNECT … WITH GRANT OPTION`)
+   survivait au seul `REVOKE CREATE`. La dérive injectée par le test ne recouvre donc plus le `GRANT CONNECT` du
+   fichier, que rien ne prouvait sur la base.
+2. **`dashboard` fermée à `PUBLIC`** : la migration retire tous ses droits de base à `PUBLIC` (`TEMP` compris) ; la
+   descente les rend.
+3. **`access_log.target` en `text`** : le contrat type les identifiants en chaînes, et ceux des rôles (012) ne sont
+   pas des uuid.
+4. **Retraits** : trois `CHECK` qu'aucun test ne fait tomber (`attempts`, `failures`, `expires_at > created_at`), le
+   commentaire SQL de la porte, une phrase du godoc de `GrantsSQL`, le helper `grantsFile`.
+5. **Gardés tels quels** :
+   - `control_plane` garde `CONNECT` et `TEMP` pour `PUBLIC` (arbitrage 31) : un secret du rôle `dashboard` fuité
+     ouvre une session sans table métier.
+   - Le rôle `dashboard` peut dater une ligne du journal : il ne fait qu'ajouter, et la purge reste à `migrator`.
+   - Les appariements (`token_hash` et `expires_at`, défi et échéance) et la borne de 12 h relèvent du code de
+     011a-2b, qui les teste.
+   - La descente détruit le journal, comme toute première migration.
+   - La liste des droits de `dashboard.yaml` est la donnée du design : le test des droits exacts la reflète, les
+     requêtes de 011a-2b la resserrent.
+   - Le retrait d'un rôle disparu se teste sur `control_plane` seul : le code est commun aux deux bases.
