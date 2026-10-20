@@ -83,3 +83,20 @@ Fable, 2026-10-20, sauf I à L, tranchés par l'humain le même jour sur recomma
 - **Preuve sur `contabo169`** : `Database` appliquée ; Jobs `migrate` et `catalog-apply` de la branche réussis ; un pod
   au label `catalog-apply` se connecte en `dashboard` par `postgres-pooler-rw`, lit `dashboard.operators`, est refusé
   sur `control_plane.audit_log`.
+
+## Preuve sur `contabo169`
+
+Jouée le 2026-10-20 depuis la branche, sur le cluster en v0.11.0. Le timer de déploiement est suspendu pendant la
+preuve, puis réarmé. Les images de `migrate` et `catalog-apply` sont construites localement et importées dans k3s sous
+le tag `proof`.
+
+1. `ca.yaml` : `postgres-server` réémis avec les SAN du Pooler. `postgres.yaml` : `database/dashboard` à
+   `applied=true`, `postgres-pooler-rw` actif, ses deux répliques prêtes.
+2. `migrate` : `control_plane` à jour, `dashboard` migrée (`"database":"dashboard","version":1`), après les rejets
+   d'admission de kube-router, que `pgdial.Retry` absorbe.
+3. `catalog-apply` : secrets posés pour `admin_api_svc` et `dashboard` dans chaque base.
+4. Un pod au label `catalog-apply` se connecte en `dashboard` par `postgres-pooler-rw` en `verify-full` sous la CA
+   interne : il lit `dashboard.operators` et se voit refuser le schéma `control_plane` (« permission denied for schema
+   control_plane »).
+
+Rouge vu : un premier pod sans le montage de la CA a échoué au TLS, comme il le devait.
