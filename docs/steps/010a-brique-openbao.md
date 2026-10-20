@@ -62,8 +62,8 @@ Fable, 2026-10-19, sauf le point 3 tranché par l'humain.
 - **`deploy/bricks/openbao.yaml`** : le `HelmChart` `openbao` (repo `https://openbao.github.io/openbao-helm`,
   chart 0.30.2, cible `openbao`) et la `NetworkPolicy` d'entrée d'OpenBao : 8200 depuis les pods
   `app.kubernetes.io/name: content-key-svc` de `sms`.
-- **`deploy/bricks/ca.yaml`** : `Certificate` `openbao` (namespace `openbao`, `server auth`, `openbao`,
-  `openbao.openbao`, `openbao.openbao.svc`) ; son `ca.crt` vérifie aussi Postgres.
+- **`deploy/bricks/ca.yaml`** : `Certificate` `openbao` (namespace `openbao`, `server auth`, un an,
+  `openbao.openbao.svc` et `127.0.0.1`) ; son `ca.crt` vérifie aussi Postgres.
 - **`deploy/bricks/postgres.yaml`** : rôle géré `openbao` (`LOGIN CREATEROLE`, Secret `openbao`) ; entrée
   5432 depuis les pods OpenBao.
 - **`deploy/bricks/secrets.sh`** : Secret `postgres/openbao` (`basic-auth`), tiré au hasard, jamais recréé.
@@ -71,7 +71,7 @@ Fable, 2026-10-19, sauf le point 3 tranché par l'humain.
   (`update` sur `transit/encrypt/config-secrets` et `transit/decrypt/config-secrets`) ; auth `kubernetes` et
   son rôle ; moteur `database`, connexion `control_plane` sous `openbao` en `verify-full`, rôle
   `breakglass` (`CREATE ROLE "{{name}}" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}' IN
-  ROLE breakglass`, 1 h ; révocation `DROP ROLE IF EXISTS "{{name}}"`) ; `CREATE ROLE breakglass NOLOGIN` sous
+  ROLE breakglass`, 1 h ; révocation : `pg_terminate_backend` des sessions du rôle, puis `DROP ROLE IF EXISTS "{{name}}"`) ; `CREATE ROLE breakglass NOLOGIN` sous
   `SET ROLE openbao`. Amendé sur le VPS : la révocation par défaut du plugin (`REVOKE ALL` sur chaque
   schéma) échoue sur les objets de `migrator`, où `openbao` n'a aucun droit, et le rôle survivait à son
   bail ; il ne possède rien et ne tient ses droits que de `breakglass`.

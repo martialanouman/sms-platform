@@ -22,7 +22,7 @@ tests:
             exp_annotations:
               summary: OpenBao est scellé
               description: Sans la KEK, aucun secret scellé ne s'ouvre ; les détenteurs des parts Shamir doivent le desceller.
-      - eval_time: 28m
+      - eval_time: 22m
         alertname: OpenBaoSealed
         exp_alerts: []
   - interval: 1m
