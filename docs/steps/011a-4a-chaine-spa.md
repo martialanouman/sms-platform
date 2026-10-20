@@ -97,3 +97,28 @@ preuve, puis réarmé. Par `port-forward` :
 Rouge vu : un premier import échouait en silence (`k3s` hors du `PATH` de la session), et le tag `proof` désignait
 encore l'image de 011a-3b. Le pod servait donc l'ancien 404 JSON sur `/`. Rejoué avec le chemin explicite et un tag
 neuf.
+
+## Correctifs de revue, tour 1
+
+Deux revues (correction et sécurité ; tests creux et code en trop). Aucun bloquant ; 16 constats.
+
+1. **Un asset absent rend 404** (révise l'arbitrage 70) : sous `assets/`, un fichier absent ou un répertoire rend 404,
+   jamais `index.html`. Un onglet ouvert sur une version retirée voyait du HTML refusé par `nosniff`, sans diagnostic
+   possible.
+2. **Aucun `data:` dans le build** : `assetsInlineLimit: 0`, pour que la CSP `default-src 'self'` ne bloque pas en
+   silence une petite image ou une police inlinée.
+3. **Le build garde `.gitkeep`** : le script `build` le recrée, `vite build` vidant `dist`, et `make web` n'a plus à
+   le faire.
+4. **Dependabot npm attend 14 jours** (`cooldown`) : `minimumReleaseAge` ne joue qu'à la résolution, jamais sous
+   `--frozen-lockfile` ni pour Dependabot.
+5. **Proxy de dev** limité à `/api/` ; en dev, le BFF tourne avec `DASHBOARD_PUBLIC_URL=http://localhost:3000`, faute de
+   quoi `guard` refuse l'origine du serveur Vite (pour 011a-4b).
+6. **Tests resserrés** : `Allow` sur le 405 ; un sous-répertoire d'`assets/` ; le montage réel de `main.tsx` ; le test
+   du squelette déplacé sous `routes/`, où le motif d'exclusion du routeur devient une propriété prouvée.
+7. **Retraits** : la configuration du routeur doublée dans `vite.config.ts` (elle vit dans `tsr.config.json`, que lisent
+   la CLI et le plugin) et ses valeurs par défaut, `outDir`, le `--noEmit` doublé, le `FileServerFS` remplacé par
+   `ServeFileFS`.
+8. **Gardés tels quels** :
+   - `pnpm audit` échoue sur tout avis, devDependencies comprises : le libellé de `vuln` le dit désormais.
+   - `index.html` est embarqué sans date, donc sans validateur : retransféré à chaque navigation, pour quelques
+     centaines d'octets.
