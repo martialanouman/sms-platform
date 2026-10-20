@@ -85,6 +85,11 @@ recommandation de Fable (le premier facteur confirmé par `confirmTotp` élevait
     `confirmed_at`, `created_at` ; au plus une confirmée et une en attente par opérateur, par index partiels) et
     `recovery_codes` (application, digest unique, `used_at`) ; colonne `sessions.elevated_at`. GRANT du rôle du
     dashboard et classement d'audit avec la migration.
+98. **`Cache-Control: no-store`** sur toute réponse de `/api` (constaté à l'implémentation) : l'enrôlement rend un
+    secret (I2), et aucune réponse du BFF n'est cachable.
+99. **Un seul corps pour tout refus de `verifyMfa`** (constaté à l'implémentation ; le contrat le dit, « or no session
+    lives ») : le garde de session rend, pour cette opération seule, le corps du refus du second facteur, et non
+    « Aucune session ouverte. ».
 
 ## Design arrêté
 
@@ -111,3 +116,41 @@ recommandation de Fable (le premier facteur confirmé par `confirmTotp` élevait
 - **Preuve sur `contabo169`**, par `port-forward` et `curl` : login, `enroll`, `verify` avec un code calculé depuis
   le secret, `me` élevée ; code de récupération sur une seconde session, puis rejoué et refusé ; cinq codes faux,
   429 ; remplacement sans preuve refusé, avec preuve accepté puis confirmé ; réinitialisation, facteurs retirés.
+
+## Écarts au design, constatés à l'implémentation
+
+- **La clé TOTP** se range comme celle du cookie, en 64 caractères hexadécimaux (`openssl rand -hex 32`) ; le démarrage
+  la décode en 32 octets et refuse tout autre contenu.
+- **Une confirmation réussie oublie le compteur** : le test du remplacement l'a montré (sans l'oubli, les échecs
+  passés menaient au 429 au premier faux pas suivant).
+- **Le verrou du facteur** (`FOR UPDATE`) se prouve par une transaction du test qui tient la ligne pendant que deux
+  vérifications du même code attendent : sans lui, les deux passent.
+- **G117, G401 et G505** de gosec sont exclus par chemin dans `.golangci.yml` : la réponse d'enrôlement porte le secret
+  par contrat, et TOTP est HMAC-SHA1 par la RFC.
+- **Le test du binaire** enrôle un facteur : le câblage de la clé n'était prouvé par rien d'autre.
+
+## Mutations
+
+Une soixantaine, à la main, consignées au fil des commits : TOTP (14), scellement (9), cœur (25), SQL généré (12),
+HTTP (16), démarrage (6). Toutes tombent, sauf `len(key) < 32` dans `NewTotpKey`, équivalente : `aes.NewCipher` refuse
+de lui-même toute longueur au-delà de 32 octets.
+
+## Preuve sur `contabo169`
+
+Jouée le 2026-10-20 depuis la branche, sur le cluster en v0.14.0 : images `migrate`, `catalog-apply` et `dashboard`
+construites par GoReleaser en snapshot, importées sous `proof-011b1` ; `secrets.sh` de la branche a ajouté `totp-key` ;
+`migrate` a appliqué la migration 2, `catalog-apply` les GRANT ; timer suspendu, puis réarmé, et dashboard rendu à la
+v0.14.0, compatible avec le schéma 2. Par `port-forward`, un script Python qui calcule les codes :
+
+1. Enrôlement : 200, dix codes, URI `otpauth://totp/`, `Cache-Control: no-store` ; `me` non élevée, aucun facteur.
+2. Premier code : 204, cookie régénéré, l'ancien refusé ; `me` élevée, TOTP, dix codes.
+3. Remplacement sans preuve : 409 `mfa_already_enrolled` ; avec un code de récupération : 200 ; confirmation : 204.
+4. Code de récupération de l'ancien facteur : 401 ; du nouveau, en minuscules : 204, neuf restants ; rejoué : 401.
+5. Quatre codes faux de plus : 401 ; la sixième tentative, code juste : 429 et `Retry-After`.
+6. Réinitialisation par un lien de Mailpit : 204 ; à la connexion suivante, aucun facteur.
+7. Journal : `factor_enrolled` et `mfa` au premier code ; `factor_removed` puis `factor_enrolled` au remplacement ;
+   `mfa` en échec à chaque refus ; `factor_removed` puis `access_link_used` à la réinitialisation.
+
+Rouge vu : la première passe rendait 500 sur `enroll` et `me` (`permission denied for table totp_factors`). Seul
+`migrate` avait été joué, alors que les GRANT viennent de `catalog-apply`, joué après lui par `deploy.sh`. Rejoué dans
+l'ordre du script.
