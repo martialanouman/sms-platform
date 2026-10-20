@@ -28,7 +28,7 @@ done
 kubectl -n cert-manager wait --for=condition=available deploy/cert-manager-webhook --timeout=5m
 
 kubectl apply -f deploy/bricks/namespaces.yaml -f deploy/bricks/ca.yaml
-for certificate in cert-manager/internal-ca postgres/postgres-server kafka/kafka-listener sms/catalog-apply-tls; do
+for certificate in cert-manager/internal-ca postgres/postgres-server kafka/kafka-listener openbao/openbao sms/catalog-apply-tls; do
 	kubectl -n "${certificate%/*}" wait --for=condition=ready "certificate/${certificate#*/}" --timeout=5m
 done
 bash deploy/bricks/secrets.sh
@@ -37,6 +37,17 @@ kubectl -n kafka wait --for=condition=available deploy/strimzi-cluster-operator 
 kubectl apply -f deploy/bricks/postgres.yaml -f deploy/bricks/kafka.yaml
 kubectl -n postgres wait --for=condition=ready cluster/postgres --timeout=15m
 kubectl -n kafka wait --for=condition=ready kafka/kafka --timeout=20m
+
+kubectl apply -f deploy/bricks/openbao.yaml
+exists kube-system job/helm-install-openbao
+kubectl -n kube-system wait --for=condition=complete job/helm-install-openbao --timeout=10m
+exists openbao pod/openbao-0
+kubectl -n openbao wait --for=jsonpath='{.status.phase}'=Running pod/openbao-0 --timeout=5m
+generation=$(kubectl -n openbao get statefulset openbao -o 'jsonpath={.metadata.generation}')
+kubectl -n openbao wait --for=jsonpath='{.status.observedGeneration}'="$generation" statefulset/openbao --timeout=1m
+running=$(kubectl -n openbao get pod openbao-0 -o 'jsonpath={.metadata.labels.controller-revision-hash}')
+wanted=$(kubectl -n openbao get statefulset openbao -o 'jsonpath={.status.updateRevision}')
+[ "$running" = "$wanted" ] || { echo "deploy.sh: la configuration d'OpenBao n'est pas appliquée ; supprimer le pod openbao-0, puis le desceller" >&2; exit 1; }
 
 kubectl -n sms apply -f deploy/k8s/networkpolicies.yaml
 for job in migrate catalog-apply; do

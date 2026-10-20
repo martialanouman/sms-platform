@@ -426,6 +426,14 @@ type listener struct {
 	} `yaml:"authentication"`
 }
 
+type role struct {
+	Name       string   `yaml:"name"`
+	Ensure     string   `yaml:"ensure"`
+	Login      bool     `yaml:"login"`
+	CreateRole bool     `yaml:"createrole"`
+	InRoles    []string `yaml:"inRoles"`
+}
+
 type brick struct {
 	Kind     string `yaml:"kind"`
 	Metadata struct {
@@ -445,12 +453,18 @@ type brick struct {
 		} `yaml:"kafka"`
 		EntityOperator any `yaml:"entityOperator"`
 		ClientsCa      any `yaml:"clientsCa"`
+		Managed        struct {
+			Roles []role `yaml:"roles"`
+		} `yaml:"managed"`
+		Chart           string `yaml:"chart"`
+		TargetNamespace string `yaml:"targetNamespace"`
+		ValuesContent   string `yaml:"valuesContent"`
 	} `yaml:"spec"`
 }
 
 func checkBricks(dir string) error {
 	var docs []brick
-	for _, f := range []string{"postgres.yaml", "kafka.yaml"} {
+	for _, f := range []string{"postgres.yaml", "kafka.yaml", "openbao.yaml"} {
 		data, err := os.ReadFile(filepath.Join(dir, f))
 		if err != nil {
 			return err
@@ -477,8 +491,43 @@ func checkBricks(dir string) error {
 	var errs []error
 	if pg := find("Cluster"); pg == nil || pg.Metadata.Name != "postgres" || pg.Metadata.Namespace != "postgres" {
 		errs = append(errs, errors.New("no Cluster postgres in namespace postgres, which internal/netpol targets"))
-	} else if pg.Spec.PostgreSQL.Parameters["track_commit_timestamp"] != "on" {
-		errs = append(errs, errors.New("postgres: track_commit_timestamp is not on, which config_propagation_seconds reads"))
+	} else {
+		if pg.Spec.PostgreSQL.Parameters["track_commit_timestamp"] != "on" {
+			errs = append(errs, errors.New("postgres: track_commit_timestamp is not on, which config_propagation_seconds reads"))
+		}
+		if !slices.ContainsFunc(pg.Spec.Managed.Roles, func(r role) bool {
+			return r.Name == "openbao" && r.Ensure != "absent" && r.Login && r.CreateRole && r.InRoles == nil
+		}) {
+			errs = append(errs, errors.New("postgres: no managed role openbao with LOGIN CREATEROLE and memberships left to openbao.sh; with inRoles, CloudNativePG revokes breakglass from it"))
+		}
+	}
+	if bao := find("HelmChart"); bao == nil || bao.Spec.Chart != "openbao" || bao.Spec.TargetNamespace != "openbao" {
+		errs = append(errs, errors.New("no HelmChart openbao in namespace openbao, which the NetworkPolicy of postgres admits"))
+	} else {
+		var v struct {
+			Server struct {
+				ConfigAnnotation bool `yaml:"configAnnotation"`
+				Dev              struct {
+					Enabled bool `yaml:"enabled"`
+				} `yaml:"dev"`
+				HA struct {
+					Enabled bool `yaml:"enabled"`
+					Raft    struct {
+						Enabled bool   `yaml:"enabled"`
+						Config  string `yaml:"config"`
+					} `yaml:"raft"`
+				} `yaml:"ha"`
+			} `yaml:"server"`
+		}
+		if err := yaml.Unmarshal([]byte(bao.Spec.ValuesContent), &v); err != nil {
+			errs = append(errs, fmt.Errorf("openbao: valuesContent unreadable: %w", err))
+		} else if h := v.Server.HA; v.Server.Dev.Enabled || !h.Enabled || !h.Raft.Enabled || !strings.Contains(h.Raft.Config, `storage "raft"`) {
+			errs = append(errs, errors.New("openbao: not in HA raft mode, without which no snapshot exists"))
+		} else if !strings.Contains(h.Raft.Config, `audit "file"`) {
+			errs = append(errs, errors.New("openbao: no audit device, which spec 07 §7.6 requires of breakglass credentials"))
+		} else if !v.Server.ConfigAnnotation {
+			errs = append(errs, errors.New("openbao: no config checksum on its pods, without which deploy.sh misses a configuration left unapplied"))
+		}
 	}
 	k := find("Kafka")
 	if k == nil || k.Metadata.Name != "kafka" || k.Metadata.Namespace != "kafka" {
@@ -526,10 +575,24 @@ func TestTheBrickGuardFails(t *testing.T) {
 		{"authorization not simple", "kafka.yaml", "      type: simple", "      type: opa", "authorization is not simple"},
 		{"entity operator", "kafka.yaml", "      transaction.state.log.min.isr: 2\n", "      transaction.state.log.min.isr: 2\n  entityOperator:\n    topicOperator: {}\n", "entityOperator"},
 		{"clients CA provided", "kafka.yaml", "      transaction.state.log.min.isr: 2\n", "      transaction.state.log.min.isr: 2\n  clientsCa:\n    generateCertificateAuthority: false\n", "clientsCa"},
+		{"openbao role removed", "postgres.yaml", "      - name: openbao\n", "      - name: vault\n", "no managed role openbao"},
+		{"openbao role without createrole", "postgres.yaml", "      - name: openbao\n        ensure: present\n        login: true\n        createrole: true", "      - name: openbao\n        ensure: present\n        login: true\n        createrole: false", "no managed role openbao"},
+		{"openbao role without login", "postgres.yaml", "      - name: openbao\n        ensure: present\n        login: true", "      - name: openbao\n        ensure: present\n        login: false", "no managed role openbao"},
+		{"openbao chart renamed", "openbao.yaml", "  chart: openbao\n", "  chart: vault\n", "no HelmChart openbao"},
+		{"openbao elsewhere", "openbao.yaml", "  targetNamespace: openbao\n", "  targetNamespace: kms\n", "no HelmChart openbao"},
+		{"openbao without raft", "openbao.yaml", "        raft:\n          enabled: true", "        raft:\n          enabled: false", "not in HA raft mode"},
+		{"openbao memberships managed", "postgres.yaml", "        passwordSecret:\n          name: openbao\n", "        passwordSecret:\n          name: openbao\n        inRoles:\n          - pg_signal_backend\n", "no managed role openbao"},
+		{"openbao role absent", "postgres.yaml", "      - name: openbao\n        ensure: present", "      - name: openbao\n        ensure: absent", "no managed role openbao"},
+		{"openbao standalone", "openbao.yaml", "      ha:\n        enabled: true", "      ha:\n        enabled: false", "not in HA raft mode"},
+		{"openbao in dev mode", "openbao.yaml", "    server:\n", "    server:\n      dev:\n        enabled: true\n", "not in HA raft mode"},
+		{"openbao on file storage", "openbao.yaml", `storage "raft" {`, `storage "file" {`, "not in HA raft mode"},
+		{"openbao config not checksummed", "openbao.yaml", "      configAnnotation: true\n", "", "config checksum"},
+		{"openbao without audit", "openbao.yaml", `audit "file" "stdout"`, `audit "socket" "stdout"`, "no audit device"},
+		{"openbao values unreadable", "openbao.yaml", "    global:\n", "    global: [\n", "valuesContent unreadable"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
-			for _, f := range []string{"postgres.yaml", "kafka.yaml"} {
+			for _, f := range []string{"postgres.yaml", "kafka.yaml", "openbao.yaml"} {
 				data, err := os.ReadFile(filepath.Join("bricks", f))
 				if err != nil {
 					t.Fatal(err)

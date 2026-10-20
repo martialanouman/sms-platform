@@ -17,6 +17,11 @@ if ! exists postgres migrator; then
 	create postgres migrator password "$password" --type=kubernetes.io/basic-auth --from-literal=username=migrator
 fi
 
+if ! exists postgres openbao; then
+	password=$(openssl rand -hex 32)
+	create postgres openbao password "$password" --type=kubernetes.io/basic-auth --from-literal=username=openbao
+fi
+
 password=$(read_secret postgres migrator password)
 nonempty postgres/migrator "$password"
 url="postgres://migrator:$password@postgres-rw.postgres.svc:5432/control_plane?sslmode=verify-full&sslrootcert=/tls/ca.crt"

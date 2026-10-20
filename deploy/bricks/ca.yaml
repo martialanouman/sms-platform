@@ -82,3 +82,22 @@ spec:
   issuerRef:
     name: internal-ca
     kind: ClusterIssuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: openbao
+  namespace: openbao
+spec:
+  secretName: openbao-tls
+  # debt: #122
+  duration: 8760h
+  dnsNames:
+    - openbao.openbao.svc
+  ipAddresses:
+    - 127.0.0.1
+  usages:
+    - server auth
+  issuerRef:
+    name: internal-ca
+    kind: ClusterIssuer

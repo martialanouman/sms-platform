@@ -1,0 +1,41 @@
+rule_files:
+  - openbao.yaml
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: vault_core_unsealed{namespace="openbao", pod="openbao-0"}
+        values: 1x10 0x10 1x10
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: OpenBaoSealed
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: OpenBaoSealed
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: OpenBaoSealed
+        exp_alerts:
+          - exp_labels:
+              namespace: openbao
+              pod: openbao-0
+            exp_annotations:
+              summary: OpenBao est scellé
+              description: Sans la KEK, aucun secret scellé ne s'ouvre ; les détenteurs des parts Shamir doivent le desceller.
+      - eval_time: 22m
+        alertname: OpenBaoSealed
+        exp_alerts: []
+  - interval: 1m
+    input_series:
+      - series: up{job="other"}
+        values: 1x10
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: OpenBaoSealed
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: OpenBaoSealed
+        exp_alerts:
+          - exp_annotations:
+              summary: OpenBao est scellé
+              description: Sans la KEK, aucun secret scellé ne s'ouvre ; les détenteurs des parts Shamir doivent le desceller.

@@ -1,0 +1,9 @@
+groups:
+  - name: openbao
+    rules:
+      - alert: OpenBaoSealed
+        expr: vault_core_unsealed == 0 or absent(vault_core_unsealed >= 0)
+        for: 5m
+        annotations:
+          summary: OpenBao est scellé
+          description: Sans la KEK, aucun secret scellé ne s'ouvre ; les détenteurs des parts Shamir doivent le desceller.

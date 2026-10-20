@@ -26,6 +26,12 @@ spec:
         createrole: true
         passwordSecret:
           name: migrator
+      - name: openbao
+        ensure: present
+        login: true
+        createrole: true
+        passwordSecret:
+          name: openbao
   certificates:
     serverTLSSecret: postgres-server
     serverCASecret: postgres-server
@@ -49,6 +55,12 @@ spec:
         - podSelector:
             matchLabels:
               cnpg.io/cluster: postgres
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openbao
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: openbao
       ports:
         - protocol: TCP
           port: 5432
