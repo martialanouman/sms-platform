@@ -52,3 +52,15 @@ func TestTheAccessLogAcceptsExactlyTheEventsAndOutcomesOfTheContract(t *testing.
 		}
 	}
 }
+
+func TestDashboardGrantsNothingToPublic(t *testing.T) {
+	conn := connect(t, pgtest.ControlPlane(t).In("dashboard").As("migrator"))
+	rows, err := conn.Query(context.Background(), `SELECT a.privilege_type FROM pg_database d,
+		aclexplode(coalesce(d.datacl, acldefault('d', d.datdba))) a WHERE d.datname = 'dashboard' AND a.grantee = 0`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := pgx.CollectRows(rows, pgx.RowTo[string]); err != nil || len(got) != 0 {
+		t.Errorf("PUBLIC holds %q on dashboard (%v), want nothing", got, err)
+	}
+}

@@ -20,7 +20,7 @@ DO $$ BEGIN
   END IF;
 END $$;
 ALTER ROLE admin_api_svc LOGIN;
-REVOKE CREATE ON DATABASE control_plane FROM admin_api_svc;
+REVOKE ALL ON DATABASE control_plane FROM admin_api_svc;
 REVOKE ALL ON SCHEMA control_plane FROM admin_api_svc;
 REVOKE ALL ON ALL TABLES IN SCHEMA control_plane FROM admin_api_svc;
 GRANT CONNECT ON DATABASE control_plane TO admin_api_svc;
@@ -41,10 +41,9 @@ DO $$ BEGIN
   END IF;
 END $$;
 ALTER ROLE dashboard LOGIN;
-REVOKE CREATE ON DATABASE control_plane FROM dashboard;
+REVOKE ALL ON DATABASE control_plane FROM dashboard;
 REVOKE ALL ON SCHEMA control_plane FROM dashboard;
 REVOKE ALL ON ALL TABLES IN SCHEMA control_plane FROM dashboard;
-REVOKE CONNECT ON DATABASE control_plane FROM dashboard;
 
 DO $$ DECLARE r text; BEGIN
   FOR r IN SELECT g.rolname FROM pg_catalog.pg_auth_members m JOIN pg_catalog.pg_roles g ON g.oid = m.roleid

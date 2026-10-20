@@ -20,10 +20,9 @@ DO $$ BEGIN
   END IF;
 END $$;
 ALTER ROLE admin_api_svc LOGIN;
-REVOKE CREATE ON DATABASE dashboard FROM admin_api_svc;
+REVOKE ALL ON DATABASE dashboard FROM admin_api_svc;
 REVOKE ALL ON SCHEMA dashboard FROM admin_api_svc;
 REVOKE ALL ON ALL TABLES IN SCHEMA dashboard FROM admin_api_svc;
-REVOKE CONNECT ON DATABASE dashboard FROM admin_api_svc;
 
 DO $$ BEGIN
   IF EXISTS (SELECT FROM pg_catalog.pg_roles r WHERE r.rolname = 'dashboard'
@@ -38,7 +37,7 @@ DO $$ BEGIN
   END IF;
 END $$;
 ALTER ROLE dashboard LOGIN;
-REVOKE CREATE ON DATABASE dashboard FROM dashboard;
+REVOKE ALL ON DATABASE dashboard FROM dashboard;
 REVOKE ALL ON SCHEMA dashboard FROM dashboard;
 REVOKE ALL ON ALL TABLES IN SCHEMA dashboard FROM dashboard;
 GRANT CONNECT ON DATABASE dashboard TO dashboard;

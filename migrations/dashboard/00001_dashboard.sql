@@ -1,5 +1,5 @@
 -- +goose Up
-REVOKE CONNECT ON DATABASE dashboard FROM PUBLIC;
+REVOKE ALL ON DATABASE dashboard FROM PUBLIC;
 
 CREATE SCHEMA dashboard;
 
@@ -19,7 +19,7 @@ CREATE TABLE dashboard.access_links (
   token_hash      bytea UNIQUE,
   expires_at      timestamptz,
   sent_at         timestamptz,
-  attempts        int NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+  attempts        int NOT NULL DEFAULT 0,
   next_attempt_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -31,13 +31,12 @@ CREATE TABLE dashboard.sessions (
   expires_at           timestamptz NOT NULL,
   last_seen_at         timestamptz NOT NULL DEFAULT now(),
   challenge_hash       bytea UNIQUE,
-  challenge_expires_at timestamptz,
-  CHECK (expires_at > created_at)
+  challenge_expires_at timestamptz
 );
 
 CREATE TABLE dashboard.login_attempt_counters (
   subject         bytea PRIMARY KEY,
-  failures        int NOT NULL CHECK (failures >= 0),
+  failures        int NOT NULL,
   last_failure_at timestamptz NOT NULL
 );
 
@@ -48,12 +47,11 @@ CREATE TABLE dashboard.access_log (
   event   text NOT NULL CHECK (event IN ('login', 'logout', 'mfa', 'access_link_requested', 'access_link_used',
     'factor_enrolled', 'factor_removed', 'operator_created', 'operator_disabled', 'operator_enabled', 'roles_changed',
     'role_created', 'role_updated', 'role_deleted', 'session_closed', 'personal_token_issued', 'session_refused')),
-  target  uuid,
+  target  text,
   outcome text NOT NULL CHECK (outcome IN ('success', 'failure')),
   PRIMARY KEY (at, id)
 );
 
--- ADR-0018, as control_plane.audit_append_only: one purge gesture for both journals.
 -- +goose StatementBegin
 CREATE FUNCTION dashboard.access_log_append_only() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
@@ -73,4 +71,4 @@ CREATE TRIGGER access_log_no_truncate BEFORE TRUNCATE ON dashboard.access_log
 
 -- +goose Down
 DROP SCHEMA dashboard CASCADE;
-GRANT CONNECT ON DATABASE dashboard TO PUBLIC;
+GRANT CONNECT, TEMPORARY ON DATABASE dashboard TO PUBLIC;

@@ -78,7 +78,7 @@ func TestGrantsSQLOfADatabaseTouchesItAloneButKeepsEveryRole(t *testing.T) {
 	for _, want := range []string{
 		"CREATE ROLE gateway_svc NOLOGIN;", "ALTER ROLE gateway_svc LOGIN;",
 		"CREATE ROLE dashboard NOLOGIN;", "ALTER ROLE dashboard LOGIN;",
-		"REVOKE ALL ON SCHEMA dashboard FROM gateway_svc;", "REVOKE CONNECT ON DATABASE dashboard FROM gateway_svc;",
+		"REVOKE ALL ON SCHEMA dashboard FROM gateway_svc;", "REVOKE ALL ON DATABASE dashboard FROM gateway_svc;",
 		"GRANT CONNECT ON DATABASE dashboard TO dashboard;", "GRANT USAGE ON SCHEMA dashboard TO dashboard;",
 		"GRANT select, delete ON dashboard.sessions TO dashboard;",
 		"ARRAY['gateway_svc', 'dashboard']",
