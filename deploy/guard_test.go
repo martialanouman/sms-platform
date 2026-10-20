@@ -860,6 +860,8 @@ func TestTheBrickGuardFails(t *testing.T) {
 		{"alertmanager on another port", "monitoring.yaml", "          port: 9093\n", "          port: 9094\n", "Alertmanager"},
 		{"alertmanager admits another peer", "monitoring.yaml", "              app.kubernetes.io/name: prometheus\n      ports:", "              app.kubernetes.io/name: grafana\n      ports:", "Alertmanager"},
 		{"alertmanager policy elsewhere", "monitoring.yaml", "  name: alertmanager\n  namespace: monitoring", "  name: alertmanager\n  namespace: sms", "Alertmanager"},
+		{"alertmanager open to all", "monitoring.yaml", "    - from:\n        - podSelector:\n            matchLabels:\n              app.kubernetes.io/name: prometheus\n      ports:\n        - protocol: TCP\n          port: 9093\n", "    - {}\n", "Alertmanager"},
+		{"alertmanager on every port", "monitoring.yaml", "      ports:\n        - protocol: TCP\n          port: 9093\n", "", "Alertmanager"},
 		{"alertmanager not selected", "monitoring.yaml", "      app.kubernetes.io/name: alertmanager\n  policyTypes", "      app.kubernetes.io/name: other\n  policyTypes", "Alertmanager"},
 		{"monitoring partly denied", "monitoring.yaml", "  namespace: monitoring\nspec:\n  podSelector: {}", "  namespace: monitoring\nspec:\n  podSelector:\n    matchLabels:\n      app.kubernetes.io/name: alertmanager", "deny"},
 		{"deny in another namespace", "monitoring.yaml", "  name: default-deny\n  namespace: monitoring", "  name: default-deny\n  namespace: sms", "deny"},
