@@ -22,14 +22,15 @@ DO $$ BEGIN
 END $$;
 SQL
 
-kubectl -n openbao exec -i openbao-0 -c openbao -- sh -c '
+printf '%s\n%s\n' "$token" "$password" | kubectl -n openbao exec -i openbao-0 -c openbao -- sh -c '
 set -eu
 read -r BAO_TOKEN
 read -r pg
 export BAO_TOKEN
 
+bao audit list 2>/dev/null | grep -q "^file/" || bao audit enable file file_path=stdout
 bao secrets list | grep -q "^transit/" || bao secrets enable transit
-bao read transit/keys/config-secrets >/dev/null 2>&1 || bao write -f transit/keys/config-secrets type=aes256-gcm96
+bao read transit/keys/config-secrets >/dev/null 2>&1 || bao write -f transit/keys/config-secrets
 bao policy write content-key-svc - <<HCL
 path "transit/encrypt/config-secrets" { capabilities = ["update"] }
 path "transit/decrypt/config-secrets" { capabilities = ["update"] }
@@ -47,7 +48,6 @@ printf "%s" "$pg" | bao write database/config/control_plane plugin_name=postgres
   username=openbao password=- allowed_roles=breakglass
 bao write database/roles/breakglass db_name=control_plane default_ttl=1h max_ttl=1h \
   creation_statements="CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '"'"'{{password}}'"'"' VALID UNTIL '"'"'{{expiration}}'"'"' IN ROLE breakglass;" \
-  revocation_statements="DROP ROLE IF EXISTS \"{{name}}\";"
-' <<<"$token
-$password"
+  revocation_statements="SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename = '"'"'{{name}}'"'"'; DROP ROLE IF EXISTS \"{{name}}\";"
+'
 echo "openbao.sh: OpenBao configuré ; révoquer le jeton racine (bao token revoke -self) une fois le travail fini" >&2

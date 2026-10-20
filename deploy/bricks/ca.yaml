@@ -90,9 +90,9 @@ metadata:
   namespace: openbao
 spec:
   secretName: openbao-tls
+  # debt: #122
+  duration: 8760h
   dnsNames:
-    - openbao
-    - openbao.openbao
     - openbao.openbao.svc
   ipAddresses:
     - 127.0.0.1

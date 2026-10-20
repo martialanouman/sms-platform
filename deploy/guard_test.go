@@ -427,10 +427,11 @@ type listener struct {
 }
 
 type role struct {
-	Name       string `yaml:"name"`
-	Ensure     string `yaml:"ensure"`
-	Login      bool   `yaml:"login"`
-	CreateRole bool   `yaml:"createrole"`
+	Name       string   `yaml:"name"`
+	Ensure     string   `yaml:"ensure"`
+	Login      bool     `yaml:"login"`
+	CreateRole bool     `yaml:"createrole"`
+	InRoles    []string `yaml:"inRoles"`
 }
 
 type brick struct {
@@ -495,9 +496,9 @@ func checkBricks(dir string) error {
 			errs = append(errs, errors.New("postgres: track_commit_timestamp is not on, which config_propagation_seconds reads"))
 		}
 		if !slices.ContainsFunc(pg.Spec.Managed.Roles, func(r role) bool {
-			return r.Name == "openbao" && r.Ensure != "absent" && r.Login && r.CreateRole
+			return r.Name == "openbao" && r.Ensure != "absent" && r.Login && r.CreateRole && slices.Contains(r.InRoles, "pg_signal_backend")
 		}) {
-			errs = append(errs, errors.New("postgres: no managed role openbao with LOGIN CREATEROLE, under which openbao.sh creates breakglass"))
+			errs = append(errs, errors.New("postgres: no managed role openbao with LOGIN CREATEROLE in pg_signal_backend, under which openbao.sh creates breakglass and ends its sessions"))
 		}
 	}
 	if bao := find("HelmChart"); bao == nil || bao.Spec.Chart != "openbao" || bao.Spec.TargetNamespace != "openbao" {
@@ -575,6 +576,7 @@ func TestTheBrickGuardFails(t *testing.T) {
 		{"openbao chart renamed", "openbao.yaml", "  chart: openbao\n", "  chart: vault\n", "no HelmChart openbao"},
 		{"openbao elsewhere", "openbao.yaml", "  targetNamespace: openbao\n", "  targetNamespace: kms\n", "no HelmChart openbao"},
 		{"openbao without raft", "openbao.yaml", "        raft:\n          enabled: true", "        raft:\n          enabled: false", "not in HA raft mode"},
+		{"openbao cannot end sessions", "postgres.yaml", "        inRoles:\n          - pg_signal_backend\n", "", "no managed role openbao"},
 		{"openbao role absent", "postgres.yaml", "      - name: openbao\n        ensure: present", "      - name: openbao\n        ensure: absent", "no managed role openbao"},
 		{"openbao standalone", "openbao.yaml", "      ha:\n        enabled: true", "      ha:\n        enabled: false", "not in HA raft mode"},
 		{"openbao in dev mode", "openbao.yaml", "    server:\n", "    server:\n      dev:\n        enabled: true\n", "not in HA raft mode"},

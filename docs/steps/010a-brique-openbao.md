@@ -96,7 +96,7 @@ Trois revues (correction et sécurité, tests creux, code en trop) ; Fable, 2026
 2. **Certificat du listener** : OpenBao ne relit `tls_cert_file` que sur SIGHUP, et redémarrer le pod le
    scelle. `duration: 8760h` ; plafond : le Secret se renouvelle vers J+240, et `CertificateExpiresSoon`
    ne voit jamais le certificat servi ; geste avant J+365 : supprimer le pod, desceller. Issue `debt`
-   `go-live`.
+   `go-live` (#122).
 3. **Reconfiguration** : le chart met à jour en `OnDelete` ; un changement de `openbao.yaml` ne s'applique
    qu'au pod supprimé, puis descellé. `deploy.sh` ne le détecte pas.
 4. **Prometheus** (011a) : l'entrée 8200 d'OpenBao s'ouvre à lui, sinon `absent` sonne dès son arrivée.

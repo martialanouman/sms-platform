@@ -13,11 +13,7 @@ spec:
       tlsDisable: false
     injector:
       enabled: false
-    ui:
-      enabled: false
     server:
-      authDelegator:
-        enabled: true
       extraEnvironmentVars:
         BAO_CACERT: /openbao/userconfig/openbao-tls/ca.crt
       extraVolumes:
@@ -33,9 +29,7 @@ spec:
         # debt: #121
         raft:
           enabled: true
-          setNodeId: true
           config: |
-            ui = false
             listener "tcp" {
               address = "[::]:8200"
               cluster_address = "[::]:8201"
@@ -50,7 +44,6 @@ spec:
             }
             service_registration "kubernetes" {}
             telemetry {
-              prometheus_retention_time = "30s"
               disable_hostname = true
             }
 ---
