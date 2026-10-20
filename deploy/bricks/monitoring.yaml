@@ -1,0 +1,109 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: prometheus
+  namespace: kube-system
+spec:
+  repo: https://prometheus-community.github.io/helm-charts
+  chart: prometheus
+  version: 29.35.0
+  targetNamespace: monitoring
+  valuesContent: |-
+    kube-state-metrics:
+      enabled: false
+    prometheus-node-exporter:
+      enabled: false
+    prometheus-pushgateway:
+      enabled: false
+    configmapReload:
+      prometheus:
+        extraVolumeDirs:
+          - /etc/alerts
+        extraConfigmapMounts:
+          - name: alert-rules
+            configMap: alert-rules
+            mountPath: /etc/alerts
+            subPath: ""
+            readOnly: true
+    server:
+      global:
+        scrape_interval: 15s
+        evaluation_interval: 15s
+      persistentVolume:
+        size: 4Gi
+      extraConfigmapMounts:
+        - name: alert-rules
+          configMap: alert-rules
+          mountPath: /etc/alerts
+          subPath: ""
+          readOnly: true
+      extraSecretMounts:
+        - name: internal-ca
+          secretName: prometheus-tls
+          mountPath: /etc/internal-ca
+          readOnly: true
+    serverFiles:
+      prometheus.yml:
+        rule_files:
+          - /etc/alerts/*.yaml
+    scrapeConfigs:
+      kubernetes-api-servers:
+        enabled: false
+      kubernetes-nodes:
+        enabled: false
+      kubernetes-nodes-cadvisor:
+        enabled: false
+      kubernetes-service-endpoints:
+        enabled: false
+      kubernetes-service-endpoints-slow:
+        enabled: false
+      prometheus-pushgateway:
+        enabled: false
+      kubernetes-services:
+        enabled: false
+      kubernetes-pods:
+        enabled: false
+      kubernetes-pods-slow:
+        enabled: false
+      sms:
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [sms]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_container_port_name]
+            regex: ops
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            target_label: service
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+      openbao:
+        scheme: https
+        metrics_path: /v1/sys/metrics
+        params:
+          format: [prometheus]
+        tls_config:
+          ca_file: /etc/internal-ca/ca.crt
+          server_name: openbao.openbao.svc
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [openbao]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name, __meta_kubernetes_pod_container_port_number]
+            regex: openbao;8200
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+      cert-manager:
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [cert-manager]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_container_port_number]
+            regex: "9402"
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod

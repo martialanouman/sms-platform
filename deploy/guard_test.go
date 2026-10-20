@@ -505,7 +505,7 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 		{"Job among the services", "deploy/test-env/deploy.sh", "for service in content-key-svc; do", "for service in content-key-svc migrate; do", "migrate: a Job in the loop of the services"},
 		{"services before the Jobs", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for service in content-key-svc; do\ndone\nfor job in migrate catalog-apply; do", "the services before the Jobs"},
 		{"services without Jobs", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for jobs in migrate catalog-apply; do", "the services before the Jobs"},
-		{"services not awaited", "deploy/test-env/deploy.sh", "rollout status", "get", "rollout status"},
+		{"services not awaited", "deploy/test-env/deploy.sh", "-n sms rollout status", "-n sms get", "rollout status"},
 		{"Service open on the node", "deploy/k8s/content-key-svc.yaml", "spec:\n  selector:", "spec:\n  type: NodePort\n  selector:", "Service type"},
 		{"Service to other pods", "deploy/k8s/content-key-svc.yaml", "  selector:\n    app.kubernetes.io/name: content-key-svc", "  selector:\n    app.kubernetes.io/name: admin-api-svc", "Service selector"},
 		{"Service to another port", "deploy/k8s/content-key-svc.yaml", "      port: 7002\n", "      port: 7002\n      targetPort: 7003\n", "targetPort"},
@@ -609,9 +609,11 @@ type brick struct {
 	} `yaml:"spec"`
 }
 
+var bricks = []string{"postgres.yaml", "kafka.yaml", "openbao.yaml", "monitoring.yaml"}
+
 func checkBricks(dir string) error {
 	var docs []brick
-	for _, f := range []string{"postgres.yaml", "kafka.yaml", "openbao.yaml"} {
+	for _, f := range bricks {
 		data, err := os.ReadFile(filepath.Join(dir, f))
 		if err != nil {
 			return err
@@ -635,6 +637,14 @@ func checkBricks(dir string) error {
 		}
 		return nil
 	}
+	chart := func(name string) *brick {
+		for i := range docs {
+			if docs[i].Kind == "HelmChart" && docs[i].Spec.Chart == name {
+				return &docs[i]
+			}
+		}
+		return nil
+	}
 	var errs []error
 	if pg := find("Cluster"); pg == nil || pg.Metadata.Name != "postgres" || pg.Metadata.Namespace != "postgres" {
 		errs = append(errs, errors.New("no Cluster postgres in namespace postgres, which internal/netpol targets"))
@@ -649,7 +659,7 @@ func checkBricks(dir string) error {
 			errs = append(errs, errors.New("postgres: migrator is not given CREATEROLE at initdb, without which it creates no service role"))
 		}
 	}
-	if bao := find("HelmChart"); bao == nil || bao.Spec.Chart != "openbao" || bao.Spec.TargetNamespace != "openbao" {
+	if bao := chart("openbao"); bao == nil || bao.Spec.TargetNamespace != "openbao" {
 		errs = append(errs, errors.New("no HelmChart openbao in namespace openbao, which the NetworkPolicy of postgres admits"))
 	} else {
 		var v struct {
@@ -675,6 +685,43 @@ func checkBricks(dir string) error {
 			errs = append(errs, errors.New("openbao: no audit device, which spec 07 §7.6 requires of breakglass credentials"))
 		} else if !v.Server.ConfigAnnotation {
 			errs = append(errs, errors.New("openbao: no config checksum on its pods, without which deploy.sh misses a configuration left unapplied"))
+		}
+	}
+	if prom := chart("prometheus"); prom == nil || prom.Spec.TargetNamespace != "monitoring" {
+		errs = append(errs, errors.New("no HelmChart prometheus in namespace monitoring, which internal/netpol and the NetworkPolicy of openbao admit"))
+	} else {
+		var v struct {
+			ConfigmapReload struct {
+				Prometheus struct {
+					ExtraVolumeDirs []string `yaml:"extraVolumeDirs"`
+				} `yaml:"prometheus"`
+			} `yaml:"configmapReload"`
+			Server struct {
+				ExtraConfigmapMounts []struct {
+					ConfigMap string `yaml:"configMap"`
+					MountPath string `yaml:"mountPath"`
+				} `yaml:"extraConfigmapMounts"`
+			} `yaml:"server"`
+			ServerFiles struct {
+				Prometheus struct {
+					RuleFiles []string `yaml:"rule_files"`
+				} `yaml:"prometheus.yml"`
+			} `yaml:"serverFiles"`
+		}
+		if err := yaml.Unmarshal([]byte(prom.Spec.ValuesContent), &v); err != nil {
+			errs = append(errs, fmt.Errorf("prometheus: valuesContent unreadable: %w", err))
+		} else {
+			var rules string
+			for _, m := range v.Server.ExtraConfigmapMounts {
+				if m.ConfigMap == "alert-rules" {
+					rules = m.MountPath
+				}
+			}
+			if !slices.Equal(v.ServerFiles.Prometheus.RuleFiles, []string{rules + "/*.yaml"}) {
+				errs = append(errs, errors.New("prometheus: rule_files is not the mount of the ConfigMap alert-rules, which deploy.sh creates from deploy/alerts"))
+			} else if !slices.Contains(v.ConfigmapReload.Prometheus.ExtraVolumeDirs, rules) {
+				errs = append(errs, errors.New("prometheus: the reloader does not watch the rules, which a release changes without restarting Prometheus"))
+			}
 		}
 	}
 	k := find("Kafka")
@@ -734,10 +781,17 @@ func TestTheBrickGuardFails(t *testing.T) {
 		{"openbao config not checksummed", "openbao.yaml", "      configAnnotation: true\n", "", "config checksum"},
 		{"openbao without audit", "openbao.yaml", `audit "file" "stdout"`, `audit "socket" "stdout"`, "no audit device"},
 		{"openbao values unreadable", "openbao.yaml", "    global:\n", "    global: [\n", "valuesContent unreadable"},
+		{"prometheus renamed", "monitoring.yaml", "  chart: prometheus\n", "  chart: kube-prometheus-stack\n", "no HelmChart prometheus"},
+		{"prometheus elsewhere", "monitoring.yaml", "  targetNamespace: monitoring\n", "  targetNamespace: observability\n", "no HelmChart prometheus"},
+		{"rules on another path", "monitoring.yaml", "          - /etc/alerts/*.yaml\n", "          - /etc/config/alerting_rules.yml\n", "rule_files"},
+		{"rules from another ConfigMap", "monitoring.yaml", "      extraConfigmapMounts:\n        - name: alert-rules\n          configMap: alert-rules\n", "      extraConfigmapMounts:\n        - name: alert-rules\n          configMap: rules\n", "rule_files"},
+		{"rules mounted elsewhere", "monitoring.yaml", "          configMap: alert-rules\n          mountPath: /etc/alerts\n          subPath: \"\"\n          readOnly: true\n      extraSecretMounts", "          configMap: alert-rules\n          mountPath: /etc/rules\n          subPath: \"\"\n          readOnly: true\n      extraSecretMounts", "rule_files"},
+		{"rules not reloaded", "monitoring.yaml", "        extraVolumeDirs:\n          - /etc/alerts\n", "        extraVolumeDirs:\n          - /etc/rules\n", "reload"},
+		{"prometheus values unreadable", "monitoring.yaml", "    server:\n", "    server: [\n", "valuesContent unreadable"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
-			for _, f := range []string{"postgres.yaml", "kafka.yaml", "openbao.yaml"} {
+			for _, f := range bricks {
 				data, err := os.ReadFile(filepath.Join("bricks", f))
 				if err != nil {
 					t.Fatal(err)

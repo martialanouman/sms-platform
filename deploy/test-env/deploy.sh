@@ -28,7 +28,7 @@ done
 kubectl -n cert-manager wait --for=condition=available deploy/cert-manager-webhook --timeout=5m
 
 kubectl apply -f deploy/bricks/namespaces.yaml -f deploy/bricks/ca.yaml
-for certificate in cert-manager/internal-ca postgres/postgres-server kafka/kafka-listener openbao/openbao sms/catalog-apply-tls sms/content-key-svc-tls; do
+for certificate in cert-manager/internal-ca postgres/postgres-server kafka/kafka-listener openbao/openbao sms/catalog-apply-tls sms/content-key-svc-tls monitoring/prometheus-tls; do
 	kubectl -n "${certificate%/*}" wait --for=condition=ready "certificate/${certificate#*/}" --timeout=5m
 done
 bash deploy/bricks/secrets.sh
@@ -48,6 +48,14 @@ kubectl -n openbao wait --for=jsonpath='{.status.observedGeneration}'="$generati
 running=$(kubectl -n openbao get pod openbao-0 -o 'jsonpath={.metadata.labels.controller-revision-hash}')
 wanted=$(kubectl -n openbao get statefulset openbao -o 'jsonpath={.status.updateRevision}')
 [ "$running" = "$wanted" ] || { echo "deploy.sh: la configuration d'OpenBao n'est pas appliquée ; supprimer le pod openbao-0, puis le desceller" >&2; exit 1; }
+
+rules=()
+for file in deploy/alerts/*.yaml; do [[ $file == *_test.yaml ]] || rules+=(--from-file="$file"); done
+kubectl -n monitoring create configmap alert-rules "${rules[@]}" --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply -f deploy/bricks/monitoring.yaml
+exists kube-system job/helm-install-prometheus
+kubectl -n kube-system wait --for=condition=complete job/helm-install-prometheus --timeout=10m
+kubectl -n monitoring rollout status deploy/prometheus-server --timeout=5m
 
 kubectl -n sms apply -f deploy/k8s/networkpolicies.yaml
 for job in migrate catalog-apply; do
