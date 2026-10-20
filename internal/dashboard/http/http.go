@@ -89,6 +89,7 @@ func secured(next http.Handler) http.Handler {
 }
 
 func spa(assets fs.FS) http.Handler {
+	files := http.FileServerFS(assets)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			w.Header().Set("Allow", "GET, HEAD")
@@ -101,7 +102,7 @@ func spa(assets fs.FS) http.Handler {
 				return
 			}
 			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-			http.ServeFileFS(w, r, assets, name)
+			files.ServeHTTP(w, r)
 			return
 		}
 		w.Header().Set("Cache-Control", "no-cache")

@@ -117,8 +117,8 @@ Deux revues (correction et sécurité ; tests creux et code en trop). Aucun bloq
    du squelette déplacé sous `routes/`, où l'arbre généré prouve qu'un test n'y devient pas une route.
 7. **Retraits** : `tsr.config.json` et la configuration du routeur dans `vite.config.ts`, qui ne portaient que des
    valeurs par défaut et un motif d'exclusion des tests sans effet (un fichier de test n'exporte pas de `Route`, et le
-   générateur l'écarte ; l'arbre reste identique sans le motif) ; `outDir` ; le `--noEmit` doublé ; le `FileServerFS`
-   remplacé par `ServeFileFS`.
+   générateur l'écarte ; l'arbre reste identique sans le motif) ; `outDir` ; le `--noEmit` doublé. `FileServerFS` est gardé pour les
+   assets : `ServeFileFS` sur un nom tiré de l'URL déclenche G703 de gosec, alors que `fs.Stat` l'a déjà validé.
 8. **Gardés tels quels** :
    - `pnpm audit` échoue sur tout avis, devDependencies comprises : le libellé de `vuln` le dit désormais.
    - `index.html` est embarqué sans date, donc sans validateur : retransféré à chaque navigation, pour quelques
