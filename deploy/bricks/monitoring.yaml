@@ -23,8 +23,6 @@ spec:
           - name: alert-rules
             configMap: alert-rules
             mountPath: /etc/alerts
-            subPath: ""
-            readOnly: true
     server:
       global:
         scrape_interval: 15s
@@ -36,13 +34,9 @@ spec:
         - name: alert-rules
           configMap: alert-rules
           mountPath: /etc/alerts
-          subPath: ""
-          readOnly: true
-      extraSecretMounts:
         - name: internal-ca
-          secretName: prometheus-tls
+          configMap: internal-ca
           mountPath: /etc/internal-ca
-          readOnly: true
     serverFiles:
       prometheus.yml:
         rule_files:
@@ -75,10 +69,6 @@ spec:
           - source_labels: [__meta_kubernetes_pod_container_port_name]
             regex: ops
             action: keep
-          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
-            target_label: service
-          - source_labels: [__meta_kubernetes_pod_name]
-            target_label: pod
       openbao:
         scheme: https
         metrics_path: /v1/sys/metrics
@@ -95,8 +85,6 @@ spec:
           - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name, __meta_kubernetes_pod_container_port_number]
             regex: openbao;8200
             action: keep
-          - source_labels: [__meta_kubernetes_pod_name]
-            target_label: pod
       cert-manager:
         kubernetes_sd_configs:
           - role: pod
@@ -106,5 +94,33 @@ spec:
           - source_labels: [__meta_kubernetes_pod_container_port_number]
             regex: "9402"
             action: keep
-          - source_labels: [__meta_kubernetes_pod_name]
-            target_label: pod
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: monitoring
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: alertmanager
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: alertmanager
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - protocol: TCP
+          port: 9093

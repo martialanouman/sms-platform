@@ -15,8 +15,6 @@ paths:
   pose `TLS_ALLOWED_CLIENTS` ou lit une dépendance neuve étend `internal/netpol` dans sa PR. Le port nommé `ops` d'un
   conteneur s'ouvre à Prometheus (`monitoring`) et Prometheus le collecte : le nom du port fait foi, pas une
   annotation ; kube-router admet déjà les sondes du kubelet.
-- **Une alerte neuve** se déploie par le ConfigMap `alert-rules`, que `deploy.sh` recrée depuis `deploy/alerts/` et
-  que le reloader de Prometheus relit sans redémarrage.
 - **Déploiement de l'environnement de test** : la VM tire le dernier tag de release (`deploy/test-env/sync.sh`,
   timer systemd) et joue `deploy/test-env/deploy.sh <tag>`. Un `cmd/` neuf y entre à sa place : la boucle des
   Jobs (`migrate`, `catalog-apply`), puis celle des services, attendus par `rollout status` ; la garde exige chaque

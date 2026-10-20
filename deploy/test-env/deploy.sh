@@ -28,7 +28,7 @@ done
 kubectl -n cert-manager wait --for=condition=available deploy/cert-manager-webhook --timeout=5m
 
 kubectl apply -f deploy/bricks/namespaces.yaml -f deploy/bricks/ca.yaml
-for certificate in cert-manager/internal-ca postgres/postgres-server kafka/kafka-listener openbao/openbao sms/catalog-apply-tls sms/content-key-svc-tls monitoring/prometheus-tls; do
+for certificate in cert-manager/internal-ca postgres/postgres-server kafka/kafka-listener openbao/openbao sms/catalog-apply-tls sms/content-key-svc-tls; do
 	kubectl -n "${certificate%/*}" wait --for=condition=ready "certificate/${certificate#*/}" --timeout=5m
 done
 bash deploy/bricks/secrets.sh
@@ -52,6 +52,8 @@ wanted=$(kubectl -n openbao get statefulset openbao -o 'jsonpath={.status.update
 rules=()
 for file in deploy/alerts/*.yaml; do [[ $file == *_test.yaml ]] || rules+=(--from-file="$file"); done
 kubectl -n monitoring create configmap alert-rules "${rules[@]}" --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n cert-manager get secret internal-ca -o 'jsonpath={.data.ca\.crt}' | base64 -d |
+	kubectl -n monitoring create configmap internal-ca --from-file=ca.crt=/dev/stdin --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f deploy/bricks/monitoring.yaml
 exists kube-system job/helm-install-prometheus
 kubectl -n kube-system wait --for=condition=complete job/helm-install-prometheus --timeout=10m

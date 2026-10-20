@@ -116,18 +116,3 @@ spec:
   issuerRef:
     name: internal-ca
     kind: ClusterIssuer
----
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: prometheus-tls
-  namespace: monitoring
-spec:
-  secretName: prometheus-tls
-  dnsNames:
-    - prometheus
-  usages:
-    - client auth
-  issuerRef:
-    name: internal-ca
-    kind: ClusterIssuer

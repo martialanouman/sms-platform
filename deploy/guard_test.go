@@ -30,9 +30,12 @@ import (
 const registry = "ghcr.io/martialanouman/sms-platform/"
 
 var (
-	deployedJobs     = regexp.MustCompile(`(?m)^for job in ([a-z -]+); do$`)
-	deployedServices = regexp.MustCompile(`(?m)^for service in ([a-z -]+); do$`)
-	awaited          = regexp.MustCompile(`(?m)^\tkubectl -n sms rollout status "deploy/\$service" --timeout=[0-9]+m$`)
+	deployedJobs      = regexp.MustCompile(`(?m)^for job in ([a-z -]+); do$`)
+	deployedServices  = regexp.MustCompile(`(?m)^for service in ([a-z -]+); do$`)
+	awaited           = regexp.MustCompile(`(?m)^\tkubectl -n sms rollout status "deploy/\$service" --timeout=[0-9]+m$`)
+	rulesCreated      = regexp.MustCompile(`(?m)^kubectl -n monitoring create configmap alert-rules `)
+	monitoringBrick   = regexp.MustCompile(`(?m)^kubectl apply -f deploy/bricks/monitoring\.yaml$`)
+	prometheusAwaited = regexp.MustCompile(`(?m)^kubectl -n monitoring rollout status deploy/prometheus-server --timeout=[0-9]+m$`)
 )
 
 type goreleaser struct {
@@ -177,6 +180,13 @@ func check(root string) error {
 	script, err := os.ReadFile(filepath.Join(root, "deploy", "test-env", "deploy.sh"))
 	if err != nil {
 		return err
+	}
+	rules, brick, prometheus := rulesCreated.FindIndex(script), monitoringBrick.FindIndex(script), prometheusAwaited.FindIndex(script)
+	if rules == nil || brick == nil || brick[0] < rules[0] {
+		errs = append(errs, errors.New("deploy.sh: the ConfigMap alert-rules is not created before the brick monitoring, which mounts it"))
+	}
+	if prometheus == nil {
+		errs = append(errs, errors.New("deploy.sh: prometheus-server is not awaited by rollout status"))
 	}
 	var jobs, services []string
 	jobsAt, servicesAt := deployedJobs.FindSubmatchIndex(script), deployedServices.FindSubmatchIndex(script)
@@ -505,6 +515,9 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 		{"Job among the services", "deploy/test-env/deploy.sh", "for service in content-key-svc; do", "for service in content-key-svc migrate; do", "migrate: a Job in the loop of the services"},
 		{"services before the Jobs", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for service in content-key-svc; do\ndone\nfor job in migrate catalog-apply; do", "the services before the Jobs"},
 		{"services without Jobs", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for jobs in migrate catalog-apply; do", "the services before the Jobs"},
+		{"rules not created", "deploy/test-env/deploy.sh", "kubectl -n monitoring create configmap alert-rules", "true", "alert-rules"},
+		{"rules created after the brick", "deploy/test-env/deploy.sh", "rules=()\n", "kubectl apply -f deploy/bricks/monitoring.yaml\nrules=()\n", "alert-rules"},
+		{"prometheus not awaited", "deploy/test-env/deploy.sh", "kubectl -n monitoring rollout status deploy/prometheus-server", "kubectl -n monitoring get deploy/prometheus-server", "prometheus-server"},
 		{"services not awaited", "deploy/test-env/deploy.sh", "-n sms rollout status", "-n sms get", "rollout status"},
 		{"Service open on the node", "deploy/k8s/content-key-svc.yaml", "spec:\n  selector:", "spec:\n  type: NodePort\n  selector:", "Service type"},
 		{"Service to other pods", "deploy/k8s/content-key-svc.yaml", "  selector:\n    app.kubernetes.io/name: content-key-svc", "  selector:\n    app.kubernetes.io/name: admin-api-svc", "Service selector"},
@@ -603,10 +616,35 @@ type brick struct {
 				PostInitSQL []string `yaml:"postInitSQL"`
 			} `yaml:"initdb"`
 		} `yaml:"bootstrap"`
-		Chart           string `yaml:"chart"`
-		TargetNamespace string `yaml:"targetNamespace"`
-		ValuesContent   string `yaml:"valuesContent"`
+		PodSelector struct {
+			MatchLabels map[string]string `yaml:"matchLabels"`
+		} `yaml:"podSelector"`
+		PolicyTypes     []string `yaml:"policyTypes"`
+		Ingress         []any    `yaml:"ingress"`
+		Chart           string   `yaml:"chart"`
+		TargetNamespace string   `yaml:"targetNamespace"`
+		ValuesContent   string   `yaml:"valuesContent"`
 	} `yaml:"spec"`
+}
+
+type relabel struct {
+	SourceLabels []string `yaml:"source_labels"`
+	Regex        string   `yaml:"regex"`
+	Action       string   `yaml:"action"`
+}
+
+type mount struct {
+	ConfigMap string `yaml:"configMap"`
+	MountPath string `yaml:"mountPath"`
+}
+
+func rulesMount(mounts []mount) string {
+	for _, m := range mounts {
+		if m.ConfigMap == "alert-rules" {
+			return m.MountPath
+		}
+	}
+	return ""
 }
 
 var bricks = []string{"postgres.yaml", "kafka.yaml", "openbao.yaml", "monitoring.yaml"}
@@ -693,15 +731,16 @@ func checkBricks(dir string) error {
 		var v struct {
 			ConfigmapReload struct {
 				Prometheus struct {
-					ExtraVolumeDirs []string `yaml:"extraVolumeDirs"`
+					ExtraVolumeDirs      []string `yaml:"extraVolumeDirs"`
+					ExtraConfigmapMounts []mount  `yaml:"extraConfigmapMounts"`
 				} `yaml:"prometheus"`
 			} `yaml:"configmapReload"`
 			Server struct {
-				ExtraConfigmapMounts []struct {
-					ConfigMap string `yaml:"configMap"`
-					MountPath string `yaml:"mountPath"`
-				} `yaml:"extraConfigmapMounts"`
+				ExtraConfigmapMounts []mount `yaml:"extraConfigmapMounts"`
 			} `yaml:"server"`
+			ScrapeConfigs map[string]struct {
+				RelabelConfigs []relabel `yaml:"relabel_configs"`
+			} `yaml:"scrapeConfigs"`
 			ServerFiles struct {
 				Prometheus struct {
 					RuleFiles []string `yaml:"rule_files"`
@@ -711,18 +750,24 @@ func checkBricks(dir string) error {
 		if err := yaml.Unmarshal([]byte(prom.Spec.ValuesContent), &v); err != nil {
 			errs = append(errs, fmt.Errorf("prometheus: valuesContent unreadable: %w", err))
 		} else {
-			var rules string
-			for _, m := range v.Server.ExtraConfigmapMounts {
-				if m.ConfigMap == "alert-rules" {
-					rules = m.MountPath
-				}
-			}
-			if !slices.Equal(v.ServerFiles.Prometheus.RuleFiles, []string{rules + "/*.yaml"}) {
+			if !slices.Contains(v.ServerFiles.Prometheus.RuleFiles, rulesMount(v.Server.ExtraConfigmapMounts)+"/*.yaml") {
 				errs = append(errs, errors.New("prometheus: rule_files is not the mount of the ConfigMap alert-rules, which deploy.sh creates from deploy/alerts"))
-			} else if !slices.Contains(v.ConfigmapReload.Prometheus.ExtraVolumeDirs, rules) {
+			}
+			if !slices.Contains(v.ConfigmapReload.Prometheus.ExtraVolumeDirs, rulesMount(v.ConfigmapReload.Prometheus.ExtraConfigmapMounts)) {
 				errs = append(errs, errors.New("prometheus: the reloader does not watch the rules, which a release changes without restarting Prometheus"))
 			}
+			if !slices.ContainsFunc(v.ScrapeConfigs["sms"].RelabelConfigs, func(r relabel) bool {
+				return slices.Equal(r.SourceLabels, []string{"__meta_kubernetes_pod_container_port_name"}) && r.Regex == "ops" && r.Action == "keep"
+			}) {
+				errs = append(errs, errors.New("prometheus: the job sms does not keep the port named ops, the one internal/netpol opens to Prometheus"))
+			}
 		}
+	}
+	if !slices.ContainsFunc(docs, func(b brick) bool {
+		return b.Kind == "NetworkPolicy" && b.Metadata.Namespace == "monitoring" && b.Spec.PodSelector.MatchLabels == nil &&
+			slices.Contains(b.Spec.PolicyTypes, "Ingress") && b.Spec.Ingress == nil
+	}) {
+		errs = append(errs, errors.New("monitoring: no default deny of ingress, which 06 §4 requires of every namespace"))
 	}
 	k := find("Kafka")
 	if k == nil || k.Metadata.Name != "kafka" || k.Metadata.Namespace != "kafka" {
@@ -785,7 +830,15 @@ func TestTheBrickGuardFails(t *testing.T) {
 		{"prometheus elsewhere", "monitoring.yaml", "  targetNamespace: monitoring\n", "  targetNamespace: observability\n", "no HelmChart prometheus"},
 		{"rules on another path", "monitoring.yaml", "          - /etc/alerts/*.yaml\n", "          - /etc/config/alerting_rules.yml\n", "rule_files"},
 		{"rules from another ConfigMap", "monitoring.yaml", "      extraConfigmapMounts:\n        - name: alert-rules\n          configMap: alert-rules\n", "      extraConfigmapMounts:\n        - name: alert-rules\n          configMap: rules\n", "rule_files"},
-		{"rules mounted elsewhere", "monitoring.yaml", "          configMap: alert-rules\n          mountPath: /etc/alerts\n          subPath: \"\"\n          readOnly: true\n      extraSecretMounts", "          configMap: alert-rules\n          mountPath: /etc/rules\n          subPath: \"\"\n          readOnly: true\n      extraSecretMounts", "rule_files"},
+		{"rules mounted elsewhere", "monitoring.yaml", "          mountPath: /etc/alerts\n        - name: internal-ca", "          mountPath: /etc/rules\n        - name: internal-ca", "rule_files"},
+		{"reloader without the rules", "monitoring.yaml", "        extraConfigmapMounts:\n          - name: alert-rules\n            configMap: alert-rules\n            mountPath: /etc/alerts\n", "", "reload"},
+		{"ops port not scraped", "monitoring.yaml", "            regex: ops\n", "            regex: metrics\n", "port named ops"},
+		{"ops on another label", "monitoring.yaml", "[__meta_kubernetes_pod_container_port_name]\n            regex: ops", "[__meta_kubernetes_pod_label_app]\n            regex: ops", "port named ops"},
+		{"ops port dropped", "monitoring.yaml", "            regex: ops\n            action: keep", "            regex: ops\n            action: drop", "port named ops"},
+		{"monitoring opened by a rule", "monitoring.yaml", "  policyTypes:\n    - Ingress\n---", "  policyTypes:\n    - Ingress\n  ingress:\n    - {}\n---", "deny"},
+		{"monitoring partly denied", "monitoring.yaml", "  namespace: monitoring\nspec:\n  podSelector: {}", "  namespace: monitoring\nspec:\n  podSelector:\n    matchLabels:\n      app.kubernetes.io/name: alertmanager", "deny"},
+		{"deny in another namespace", "monitoring.yaml", "  name: default-deny\n  namespace: monitoring", "  name: default-deny\n  namespace: sms", "deny"},
+		{"monitoring open", "monitoring.yaml", "  name: default-deny\n  namespace: monitoring\nspec:\n  podSelector: {}\n  policyTypes:\n    - Ingress", "  name: default-deny\n  namespace: monitoring\nspec:\n  podSelector: {}\n  policyTypes:\n    - Egress", "deny"},
 		{"rules not reloaded", "monitoring.yaml", "        extraVolumeDirs:\n          - /etc/alerts\n", "        extraVolumeDirs:\n          - /etc/rules\n", "reload"},
 		{"prometheus values unreadable", "monitoring.yaml", "    server:\n", "    server: [\n", "valuesContent unreadable"},
 	} {
