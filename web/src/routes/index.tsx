@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { api, json, send, unreachable } from '../api'
-import { TotpReplacement } from '../factor'
+import { PasskeySection, TotpReplacement } from '../factor'
 import { meQuery, Unauthenticated, useActivity, useMe, useSessionClosed } from '../session'
 import { AuthLayout } from '../ui'
 
@@ -58,12 +58,15 @@ function Home() {
           <button className="ui-button ui-button--secondary" type="button" onClick={logout}>
             Se déconnecter
           </button>
-          {me.data.secondFactors.totp && (
-            <TotpReplacement
-              remaining={me.data.secondFactors.recoveryCodesRemaining}
-              onReplaced={() => queryClient.invalidateQueries({ queryKey: meQuery.queryKey })}
-            />
-          )}
+          <TotpReplacement
+            held={me.data.secondFactors.totp}
+            remaining={me.data.secondFactors.recoveryCodesRemaining}
+            onReplaced={() => queryClient.invalidateQueries({ queryKey: meQuery.queryKey })}
+          />
+          <PasskeySection
+            count={me.data.secondFactors.passkeys}
+            onChange={() => queryClient.invalidateQueries({ queryKey: meQuery.queryKey })}
+          />
         </>
       )}
     </AuthLayout>

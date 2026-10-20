@@ -1,7 +1,7 @@
-import { act, fireEvent, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
-import { challenge, empty, json, me, renderAt, stubFetch, violations } from '../test'
+import { challenge, empty, json, me, renderAt, stubFetch, stubPasskeys, violations } from '../test'
 
 test('the dashboard shows who is signed in', async () => {
   stubFetch({ 'GET /api/auth/me': () => json(200, me) })
@@ -250,4 +250,99 @@ test('an account without an app is offered no replacement', async () => {
   renderAt('/')
   await screen.findByRole('button', { name: 'Se déconnecter' })
   expect(screen.queryByRole('button', { name: "Remplacer l'application" })).toBeNull()
+})
+
+const keyed = { ...me, secondFactors: { totp: true, recoveryCodesRemaining: 10, passkeys: 2 } }
+const keys = [
+  { id: 'k1', name: 'Clé USB', createdAt: '2026-10-20T10:00:00Z' },
+  { id: 'k2', name: 'Téléphone', createdAt: '2026-10-20T11:00:00Z' },
+]
+
+test('the passkeys are listed, added under a name and removed', async () => {
+  let held = keys
+  const device = stubPasskeys()
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, keyed),
+    'POST /api/auth/activity': () => empty(204),
+    'GET /api/auth/mfa/webauthn/passkeys': () => json(200, held),
+    'POST /api/auth/mfa/webauthn/register/begin': () => json(200, { publicKey: { challenge: 'Y2hhbGxlbmdl' } }),
+    'POST /api/auth/mfa/webauthn/register/finish': () => {
+      held = [...keys, { id: 'k3', name: 'Portable', createdAt: '2026-10-20T12:00:00Z' }]
+      return json(200, { id: 'k3' })
+    },
+    'DELETE /api/auth/mfa/webauthn/passkeys/k1': () => {
+      held = held.filter((k) => k.id !== 'k1')
+      return empty(204)
+    },
+  })
+  const { container } = renderAt('/')
+  const user = userEvent.setup()
+  const list = await screen.findByRole('list', { name: "Clés d'accès" })
+  expect((await within(list).findAllByRole('listitem')).map((i) => i.firstChild?.textContent)).toEqual([
+    'Clé USB',
+    'Téléphone',
+  ])
+  expect(await violations(container)).toEqual([])
+  await user.type(screen.getByLabelText('Nom de la clé'), 'Portable')
+  await user.click(screen.getByRole('button', { name: "Ajouter une clé d'accès" }))
+  expect(await screen.findByText('Portable')).toBeDefined()
+  expect(device.create).toHaveBeenCalledTimes(1)
+  expect(await calls.find((c) => c.url.endsWith('/register/finish'))?.json()).toEqual({
+    name: 'Portable',
+    attestation: { id: 'attested' },
+  })
+  await user.click(screen.getByRole('button', { name: 'Retirer Clé USB' }))
+  await waitFor(() => expect(screen.queryByText('Clé USB')).toBeNull())
+  expect(screen.getByLabelText('Nom de la clé')).toHaveProperty('value', '')
+})
+
+test('removing the last factor is refused and told', async () => {
+  stubFetch({
+    'GET /api/auth/me': () =>
+      json(200, { ...me, secondFactors: { totp: false, recoveryCodesRemaining: 0, passkeys: 1 } }),
+    'POST /api/auth/activity': () => empty(204),
+    'GET /api/auth/mfa/webauthn/passkeys': () => json(200, keys.slice(0, 1)),
+    'DELETE /api/auth/mfa/webauthn/passkeys/k1': () =>
+      json(409, {
+        code: 'mfa_last_factor',
+        message: "C'est votre dernier facteur : ajoutez-en un autre avant de le retirer.",
+      }),
+  })
+  renderAt('/')
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Retirer Clé USB' }))
+  expect((await screen.findByRole('alert')).textContent).toBe(
+    "C'est votre dernier facteur : ajoutez-en un autre avant de le retirer.",
+  )
+  expect(screen.getByText('Clé USB')).toBeDefined()
+})
+
+test('an account guarded by a passkey adds an app without proof', async () => {
+  let current = { ...me, secondFactors: { totp: false, recoveryCodesRemaining: 0, passkeys: 1 } }
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, current),
+    'POST /api/auth/activity': () => empty(204),
+    'GET /api/auth/mfa/webauthn/passkeys': () => json(200, keys.slice(0, 1)),
+    'POST /api/auth/mfa/totp/enroll': () => json(200, replacement),
+    'POST /api/auth/mfa/totp/confirm': () => {
+      current = { ...me, secondFactors: { totp: true, recoveryCodesRemaining: 10, passkeys: 1 } }
+      return empty(204)
+    },
+  })
+  renderAt('/')
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('button', { name: "Ajouter l'application" }))
+  await screen.findByRole('img', { name: "QR code de configuration de l'application" })
+  expect(await calls.find((c) => c.url.endsWith('/totp/enroll'))?.json()).toEqual({})
+  await user.type(screen.getByLabelText('Code à six chiffres'), '654321')
+  await user.click(screen.getByRole('button', { name: 'Vérifier' }))
+  await user.click(await screen.findByRole('button', { name: "J'ai enregistré ces codes" }))
+  expect(await screen.findByRole('button', { name: "Remplacer l'application" })).toBeDefined()
+})
+
+test('an account without passkey asks for none to be listed', async () => {
+  const calls = stubFetch({ 'GET /api/auth/me': () => json(200, me), 'POST /api/auth/activity': () => empty(204) })
+  renderAt('/')
+  await screen.findByRole('heading', { name: "Clés d'accès" })
+  expect(screen.getByText("Aucune clé d'accès sur ce compte.")).toBeDefined()
+  expect(calls.some((c) => c.url.endsWith('/passkeys'))).toBe(false)
 })

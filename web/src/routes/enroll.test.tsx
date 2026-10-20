@@ -5,7 +5,7 @@ import { act } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, test, vi } from 'vitest'
 import { pendingChallenge, rememberChallenge } from '../session'
-import { challenge, empty, json, me, renderAt, stubFetch, violations } from '../test'
+import { challenge, empty, json, me, renderAt, stubFetch, stubPasskeys, violations } from '../test'
 
 const enrollment = {
   secret: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP',
@@ -170,4 +170,74 @@ test('a second copy is announced again', async () => {
   vi.spyOn(navigator.clipboard, 'writeText').mockReturnValue(new Promise(() => {}))
   await user.click(screen.getByRole('button', { name: 'Copier la clé' }))
   expect(screen.getByRole('status').textContent).toBe('')
+})
+
+const creation = { publicKey: { challenge: 'Y2hhbGxlbmdl', rp: { id: 'localhost', name: 'x' } } }
+
+test('a passkey is registered under its name, then the verification follows', async () => {
+  rememberChallenge(challenge)
+  const device = stubPasskeys()
+  const calls = stubFetch({
+    'POST /api/auth/mfa/webauthn/register/begin': () => json(200, creation),
+    'POST /api/auth/mfa/webauthn/register/finish': () => json(200, { id: 'k1' }),
+  })
+  const { router, container } = renderAt('/enroll')
+  const user = userEvent.setup()
+  await user.type(await screen.findByLabelText('Nom de la clé'), 'Clé USB')
+  expect(await violations(container)).toEqual([])
+  await user.click(screen.getByRole('button', { name: "Enregistrer une clé d'accès" }))
+  await waitFor(() => expect(router.state.location.pathname).toBe('/mfa'))
+  expect(device.create).toHaveBeenCalledWith({ publicKey: { parsed: creation.publicKey } })
+  const finish = calls.find((c) => c.url.endsWith('/register/finish'))
+  expect(await finish?.json()).toEqual({ name: 'Clé USB', attestation: { id: 'attested' } })
+  expect(pendingChallenge()).toBe(challenge.challenge)
+})
+
+test('a passkey abandoned or refused is told, and the app stays offered', async () => {
+  rememberChallenge(challenge)
+  const device = stubPasskeys()
+  device.create.mockRejectedValueOnce(new DOMException('closed', 'NotAllowedError'))
+  stubFetch({
+    'POST /api/auth/mfa/webauthn/register/begin': () => json(200, creation),
+    'POST /api/auth/mfa/webauthn/register/finish': () =>
+      json(422, {
+        code: 'webauthn_ceremony_refused',
+        message: "La clé d'accès n'a pas été enregistrée ; recommencez.",
+      }),
+  })
+  const { router } = renderAt('/enroll')
+  const user = userEvent.setup()
+  await user.type(await screen.findByLabelText('Nom de la clé'), 'Clé USB')
+  await user.click(screen.getByRole('button', { name: "Enregistrer une clé d'accès" }))
+  const alert = await screen.findByRole('alert')
+  expect(alert.textContent).toBe(
+    "La clé d'accès n'a pas répondu : la fenêtre s'est refermée, ou l'appareil a refusé. Recommencez.",
+  )
+  expect(document.activeElement).toBe(alert)
+  expect(screen.getByLabelText('Nom de la clé').getAttribute('aria-describedby')).toBe(alert.id)
+  await user.click(screen.getByRole('button', { name: "Enregistrer une clé d'accès" }))
+  await waitFor(() =>
+    expect(screen.getByRole('alert').textContent).toBe("La clé d'accès n'a pas été enregistrée ; recommencez."),
+  )
+  expect(router.state.location.pathname).toBe('/enroll')
+  expect(screen.getByRole('button', { name: "Configurer l'application" })).toBeDefined()
+})
+
+test('a passkey without name is not attempted', async () => {
+  rememberChallenge(challenge)
+  stubPasskeys()
+  const calls = stubFetch({})
+  renderAt('/enroll')
+  await userEvent.setup().click(await screen.findByRole('button', { name: "Enregistrer une clé d'accès" }))
+  expect((await screen.findByRole('alert')).textContent).toBe('Nommez la clé : ce nom la distinguera des autres.')
+  expect(calls).toEqual([])
+})
+
+test('a browser without the WebAuthn JSON methods is offered the app only', async () => {
+  rememberChallenge(challenge)
+  stubFetch({})
+  renderAt('/enroll')
+  expect(await screen.findByText("Ce navigateur ne sait pas créer de clé d'accès.")).toBeDefined()
+  expect(screen.queryByLabelText('Nom de la clé')).toBeNull()
+  expect(screen.getByRole('button', { name: "Configurer l'application" })).toBeDefined()
 })
