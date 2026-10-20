@@ -37,8 +37,14 @@ type policy struct {
 			MatchLabels map[string]string `yaml:"matchLabels"`
 		} `yaml:"podSelector"`
 		PolicyTypes []string `yaml:"policyTypes"`
-		Ingress     []any    `yaml:"ingress"`
-		Egress      []struct {
+		Ingress     []struct {
+			From  []peer `yaml:"from"`
+			Ports []struct {
+				Protocol string `yaml:"protocol"`
+				Port     int    `yaml:"port"`
+			} `yaml:"ports"`
+		} `yaml:"ingress"`
+		Egress []struct {
 			To    []peer `yaml:"to"`
 			Ports []struct {
 				Protocol string `yaml:"protocol"`
@@ -182,6 +188,62 @@ func TestRenderRefusesAWorkloadNamedLikeAFixedPolicy(t *testing.T) {
 		_, err := netpol.Render(fstest.MapFS{name + ".yaml": {Data: []byte(job(name, [2]string{"POSTGRES_URL", "x"}))}})
 		if err == nil || !strings.Contains(err.Error(), name) {
 			t.Errorf("workload %s: err = %v, want a refusal", name, err)
+		}
+	}
+}
+
+func TestAServerReachesOpenBaoAndAdmitsOnlyItsCallers(t *testing.T) {
+	got := render(t, fstest.MapFS{
+		"content-key-svc.yaml": {Data: []byte(job("content-key-svc",
+			[2]string{"OPENBAO_ADDR", "https://bao.secrets.svc:8200"}, [2]string{"GRPC_ADDR", ":7002"},
+			[2]string{"TLS_ALLOWED_CLIENTS", "admin-api-svc, router-svc,"}))},
+		"listener.yaml": {Data: []byte(job("listener", [2]string{"GRPC_ADDR", ":7003"}, [2]string{"TLS_ALLOWED_CLIENTS", "dashboard"}))},
+	})
+	if l := got["listener"]; len(l.Spec.Egress) != 0 || len(l.Spec.Ingress) != 1 || l.Spec.Ingress[0].Ports[0].Port != 7003 {
+		t.Errorf("listener without egress: %+v", l.Spec)
+	}
+	p := got["content-key-svc"]
+	if !reflect.DeepEqual(p.Spec.PolicyTypes, []string{"Ingress", "Egress"}) {
+		t.Errorf("policy types %v", p.Spec.PolicyTypes)
+	}
+	if e := p.Spec.Egress; len(e) != 1 || len(e[0].To) != 1 ||
+		!reflect.DeepEqual(e[0].To[0].NamespaceSelector.MatchLabels, map[string]string{"kubernetes.io/metadata.name": "secrets"}) ||
+		!reflect.DeepEqual(e[0].To[0].PodSelector.MatchLabels, map[string]string{"app.kubernetes.io/name": "bao"}) ||
+		len(e[0].Ports) != 1 || e[0].Ports[0].Protocol != "TCP" || e[0].Ports[0].Port != 8200 {
+		t.Errorf("egress %+v, want OpenBao on 8200", e)
+	}
+	in := p.Spec.Ingress
+	if len(in) != 1 || len(in[0].Ports) != 1 || in[0].Ports[0].Protocol != "TCP" || in[0].Ports[0].Port != 7002 {
+		t.Fatalf("ingress %+v, want one rule on 7002", in)
+	}
+	var callers []string
+	for _, f := range in[0].From {
+		if !reflect.DeepEqual(f.NamespaceSelector.MatchLabels, map[string]string{"kubernetes.io/metadata.name": "sms"}) {
+			t.Errorf("caller from namespace %v", f.NamespaceSelector.MatchLabels)
+		}
+		callers = append(callers, f.PodSelector.MatchLabels["app.kubernetes.io/name"])
+	}
+	if !slices.Equal(callers, []string{"admin-api-svc", "router-svc"}) {
+		t.Errorf("callers %v", callers)
+	}
+}
+
+func TestRenderRefusesAServerItCannotBound(t *testing.T) {
+	for name, env := range map[string][][2]string{
+		"OpenBao in clear":        {{"OPENBAO_ADDR", "http://openbao.openbao.svc:8200"}},
+		"OpenBao outside cluster": {{"OPENBAO_ADDR", "https://openbao.example.com:8200"}},
+		"OpenBao without port":    {{"OPENBAO_ADDR", "https://openbao.openbao.svc"}},
+		"OpenBao on port 0":       {{"OPENBAO_ADDR", "https://openbao.openbao.svc:0"}},
+		"OpenBao with a path":     {{"OPENBAO_ADDR", "https://openbao.openbao.svc:8200/v1"}},
+		"callers without port":    {{"TLS_ALLOWED_CLIENTS", "admin-api-svc"}},
+		"port without callers":    {{"GRPC_ADDR", ":7002"}},
+		"port with a host":        {{"GRPC_ADDR", "0.0.0.0:7002"}, {"TLS_ALLOWED_CLIENTS", "admin-api-svc"}},
+		"port beyond range":       {{"GRPC_ADDR", ":65536"}, {"TLS_ALLOWED_CLIENTS", "admin-api-svc"}},
+		"caller not a pod name":   {{"GRPC_ADDR", ":7002"}, {"TLS_ALLOWED_CLIENTS", "Admin_API"}},
+	} {
+		_, err := netpol.Render(fstest.MapFS{"server.yaml": {Data: []byte(job("server", env...))}})
+		if err == nil || !strings.Contains(err.Error(), "server") {
+			t.Errorf("%s: err = %v, want a refusal naming server", name, err)
 		}
 	}
 }
