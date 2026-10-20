@@ -52,3 +52,39 @@ Tranchés par l'agent, sans contredire 1 à 73.
   Mutations manuelles, consignées.
 - **Preuve sur `contabo169`** dans Chrome, par `port-forward` : lien reçu dans Mailpit, mot de passe, connexion,
   accueil, déconnexion ; session antidatée de 15 min, retour à la connexion avec l'avis.
+
+## Écarts au design, constatés à l'implémentation
+
+- **Pas de refus local des champs vides** : le serveur juge et rédige (arbitrage 69) ; un formulaire vide part, et le
+  422 du contrat s'affiche comme tout refus. La mutation du contrôle local survivait, faute de raison d'être.
+- **Le texte des règles** du mot de passe, sur `/access`, reprend la politique de `CheckPassword` : il guide la saisie,
+  le 422 du serveur reste la règle.
+- **Le harnais nettoie** entre deux tests (rendu, `fetch` doublé, minuteurs) : Vitest sans `globals` ne déclenche pas le
+  nettoyage automatique de Testing Library.
+
+## Preuve sur `contabo169`
+
+Jouée le 2026-10-20 depuis la branche, sur le cluster en v0.13.0, dans Chromium piloté par `agent-browser` (l'extension
+Chrome n'était pas joignable) : image construite par GoReleaser en snapshot, importée sous `proof-011a4b`, puis
+`proof-011a4b-2` après correctif ; timer de déploiement suspendu, puis réarmé et image de la release rétablie. Tunnel
+SSH vers `port-forward`, sur `localhost:8080`, l'origine déclarée du dashboard. Un lien de réinitialisation est mis en
+file par SQL sous `app.actor` (`QueueLink`), l'opérateur de bootstrap ayant déjà son mot de passe.
+
+1. Le lien arrive dans Mailpit ; `/access#…` s'ouvre, le fragment quitte l'adresse, titre « Mot de passe — Tableau de
+   bord ».
+2. Un mot de passe faible : 422, message du serveur en alerte focalisée, liée au champ par `aria-describedby`.
+3. Un mot de passe valide : `/login?avis=mot-de-passe-enregistre`, avis affiché, focus sur l'adresse.
+4. Connexion : `/`, « Connecté en tant que … », titre « Tableau de bord ».
+5. Déconnexion : `/login`, sans avis ; `/` rouvert ensuite renvoie à `/login?avis=session-fermee`.
+6. Session antidatée de 15 min, un geste : `/login?avis=session-fermee`.
+
+Rouge vu : à la première image, la déconnexion menait à `/login?avis=session-fermee`. Le `pointerdown` du clic envoie
+une activité, à laquelle le serveur, la session déjà fermée, répond 401 ; ce retour poussait l'avis après `/login`. Le
+journal des requêtes l'a montré (une hypothèse sur `removeQueries`, testée d'abord, ne reproduisait rien). Correctif :
+la déconnexion retire l'activité avant d'envoyer `logout`, et une réponse d'activité n'agit plus une fois son effet
+démonté ; le test sert les deux réponses dans le même tour, et chaque garde tombe sous mutation.
+
+## Mutations
+
+Vingt-quatre mutations manuelles (constantes, en-têtes, focus, titres, avis, fragment, minuteur, 429, gardes de
+déconnexion) : toutes tombent, sauf le refus local des champs vides, retiré.
