@@ -29,6 +29,7 @@ spec:
       global:
         scrape_interval: 15s
         evaluation_interval: 15s
+      # debt: #130
       persistentVolume:
         size: 4Gi
       extraConfigmapMounts:

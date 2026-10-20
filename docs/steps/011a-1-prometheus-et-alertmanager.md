@@ -23,7 +23,7 @@ Ce document porte les arbitrages de **toute la 011a** ; les PR suivantes y renvo
   #3, #4, #13, #16 vont à 011b. Pour 011a-1 : aucune.
 
 **Terminé quand** (011a-1) : Prometheus collecte le port ops de `content-key-svc`, OpenBao et cert-manager sur
-l'environnement de test, charge les six fichiers de `deploy/alerts/` et remet ses alertes à Alertmanager ; aucun
+l'environnement de test, charge les cinq fichiers de règles de `deploy/alerts/` et remet ses alertes à Alertmanager ; aucun
 autre pod n'atteint le port ops.
 
 ## Arbitrages
@@ -101,7 +101,7 @@ Arbitrages propres à 011a-1, tranchés par l'agent sans contredire la spec :
     `monitoring` n'a pas de deny par défaut, comme `cert-manager`.
 21. **Règles** : `deploy.sh` crée le ConfigMap `alert-rules` depuis les fichiers de `deploy/alerts/` hors `_test`, avant
     la brique ; le reloader du chart le surveille.
-22. **Stockage long terme par remote-write** (10 §10.1) : reporté, aucun stockage cible ; issue `debt` neuve.
+22. **Stockage long terme par remote-write** (10 §10.1) : reporté, aucun stockage cible (#130).
 
 ## Design arrêté
 
@@ -116,6 +116,27 @@ Arbitrages propres à 011a-1, tranchés par l'agent sans contredire la spec :
 - **`.claude/rules/ci-deploy.md`** : l'entrée ops ouverte ; `docs/plan/composants.md` : la coupe en quatre.
 - **Tests** : `netpol` (entrée ops d'un Deployment au port nommé, aucune pour un Job sans port `ops`, un cas faussé
   par règle) ; garde des briques si elle s'étend.
-- **Preuve sur `contabo169`** : cibles `up` (content-key-svc, OpenBao, cert-manager) ; six groupes de règles chargés ;
+- **Preuve sur `contabo169`** : cibles `up` (content-key-svc, OpenBao, cert-manager) ; cinq groupes de règles chargés ;
   `OpenBaoSealed` muette OpenBao descellé ; une alerte forcée visible dans Alertmanager ; port ops refusé depuis un pod
   non admis.
+
+## Preuve sur `contabo169`
+
+Jouée le 2026-10-20 depuis la branche, sur le cluster en v0.8.0, OpenBao descellé, timer de déploiement suspendu pendant
+la preuve puis réarmé. Appliqués : `namespaces.yaml`, `ca.yaml`, la NetworkPolicy d'`openbao.yaml` seule (le
+`HelmChart` d'OpenBao est inchangé), le ConfigMap `alert-rules` comme le crée `deploy.sh`, `monitoring.yaml`,
+`networkpolicies.yaml`.
+
+1. `helm-install-prometheus` achevé, `prometheus-server` et `prometheus-alertmanager-0` prêts.
+2. Cibles toutes `up` : `sms` (le port ops de `content-key-svc`), `openbao` en HTTPS sur
+   `/v1/sys/metrics?format=prometheus` vérifié par la CA interne, `cert-manager` (trois pods), `prometheus`.
+3. Six règles chargées depuis les cinq fichiers, toutes `inactive` et `ok` ; `OpenBaoSealed` muette.
+4. Une règle `vector(1)` ajoutée au ConfigMap arrive dans Alertmanager (`default-receiver`) en ~24 s, sans
+   redémarrage : le reloader relit le montage. Retirée, elle disparaît des règles chargées.
+5. Port ops de `content-key-svc` depuis `monitoring` : un pod au label `prometheus` lit `/metrics`, un pod au label
+   `other` prend « connection refused ».
+
+Rouge vu : une première sonde depuis `sms` était refusée par la sortie de son propre namespace (`default-deny`), ce qui
+ne prouvait rien de l'entrée ; rejouée depuis `monitoring` avec un témoin positif.
+
+La brique reste déployée ; la release suivante la réapplique par `deploy.sh`.
