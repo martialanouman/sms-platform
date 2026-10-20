@@ -142,3 +142,28 @@ l'humain.
 6. **Gardé** : un retrait refusé n'a pas de ligne au journal (§8.9 nomme les retraits faits) ; la lecture de la
    liste garde le `FOR UPDATE` commun ; `/mfa` montre un instant le `me` de la connexion avant sa relecture ; la
    forme réelle des options n'est éprouvée côté SPA que par la preuve dans Chromium.
+
+## Preuve sur `contabo169`
+
+Jouée le 2026-10-20 depuis la branche, sur le cluster en v0.16.0 : images `migrate`, `catalog-apply` et `dashboard`
+construites par GoReleaser en snapshot, importées sous `proof-011b3` ; `migrate` a appliqué la migration 3,
+`catalog-apply` les GRANT (`webauthn_credentials`, `webauthn_challenges`) ; timer suspendu, puis réarmé, et dashboard
+rendu à la v0.16.0, compatible avec le schéma 3 (tables seulement ajoutées). Compte de test réinitialisé par un lien
+`reset` avant et après. Dans Chromium (`agent-browser`), par tunnel SSH vers `port-forward`, sur `localhost:8080`, un
+authentificateur virtuel posé par CDP (`WebAuthn.addVirtualAuthenticator`, CTAP2 interne, vérification de
+l'utilisateur) :
+
+1. Connexion sans facteur : `/enroll` ([capture](011b-3/enrolement.png)) ; « Enregistrer une clé d'accès » sous le
+   nom « Clé virtuelle » : `/mfa`, la clé seule proposée ([capture](011b-3/verification.png)) ; la clé élève : `/`
+   ([capture](011b-3/accueil.png)).
+2. Connexion suivante : `/mfa` sans champ de code ; la clé élève.
+3. Depuis `/`, l'authentificateur remplacé par un neuf (Chrome n'en tient qu'un interne) : « Seconde clé » ajoutée
+   ([capture](011b-3/deux-cles.png)) ; « Clé virtuelle » retirée, focus sur « Clés d'accès » ; le retrait de la
+   seconde, la dernière, refusé ([capture](011b-3/dernier-facteur.png)).
+4. Journal : `factor_enrolled`, `mfa`, `mfa`, `factor_enrolled`, `factor_removed`, dans cet ordre.
+5. axe dans la page, `color-contrast` comprise : aucune violation sur les six états ; cent requêtes, toutes vers
+   l'origine ; aucune violation de CSP.
+
+Non prouvé dans le navigateur : une connexion élevée par la seconde clé. Le 429 de la connexion (plus de cinq
+connexions de la même source en 15 minutes, preuve comprise) l'a arrêtée, puis l'authentificateur est tombé avec son
+script ; le test Go `TestEachPasskeyKeepsItsOwnCounterInRegistrationOrder` couvre ce cas.
