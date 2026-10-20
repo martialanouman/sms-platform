@@ -3,6 +3,7 @@ package migrations_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -30,15 +31,17 @@ func sqlState(err error) string {
 }
 
 func TestAuditJournalsAreAppendOnlyButForThePurgeDoor(t *testing.T) {
-	conn := connect(t, pgtest.ControlPlane(t).As("migrator"))
+	pg := pgtest.ControlPlane(t)
 	ctx := context.Background()
 	for table, insert := range map[string]string{
 		"control_plane.audit_log": `INSERT INTO control_plane.audit_log
 			(operator, operation_id, target, status, at) VALUES ('sub', 'op', 'x', 200, now() - $1::interval)`,
 		"control_plane.audit_changes": `INSERT INTO control_plane.audit_changes
 			(actor, table_name, pk, op, at) VALUES ('sub', 't', '{"id": 1}', 'insert', now() - $1::interval)`,
+		"dashboard.access_log": `INSERT INTO dashboard.access_log (event, outcome, at) VALUES ('login', 'success', now() - $1::interval)`,
 	} {
 		t.Run(table, func(t *testing.T) {
+			conn := connect(t, pg.In(strings.Split(table, ".")[0]).As("migrator"))
 			for _, age := range []string{"8759 hours", "8761 hours"} {
 				if _, err := conn.Exec(ctx, insert, age); err != nil {
 					t.Fatal(err)

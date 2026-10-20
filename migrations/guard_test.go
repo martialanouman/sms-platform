@@ -13,8 +13,8 @@ import (
 	"github.com/martialanouman/sms-platform/migrations"
 )
 
-func classification(t *testing.T) schema.Classification {
-	data, err := fs.ReadFile(migrations.ControlPlane(), "audit.yaml")
+func classification(t *testing.T, database string) schema.Classification {
+	data, err := fs.ReadFile(migrations.Database(database), "audit.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,19 +25,19 @@ func classification(t *testing.T) schema.Classification {
 	return c
 }
 
-// observe counts as captured only a row trigger running audit_capture after every insert, update and delete,
-// unconditionally, outside replica mode.
-func observe(t *testing.T, conn *pgx.Conn) map[string]schema.Observed {
+// observe counts as captured only a row trigger running the audit_capture of the database's schema after every
+// insert, update and delete, unconditionally, outside replica mode.
+func observe(t *testing.T, conn *pgx.Conn, database string) map[string]schema.Observed {
 	rows, err := conn.Query(context.Background(), `
 		SELECT c.relname,
 		  EXISTS (SELECT 1 FROM pg_trigger tg
-		    WHERE tg.tgrelid = c.oid AND tg.tgfoid = 'control_plane.audit_capture'::regproc
+		    WHERE tg.tgrelid = c.oid AND tg.tgfoid = to_regproc($1 || '.audit_capture')
 		      AND tg.tgtype & 31 = 29 AND tg.tgenabled IN ('O', 'A')
 		      AND cardinality(tg.tgattr::int2[]) = 0 AND tg.tgqual IS NULL),
 		  EXISTS (SELECT 1 FROM pg_index i WHERE i.indrelid = c.oid AND i.indisprimary)
 		FROM pg_class c
-		WHERE c.relnamespace = 'control_plane'::regnamespace AND c.relkind IN ('r', 'p')
-		  AND NOT c.relispartition`)
+		WHERE c.relnamespace = $1::regnamespace AND c.relkind IN ('r', 'p')
+		  AND NOT c.relispartition`, database)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,10 +56,13 @@ func observe(t *testing.T, conn *pgx.Conn) map[string]schema.Observed {
 	return tables
 }
 
-func TestEveryControlPlaneTableIsClassified(t *testing.T) {
-	conn := connect(t, pgtest.ControlPlane(t).As("migrator"))
-	if problems := classification(t).Check(observe(t, conn)); len(problems) != 0 {
-		t.Fatalf("control_plane disagrees with audit.yaml: %q", problems)
+func TestEveryTableOfEachDatabaseIsClassified(t *testing.T) {
+	pg := pgtest.ControlPlane(t)
+	for _, database := range migrations.Databases {
+		conn := connect(t, pg.In(database).As("migrator"))
+		if problems := classification(t, database).Check(observe(t, conn, database)); len(problems) != 0 {
+			t.Errorf("%s disagrees with its audit.yaml: %q", database, problems)
+		}
 	}
 }
 
@@ -91,7 +94,7 @@ func TestTheGuardReadsTheDatabase(t *testing.T) {
 		`CREATE TABLE control_plane.parted (at timestamptz) PARTITION BY RANGE (at)`,
 		`CREATE TABLE control_plane.parted_default PARTITION OF control_plane.parted DEFAULT`,
 	)
-	c := classification(t)
+	c := classification(t, "control_plane")
 	c["captured"] = schema.Table{Audit: schema.Diff}
 	c["inserts_only"] = schema.Table{Audit: schema.Diff}
 	c["disabled"] = schema.Table{Audit: schema.Diff}
@@ -109,7 +112,17 @@ func TestTheGuardReadsTheDatabase(t *testing.T) {
 		`"some_columns": diff without audit_capture`,
 		`"unclassified": not classified`,
 	}
-	if got := c.Check(observe(t, conn)); !reflect.DeepEqual(got, want) {
+	if got := c.Check(observe(t, conn, "control_plane")); !reflect.DeepEqual(got, want) {
 		t.Fatalf("got  %q\nwant %q", got, want)
+	}
+}
+
+func TestADiffTableOfADatabaseWithoutCaptureIsRefused(t *testing.T) {
+	conn := connect(t, pgtest.ControlPlane(t).In("dashboard").As("migrator"))
+	exec(t, conn, `CREATE TABLE dashboard.probe (id int PRIMARY KEY)`)
+	c := classification(t, "dashboard")
+	c["probe"] = schema.Table{Audit: schema.Diff}
+	if got, want := c.Check(observe(t, conn, "dashboard")), []string{`"probe": diff without audit_capture`}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %q, want %q", got, want)
 	}
 }

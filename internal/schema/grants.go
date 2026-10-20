@@ -12,49 +12,58 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-const database = "control_plane"
-
 // TRUNCATE would bypass audit_capture.
 var declarable = []string{"select", "insert", "update", "delete"}
 
 var serviceName = regexp.MustCompile(`^[a-z][a-z0-9]*(-[a-z0-9]+)*$`)
 
-// Grants is what one service declares it reads or writes in control_plane, table by table.
+// Grants is what one service declares it reads or writes, database by database and table by table.
 type Grants struct {
-	Service string
-	Tables  map[string][]string
+	Service   string
+	Databases map[string]map[string][]string
 }
 
-// ParseGrants decodes the declaration of service and checks it against the audit classification.
-func ParseGrants(service string, data []byte, classification Classification) (Grants, error) {
+// ParseGrants decodes the declaration of service and checks it against the audit classification of each database.
+func ParseGrants(service string, data []byte, classifications map[string]Classification) (Grants, error) {
 	if !serviceName.MatchString(service) || len(service) > 63 || strings.HasPrefix(service, "pg-") {
 		return Grants{}, fmt.Errorf("grants: service %q is not a service name", service)
 	}
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
-	var declared struct {
-		ControlPlane map[string][]string `yaml:"control_plane"`
-	}
+	var declared map[string]map[string][]string
 	if err := dec.Decode(&declared); err != nil {
 		return Grants{}, fmt.Errorf("grants of %s: %w", service, err)
 	}
-	for table, privileges := range declared.ControlPlane {
+	for database, tables := range declared {
+		classification, ok := classifications[database]
+		if !ok {
+			return Grants{}, fmt.Errorf("grants of %s: database %q is unknown", service, database)
+		}
+		if err := checkTables(service, database, tables, classification); err != nil {
+			return Grants{}, err
+		}
+	}
+	return Grants{Service: service, Databases: declared}, nil
+}
+
+func checkTables(service, database string, tables map[string][]string, classification Classification) error {
+	for table, privileges := range tables {
 		if _, ok := classification[table]; !ok {
-			return Grants{}, fmt.Errorf("grants of %s: table %q is not classified", service, table)
+			return fmt.Errorf("grants of %s: table %q is not classified in %s", service, table, database)
 		}
 		if len(privileges) == 0 {
-			return Grants{}, fmt.Errorf("grants of %s: table %q grants nothing", service, table)
+			return fmt.Errorf("grants of %s: table %q grants nothing", service, table)
 		}
 		for i, p := range privileges {
 			if !slices.Contains(declarable, p) {
-				return Grants{}, fmt.Errorf("grants of %s: privilege %q on %q is not declarable", service, p, table)
+				return fmt.Errorf("grants of %s: privilege %q on %q is not declarable", service, p, table)
 			}
 			if slices.Contains(privileges[:i], p) {
-				return Grants{}, fmt.Errorf("grants of %s: privilege %q on %q is declared twice", service, p, table)
+				return fmt.Errorf("grants of %s: privilege %q on %q is declared twice", service, p, table)
 			}
 		}
 	}
-	return Grants{Service: service, Tables: declared.ControlPlane}, nil
+	return nil
 }
 
 // Role is the Postgres role of a service.
@@ -63,7 +72,7 @@ func Role(service string) string {
 }
 
 // LoadGrants parses every <service>.yaml of fsys, sorted by service.
-func LoadGrants(fsys fs.FS, classification Classification) ([]Grants, error) {
+func LoadGrants(fsys fs.FS, classifications map[string]Classification) ([]Grants, error) {
 	files, err := fs.Glob(fsys, "*.yaml")
 	if err != nil {
 		return nil, err
@@ -74,7 +83,7 @@ func LoadGrants(fsys fs.FS, classification Classification) ([]Grants, error) {
 		if err != nil {
 			return nil, err
 		}
-		g, err := ParseGrants(strings.TrimSuffix(f, ".yaml"), data, classification)
+		g, err := ParseGrants(strings.TrimSuffix(f, ".yaml"), data, classifications)
 		if err != nil {
 			return nil, err
 		}
@@ -83,10 +92,11 @@ func LoadGrants(fsys fs.FS, classification Classification) ([]Grants, error) {
 	return all, nil
 }
 
-// GrantsSQL renders, in one transaction, the roles of the services and exactly the privileges they declare.
-// An existing role is adopted only if it is a plain one: the file would otherwise hand the rights of a service
-// to a privileged role, to the members of another role, or to roles that inherit or set it.
-func GrantsSQL(all []Grants) []byte {
+// GrantsSQL renders, in one transaction, the roles of every service and exactly the privileges they declare in
+// database, whose schema bears its name. Roles span the cluster: each file creates them all and retires only those
+// no database declares. An existing role is adopted only if it is a plain one: the file would otherwise hand the
+// rights of a service to a privileged role, to the members of another role, or to roles that inherit or set it.
+func GrantsSQL(database string, all []Grants) []byte {
 	var b strings.Builder
 	b.WriteString("-- Code generated by tools/grants from contracts/grants; DO NOT EDIT.\nBEGIN;\n\nDO $$ BEGIN\n  IF current_user <> 'migrator' THEN\n    RAISE EXCEPTION 'grants are applied as migrator, not %, whose roles they would retire', current_user;\n  END IF;\nEND $$;\n")
 	var roles []string
@@ -109,11 +119,16 @@ END $$;
 ALTER ROLE %[1]s LOGIN;
 REVOKE CREATE ON DATABASE %[2]s FROM %[1]s;
 REVOKE ALL ON SCHEMA %[2]s FROM %[1]s;
-GRANT USAGE ON SCHEMA %[2]s TO %[1]s;
 REVOKE ALL ON ALL TABLES IN SCHEMA %[2]s FROM %[1]s;
 `, role, database)
-		for _, table := range slices.Sorted(maps.Keys(g.Tables)) {
-			fmt.Fprintf(&b, "GRANT %s ON %s.%s TO %s;\n", strings.Join(g.Tables[table], ", "), database, table, role)
+		tables := g.Databases[database]
+		if len(tables) == 0 {
+			fmt.Fprintf(&b, "REVOKE CONNECT ON DATABASE %s FROM %s;\n", database, role)
+			continue
+		}
+		fmt.Fprintf(&b, "GRANT CONNECT ON DATABASE %[2]s TO %[1]s;\nGRANT USAGE ON SCHEMA %[2]s TO %[1]s;\n", role, database)
+		for _, table := range slices.Sorted(maps.Keys(tables)) {
+			fmt.Fprintf(&b, "GRANT %s ON %s.%s TO %s;\n", strings.Join(tables[table], ", "), database, table, role)
 		}
 	}
 	fmt.Fprintf(&b, `

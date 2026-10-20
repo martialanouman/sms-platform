@@ -34,8 +34,10 @@ func secrets(t *testing.T) (string, string) {
 	t.Helper()
 	dir := t.TempDir()
 	secret := pgtest.Secret()
-	if err := os.WriteFile(filepath.Join(dir, "admin_api_svc"), []byte(secret), 0o600); err != nil {
-		t.Fatal(err)
+	for role, s := range map[string]string{"admin_api_svc": secret, "dashboard": pgtest.Secret()} {
+		if err := os.WriteFile(filepath.Join(dir, role), []byte(s), 0o600); err != nil {
+			t.Fatal(err)
+		}
 	}
 	return dir, secret
 }
@@ -54,7 +56,7 @@ func verifier(t *testing.T, pg pgtest.DB, role string) string {
 
 func apply(t *testing.T, pg pgtest.DB, dir string) []string {
 	t.Helper()
-	roles, err := postgres.Apply(context.Background(), connect(t, pg.As("migrator")), migrations.Grants(), os.DirFS(dir))
+	roles, err := postgres.Apply(context.Background(), connect(t, pg.As("migrator")), migrations.Grants("control_plane"), os.DirFS(dir))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,8 +77,8 @@ func TestApplyLetsEachDeclaredRoleLogInWithItsSecretOnly(t *testing.T) {
 	dir, secret := secrets(t)
 	var verifiers []string
 	for range 2 {
-		if roles := apply(t, pg, dir); !reflect.DeepEqual(roles, []string{"admin_api_svc"}) {
-			t.Fatalf("Apply provisioned %v, want admin_api_svc", roles)
+		if roles := apply(t, pg, dir); !reflect.DeepEqual(roles, []string{"admin_api_svc", "dashboard"}) {
+			t.Fatalf("Apply provisioned %v, want every declared role, dashboard included", roles)
 		}
 		svc := connect(t, pg.AsWith("admin_api_svc", secret))
 		if _, err := svc.Exec(context.Background(), `SELECT count(*) FROM control_plane.audit_log`); err != nil {
@@ -97,9 +99,10 @@ func TestApplyLetsEachDeclaredRoleLogInWithItsSecretOnly(t *testing.T) {
 func TestApplyRefusesAMissingSecretWithoutSettingAny(t *testing.T) {
 	pg := pgtest.ControlPlane(t)
 	dir, _ := secrets(t)
-	two := schema.GrantsSQL([]schema.Grants{
-		{Service: "admin-api-svc", Tables: map[string][]string{"audit_log": {"select"}}},
-		{Service: "billing-svc", Tables: map[string][]string{"audit_log": {"select"}}},
+	audit := map[string]map[string][]string{"control_plane": {"audit_log": {"select"}}}
+	two := schema.GrantsSQL("control_plane", []schema.Grants{
+		{Service: "admin-api-svc", Databases: audit},
+		{Service: "billing-svc", Databases: audit},
 	})
 	_, err := postgres.Apply(context.Background(), connect(t, pg.As("migrator")), two, os.DirFS(dir))
 	if err == nil || !strings.Contains(err.Error(), "billing_svc") {
@@ -120,7 +123,7 @@ func TestTwoSimultaneousAppliesBothSucceed(t *testing.T) {
 	for i, conn := range conns {
 		done.Go(func() {
 			start.Wait()
-			_, errs[i] = postgres.Apply(context.Background(), conn, migrations.Grants(), os.DirFS(dir))
+			_, errs[i] = postgres.Apply(context.Background(), conn, migrations.Grants("control_plane"), os.DirFS(dir))
 		})
 	}
 	start.Done()

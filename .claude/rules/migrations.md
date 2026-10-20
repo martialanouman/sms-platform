@@ -10,10 +10,12 @@ goose pour Postgres et ClickHouse, un répertoire par base. **Une table neuve** 
 (diff, événement seul ou exemptée avec raison) ; dans `control_plane`, le classement vit dans
 `migrations/control_plane/audit.yaml`, et une table `diff` porte le trigger `control_plane.audit_capture()`
 (sur les trois écritures, sans `UPDATE OF` ni `WHEN`) et une clé primaire. Elle entre aussi dans la déclaration de
-GRANT de chaque service qui la lit ; les gardes refusent sinon. Une migration reste compatible avec la version précédente du
+GRANT de chaque service qui la lit ; les gardes refusent sinon. Hors de `control_plane`, aucune table n'est `diff` :
+l'audit du plan de contrôle n'y existe pas. Une migration reste compatible avec la version précédente du
 code pendant un déploiement progressif. **Aucune migration ne crée de rôle** : `migrator` ne crée que les
-rôles de service, par `migrations/grants/control_plane.sql`, qui retire tout rôle qu'il a créé et ne déclare
-plus (`NOLOGIN`, mot de passe effacé, droits révoqués). Un autre rôle naît hors de `migrator` (007b-2).
+rôles de service, par `migrations/grants/<base>.sql` : chaque fichier crée les rôles de toutes les déclarations,
+ne règle que les droits de sa base (`CONNECT` compris) et ne retire (`NOLOGIN`, mot de passe effacé, droits révoqués)
+qu'un rôle qu'aucune base ne déclare plus. Un autre rôle naît hors de `migrator` (007b-2).
 **Aucun rôle géré par CloudNativePG** (`managed.roles`) : il réconcilie les adhésions d'un rôle géré contre
 son `inRoles` et retire l'`ADMIN OPTION` que PG 16 donne au créateur d'un rôle (#124).
 

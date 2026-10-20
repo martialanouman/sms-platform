@@ -1,4 +1,4 @@
-// Command grants renders the Postgres roles and grants of the services from contracts/grants.
+// Command grants renders, database by database, the Postgres roles and grants of the services from contracts/grants.
 package main
 
 import (
@@ -10,8 +10,6 @@ import (
 	"github.com/martialanouman/sms-platform/migrations"
 )
 
-const out = "migrations/grants/control_plane.sql"
-
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -20,17 +18,24 @@ func main() {
 }
 
 func run() error {
-	data, err := fs.ReadFile(migrations.ControlPlane(), "audit.yaml")
+	classifications := map[string]schema.Classification{}
+	for _, database := range migrations.Databases {
+		data, err := fs.ReadFile(migrations.Database(database), "audit.yaml")
+		if err != nil {
+			return err
+		}
+		if classifications[database], err = schema.ParseClassification(data); err != nil {
+			return fmt.Errorf("%s: %w", database, err)
+		}
+	}
+	declared, err := schema.LoadGrants(os.DirFS("contracts/grants"), classifications)
 	if err != nil {
 		return err
 	}
-	classification, err := schema.ParseClassification(data)
-	if err != nil {
-		return err
+	for _, database := range migrations.Databases {
+		if err := os.WriteFile("migrations/grants/"+database+".sql", schema.GrantsSQL(database, declared), 0o600); err != nil {
+			return err
+		}
 	}
-	declared, err := schema.LoadGrants(os.DirFS("contracts/grants"), classification)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(out, schema.GrantsSQL(declared), 0o600)
+	return nil
 }

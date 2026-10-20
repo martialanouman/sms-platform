@@ -22,14 +22,33 @@ END $$;
 ALTER ROLE admin_api_svc LOGIN;
 REVOKE CREATE ON DATABASE control_plane FROM admin_api_svc;
 REVOKE ALL ON SCHEMA control_plane FROM admin_api_svc;
-GRANT USAGE ON SCHEMA control_plane TO admin_api_svc;
 REVOKE ALL ON ALL TABLES IN SCHEMA control_plane FROM admin_api_svc;
+GRANT CONNECT ON DATABASE control_plane TO admin_api_svc;
+GRANT USAGE ON SCHEMA control_plane TO admin_api_svc;
 GRANT select, delete ON control_plane.audit_changes TO admin_api_svc;
 GRANT select, insert, delete ON control_plane.audit_log TO admin_api_svc;
 
+DO $$ BEGIN
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles r WHERE r.rolname = 'dashboard'
+      AND (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolbypassrls
+        OR r.rolreplication OR EXISTS (SELECT FROM pg_catalog.pg_auth_members m WHERE m.member = r.oid)
+        OR EXISTS (SELECT FROM pg_catalog.pg_auth_members m
+          WHERE m.roleid = r.oid AND (m.inherit_option OR m.set_option)))) THEN
+    RAISE EXCEPTION 'role dashboard is not a plain service role';
+  END IF;
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'dashboard') THEN
+    CREATE ROLE dashboard NOLOGIN;
+  END IF;
+END $$;
+ALTER ROLE dashboard LOGIN;
+REVOKE CREATE ON DATABASE control_plane FROM dashboard;
+REVOKE ALL ON SCHEMA control_plane FROM dashboard;
+REVOKE ALL ON ALL TABLES IN SCHEMA control_plane FROM dashboard;
+REVOKE CONNECT ON DATABASE control_plane FROM dashboard;
+
 DO $$ DECLARE r text; BEGIN
   FOR r IN SELECT g.rolname FROM pg_catalog.pg_auth_members m JOIN pg_catalog.pg_roles g ON g.oid = m.roleid
-      WHERE m.member = current_user::regrole AND m.admin_option AND g.rolname <> ALL (ARRAY['admin_api_svc']::text[]) LOOP
+      WHERE m.member = current_user::regrole AND m.admin_option AND g.rolname <> ALL (ARRAY['admin_api_svc', 'dashboard']::text[]) LOOP
     EXECUTE format('REVOKE ALL ON ALL TABLES IN SCHEMA control_plane FROM %I', r);
     EXECUTE format('REVOKE ALL ON SCHEMA control_plane FROM %I', r);
     EXECUTE format('REVOKE ALL ON DATABASE control_plane FROM %I', r);

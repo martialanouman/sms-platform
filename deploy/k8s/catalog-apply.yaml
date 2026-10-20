@@ -58,3 +58,8 @@ spec:
                   items:
                     - key: postgres-password
                       path: admin_api_svc
+              - secret:
+                  name: dashboard
+                  items:
+                    - key: postgres-password
+                      path: dashboard

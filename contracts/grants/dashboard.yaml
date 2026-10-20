@@ -1,0 +1,6 @@
+dashboard:
+  operators: [select, insert, update]
+  access_links: [select, insert, update]
+  sessions: [select, insert, update, delete]
+  login_attempt_counters: [select, insert, update, delete]
+  access_log: [select, insert]
