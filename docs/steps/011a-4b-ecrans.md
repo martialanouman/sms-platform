@@ -34,6 +34,10 @@ Tranchés par l'agent, sans contredire 1 à 73.
     `autocomplete` (`username`, `current-password`, `new-password`).
 80. **Développement** : le BFF local tourne avec `DASHBOARD_PUBLIC_URL=http://localhost:3000`, l'origine du serveur
     Vite, sans quoi `guard` refuse les requêtes (011a-4a, tour 1).
+81. **Repli** (correctif de revue) : une réponse se juge sur son statut (`response.ok`). Une erreur réseau, ou un refus
+    sans corps du contrat (un 502 du proxy), affiche un texte de repli rédigé par la SPA, « Le service ne
+    répond pas ; réessayez. », et libère le bouton ; elle ne passe jamais pour un succès. Le client de production ne
+    relance pas un 401 sur `me`.
 
 ## Design arrêté
 
@@ -57,8 +61,6 @@ Tranchés par l'agent, sans contredire 1 à 73.
 
 - **Pas de refus local des champs vides** : le serveur juge et rédige (arbitrage 69) ; un formulaire vide part, et le
   422 du contrat s'affiche comme tout refus. La mutation du contrôle local survivait, faute de raison d'être.
-- **Le texte des règles** du mot de passe, sur `/access`, reprend la politique de `CheckPassword` : il guide la saisie,
-  le 422 du serveur reste la règle.
 - **Le harnais nettoie** entre deux tests (rendu, `fetch` doublé, minuteurs) : Vitest sans `globals` ne déclenche pas le
   nettoyage automatique de Testing Library.
 
@@ -88,3 +90,29 @@ démonté ; le test sert les deux réponses dans le même tour, et chaque garde 
 
 Vingt-quatre mutations manuelles (constantes, en-têtes, focus, titres, avis, fragment, minuteur, 429, gardes de
 déconnexion) : toutes tombent, sauf le refus local des champs vides, retiré.
+
+## Correctifs de revue, tour 1
+
+Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloquant ; 28 constats.
+
+1. **Arbitrage 81** : succès sur `response.ok`, repli sur une erreur réseau ou un corps hors contrat, par `send` dans
+   `api.ts`, seule voie des trois écrans et de l'activité. Un 502 sans corps menait à « Mot de passe enregistré » ; une
+   erreur réseau bloquait le bouton à vie.
+2. **`me` en 401 n'est plus relancé** par le client de production (trois relances, 7 s d'écran vide) : le `retry` vit
+   dans `main.tsx`, et un test monte la SPA réelle, perdu depuis 011a-4a.
+3. **Un avis inconnu n'est plus affiché** : le routeur fusionne la recherche brute avec la recherche validée ; la
+   validation rend `avis: undefined`, par `Object.hasOwn`.
+4. **Deux refus identiques reprennent le focus** : l'erreur se vide avant chaque envoi.
+5. **Une déconnexion qui échoue** le dit, et rend la session à l'activité et au minuteur.
+6. **`me` en échec hors 401** affiche le repli.
+7. **Retraits** : le texte des règles du mot de passe (arbitrages 69 et 76 : le 422 du serveur le dit) ; `removeQueries`
+   à la fermeture de session et à la déconnexion, sans effet (celui du login reste : il empêche d'afficher l'opérateur
+   précédent) ; la ref d'activité ; les exports `ApiError` et `mount`.
+8. **Tests** : le doublé enregistre l'appel inattendu avant de lever ; 429 sous fausse horloge, borné des deux côtés ;
+   historique remplacé ; focus et `aria-describedby` sur `/access` ; minuteur absent si `null` ; bornes de temps
+   élargies ; signal au lieu d'un délai réel ; axe sur chaque état.
+9. **Gardés tels quels** : `required` sous `noValidate` (annoncé aux lecteurs d'écran) ; la mécanique commune de login et
+   d'access, deux usages (011b en fera un troisième) ; `renderAt` hors de `newRouter`.
+
+Mutations du tour : 31, toutes tombent après comblement (le refus répété sur `/access`, `removeQueries` du login,
+`setLeaving(false)`) ; `disabled` posé sur la déconnexion survivait, retiré.
