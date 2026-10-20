@@ -35,11 +35,11 @@ func TestEachDatabaseMigratesUpDownUpAsMigrator(t *testing.T) {
 		if schemas != 0 {
 			t.Fatalf("down left the %s schema", database)
 		}
-		var public bool
-		if err := db.QueryRowContext(ctx, `SELECT EXISTS (SELECT FROM pg_database d,
+		var public int
+		if err := db.QueryRowContext(ctx, `SELECT count(*) FROM pg_database d,
 			aclexplode(coalesce(d.datacl, acldefault('d', d.datdba))) a
-			WHERE d.datname = $1 AND a.grantee = 0 AND a.privilege_type = 'CONNECT')`, database).Scan(&public); err != nil || !public {
-			t.Fatalf("down left %s closed to PUBLIC (%v, %v)", database, public, err)
+			WHERE d.datname = $1 AND a.grantee = 0 AND a.privilege_type IN ('CONNECT', 'TEMPORARY')`, database).Scan(&public); err != nil || public != 2 {
+			t.Fatalf("down left %s with %d of the default rights of PUBLIC (%v), want CONNECT and TEMPORARY", database, public, err)
 		}
 		if _, err := p.Up(ctx); err != nil {
 			t.Fatalf("%s up again: %v", database, err)

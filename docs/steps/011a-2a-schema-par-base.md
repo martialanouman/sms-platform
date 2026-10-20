@@ -129,3 +129,8 @@ Trois revues (correction et sécurité, tests creux, code en trop). Aucun bloqua
    - La liste des droits de `dashboard.yaml` est la donnée du design : le test des droits exacts la reflète, les
      requêtes de 011a-2b la resserrent.
    - Le retrait d'un rôle disparu se teste sur `control_plane` seul : le code est commun aux deux bases.
+
+## Correctifs de revue, tour 2
+
+Constats : 1, faible. La descente se vérifiait sur `CONNECT` seul : elle rend aussi `TEMPORARY` à `PUBLIC`, droits par
+défaut d'une base, et le test le vérifie. Constats par tour : 12, puis 1 ; aucun bloquant.
