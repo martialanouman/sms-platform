@@ -27,7 +27,6 @@ func TestRunAppliesEveryMigrationOnceAsMigrator(t *testing.T) {
 	if err := run(ctx, config.Infra{PostgresURL: url}, log); err != nil {
 		t.Fatal(err)
 	}
-	applied := 0
 	for _, database := range migrations.Databases {
 		db, err := sql.Open("pgx", pg.In(database).As("migrator"))
 		if err != nil {
@@ -46,10 +45,6 @@ func TestRunAppliesEveryMigrationOnceAsMigrator(t *testing.T) {
 		if n := strings.Count(logs.String(), `"database":"`+database+`"`); n != len(sources) {
 			t.Errorf("%s: %d migrations logged, want %d:\n%s", database, n, len(sources), logs.String())
 		}
-		applied += len(sources)
-	}
-	if n := strings.Count(logs.String(), `"msg":"migration applied"`); n != applied {
-		t.Errorf("%d migrations logged, want %d", n, applied)
 	}
 	if strings.Contains(logs.String(), "migrator") {
 		t.Errorf("the URL or its password reached the log:\n%s", logs.String())

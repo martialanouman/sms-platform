@@ -69,8 +69,7 @@ Fable, 2026-10-20, sauf I à L, tranchés par l'humain le même jour sur recomma
 ## Design arrêté
 
 - **`internal/platform/pgdial`** : `Database(url, name)` rend l'URL au chemin remplacé, refuse une URL illisible.
-- **`cmd/migrate`** : pour chaque base de `migrations.Databases`, un provider goose sous son verrou de session ;
-  `control_plane` d'abord.
+- **`cmd/migrate`** : pour chaque base de `migrations.Databases`, un provider goose sous son verrou de session.
 - **`cmd/catalog-apply`** : pour chaque base, `postgres.Apply(Grants(base))` connecté à cette base, le même
   répertoire de secrets.
 - **`deploy/bricks/postgres.yaml`** : `Database` `dashboard`, `Pooler` `postgres-pooler-rw`.
@@ -100,3 +99,18 @@ le tag `proof`.
    control_plane »).
 
 Rouge vu : un premier pod sans le montage de la CA a échoué au TLS, comme il le devait.
+
+## Correctifs de revue, tour 1
+
+Une revue sur trois axes. Un bloquant ; 8 constats.
+
+1. **Binaires commités** (bloquant) : les `go build` des tests avaient laissé `migrate` et `catalog-apply` à la racine,
+   et un `git add -A` les a pris. La branche, jamais poussée, est réécrite sans eux ; `.gitignore` écarte les binaires
+   des `cmd/` à la racine.
+2. **Retraits** : la phrase « `control_plane` d'abord » du design (aucune propriété n'en dépend) ; le compte global
+   des migrations dans le test de `migrate`, qui doublait le compte par base.
+3. **Gardés tels quels** :
+   - `catalog-apply` pose le secret de chaque rôle une fois par base, alors que les rôles sont globaux : un travail en
+     double, idempotent, qui laisse deux lignes au journal.
+   - Les SAN du Pooler sur le certificat, les attentes de `deploy.sh`, le type et le cluster du Pooler ne sont pas
+     gardés : leur absence échoue bruyamment (TLS en `verify-full`, Job en échec, première écriture).
