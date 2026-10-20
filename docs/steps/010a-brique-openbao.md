@@ -87,6 +87,30 @@ Fable, 2026-10-19, sauf le point 3 tranché par l'humain.
   connectent à `control_plane` puis expirent ; métrique `vault_core_unsealed` lue scellée et descellée ;
   entrée refusée depuis un pod non admis.
 
+## Correctifs de revue, tour 1
+
+Trois revues (correction et sécurité, tests creux, code en trop) ; Fable, 2026-10-20. Aucun bloquant.
+
+1. **Audit** : `openbao.sh` active un device `file` sur stdout (06 §8, 07 §7.6 : émission auditée par
+   OpenBao) ; un device non inscriptible bloque OpenBao, stdout l'est toujours ; valeurs HMACées.
+2. **Certificat du listener** : OpenBao ne relit `tls_cert_file` que sur SIGHUP, et redémarrer le pod le
+   scelle. `duration: 8760h` ; plafond : le Secret se renouvelle vers J+240, et `CertificateExpiresSoon`
+   ne voit jamais le certificat servi ; geste avant J+365 : supprimer le pod, desceller. Issue `debt`
+   `go-live`.
+3. **Reconfiguration** : le chart met à jour en `OnDelete` ; un changement de `openbao.yaml` ne s'applique
+   qu'au pod supprimé, puis descellé. `deploy.sh` ne le détecte pas.
+4. **Prometheus** (011a) : l'entrée 8200 d'OpenBao s'ouvre à lui, sinon `absent` sonne dès son arrivée.
+5. **Here-string** : un `<<<` passe par un fichier temporaire sous bash < 5.1 ; `printf` dans le tube.
+6. **Sessions `breakglass`** : `VALID UNTIL` n'agit qu'à la connexion ; une session ouverte survivrait au
+   bail. `openbao` reçoit `pg_signal_backend` (`inRoles`) ; la révocation coupe les sessions du rôle puis
+   le supprime, à la révocation comme à l'échéance.
+7. **Tests** : l'alerte prouve `for: 5m` (en attente et muette avant) et son retour au silence ; la garde
+   exige `ha.enabled`, aucun mode `dev`, `storage "raft"` dans la configuration, un rôle `openbao` non
+   `absent`, et nomme à part des valeurs illisibles.
+8. **Retraits** : défauts du chart (`ui.enabled`, `authDelegator.enabled`), de Transit (`type`), du serveur
+   (`ui`, `prometheus_retention_time`, coupé après lecture des métriques sur le VPS) ; `setNodeId` ; les
+   noms `openbao` et `openbao.openbao` du certificat, que personne ne compose.
+
 ## Preuve sur `contabo169`
 
 Procédure jouée le 2026-10-20 depuis la branche (fichiers de `deploy/` copiés sur le VPS, timer de déploiement

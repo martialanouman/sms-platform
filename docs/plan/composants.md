@@ -109,7 +109,8 @@ l'atteignent.
 - **011a** : `cmd/dashboard`, base `dashboard` et ses migrations, la SPA embarquée (`embed.FS`) et sa
   chaîne (pnpm, Vite) dans la CI unique ; comptes nés sans mot de passe, liens d'activation et de
   réinitialisation, politique de mot de passe, anti-brute-force, sessions (15 min, 12 h,
-  `POST /auth/activity`), journal d'accès ; écrans de connexion, d'activation et de réinitialisation.
+  `POST /auth/activity`), journal d'accès ; écrans de connexion, d'activation et de réinitialisation. Prometheus
+  ouvre l'entrée 8200 d'OpenBao à sa collecte (010a).
 - **011b** : TOTP, codes de récupération, WebAuthn, session élevée, remplacement d'un facteur ; écrans
   d'enrôlement.
 
