@@ -55,6 +55,8 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 		"POSTGRES_URL":              "postgres://migrator@pg:5432/control_plane",
 		"KAFKA_BROKERS":             "kafka-0:9093, kafka-1:9093",
 		"POSTGRES_ROLE_SECRETS_DIR": "/secrets/postgres",
+		"GRPC_ADDR":                 ":7002",
+		"OPENBAO_ADDR":              "https://openbao.openbao.svc:8200",
 	})
 	got, err := config.Load()
 	if err != nil {
@@ -71,6 +73,8 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 		PostgresURL:            "postgres://migrator@pg:5432/control_plane",
 		KafkaBrokers:           []string{"kafka-0:9093", "kafka-1:9093"},
 		PostgresRoleSecretsDir: "/secrets/postgres",
+		GRPCAddr:               ":7002",
+		OpenBaoAddr:            "https://openbao.openbao.svc:8200",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Load() = %+v, want %+v", got, want)
@@ -79,7 +83,7 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 
 func TestVariablesIsTheClosedListLoadReads(t *testing.T) {
 	want := []string{
-		"DRAIN_BUDGET", "DRAIN_DELAY", "KAFKA_BROKERS", "LOG_LEVEL", "OPS_ADDR", "POSTGRES_ROLE_SECRETS_DIR", "POSTGRES_URL", "SHUTDOWN_TIMEOUT",
+		"DRAIN_BUDGET", "DRAIN_DELAY", "GRPC_ADDR", "KAFKA_BROKERS", "LOG_LEVEL", "OPENBAO_ADDR", "OPS_ADDR", "POSTGRES_ROLE_SECRETS_DIR", "POSTGRES_URL", "SHUTDOWN_TIMEOUT",
 		"TLS_ALLOWED_CLIENTS", "TLS_CA_FILE", "TLS_CERT_FILE", "TLS_KEY_FILE", "TRACE_SAMPLE_RATIO",
 	}
 	if got := config.Variables(); !reflect.DeepEqual(got, want) {

@@ -29,6 +29,8 @@ type Infra struct {
 	PostgresURL            string
 	KafkaBrokers           []string
 	PostgresRoleSecretsDir string
+	GRPCAddr               string
+	OpenBaoAddr            string
 }
 
 var defaults = map[string]string{
@@ -45,6 +47,8 @@ var defaults = map[string]string{
 	"POSTGRES_URL":              "",
 	"KAFKA_BROKERS":             "",
 	"POSTGRES_ROLE_SECRETS_DIR": "",
+	"GRPC_ADDR":                 "",
+	"OPENBAO_ADDR":              "",
 }
 
 // Variables is the sorted closed list of the environment variables Load reads.
@@ -89,6 +93,8 @@ func Load() (Infra, error) {
 		TLSAllowedClients:      list("TLS_ALLOWED_CLIENTS"),
 		KafkaBrokers:           list("KAFKA_BROKERS"),
 		PostgresRoleSecretsDir: value("POSTGRES_ROLE_SECRETS_DIR"),
+		GRPCAddr:               value("GRPC_ADDR"),
+		OpenBaoAddr:            value("OPENBAO_ADDR"),
 	}
 	if err := c.LogLevel.UnmarshalText([]byte(value("LOG_LEVEL"))); err != nil {
 		errs = append(errs, fmt.Errorf("LOG_LEVEL: %w", err))
