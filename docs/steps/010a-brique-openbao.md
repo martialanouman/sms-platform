@@ -118,25 +118,33 @@ Trois revues (correction et sécurité, tests creux, code en trop) ; Fable, 2026
 
 ## Preuve sur `contabo169`
 
-Procédure jouée le 2026-10-20 depuis la branche (fichiers de `deploy/` copiés sur le VPS, timer de déploiement
-suspendu pendant la preuve), sur le cluster de 007d-2b. Sorties expurgées des adresses et des secrets.
+Procédure jouée les 2026-10-19 et 20 depuis la branche (fichiers de `deploy/` copiés sur le VPS, timer de
+déploiement suspendu pendant la preuve), sur le cluster de 007d-2b ; dernier passage au commit `0e17b63`,
+OpenBao réinitialisé. Sorties expurgées des adresses et des secrets.
 
-1. `namespaces.yaml`, `ca.yaml` : `Certificate` `openbao` `Ready`. `secrets.sh` : Secret `postgres/openbao`
-   créé, 64 caractères. `postgres.yaml` et `openbao.yaml` appliqués : Job `helm-install-openbao` `complete`,
-   pod `openbao-0` `Running` et `0/1` (scellé), OpenBao v2.7.1, stockage raft, PVC de 1 Gi, aucun PDB.
-2. Scellé : `/v1/sys/metrics` rend 200 et `vault_core_unsealed{cluster=""} 0`.
+1. `namespaces.yaml`, `ca.yaml` : `Certificate` `openbao` `Ready`, un an, SAN `openbao.openbao.svc` et
+   `127.0.0.1`. `secrets.sh` : Secret `postgres/openbao` créé, 64 caractères. `postgres.yaml` et
+   `openbao.yaml` : Job `helm-install-openbao` `complete`, pod `openbao-0` `Running` et `0/1` (scellé),
+   OpenBao v2.7.1, stockage raft, PVC de 1 Gi, aucun PDB ; rôle `openbao` `reconciled`.
+2. Scellé : `/v1/sys/metrics` rend 200 et `vault_core_unsealed{cluster=""} 0`, sans
+   `prometheus_retention_time`.
 3. Init et descellement par l'humain (5 parts, seuil 3), hors dépôt : `Sealed false`, `HA Mode active`,
    `vault_core_unsealed 1`, pod `1/1`.
 4. `openbao.sh` deux fois : le premier passage active `transit`, `kubernetes` et `database`, crée la clé
    (`aes256-gcm96`, ni exportable ni supprimable) et écrit politique, rôles et connexion (vérifiée par
    OpenBao à l'écriture, mot de passe lu sur l'entrée standard) ; le second saute activations et clé.
-   Postgres : `breakglass` `NOLOGIN`, `openbao` en détient l'`ADMIN OPTION`.
+   Postgres : `breakglass` `NOLOGIN` ; `openbao` le détient avec l'`ADMIN OPTION`, et `pg_signal_backend`.
 5. Pod de `sms` sous le SA `content-key-svc` (jeton projeté, audience `openbao`) : connexion, aller-retour
    `encrypt`/`decrypt` sur `config-secrets` identique (`vault:v1`) ; 403 sur `transit/keys/config-secrets`,
    `transit/encrypt/content`, `rotate`, `database/creds/breakglass`, `sys/policies/acl/content-key-svc` ;
    chiffré altéré : 400.
 6. `database/creds/breakglass` sous le jeton racine : rôle `v-root-breakgla-…` qui se connecte à
-   `control_plane`, membre de `breakglass`, `rolvaliduntil` à une heure.
+   `control_plane`, membre de `breakglass`, `rolvaliduntil` à une heure, sans droit sur `goose_db_version`
+   (#119). L'émission est au journal d'audit (`path`, `operation`, `display_name root`), comme les appels
+   Transit du point 5.
+7. `bao lease revoke` pendant que la session du rôle est ouverte : la session tombe (« terminating
+   connection due to administrator command »), le rôle disparaît, aucune erreur de révocation ; les
+   adhésions d'`openbao` intactes, CloudNativePG sans `cannotReconcile`.
 
 Rouges vus :
 
@@ -149,4 +157,6 @@ Rouges vus :
   (« UPDATE_MEMBERSHIPS », `REVOKE "breakglass" FROM "openbao"` : « dependent privileges exist »), puis,
   le rôle dynamique orphelin supprimé, la révocation passe et `openbao` n'est plus membre de `breakglass` ;
   `inRoles` retiré, rôle `reconciled` et adhésions intactes.
+- **Device d'audit par l'API** : « cannot enable audit device via API; use declarative, config-based audit
+  device management instead » ; déclaré dans la configuration.
 - **Entrée d'OpenBao** depuis un pod de `default` (sans politique de sortie) : `connection refused` sur 8200.
