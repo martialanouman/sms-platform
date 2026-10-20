@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, useRouterState } from '@tanstack/react-router'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
-import { api, send } from '../api'
-import { AuthLayout, Field } from '../ui'
+import { api } from '../api'
+import { AuthLayout, Field, useSubmission } from '../ui'
 
 export const Route = createFileRoute('/access')({ component: Access })
 
@@ -9,10 +9,8 @@ function Access() {
   const hash = useRouterState({ select: (state) => state.location.hash })
   const [token] = useState(hash)
   const navigate = useNavigate()
-  const [error, setError] = useState('')
-  const [waiting, setWaiting] = useState(false)
+  const { submit, waiting, refusal, describedBy } = useSubmission()
   const password = useRef<HTMLInputElement>(null)
-  const alert = useRef<HTMLParagraphElement>(null)
 
   useEffect(() => {
     document.title = 'Mot de passe — Tableau de bord'
@@ -21,24 +19,14 @@ function Access() {
     }
     password.current?.focus()
   }, [token, navigate])
-  useEffect(() => {
-    if (error) {
-      alert.current?.focus()
-    }
-  }, [error])
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const body = { token, password: String(new FormData(event.currentTarget).get('password') ?? '') }
-    setError('')
-    setWaiting(true)
-    const { failure } = await send(() => api.POST('/auth/access-link', { body }))
-    if (!failure) {
+    const { failure } = await submit(() => api.POST('/auth/access-link', { body }))
+    if (failure === undefined) {
       await navigate({ to: '/login', search: { avis: 'mot-de-passe-enregistre' } })
-      return
     }
-    setError(failure)
-    setWaiting(false)
   }
 
   if (!token) {
@@ -52,7 +40,7 @@ function Access() {
   }
   return (
     <AuthLayout title="Définir un mot de passe">
-      <form className="auth__form" noValidate onSubmit={submit}>
+      <form className="auth__form" noValidate onSubmit={save}>
         <Field
           label="Nouveau mot de passe"
           ref={password}
@@ -60,13 +48,9 @@ function Access() {
           type="password"
           autoComplete="new-password"
           required
-          aria-describedby={error ? 'access-error' : undefined}
+          aria-describedby={describedBy}
         />
-        {error && (
-          <p ref={alert} className="auth__refusal" id="access-error" role="alert" tabIndex={-1}>
-            {error}
-          </p>
-        )}
+        {refusal}
         <button className="ui-button ui-button--primary" type="submit" disabled={waiting}>
           Enregistrer le mot de passe
         </button>

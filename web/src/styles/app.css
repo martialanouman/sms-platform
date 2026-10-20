@@ -150,3 +150,45 @@
   background: var(--tint-green);
   color: var(--text-success);
 }
+
+.auth__aside {
+  margin: 0;
+  color: var(--text-muted);
+  font: var(--text-caption);
+  line-height: var(--lh-normal);
+}
+
+.auth__qr {
+  justify-self: center;
+  line-height: 0;
+}
+
+.auth__secret,
+.auth__codes {
+  margin: 0;
+  padding: var(--sp-6);
+  background: var(--surface-sunken);
+  font: var(--text-data);
+  letter-spacing: var(--ls-mono);
+  user-select: all;
+}
+
+.auth__secret {
+  border-radius: var(--radius-input);
+  text-align: center;
+  word-break: break-all;
+}
+
+.auth__subtitle {
+  margin: 0;
+  font: var(--text-card-title);
+}
+
+.auth__codes {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--sp-4) var(--sp-6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  list-style: none;
+}

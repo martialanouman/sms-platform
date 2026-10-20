@@ -10,13 +10,15 @@ export const json = { 'Content-Type': 'application/json' }
 
 export const unreachable = 'Le service ne répond pas ; réessayez.'
 
-type Outcome = { response: Response; failure?: undefined } | { response?: Response; failure: string }
+type Outcome<T> = { response: Response; data: T; failure?: undefined } | { response?: Response; failure: string }
 
-export async function send(call: () => Promise<{ error?: unknown; response: Response }>): Promise<Outcome> {
+export async function send<T>(
+  call: () => Promise<{ data?: T; error?: unknown; response: Response }>,
+): Promise<Outcome<T>> {
   try {
-    const { error, response } = await call()
+    const { data, error, response } = await call()
     if (response.ok) {
-      return { response }
+      return { response, data: data as T }
     }
     const message = (error as { message?: unknown } | undefined)?.message
     return { response, failure: typeof message === 'string' ? message : unreachable }
