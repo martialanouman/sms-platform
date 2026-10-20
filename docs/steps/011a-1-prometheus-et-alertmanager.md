@@ -173,3 +173,16 @@ Preuve rejouée après le tour 1 (même jour, timer suspendu puis réarmé) : Co
 rollout. Six cibles `up`, OpenBao vérifié par la CA du ConfigMap ; Alertmanager découvert ; la règle `vector(1)` arrive
 dans Alertmanager en ~48 s sous le deny. Depuis `default` et `monitoring`, un pod `other` est refusé sur 9090 et 9093 ;
 un pod au label `prometheus` est admis sur 9093.
+
+## Correctifs de revue, tour 2
+
+Constats : 4 mineurs, aucun bloquant.
+
+1. **La CA de `monitoring` copiée par `secrets.sh`**, à côté de celles de `kafka` et `sms` : même lecture du certificat
+   de `cert-manager/internal-ca`, refusée si vide. La copie de `deploy.sh` du tour 1 lisait une autre clé sans ce
+   contrôle (un jsonpath absent rend une chaîne vide et le code 0) ; elle disparaît.
+2. **Garde de l'ouverture d'Alertmanager** : le deny de `monitoring` exige la policy qui admet Prometheus sur 9093 ;
+   un port, un pair ou une cible faux casserait la remise des alertes sans bruit.
+3. **Cas « monitoring opened by a rule »** ancré sur la policy `default-deny` elle-même, plus sur l'ordre des documents.
+4. **Gardés tels quels** : l'absence du ConfigMap `internal-ca` bloque le pod et fait échouer `rollout status` ; un
+   `ca_file` faux laisse OpenBao hors collecte, ce que `OpenBaoSealed` signale par `absent()`.
