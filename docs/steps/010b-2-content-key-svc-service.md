@@ -150,3 +150,20 @@ Constats : 1 bloquant, 8 mineurs.
 Constats par tour : 21 (4 bloquants), 9 (1 bloquant), 2 ; aucun bloquant au tour 3. La boucle des services doit se
 fermer par un `done` seul (un `done || true` neutralise `set -e`) ; le cas « attente après la boucle » garde la
 tabulation, pour échouer sur la position et non sur la forme.
+
+## Preuve sur la release v0.8.0
+
+Rejouée le 2026-10-20 sur l'image `content-key-svc:v0.8.0` déployée par le timer (la preuve ci-dessus portait sur
+l'image de la branche, avant les correctifs de revue) ; timer suspendu pendant la preuve, puis réarmé.
+
+1. **Appels** : `Seal` depuis le SAN `admin-api-svc` rend `vault:v1:…` et `kmsKeyRef: config-secrets` ; l'audit
+   d'OpenBao montre `auth/kubernetes/login` puis `transit/encrypt/config-secrets` : le client OpenBao est bien câblé
+   dans `run` (CA interne, jeton projeté). `Open` : `PermissionDenied`. SAN `router-svc` : refusé au handshake, dix
+   lignes JSON « mtls: client [router-svc] is not an allowed caller [admin-api-svc] ». Pod au label `other` :
+   `connection refused`.
+2. **Renouvellement du jeton** : premier `Seal` à 07:38:38 (login, puis `encrypt`), second à 08:11:48, 33 min plus
+   tard, passé la moitié du bail d'une heure : un nouveau login précède l'`encrypt`.
+3. **Drain d'un vrai pod** (`rollout restart`) : SIGTERM, « draining » à 08:12:52, pod disparu avant 08:12:59
+   (`DRAIN_DELAY` de 5 s, puis arrêt) ; ni « drain budget exceeded » ni « content-key-svc failed ».
+
+Reste non joué sur le VPS : `/readyz` avec OpenBao scellé (geste humain : sceller, puis desceller par les parts).
