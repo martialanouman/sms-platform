@@ -117,7 +117,8 @@ func (t tx) SessionOf(ctx context.Context, digest []byte, idle time.Duration) (d
 	r, err := queries.SessionOf(ctx, t.db, sqlc.SessionOfParams{IdleSeconds: idle.Seconds(), Digest: digest})
 	ok, err := found(err)
 	return dashboard.SessionView{Current: dashboard.Current{SessionID: r.ID, OperatorID: r.OperatorID, Email: r.Email,
-		DisplayName: r.DisplayName, ExpiresAt: r.ExpiresAt}, Live: r.Live}, ok, err
+		DisplayName: r.DisplayName, ExpiresAt: r.ExpiresAt, Elevated: r.Elevated, Totp: r.Totp,
+		RecoveryCodesRemaining: int(r.RecoveryCodesRemaining)}, Live: r.Live}, ok, err
 }
 
 func (t tx) Touch(ctx context.Context, digest []byte, idle time.Duration) (bool, error) {
@@ -133,6 +134,63 @@ func (t tx) CloseSession(ctx context.Context, digest []byte) (string, bool, erro
 
 func (t tx) CloseSessions(ctx context.Context, operatorID string) error {
 	return queries.CloseSessions(ctx, t.db, operatorID)
+}
+
+func (t tx) CurrentStep(ctx context.Context) (int64, error) {
+	return queries.CurrentStep(ctx, t.db)
+}
+
+func (t tx) Factors(ctx context.Context, operatorID string) ([]dashboard.TotpFactor, error) {
+	rows, err := queries.Factors(ctx, t.db, operatorID)
+	factors := make([]dashboard.TotpFactor, len(rows))
+	for i, r := range rows {
+		factors[i] = dashboard.TotpFactor{ID: r.ID, Sealed: r.Sealed, LastStep: r.LastStep, Confirmed: r.Confirmed}
+	}
+	return factors, err
+}
+
+func (t tx) AddPending(ctx context.Context, operatorID string, sealed []byte, codes [][]byte) error {
+	if err := queries.DropPending(ctx, t.db, operatorID); err != nil {
+		return err
+	}
+	id, err := queries.AddPending(ctx, t.db, sqlc.AddPendingParams{OperatorID: operatorID, Sealed: sealed})
+	if err != nil {
+		return err
+	}
+	rows := make([]sqlc.AddRecoveryCodesParams, len(codes))
+	for i, c := range codes {
+		rows[i] = sqlc.AddRecoveryCodesParams{FactorID: id, Digest: c}
+	}
+	_, err = queries.AddRecoveryCodes(ctx, t.db, rows)
+	return err
+}
+
+func (t tx) ConsumeStep(ctx context.Context, factorID string, step int64) error {
+	return queries.ConsumeStep(ctx, t.db, sqlc.ConsumeStepParams{Step: step, ID: factorID})
+}
+
+func (t tx) Confirm(ctx context.Context, operatorID, factorID string) (bool, error) {
+	n, err := queries.DropConfirmed(ctx, t.db, operatorID)
+	if err != nil {
+		return false, err
+	}
+	return n > 0, queries.Confirm(ctx, t.db, factorID)
+}
+
+func (t tx) UseRecoveryCode(ctx context.Context, factorID string, digest []byte) (bool, error) {
+	n, err := queries.UseRecoveryCode(ctx, t.db, sqlc.UseRecoveryCodeParams{FactorID: factorID, Digest: digest})
+	return n == 1, err
+}
+
+func (t tx) DropFactors(ctx context.Context, operatorID string) (bool, error) {
+	n, err := queries.DropFactors(ctx, t.db, operatorID)
+	return n > 0, err
+}
+
+func (t tx) Elevate(ctx context.Context, digest, challenge, newDigest []byte, idle time.Duration) (bool, error) {
+	n, err := queries.Elevate(ctx, t.db, sqlc.ElevateParams{NewDigest: newDigest, Digest: digest, Challenge: challenge,
+		IdleSeconds: idle.Seconds()})
+	return n == 1, err
 }
 
 func (t tx) Purge(ctx context.Context, idle, window time.Duration) error {

@@ -69,6 +69,10 @@ RETURNING challenge_expires_at::timestamptz;
 
 -- name: SessionOf :one
 SELECT s.id::text AS id, s.operator_id::text AS operator_id, o.email, o.display_name, s.expires_at,
+  (s.elevated_at IS NOT NULL)::bool AS elevated,
+  EXISTS (SELECT 1 FROM dashboard.totp_factors f WHERE f.operator_id = s.operator_id AND f.confirmed_at IS NOT NULL) AS totp,
+  (SELECT count(*) FROM dashboard.recovery_codes c JOIN dashboard.totp_factors f ON f.id = c.factor_id
+    WHERE f.operator_id = s.operator_id AND f.confirmed_at IS NOT NULL AND c.used_at IS NULL)::int AS recovery_codes_remaining,
   (now() < s.expires_at AND now() < s.last_seen_at + make_interval(secs => @idle_seconds::float8) AND o.status = 'active')::bool AS live
 FROM dashboard.sessions s JOIN dashboard.operators o ON o.id = s.operator_id
 WHERE s.token_hash = @digest;
@@ -103,3 +107,45 @@ FROM dashboard.access_log
 WHERE sqlc.narg(before_at)::timestamptz IS NULL OR (at, id) < (sqlc.narg(before_at)::timestamptz, sqlc.narg(before_id)::uuid)
 ORDER BY at DESC, id DESC
 LIMIT @page_size::bigint;
+
+-- name: CurrentStep :one
+SELECT floor(extract(epoch FROM now()) / 30)::bigint;
+
+-- name: Factors :many
+SELECT id::text AS id, sealed, last_step, (confirmed_at IS NOT NULL)::bool AS confirmed
+FROM dashboard.totp_factors WHERE operator_id = @operator_id::uuid
+ORDER BY confirmed_at NULLS LAST
+FOR UPDATE;
+
+-- name: DropPending :exec
+DELETE FROM dashboard.totp_factors WHERE operator_id = @operator_id::uuid AND confirmed_at IS NULL;
+
+-- name: AddPending :one
+INSERT INTO dashboard.totp_factors (operator_id, sealed) VALUES (@operator_id::uuid, @sealed) RETURNING id::text;
+
+-- name: AddRecoveryCodes :copyfrom
+INSERT INTO dashboard.recovery_codes (factor_id, digest) VALUES ($1, $2);
+
+-- name: ConsumeStep :exec
+UPDATE dashboard.totp_factors SET last_step = @step WHERE id = @id::uuid;
+
+-- name: DropConfirmed :execrows
+DELETE FROM dashboard.totp_factors WHERE operator_id = @operator_id::uuid AND confirmed_at IS NOT NULL;
+
+-- name: Confirm :exec
+UPDATE dashboard.totp_factors SET confirmed_at = now() WHERE id = @id::uuid;
+
+-- name: UseRecoveryCode :execrows
+UPDATE dashboard.recovery_codes SET used_at = now()
+WHERE factor_id = @factor_id::uuid AND digest = @digest AND used_at IS NULL;
+
+-- name: DropFactors :execrows
+DELETE FROM dashboard.totp_factors WHERE operator_id = @operator_id::uuid;
+
+-- name: Elevate :execrows
+UPDATE dashboard.sessions s SET token_hash = @new_digest, elevated_at = now(), last_seen_at = now(),
+  challenge_hash = NULL, challenge_expires_at = NULL
+FROM dashboard.operators o
+WHERE s.token_hash = @digest AND s.challenge_hash = @challenge AND s.challenge_expires_at > now()
+  AND o.id = s.operator_id AND o.status = 'active'
+  AND now() < s.expires_at AND now() < s.last_seen_at + make_interval(secs => @idle_seconds::float8);

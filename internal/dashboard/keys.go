@@ -50,6 +50,11 @@ func (k Keys) EmailSubject(email string) []byte {
 	return k.mac("email", email)
 }
 
+// MfaSubject is the counter subject of an operator's second-factor attempts, across its sessions.
+func (k Keys) MfaSubject(operatorID string) []byte {
+	return k.mac("mfa", operatorID)
+}
+
 // SourceSubject is the counter subject of a source address: an IPv4 address, or the /64 of an IPv6 one.
 func (k Keys) SourceSubject(addr netip.Addr) []byte {
 	addr = addr.Unmap()

@@ -42,6 +42,12 @@ type DashboardOperator struct {
 	CreatedAt    time.Time
 }
 
+type DashboardRecoveryCode struct {
+	Digest   []byte
+	FactorID string
+	UsedAt   *time.Time
+}
+
 type DashboardSession struct {
 	ID                 string
 	OperatorID         string
@@ -51,4 +57,14 @@ type DashboardSession struct {
 	LastSeenAt         time.Time
 	ChallengeHash      []byte
 	ChallengeExpiresAt *time.Time
+	ElevatedAt         *time.Time
+}
+
+type DashboardTotpFactor struct {
+	ID          string
+	OperatorID  string
+	Sealed      []byte
+	LastStep    int64
+	ConfirmedAt *time.Time
+	CreatedAt   time.Time
 }

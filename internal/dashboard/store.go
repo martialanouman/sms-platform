@@ -24,7 +24,18 @@ const (
 	EventAccessLinkRequested Event = "access_link_requested"
 	EventAccessLinkUsed      Event = "access_link_used"
 	EventSessionRefused      Event = "session_refused"
+	EventMFA                 Event = "mfa"
+	EventFactorEnrolled      Event = "factor_enrolled"
+	EventFactorRemoved       Event = "factor_removed"
 )
+
+// TotpFactor is an authenticator app of an operator, its secret sealed.
+type TotpFactor struct {
+	ID        string
+	Sealed    []byte
+	LastStep  int64
+	Confirmed bool
+}
 
 // Operator is an account as login reads it; PasswordHash is empty until the account is activated.
 type Operator struct {
@@ -84,6 +95,15 @@ type Tx interface {
 	CloseSession(ctx context.Context, digest []byte) (operatorID string, ok bool, err error)
 	CloseSessions(ctx context.Context, operatorID string) error
 	Purge(ctx context.Context, idle, window time.Duration) error
+
+	CurrentStep(ctx context.Context) (int64, error)
+	Factors(ctx context.Context, operatorID string) ([]TotpFactor, error)
+	AddPending(ctx context.Context, operatorID string, sealed []byte, codes [][]byte) error
+	ConsumeStep(ctx context.Context, factorID string, step int64) error
+	Confirm(ctx context.Context, operatorID, factorID string) (replaced bool, err error)
+	UseRecoveryCode(ctx context.Context, factorID string, digest []byte) (bool, error)
+	DropFactors(ctx context.Context, operatorID string) (bool, error)
+	Elevate(ctx context.Context, digest, challenge, newDigest []byte, idle time.Duration) (bool, error)
 
 	Log(ctx context.Context, e Entry) error
 	AccessLog(ctx context.Context, before *Entry, limit int) ([]Entry, error)

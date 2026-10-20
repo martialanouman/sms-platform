@@ -12,6 +12,11 @@ type Current struct {
 	Email       string
 	DisplayName string
 	ExpiresAt   time.Time
+	// Elevated is a second factor verified in this session.
+	Elevated bool
+	// Totp is a confirmed authenticator app; RecoveryCodesRemaining counts its unused codes.
+	Totp                   bool
+	RecoveryCodesRemaining int
 }
 
 // Resolve is the live session of cookie; it never extends it (spec 08 §8.3). A sealed cookie whose session has
