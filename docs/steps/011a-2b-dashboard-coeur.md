@@ -119,3 +119,16 @@ Trois revues (correction et sécurité, tests creux, code en trop). Un bloquant,
    - En 011a-3 : `Current` ne dit rien de l'élévation, donc une session de premier facteur n'atteint que `/auth/*` ;
      un lien en échec après dix tentatives doit devenir visible, par une métrique.
    - `IdleTimeout` et `lockWindow` valent tous deux 15 min : leur permutation est indétectable.
+
+## Correctifs de revue, tour 2
+
+Constats : 4, aucun bloquant.
+
+1. **Hacheur occupé à l'usage d'un lien** : un test prouve que le lien reste valide (rien ne le prouvait).
+2. **Ordre des liens dus** : le lien qui doit partir en second est créé d'abord, pour que l'ordre physique de la
+   table ne fasse plus passer le test sans `ORDER BY`.
+3. **Ancres de l'uuid du curseur** : un uuid suivi ou précédé d'autres caractères est refusé, et testé.
+4. **Retrait** : la vérification de l'extension STARTTLS. `StartTLS` échoue de lui-même contre un relais qui ne
+   l'offre pas, et un relais qui le tairait sans le refuser bute sur la vérification du certificat.
+
+Constats par tour : 30 (1 bloquant), 4.
