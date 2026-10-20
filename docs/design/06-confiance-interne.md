@@ -134,7 +134,7 @@ de jetons, c'est-à-dire sans seconde clé capable de tout fabriquer. La procéd
 
 | Où | Effet |
 |---|---|
-| ADR-0011 | Amendé : la KEK vit dans OpenBao Transit ; `LocalKMS` reste pour les tests |
+| ADR-0011 | Amendé : la KEK vit dans OpenBao Transit ; `LocalKMS` n'est pas porté, l'adaptateur se teste contre OpenBao (010a, arbitrage 3) |
 | ADR-0019 | Amendé : JWKS interne ; `stream:read` remplace `admin:read` pour le hub |
 | Contrat Admin | `stream:read` ajouté (inclus dans le bump majeur de la décision 5) |
 | Dettes soldées | `kafka-sans-authentification` |
