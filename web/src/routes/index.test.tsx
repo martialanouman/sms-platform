@@ -19,14 +19,26 @@ test('a session gone sends to the login with a notice', async () => {
 })
 
 test('a logout is sent as JSON and returns to the login', async () => {
+  let release: () => void = () => {}
+  const loggedOut = new Promise<void>((resolve) => {
+    release = resolve
+  })
   const calls = stubFetch({
     'GET /api/auth/me': () => json(200, me),
-    'POST /api/auth/activity': () => empty(204),
-    'POST /api/auth/logout': () => empty(204),
+    'POST /api/auth/activity': async () => {
+      await loggedOut
+      return json(401, { code: 'unauthenticated', message: 'Aucune session ouverte.' })
+    },
+    'POST /api/auth/logout': () => {
+      release()
+      return empty(204)
+    },
   })
   const { router } = renderAt('/')
   await userEvent.setup().click(await screen.findByRole('button', { name: 'Se déconnecter' }))
   await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  expect(router.state.location.search).toEqual({})
   const logout = calls.find((c) => c.url.endsWith('/api/auth/logout'))
   expect(logout?.headers.get('Content-Type')).toBe('application/json')
 })

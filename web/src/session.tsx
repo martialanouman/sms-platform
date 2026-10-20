@@ -39,6 +39,7 @@ export function useActivity(idleTimeoutSeconds: number | null | undefined) {
     if (idleTimeoutSeconds === undefined) {
       return
     }
+    let active = true
     let idle: ReturnType<typeof setTimeout> | undefined
     const arm = () => {
       clearTimeout(idle)
@@ -53,7 +54,7 @@ export function useActivity(idleTimeoutSeconds: number | null | undefined) {
       }
       lastReport.current = Date.now()
       void api.POST('/auth/activity', { headers: json }).then(({ response }) => {
-        if (response.status === 401) {
+        if (active && response.status === 401) {
           closed()
         }
       })
@@ -62,6 +63,7 @@ export function useActivity(idleTimeoutSeconds: number | null | undefined) {
     document.addEventListener('pointerdown', gesture)
     document.addEventListener('keydown', gesture)
     return () => {
+      active = false
       clearTimeout(idle)
       document.removeEventListener('pointerdown', gesture)
       document.removeEventListener('keydown', gesture)

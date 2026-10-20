@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { api, json } from '../api'
 import { Unauthenticated, useActivity, useMe, useSessionClosed } from '../session'
 
@@ -11,7 +11,8 @@ function Home() {
   const closed = useSessionClosed()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  useActivity(me.data?.idleTimeoutSeconds)
+  const [leaving, setLeaving] = useState(false)
+  useActivity(leaving ? undefined : me.data?.idleTimeoutSeconds)
 
   useEffect(() => {
     document.title = 'Tableau de bord'
@@ -23,6 +24,7 @@ function Home() {
   }, [me.error, closed])
 
   async function logout() {
+    setLeaving(true)
     await api.POST('/auth/logout', { headers: json })
     queryClient.removeQueries({ queryKey: ['me'] })
     await navigate({ to: '/login' })
