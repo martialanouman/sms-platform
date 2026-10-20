@@ -323,15 +323,17 @@ func TestTheDashboardServesAnOperatorFromActivationToLogout(t *testing.T) {
 	}
 }
 
-func TestADeliveryItCannotRecordIsNotSentAgainAtOnce(t *testing.T) {
+func TestAnUnrecordedDeliveryWaitsItsTickAndASlowBodyIsCut(t *testing.T) {
 	d := prepare(t,
 		`WITH o AS (INSERT INTO dashboard.operators (email, display_name) VALUES ('owner@example.test', 'o') RETURNING id)
 			INSERT INTO dashboard.access_links (operator_id, kind) SELECT id, 'activation' FROM o`,
 		`REVOKE UPDATE ON dashboard.access_links FROM dashboard`,
 		`GRANT UPDATE (kind, expires_at, sent_at, attempts, next_attempt_at) ON dashboard.access_links TO dashboard`)
 	d.start(t, prometheus.NewRegistry())
-	time.Sleep(3 * time.Second)
-	if n := len(d.messages(t)); n == 0 || n > 1 {
+	for deadline := time.Now().Add(20 * time.Second); len(d.messages(t)) == 0 && time.Now().Before(deadline); time.Sleep(100 * time.Millisecond) {
+	}
+	time.Sleep(2 * time.Second)
+	if n := len(d.messages(t)); n != 1 {
 		t.Fatalf("%d messages in the first tick, want one: a sending it cannot record must wait for the next tick", n)
 	}
 	conn, err := net.Dial("tcp", d.infra.HTTPAddr)

@@ -125,3 +125,9 @@ Trois revues (correction et sécurité, tests creux, code en trop). Un bloquant 
      testés.
    - Le mot de passe de Postgres passe par `POSTGRES_URL`, dans l'environnement, comme pour `migrate` et
      `catalog-apply`.
+
+## Correctifs de revue, tour 2
+
+Constats : 2 mineurs, aucun bloquant, aucune mutation survivante. Le test de la livraison qui ne s'enregistre pas sonde
+jusqu'au premier courriel avant d'en compter d'autres, au lieu de supposer un démarrage en moins de 3 s ; son nom dit
+aussi la preuve du `ReadTimeout` qu'il porte. Constats par tour : 36 (1 bloquant), 2.
