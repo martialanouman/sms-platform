@@ -26,9 +26,12 @@ type Transit struct {
 	renew time.Time
 }
 
-// New returns the Transit of the OpenBao at addr, which logs in as role with the service account token in jwtFile.
+// New returns the Transit of the OpenBao at addr, which logs in as role with the service account token in jwtFile; it
+// calls through a copy of client that follows no redirect, which would carry the token and the JWT elsewhere.
 func New(addr string, client *http.Client, role, jwtFile string) *Transit {
-	return &Transit{addr: addr, role: role, jwtFile: jwtFile, client: client, sem: make(chan struct{}, 1)}
+	c := *client
+	c.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	return &Transit{addr: addr, role: role, jwtFile: jwtFile, client: &c, sem: make(chan struct{}, 1)}
 }
 
 type statusError struct {

@@ -5,18 +5,23 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"go.yaml.in/yaml/v3"
 
 	"github.com/martialanouman/sms-platform/contracts"
 	"github.com/martialanouman/sms-platform/internal/catalog"
+	contentkeygrpc "github.com/martialanouman/sms-platform/internal/contentkey/grpc"
 	"github.com/martialanouman/sms-platform/internal/netpol"
 	"github.com/martialanouman/sms-platform/internal/platform/config"
 	"github.com/martialanouman/sms-platform/internal/schema"
@@ -24,7 +29,11 @@ import (
 
 const registry = "ghcr.io/martialanouman/sms-platform/"
 
-var deployedJobs = regexp.MustCompile(`(?m)^for job in ([a-z -]+); do$`)
+var (
+	deployedJobs     = regexp.MustCompile(`(?m)^for job in ([a-z -]+); do$`)
+	deployedServices = regexp.MustCompile(`(?m)^for service in ([a-z -]+); do$`)
+	awaited          = regexp.MustCompile(`(?m)^\tkubectl -n sms rollout status "deploy/\$service" --timeout=[0-9]+m$`)
+)
 
 type goreleaser struct {
 	Builds []struct {
@@ -49,8 +58,14 @@ type container struct {
 			Type string `yaml:"type"`
 		} `yaml:"seccompProfile"`
 	} `yaml:"securityContext"`
+	ReadinessProbe struct {
+		HTTPGet struct {
+			Path string `yaml:"path"`
+		} `yaml:"httpGet"`
+	} `yaml:"readinessProbe"`
 	Env []struct {
 		Name      string `yaml:"name"`
+		Value     string `yaml:"value"`
 		ValueFrom struct {
 			SecretKeyRef *struct{} `yaml:"secretKeyRef"`
 		} `yaml:"valueFrom"`
@@ -59,8 +74,17 @@ type container struct {
 }
 
 type workload struct {
-	Kind string `yaml:"kind"`
+	Kind     string `yaml:"kind"`
+	Metadata struct {
+		Name string `yaml:"name"`
+	} `yaml:"metadata"`
 	Spec struct {
+		Type     string         `yaml:"type"`
+		Selector map[string]any `yaml:"selector"`
+		Ports    []struct {
+			Port       int `yaml:"port"`
+			TargetPort any `yaml:"targetPort"`
+		} `yaml:"ports"`
 		MaxReplicas    int32 `yaml:"maxReplicas"`
 		ScaleTargetRef struct {
 			Name string `yaml:"name"`
@@ -71,9 +95,11 @@ type workload struct {
 				Labels map[string]string `yaml:"labels"`
 			} `yaml:"metadata"`
 			Spec struct {
-				Containers     []container `yaml:"containers"`
-				InitContainers []container `yaml:"initContainers"`
-				Volumes        []struct {
+				AutomountServiceAccountToken  *bool       `yaml:"automountServiceAccountToken"`
+				TerminationGracePeriodSeconds int         `yaml:"terminationGracePeriodSeconds"`
+				Containers                    []container `yaml:"containers"`
+				InitContainers                []container `yaml:"initContainers"`
+				Volumes                       []struct {
 					Projected struct {
 						Sources []struct {
 							Secret struct {
@@ -132,6 +158,7 @@ func check(root string) error {
 		return err
 	}
 	var manifests []string
+	kinds := map[string]string{}
 	for _, f := range files {
 		name, ok := strings.CutSuffix(f.Name(), ".yaml")
 		if !ok {
@@ -143,21 +170,44 @@ func check(root string) error {
 			continue
 		}
 		manifests = append(manifests, name)
-		errs = append(errs, checkManifest(filepath.Join(root, "deploy", "k8s", f.Name()), name)...)
+		kind, merrs := checkManifest(filepath.Join(root, "deploy", "k8s", f.Name()), name)
+		kinds[name] = kind
+		errs = append(errs, merrs...)
 	}
 	script, err := os.ReadFile(filepath.Join(root, "deploy", "test-env", "deploy.sh"))
 	if err != nil {
 		return err
 	}
-	var jobs []string
-	if m := deployedJobs.FindSubmatch(script); m != nil {
-		jobs = strings.Fields(string(m[1]))
+	var jobs, services []string
+	jobsAt, servicesAt := deployedJobs.FindSubmatchIndex(script), deployedServices.FindSubmatchIndex(script)
+	if jobsAt != nil {
+		jobs = strings.Fields(string(script[jobsAt[2]:jobsAt[3]]))
+	}
+	if servicesAt != nil {
+		services = strings.Fields(string(script[servicesAt[2]:servicesAt[3]]))
+		if jobsAt == nil || servicesAt[0] < jobsAt[0] {
+			errs = append(errs, errors.New("deploy.sh: the services before the Jobs"))
+		}
+		loop, _, closed := bytes.Cut(script[servicesAt[1]:], []byte("\ndone\n"))
+		if !closed || !awaited.Match(loop) {
+			errs = append(errs, errors.New("deploy.sh: the services are not awaited by rollout status"))
+		}
+	}
+	for _, j := range jobs {
+		if k := kinds[j]; k != "" && k != "Job" {
+			errs = append(errs, fmt.Errorf("deploy.sh: %s: a %s in the loop of the Jobs", j, k))
+		}
+	}
+	for _, s := range services {
+		if k := kinds[s]; k != "" && k != "Deployment" {
+			errs = append(errs, fmt.Errorf("deploy.sh: %s: a %s in the loop of the services", s, k))
+		}
 	}
 	errs = append(errs, roleSecrets(root)...)
 	errs = append(errs, same("build", cmds, builds)...)
 	errs = append(errs, same("image", cmds, images)...)
 	errs = append(errs, same("manifest", cmds, manifests)...)
-	errs = append(errs, same("deploy.sh job", cmds, jobs)...)
+	errs = append(errs, same("deploy.sh job or service", cmds, append(jobs, services...))...)
 	return errors.Join(errs...)
 }
 
@@ -237,15 +287,17 @@ func checkPolicies(path string) []error {
 	}
 }
 
-func checkManifest(path, name string) []error {
+func checkManifest(path, name string) (string, []error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return []error{err}
+		return "", []error{err}
 	}
+	kind := ""
 	var errs []error
 	if !regexp.MustCompile(`(?m)^ *image: ` + regexp.QuoteMeta(registry+name) + `$`).Match(data) {
 		errs = append(errs, fmt.Errorf("%s: image not in the form deploy.sh tags, %q", name, "image: "+registry+name))
 	}
+	grpcPort, servicePorts := 0, []int{}
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	for docs := 0; ; docs++ {
 		var w workload
@@ -255,29 +307,56 @@ func checkManifest(path, name string) []error {
 			}
 			break
 		} else if err != nil {
-			return append(errs, fmt.Errorf("%s: %w", path, err))
+			return kind, append(errs, fmt.Errorf("%s: %w", path, err))
 		}
 		if w.Kind == "HorizontalPodAutoscaler" {
 			c, err := catalog.Parse(contracts.Topics())
 			if err != nil {
-				return append(errs, err)
+				return kind, append(errs, err)
 			}
 			if bound, by := partitionsBound(c, w.Spec.ScaleTargetRef.Name); w.Spec.MaxReplicas > bound {
 				errs = append(errs, fmt.Errorf("%s: maxReplicas %d above the %d partitions of %s", name, w.Spec.MaxReplicas, bound, by))
 			}
 			continue
 		}
-		if w.Kind != "Job" {
+		switch w.Kind {
+		case "ServiceAccount", "Service":
+			if w.Metadata.Name != name {
+				errs = append(errs, fmt.Errorf("%s: %s %q, want %q", name, w.Kind, w.Metadata.Name, name))
+			}
+			if w.Kind == "Service" {
+				if w.Spec.Type != "" && w.Spec.Type != "ClusterIP" {
+					errs = append(errs, fmt.Errorf("%s: Service type %s, want ClusterIP", name, w.Spec.Type))
+				}
+				if !reflect.DeepEqual(w.Spec.Selector, map[string]any{"app.kubernetes.io/name": name}) {
+					errs = append(errs, fmt.Errorf("%s: Service selector %v, want the pods of %s", name, w.Spec.Selector, name))
+				}
+			}
+			for _, p := range w.Spec.Ports {
+				servicePorts = append(servicePorts, p.Port)
+				if p.TargetPort != nil {
+					errs = append(errs, fmt.Errorf("%s: Service targetPort %v, want none: the port is the one of GRPC_ADDR", name, p.TargetPort))
+				}
+			}
+			continue
+		case "Job":
+			if w.Spec.ActiveDeadlineSeconds <= 0 {
+				errs = append(errs, fmt.Errorf("%s: no activeDeadlineSeconds, a stuck Job would hold the deployment", name))
+			}
+		case "Deployment":
+			errs = append(errs, checkService(name, w)...)
+		default:
 			errs = append(errs, fmt.Errorf("%s: kind %q is not guarded", name, w.Kind))
 			continue
 		}
-		if w.Spec.ActiveDeadlineSeconds <= 0 {
-			errs = append(errs, fmt.Errorf("%s: no activeDeadlineSeconds, a stuck Job would hold the deployment", name))
-		}
+		kind = w.Kind
 		if got := w.Spec.Template.Metadata.Labels["app.kubernetes.io/name"]; got != name {
 			errs = append(errs, fmt.Errorf("%s: pod label app.kubernetes.io/name %q, want %q", name, got, name))
 		}
 		pod := w.Spec.Template.Spec
+		if a := pod.AutomountServiceAccountToken; a == nil || *a {
+			errs = append(errs, fmt.Errorf("%s: %s mounts the service account token, want automountServiceAccountToken false", name, w.Kind))
+		}
 		if len(pod.Containers) == 0 {
 			errs = append(errs, fmt.Errorf("%s: %s without container", name, w.Kind))
 		}
@@ -305,6 +384,55 @@ func checkManifest(path, name string) []error {
 				if e.Name == "POSTGRES_URL" && e.ValueFrom.SecretKeyRef == nil {
 					errs = append(errs, fmt.Errorf("%s: POSTGRES_URL does not come from a secretKeyRef", at))
 				}
+				if port, ok := strings.CutPrefix(e.Value, ":"); e.Name == "GRPC_ADDR" && ok {
+					grpcPort, _ = strconv.Atoi(port)
+				}
+			}
+		}
+	}
+	for _, p := range servicePorts {
+		if p != grpcPort {
+			errs = append(errs, fmt.Errorf("%s: Service port %d, want the port of GRPC_ADDR %d", name, p, grpcPort))
+		}
+	}
+	return kind, errs
+}
+
+func checkService(name string, w workload) []error {
+	var errs []error
+	for _, c := range w.Spec.Template.Spec.Containers {
+		drain := time.Duration(0)
+		for _, v := range []string{"DRAIN_DELAY", "DRAIN_BUDGET", "SHUTDOWN_TIMEOUT"} {
+			value := config.Default(v)
+			for _, e := range c.Env {
+				if e.Name == v {
+					value = e.Value
+				}
+			}
+			d, err := time.ParseDuration(value)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("%s: %s: %w", name, v, err))
+			}
+			drain += d
+		}
+		if grace := time.Duration(w.Spec.Template.Spec.TerminationGracePeriodSeconds) * time.Second; grace < drain {
+			errs = append(errs, fmt.Errorf("%s: container %s: terminationGracePeriodSeconds %s below its drain %s", name, c.Name, grace, drain))
+		}
+		if c.ReadinessProbe.HTTPGet.Path != "/readyz" {
+			errs = append(errs, fmt.Errorf("%s: container %s: readinessProbe on %q, want /readyz", name, c.Name, c.ReadinessProbe.HTTPGet.Path))
+		}
+		for _, e := range c.Env {
+			if e.Name != "TLS_ALLOWED_CLIENTS" || name != "content-key-svc" {
+				continue
+			}
+			var allowed []string
+			for a := range strings.SplitSeq(e.Value, ",") {
+				if a = strings.TrimSpace(a); a != "" {
+					allowed = append(allowed, a)
+				}
+			}
+			if want := slices.Sorted(maps.Keys(contentkeygrpc.Callers)); !slices.Equal(slices.Sorted(slices.Values(allowed)), want) {
+				errs = append(errs, fmt.Errorf("%s: TLS_ALLOWED_CLIENTS %v, want the callers of the method map %v", name, allowed, want))
 			}
 		}
 	}
@@ -346,7 +474,7 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 		{"cmd without manifest", "deploy/k8s/migrate.yaml", "", "", "cmd/migrate: 0 manifest"},
 		{"empty manifest", "deploy/k8s/migrate.yaml", "", "\n", "migrate holds no workload"},
 		{"manifest of another extension", "deploy/k8s/other.yml", "", "kind: Job\n", "other.yml is not a .yaml"},
-		{"kind not guarded", "deploy/k8s/migrate.yaml", "kind: Job", "kind: Deployment", "kind \"Deployment\""},
+		{"kind not guarded", "deploy/k8s/migrate.yaml", "kind: Job", "kind: StatefulSet", "kind \"StatefulSet\""},
 		{"workload without container", "deploy/k8s/migrate.yaml", "      containers:", "      container:", "Job without container"},
 		{"wrong image in manifest", "deploy/k8s/migrate.yaml", "image: ghcr.io/martialanouman/sms-platform/migrate", "image: ghcr.io/martialanouman/sms-platform/migrate:latest", "image \""},
 		{"root container", "deploy/k8s/migrate.yaml", "runAsNonRoot: true", "runAsNonRoot: false", "runAsNonRoot"},
@@ -372,6 +500,30 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 		{"manifest twice in deploy.sh", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for job in migrate catalog-apply migrate; do", "cmd/migrate: 2 deploy.sh job"},
 		{"HPA beyond its partitions", "deploy/k8s/migrate.yaml", "apiVersion: batch/v1\n", "apiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\nspec: {scaleTargetRef: {name: router-svc}, maxReplicas: 1000}\n---\napiVersion: batch/v1\n", "maxReplicas 1000 above the"},
 		{"envFrom", "deploy/k8s/migrate.yaml", "          env:\n", "          envFrom:\n            - configMapRef: {name: x}\n          env:\n", "envFrom"},
+		{"service missing from deploy.sh", "deploy/test-env/deploy.sh", "for service in content-key-svc; do", "for service in other; do", "cmd/content-key-svc: 0 deploy.sh"},
+		{"Deployment among the Jobs", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for job in migrate catalog-apply content-key-svc; do", "content-key-svc: a Deployment in the loop of the Jobs"},
+		{"Job among the services", "deploy/test-env/deploy.sh", "for service in content-key-svc; do", "for service in content-key-svc migrate; do", "migrate: a Job in the loop of the services"},
+		{"services before the Jobs", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for service in content-key-svc; do\ndone\nfor job in migrate catalog-apply; do", "the services before the Jobs"},
+		{"services without Jobs", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for jobs in migrate catalog-apply; do", "the services before the Jobs"},
+		{"services not awaited", "deploy/test-env/deploy.sh", "rollout status", "get", "rollout status"},
+		{"Service open on the node", "deploy/k8s/content-key-svc.yaml", "spec:\n  selector:", "spec:\n  type: NodePort\n  selector:", "Service type"},
+		{"Service to other pods", "deploy/k8s/content-key-svc.yaml", "  selector:\n    app.kubernetes.io/name: content-key-svc", "  selector:\n    app.kubernetes.io/name: admin-api-svc", "Service selector"},
+		{"Service to another port", "deploy/k8s/content-key-svc.yaml", "      port: 7002\n", "      port: 7002\n      targetPort: 7003\n", "targetPort"},
+		{"Service to a named port", "deploy/k8s/content-key-svc.yaml", "      port: 7002\n", "      port: 7002\n      targetPort: grpc\n", "targetPort"},
+		{"wait commented out", "deploy/test-env/deploy.sh", "\tkubectl -n sms rollout status", "\t# kubectl -n sms rollout status", "rollout status"},
+		{"wait forgiven", "deploy/test-env/deploy.sh", "\"deploy/$service\" --timeout=5m\n", "\"deploy/$service\" --timeout=5m || true\n", "rollout status"},
+		{"wait after the loop", "deploy/test-env/deploy.sh", "\tkubectl -n sms rollout status \"deploy/$service\" --timeout=5m\ndone\n", "done\n\tkubectl -n sms rollout status \"deploy/$service\" --timeout=5m\n", "rollout status"},
+		{"loop forgiven", "deploy/test-env/deploy.sh", "--timeout=5m\ndone\necho", "--timeout=5m\ndone || true\necho", "rollout status"},
+		{"Service account token mounted", "deploy/k8s/content-key-svc.yaml", "      automountServiceAccountToken: false\n", "", "automountServiceAccountToken"},
+		{"Job with the API token", "deploy/k8s/migrate.yaml", "automountServiceAccountToken: false", "automountServiceAccountToken: true", "automountServiceAccountToken"},
+		{"root Deployment", "deploy/k8s/content-key-svc.yaml", "runAsNonRoot: true", "runAsNonRoot: false", "runAsNonRoot"},
+		{"Deployment without readiness", "deploy/k8s/content-key-svc.yaml", "path: /readyz", "path: /healthz", "readinessProbe"},
+		{"grace shorter than the drain", "deploy/k8s/content-key-svc.yaml", "terminationGracePeriodSeconds: 125", "terminationGracePeriodSeconds: 124", "terminationGracePeriodSeconds"},
+		{"drain lengthened past the grace", "deploy/k8s/content-key-svc.yaml", "          env:\n", "          env:\n            - name: DRAIN_BUDGET\n              value: 91s\n", "terminationGracePeriodSeconds"},
+		{"Service of another name", "deploy/k8s/content-key-svc.yaml", "kind: Service\nmetadata:\n  name: content-key-svc", "kind: Service\nmetadata:\n  name: other", "Service \"other\""},
+		{"Service on another port", "deploy/k8s/content-key-svc.yaml", "      port: 7002", "      port: 7003", "Service port"},
+		{"ServiceAccount of another name", "deploy/k8s/content-key-svc.yaml", "kind: ServiceAccount\nmetadata:\n  name: content-key-svc", "kind: ServiceAccount\nmetadata:\n  name: other", "ServiceAccount \"other\""},
+		{"allowlist beyond the method map", "deploy/k8s/content-key-svc.yaml", "value: admin-api-svc", "value: admin-api-svc, router-svc", "TLS_ALLOWED_CLIENTS"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()
@@ -387,7 +539,7 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 				t.Fatal(err)
 			}
 			files := []string{".goreleaser.yaml", "deploy/k8s/migrate.yaml", "cmd/migrate/main.go",
-				"deploy/k8s/catalog-apply.yaml", "cmd/catalog-apply/main.go", "contracts/grants/admin-api-svc.yaml", "deploy/k8s/networkpolicies.yaml", "deploy/test-env/deploy.sh"}
+				"deploy/k8s/catalog-apply.yaml", "cmd/catalog-apply/main.go", "deploy/k8s/content-key-svc.yaml", "cmd/content-key-svc/main.go", "contracts/grants/admin-api-svc.yaml", "deploy/k8s/networkpolicies.yaml", "deploy/test-env/deploy.sh"}
 			for _, f := range files {
 				data, err := os.ReadFile(filepath.Join("..", f))
 				if err != nil {

@@ -19,7 +19,12 @@ import (
 // File is the generated file, beside the manifests it is rendered from.
 const File = "networkpolicies.yaml"
 
-var broker = regexp.MustCompile(`^([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)-kafka-bootstrap\.([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.svc:([0-9]+)$`)
+var (
+	broker  = regexp.MustCompile(`^([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)-kafka-bootstrap\.([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.svc:([0-9]+)$`)
+	openbao = regexp.MustCompile(`^https://([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.svc:([0-9]+)$`)
+	listen  = regexp.MustCompile(`^:([0-9]+)$`)
+	podName = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$`)
+)
 
 type labels struct {
 	MatchLabels map[string]string `yaml:"matchLabels,omitempty"`
@@ -40,6 +45,11 @@ type egress struct {
 	Ports []port `yaml:"ports"`
 }
 
+type ingress struct {
+	From  []peer `yaml:"from"`
+	Ports []port `yaml:"ports"`
+}
+
 type policy struct {
 	APIVersion string `yaml:"apiVersion"`
 	Kind       string `yaml:"kind"`
@@ -47,9 +57,10 @@ type policy struct {
 		Name string `yaml:"name"`
 	} `yaml:"metadata"`
 	Spec struct {
-		PodSelector labels   `yaml:"podSelector"`
-		PolicyTypes []string `yaml:"policyTypes"`
-		Egress      []egress `yaml:"egress,omitempty"`
+		PodSelector labels    `yaml:"podSelector"`
+		PolicyTypes []string  `yaml:"policyTypes"`
+		Ingress     []ingress `yaml:"ingress,omitempty"`
+		Egress      []egress  `yaml:"egress,omitempty"`
 	} `yaml:"spec"`
 }
 
@@ -82,9 +93,18 @@ func to(namespace string, pod map[string]string, ports ...port) egress {
 	return egress{To: []peer{{labels{map[string]string{"kubernetes.io/metadata.name": namespace}}, labels{pod}}}, Ports: ports}
 }
 
+func tcpPort(s string) int {
+	n, err := strconv.Atoi(s)
+	if err != nil || n > 65535 {
+		return 0
+	}
+	return n
+}
+
 // Render reads every manifest of fsys but File and renders the namespace's default deny, the DNS egress of every pod,
-// and the egress of each workload to the stores its variables name: Postgres for POSTGRES_URL, each Strimzi cluster of
-// KAFKA_BROKERS.
+// the egress of each workload to the stores its variables name (Postgres for POSTGRES_URL, each Strimzi cluster of
+// KAFKA_BROKERS, the OpenBao of OPENBAO_ADDR), and the ingress of each caller of TLS_ALLOWED_CLIENTS on the port of
+// GRPC_ADDR.
 func Render(fsys fs.FS) ([]byte, error) {
 	dns := newPolicy("dns", nil, "Egress")
 	dns.Spec.Egress = []egress{to("kube-system", map[string]string{"k8s-app": "kube-dns"}, port{"UDP", 53}, port{"TCP", 53})}
@@ -104,7 +124,7 @@ func Render(fsys fs.FS) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		if len(p.Spec.Egress) > 0 {
+		if len(p.Spec.Egress) > 0 || len(p.Spec.Ingress) > 0 {
 			policies = append(policies, p)
 		}
 	}
@@ -132,10 +152,23 @@ func flows(fsys fs.FS, file string) (policy, error) {
 			p.Spec.Egress = append(p.Spec.Egress, f)
 		}
 	}
+	var grpcPort int
+	var callers []string
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	for {
 		var w workload
 		if err := dec.Decode(&w); errors.Is(err, io.EOF) {
+			switch {
+			case (grpcPort != 0) != (len(callers) > 0):
+				return p, fmt.Errorf("%s: GRPC_ADDR and TLS_ALLOWED_CLIENTS go together", name)
+			case grpcPort != 0:
+				in := ingress{Ports: []port{{"TCP", grpcPort}}}
+				for _, c := range callers {
+					in.From = append(in.From, to("sms", map[string]string{"app.kubernetes.io/name": c}).To...)
+				}
+				p.Spec.Ingress = []ingress{in}
+				p.Spec.PolicyTypes = []string{"Ingress", "Egress"}
+			}
 			return p, nil
 		} else if err != nil {
 			return p, fmt.Errorf("%s: %w", file, err)
@@ -145,20 +178,38 @@ func flows(fsys fs.FS, file string) (policy, error) {
 				switch e.Name {
 				case "POSTGRES_URL":
 					add(to("postgres", map[string]string{"cnpg.io/cluster": "postgres"}, port{"TCP", 5432}))
+				case "OPENBAO_ADDR":
+					m := openbao.FindStringSubmatch(e.Value)
+					if m == nil || tcpPort(m[3]) == 0 {
+						return p, fmt.Errorf("%s: OPENBAO_ADDR %q is not https://<name>.<namespace>.svc:<port>", name, e.Value)
+					}
+					add(to(m[2], map[string]string{"app.kubernetes.io/name": m[1]}, port{"TCP", tcpPort(m[3])}))
+				case "GRPC_ADDR":
+					m := listen.FindStringSubmatch(e.Value)
+					if m == nil || tcpPort(m[1]) == 0 {
+						return p, fmt.Errorf("%s: GRPC_ADDR %q is not :<port>", name, e.Value)
+					}
+					grpcPort = tcpPort(m[1])
+				case "TLS_ALLOWED_CLIENTS":
+					for c := range strings.SplitSeq(e.Value, ",") {
+						if c = strings.TrimSpace(c); c == "" {
+							continue
+						}
+						if !podName.MatchString(c) {
+							return p, fmt.Errorf("%s: caller %q is not a pod name", name, c)
+						}
+						callers = append(callers, c)
+					}
 				case "KAFKA_BROKERS":
 					for b := range strings.SplitSeq(e.Value, ",") {
 						if b = strings.TrimSpace(b); b == "" {
 							continue
 						}
 						m := broker.FindStringSubmatch(b)
-						n := 0
-						if m != nil {
-							n, _ = strconv.Atoi(m[3])
-						}
-						if n < 1 || n > 65535 {
+						if m == nil || tcpPort(m[3]) == 0 {
 							return p, fmt.Errorf("%s: broker %q is not <cluster>-kafka-bootstrap.<namespace>.svc:<port>", name, b)
 						}
-						add(to(m[2], map[string]string{"strimzi.io/cluster": m[1]}, port{"TCP", n}))
+						add(to(m[2], map[string]string{"strimzi.io/cluster": m[1]}, port{"TCP", tcpPort(m[3])}))
 					}
 				}
 			}

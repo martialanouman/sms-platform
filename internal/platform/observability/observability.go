@@ -5,8 +5,11 @@ package observability
 import (
 	"context"
 	stderrors "errors"
+	"fmt"
 	"io"
 	"log/slog"
+	"os"
+	"strings"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
@@ -15,6 +18,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"go.opentelemetry.io/otel/trace"
+	"google.golang.org/grpc/grpclog"
 
 	"github.com/martialanouman/sms-platform/internal/platform/errors"
 )
@@ -87,3 +91,30 @@ func RecordError(span trace.Span, err error) {
 	span.SetStatus(codes.Error, string(c))
 	span.RecordError(c)
 }
+
+// GRPCLogger writes the logs of grpc-go to log at the same level, at verbosity 0; Fatal logs an error and exits.
+func GRPCLogger(log *slog.Logger) grpclog.LoggerV2 {
+	return grpcLogger{log.With("logger", "grpc")}
+}
+
+type grpcLogger struct {
+	log *slog.Logger
+}
+
+func sprintln(args ...any) string {
+	return strings.TrimSuffix(fmt.Sprintln(args...), "\n")
+}
+
+func (g grpcLogger) Info(args ...any)                    { g.log.Info(fmt.Sprint(args...)) }
+func (g grpcLogger) Infoln(args ...any)                  { g.log.Info(sprintln(args...)) }
+func (g grpcLogger) Infof(format string, args ...any)    { g.log.Info(fmt.Sprintf(format, args...)) }
+func (g grpcLogger) Warning(args ...any)                 { g.log.Warn(fmt.Sprint(args...)) }
+func (g grpcLogger) Warningln(args ...any)               { g.log.Warn(sprintln(args...)) }
+func (g grpcLogger) Warningf(format string, args ...any) { g.log.Warn(fmt.Sprintf(format, args...)) }
+func (g grpcLogger) Error(args ...any)                   { g.log.Error(fmt.Sprint(args...)) }
+func (g grpcLogger) Errorln(args ...any)                 { g.log.Error(sprintln(args...)) }
+func (g grpcLogger) Errorf(format string, args ...any)   { g.log.Error(fmt.Sprintf(format, args...)) }
+func (g grpcLogger) Fatal(args ...any)                   { g.Error(args...); os.Exit(1) }
+func (g grpcLogger) Fatalln(args ...any)                 { g.Errorln(args...); os.Exit(1) }
+func (g grpcLogger) Fatalf(format string, args ...any)   { g.Errorf(format, args...); os.Exit(1) }
+func (g grpcLogger) V(l int) bool                        { return l <= 0 }

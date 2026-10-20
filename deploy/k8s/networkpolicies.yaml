@@ -66,6 +66,40 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  name: content-key-svc
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: content-key-svc
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sms
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: admin-api-svc
+      ports:
+        - protocol: TCP
+          port: 7002
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openbao
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: openbao
+      ports:
+        - protocol: TCP
+          port: 8200
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
   name: migrate
 spec:
   podSelector:
