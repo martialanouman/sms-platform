@@ -18,6 +18,7 @@ linters:
             - $gostd
             - github.com/martialanouman/sms-platform
             - go.yaml.in/yaml/v3
+            - golang.org/x/crypto/argon2
           deny:
             - pkg: "net$"
               desc: le cœur ne fait pas d'I/O (ADR 0025)
@@ -65,6 +66,11 @@ linters:
       # G204, G702 : git reçoit une liste d'arguments, sans shell ; la référence vient du développeur ou de la CI.
       - path: ^tools/(catalog|openapi|release)/
         text: "G204:|G702:"
+        linters:
+          - gosec
+      # G101 : sqlc nomme la requête qui pose un mot de passe ; la constante est du SQL, pas un secret.
+      - path: ^internal/dashboard/postgres/sqlc/
+        text: "G101:"
         linters:
           - gosec
       # Code de protoc : gosec y voit des constantes et unsafe qu'on ne réécrit pas.

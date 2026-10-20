@@ -1,0 +1,155 @@
+// Package postgres is the dashboard's store on its Postgres database, through the queries sqlc generates.
+package postgres
+
+import (
+	"context"
+	"errors"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/martialanouman/sms-platform/internal/dashboard"
+	"github.com/martialanouman/sms-platform/internal/dashboard/postgres/sqlc"
+)
+
+// Store runs the core's transactions on a pool connected as the dashboard role.
+type Store struct {
+	pool *pgxpool.Pool
+}
+
+// New is the store of pool.
+func New(pool *pgxpool.Pool) Store {
+	return Store{pool: pool}
+}
+
+// Tx runs fn in one transaction.
+func (s Store) Tx(ctx context.Context, fn func(dashboard.Tx) error) error {
+	return pgx.BeginFunc(ctx, s.pool, func(db pgx.Tx) error {
+		return fn(tx{db: db})
+	})
+}
+
+var queries = sqlc.New()
+
+type tx struct {
+	db pgx.Tx
+}
+
+func found(err error) (bool, error) {
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+func optional(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+func (t tx) CreateOperator(ctx context.Context, email string) (string, bool, error) {
+	id, err := queries.CreateOperator(ctx, t.db, email)
+	created, err := found(err)
+	return id, created, err
+}
+
+func (t tx) OperatorByEmail(ctx context.Context, email string) (dashboard.Operator, bool, error) {
+	r, err := queries.OperatorByEmail(ctx, t.db, email)
+	ok, err := found(err)
+	return dashboard.Operator{ID: r.ID, PasswordHash: r.PasswordHash, Active: r.Active}, ok, err
+}
+
+func (t tx) SetPassword(ctx context.Context, operatorID, phc string) error {
+	return queries.SetPassword(ctx, t.db, sqlc.SetPasswordParams{Phc: &phc, ID: operatorID})
+}
+
+func (t tx) QueueLink(ctx context.Context, operatorID string, kind dashboard.LinkKind) error {
+	return queries.QueueLink(ctx, t.db, sqlc.QueueLinkParams{OperatorID: operatorID, Kind: string(kind)})
+}
+
+func (t tx) ConsumeLink(ctx context.Context, digest []byte) (string, bool, error) {
+	id, err := queries.ConsumeLink(ctx, t.db, digest)
+	ok, err := found(err)
+	return id, ok, err
+}
+
+func (t tx) NextDue(ctx context.Context, maxAttempts int) (dashboard.Due, bool, error) {
+	r, err := queries.NextDue(ctx, t.db, int64(maxAttempts))
+	ok, err := found(err)
+	return dashboard.Due{OperatorID: r.OperatorID, Email: r.Email, Kind: dashboard.LinkKind(r.Kind)}, ok, err
+}
+
+func (t tx) MarkSent(ctx context.Context, operatorID string, digest []byte, ttl time.Duration) error {
+	return queries.MarkSent(ctx, t.db, sqlc.MarkSentParams{Digest: digest, TtlSeconds: ttl.Seconds(), OperatorID: operatorID})
+}
+
+func (t tx) MarkFailed(ctx context.Context, operatorID string, base, ceiling time.Duration) error {
+	return queries.MarkFailed(ctx, t.db, sqlc.MarkFailedParams{BaseSeconds: base.Seconds(), CeilingSeconds: ceiling.Seconds(), OperatorID: operatorID})
+}
+
+func (t tx) Reserve(ctx context.Context, subject []byte, window time.Duration, limit int) (time.Duration, error) {
+	_, err := queries.Reserve(ctx, t.db, sqlc.ReserveParams{Subject: subject, WindowSeconds: window.Seconds(), MaxFailures: int64(limit)})
+	if reserved, err := found(err); reserved || err != nil {
+		return 0, err
+	}
+	left, err := queries.LockedFor(ctx, t.db, sqlc.LockedForParams{WindowSeconds: window.Seconds(), Subject: subject})
+	return time.Duration(left * float64(time.Second)), err
+}
+
+func (t tx) Forget(ctx context.Context, subject []byte) error {
+	return queries.Forget(ctx, t.db, subject)
+}
+
+func (t tx) OpenSession(ctx context.Context, operatorID string, digest, challenge []byte, lifetime, challengeTTL time.Duration) (time.Time, error) {
+	return queries.OpenSession(ctx, t.db, sqlc.OpenSessionParams{OperatorID: operatorID, Digest: digest,
+		LifetimeSeconds: lifetime.Seconds(), Challenge: challenge, ChallengeSeconds: challengeTTL.Seconds()})
+}
+
+func (t tx) SessionOf(ctx context.Context, digest []byte, idle time.Duration) (dashboard.SessionView, bool, error) {
+	r, err := queries.SessionOf(ctx, t.db, sqlc.SessionOfParams{IdleSeconds: idle.Seconds(), Digest: digest})
+	ok, err := found(err)
+	return dashboard.SessionView{Current: dashboard.Current{SessionID: r.ID, OperatorID: r.OperatorID, Email: r.Email,
+		DisplayName: r.DisplayName, ExpiresAt: r.ExpiresAt}, Live: r.Live}, ok, err
+}
+
+func (t tx) Touch(ctx context.Context, digest []byte, idle time.Duration) (bool, error) {
+	n, err := queries.Touch(ctx, t.db, sqlc.TouchParams{Digest: digest, IdleSeconds: idle.Seconds()})
+	return n == 1, err
+}
+
+func (t tx) CloseSession(ctx context.Context, digest []byte) (string, bool, error) {
+	id, err := queries.CloseSession(ctx, t.db, digest)
+	ok, err := found(err)
+	return id, ok, err
+}
+
+func (t tx) CloseSessions(ctx context.Context, operatorID string) error {
+	return queries.CloseSessions(ctx, t.db, operatorID)
+}
+
+func (t tx) Purge(ctx context.Context, idle, window time.Duration) error {
+	if err := queries.PurgeSessions(ctx, t.db, idle.Seconds()); err != nil {
+		return err
+	}
+	return queries.PurgeCounters(ctx, t.db, window.Seconds())
+}
+
+func (t tx) Log(ctx context.Context, e dashboard.Entry) error {
+	return queries.Log(ctx, t.db, sqlc.LogParams{Actor: optional(e.Actor), Event: string(e.Event), Target: optional(e.Target), Success: e.Success})
+}
+
+func (t tx) AccessLog(ctx context.Context, before *dashboard.Entry, limit int) ([]dashboard.Entry, error) {
+	arg := sqlc.AccessLogParams{PageSize: int64(limit)}
+	if before != nil {
+		arg.BeforeAt, arg.BeforeID = &before.At, &before.ID
+	}
+	rows, err := queries.AccessLog(ctx, t.db, arg)
+	entries := make([]dashboard.Entry, len(rows))
+	for i, r := range rows {
+		entries[i] = dashboard.Entry{ID: r.ID, At: r.At, Actor: r.Actor, Event: dashboard.Event(r.Event), Target: r.Target, Success: r.Success}
+	}
+	return entries, err
+}
