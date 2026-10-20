@@ -24,9 +24,10 @@ Tranchés par l'agent, sans contredire 1 à 58.
 
 59. **`Me` dans l'adaptateur HTTP** : `Current` plus les constantes du cœur (`IdleTimeout`) ; `permissions` vide,
     `elevated` faux, facteurs à zéro (arbitrage 58).
-60. **Contexte de session** : un middleware résout la session une fois par requête protégée et la pose dans le
-    contexte ; l'`AuthenticationFunc` du validateur la lit pour juger la permission de l'opération. `logout` est
-    public au contrat : il lit le cookie lui-même.
+60. **Contexte de session** : un middleware strict résout la session une fois par requête protégée, juge la permission
+    que le contrat déclare pour l'opération, et pose la session dans le contexte. La validation kin-openapi passe
+    avant lui (`NoopAuthenticationFunc`). `logout` est public au contrat : il lit le cookie lui-même (révisé en revue,
+    tour 1).
 61. **Adresse source** : `RemoteAddr`, sauf si elle appartient à `TRUSTED_PROXIES`, auquel cas la dernière entrée de
     `X-Forwarded-For` ; une adresse illisible refuse la requête (le cœur refuse déjà une source invalide).
 62. **Clé du cookie et mot de passe SMTP par fichier** (`COOKIE_KEY_FILE`, `SMTP_PASSWORD_FILE`), jamais par
@@ -86,3 +87,41 @@ Jouée le 2026-10-20 depuis la branche, sur le cluster en v0.12.0 : image constr
    `pgdial.Retry`.
 
 Rouge vu : un premier sondage de Mailpit concluait « admis » sur le statut de `head` ; rejoué en exigeant `220`.
+
+## Correctifs de revue, tour 1
+
+Trois revues (correction et sécurité, tests creux, code en trop). Un bloquant ; 36 constats.
+
+1. **La livraison s'arrête au premier échec** (bloquant) : quand l'écriture échouait après l'envoi (droit manquant,
+   Pooler coupé au commit), la transaction était annulée, le lien restait dû, et la boucle renvoyait sans fin un
+   courriel au jeton neuf. Elle sort désormais sur toute erreur ; la reprise se fait au tick suivant.
+2. **Adresse source** (révise l'arbitrage 61) : derrière les proxies de confiance, c'est l'entrée la plus à droite de
+   `X-Forwarded-For` qui n'est pas elle-même de confiance. Sans entrée utilisable, c'est l'adresse du pair : jamais
+   une adresse vide, qui donnait un 500.
+3. **`ReadTimeout` de 10 s** : `ReadHeaderTimeout` ne bornait pas le corps, qu'un client pouvait envoyer octet par
+   octet.
+4. **`secrets.sh`** : la lecture d'une clé passe par une affectation, pour que `set -e` arrête une erreur de `kubectl`
+   au lieu de régénérer `cookie-key` (ce qui fermerait toutes les sessions).
+5. **Tests resserrés** :
+   - deux liens dus partent dans le même tick ;
+   - la purge tourne au démarrage ;
+   - un `Content-Type` avec `charset` est admis ;
+   - le 422 nomme `cursor` et `body` ;
+   - `SMTP_ADDR` sans port et les URL publiques avec requête, fragment, identifiants ou schéma `ftp` sont refusés ;
+   - deux proxies de confiance, ou un proxy sans en-tête, ne donnent ni 500 ni source partagée ;
+   - un corps envoyé lentement est coupé ;
+   - `/readyz` est sondé jusqu'au 503, au lieu d'attendre un délai.
+6. **Retraits** : `SilenceServersWarning` (le validateur ne voit plus de `servers`), la struct anonyme recopiée de
+   `fieldError`, le logger par défaut de `Config` (seul un test l'omettait), `retrySeconds`, la regex dupliquée
+   d'OpenBao (elle dérive de celle du relais), deux godocs à une ligne, le commentaire de `held`.
+7. **Gardés tels quels** :
+   - Le 401 de `ReportActivity`, atteint seulement si la session se ferme entre sa résolution et le geste : sans
+     lui, cette course donnerait un 500.
+   - Une erreur de `Logout` ou de `Resolve` hors session inconnue (base indisponible) rend 500 : aucun test ne coupe
+     la base sous le handler.
+   - L'ordre d'arrêt des composants : HTTP s'arrête d'abord, mais aucun effet observable ne dépend de cet ordre ;
+     le design ne le promet plus.
+   - `Shutdown` sous un contexte détaché, et l'erreur de `Undeliverable`, journalisée sans toucher la jauge : non
+     testés.
+   - Le mot de passe de Postgres passe par `POSTGRES_URL`, dans l'environnement, comme pour `migrate` et
+     `catalog-apply`.
