@@ -1,6 +1,7 @@
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { expect, test } from 'vitest'
+import { act } from 'react'
+import { expect, test, vi } from 'vitest'
 import { pendingChallenge, rememberChallenge } from '../session'
 import { challenge, empty, json, me, renderAt, stubFetch, violations } from '../test'
 
@@ -14,7 +15,7 @@ test('without a challenge, the verification sends back to the login', async () =
 })
 
 test('a code of the app elevates the session and opens the dashboard', async () => {
-  rememberChallenge(challenge.challenge)
+  rememberChallenge(challenge)
   const calls = stubFetch({ 'POST /api/auth/mfa/verify': () => empty(204), 'GET /api/auth/me': () => json(200, me) })
   const { router } = renderAt('/mfa')
   const field = await screen.findByLabelText('Code à six chiffres')
@@ -30,7 +31,7 @@ test('a code of the app elevates the session and opens the dashboard', async () 
 })
 
 test('a recovery code is sent as such, and the app comes back', async () => {
-  rememberChallenge(challenge.challenge)
+  rememberChallenge(challenge)
   const calls = stubFetch({ 'POST /api/auth/mfa/verify': () => empty(204), 'GET /api/auth/me': () => json(200, me) })
   const { router } = renderAt('/mfa')
   const user = userEvent.setup()
@@ -53,7 +54,7 @@ test('a recovery code is sent as such, and the app comes back', async () => {
 })
 
 test('a refused code is told, focused, and the challenge stays', async () => {
-  rememberChallenge(challenge.challenge)
+  rememberChallenge(challenge)
   stubFetch({ 'POST /api/auth/mfa/verify': () => json(401, refused) })
   const { router, container } = renderAt('/mfa')
   const user = userEvent.setup()
@@ -69,7 +70,7 @@ test('a refused code is told, focused, and the challenge stays', async () => {
 })
 
 test('the verification has no accessibility violation', async () => {
-  rememberChallenge(challenge.challenge)
+  rememberChallenge(challenge)
   stubFetch({})
   const { container } = renderAt('/mfa')
   await screen.findByLabelText('Code à six chiffres')
@@ -97,4 +98,50 @@ test('a login completed by its second factor shows the dashboard', async () => {
   await user.click(screen.getByRole('button', { name: 'Vérifier' }))
   expect(await screen.findByText('Connecté en tant que Opérateur (operateur@example.test)')).toBeDefined()
   expect(router.state.location.pathname).toBe('/')
+})
+
+test('an expired challenge sends back to the login', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  rememberChallenge({ challenge: challenge.challenge, expiresAt: new Date(Date.now() + 60_000).toISOString() })
+  stubFetch({})
+  const { router } = renderAt('/mfa')
+  await screen.findByLabelText('Code à six chiffres')
+  await act(() => vi.advanceTimersByTimeAsync(59_000))
+  expect(router.state.location.pathname).toBe('/mfa')
+  await act(() => vi.advanceTimersByTimeAsync(2_000))
+  await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
+  expect(router.state.location.search).toEqual({ avis: 'verification-interrompue' })
+  expect(pendingChallenge()).toBeUndefined()
+})
+
+test('switching the method clears a refusal', async () => {
+  rememberChallenge(challenge)
+  stubFetch({ 'POST /api/auth/mfa/verify': () => json(401, refused) })
+  renderAt('/mfa')
+  const user = userEvent.setup()
+  await user.type(await screen.findByLabelText('Code à six chiffres'), '000000')
+  await user.click(screen.getByRole('button', { name: 'Vérifier' }))
+  await screen.findByRole('alert')
+  await user.click(screen.getByRole('button', { name: 'Utiliser un code de récupération' }))
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(screen.getByLabelText('Code de récupération').getAttribute('aria-describedby')).toBeNull()
+})
+
+test('a rate limit disables the verification for Retry-After seconds', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  rememberChallenge(challenge)
+  stubFetch({
+    'POST /api/auth/mfa/verify': () =>
+      json(429, { code: 'rate_limited', message: 'Trop de tentatives.' }, { 'Retry-After': '2' }),
+  })
+  renderAt('/mfa')
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+  await user.type(await screen.findByLabelText('Code à six chiffres'), '000000')
+  await user.click(screen.getByRole('button', { name: 'Vérifier' }))
+  await screen.findByRole('alert')
+  const button = screen.getByRole('button', { name: 'Vérifier' })
+  await act(() => vi.advanceTimersByTimeAsync(1_500))
+  expect(button).toHaveProperty('disabled', true)
+  await act(() => vi.advanceTimersByTimeAsync(1_000))
+  expect(button).toHaveProperty('disabled', false)
 })

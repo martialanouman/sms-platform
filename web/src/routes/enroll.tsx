@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { components } from '../api.gen'
 import { TotpEnrollment } from '../factor'
-import { pendingChallenge, useElevated } from '../session'
+import { pendingChallenge, rememberChallenge, useChallengeExpiry, useElevated } from '../session'
 import { AuthLayout, useSubmission } from '../ui'
 
 export const Route = createFileRoute('/enroll')({
@@ -17,6 +17,7 @@ export const Route = createFileRoute('/enroll')({
 
 function Enrolment() {
   const elevated = useElevated()
+  useChallengeExpiry()
   const { submit, waiting, refusal } = useSubmission()
   const [enrollment, setEnrollment] = useState<components['schemas']['TotpEnrollment']>()
 
@@ -36,9 +37,15 @@ function Enrolment() {
       {enrollment ? (
         <TotpEnrollment
           enrollment={enrollment}
-          confirm={(code) =>
-            api.POST('/auth/mfa/verify', { body: { challenge: pendingChallenge() ?? '', method: 'totp', code } })
-          }
+          confirm={async (code) => {
+            const result = await api.POST('/auth/mfa/verify', {
+              body: { challenge: pendingChallenge() ?? '', method: 'totp', code },
+            })
+            if (result.response.ok) {
+              rememberChallenge(undefined)
+            }
+            return result
+          }}
           onDone={elevated}
         />
       ) : (

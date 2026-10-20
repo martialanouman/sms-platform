@@ -2,7 +2,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import { api } from '../api'
 import { FactorProof } from '../factor'
-import { pendingChallenge, useElevated } from '../session'
+import { pendingChallenge, useChallengeExpiry, useElevated } from '../session'
 import { AuthLayout } from '../ui'
 
 export const Route = createFileRoute('/mfa')({
@@ -16,6 +16,7 @@ export const Route = createFileRoute('/mfa')({
 
 function Verification() {
   const elevated = useElevated()
+  useChallengeExpiry()
 
   useEffect(() => {
     document.title = 'Second facteur — Tableau de bord'

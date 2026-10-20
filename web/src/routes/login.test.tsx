@@ -146,3 +146,34 @@ test('the login screen has no accessibility violation', async () => {
   await screen.findByRole('alert')
   expect(await act(() => violations(container))).toEqual([])
 })
+
+test('a login with a passkey only asks for the second factor', async () => {
+  stubFetch({
+    'POST /api/auth/login': () => json(200, challenge),
+    'GET /api/auth/me': () =>
+      json(200, { ...me, elevated: false, secondFactors: { totp: false, recoveryCodesRemaining: 0, passkeys: 1 } }),
+  })
+  const { router } = renderAt('/login')
+  await fill('operateur@example.test', 'Correct-horse-9')
+  await waitFor(() => expect(router.state.location.pathname).toBe('/mfa'))
+})
+
+test('the button stays disabled while the session is read', async () => {
+  let release: () => void = () => {}
+  const held = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  stubFetch({
+    'POST /api/auth/login': () => json(200, challenge),
+    'GET /api/auth/me': async () => {
+      await held
+      return json(200, { ...me, elevated: false })
+    },
+  })
+  const { router } = renderAt('/login')
+  await fill('operateur@example.test', 'Correct-horse-9')
+  await waitFor(() => expect(pendingChallenge()).toBe(challenge.challenge))
+  expect(screen.getByRole('button', { name: 'Se connecter' })).toHaveProperty('disabled', true)
+  release()
+  await waitFor(() => expect(router.state.location.pathname).toBe('/mfa'))
+})

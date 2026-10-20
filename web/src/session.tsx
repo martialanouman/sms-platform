@@ -2,19 +2,38 @@ import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect } from 'react'
 import { api, json, send } from './api'
+import type { components } from './api.gen'
 
 const activityEvery = 60_000
 
 export class Unauthenticated extends Error {}
 
-let loginChallenge: string | undefined
+type Challenge = components['schemas']['MfaChallenge']
 
-export function rememberChallenge(challenge: string | undefined) {
+let loginChallenge: Challenge | undefined
+
+export function rememberChallenge(challenge: Challenge | undefined) {
   loginChallenge = challenge
 }
 
 export function pendingChallenge() {
-  return loginChallenge
+  return loginChallenge?.challenge
+}
+
+export function useChallengeExpiry() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    if (!loginChallenge) {
+      return
+    }
+    const expiry = setTimeout(() => {
+      if (loginChallenge) {
+        rememberChallenge(undefined)
+        void navigate({ to: '/login', search: { avis: 'verification-interrompue' } })
+      }
+    }, Date.parse(loginChallenge.expiresAt) - Date.now())
+    return () => clearTimeout(expiry)
+  }, [navigate])
 }
 
 export const meQuery = queryOptions({

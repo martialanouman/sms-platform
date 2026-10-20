@@ -9,6 +9,7 @@ import { rememberChallenge } from './session'
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
   vi.useRealTimers()
   rememberChallenge(undefined)
 })
@@ -62,4 +63,4 @@ export const me = {
   absoluteExpiresAt: '2026-10-21T02:00:00Z',
 }
 
-export const challenge = { challenge: 'c'.repeat(43), expiresAt: '2026-10-20T12:05:00Z' }
+export const challenge = { challenge: 'c'.repeat(43), expiresAt: new Date(Date.now() + 300_000).toISOString() }

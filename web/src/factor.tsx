@@ -6,6 +6,7 @@ import type { components } from './api.gen'
 import { Field, useSubmission } from './ui'
 
 type Method = 'totp' | 'recovery_code'
+type Call<T = unknown> = ReturnType<Parameters<typeof send<T>>[0]>
 
 const methods = {
   totp: {
@@ -28,11 +29,11 @@ export function FactorProof<T>({
   onProved,
 }: {
   action: string
-  prove: (method: Method, code: string) => ReturnType<Parameters<typeof send<T>>[0]>
+  prove: (method: Method, code: string) => Call<T>
   onProved: (data: T) => void
 }) {
   const [method, setMethod] = useState<Method>('totp')
-  const { submit, waiting, refusal, describedBy } = useSubmission()
+  const { submit, waiting, refusal, fail, describedBy } = useSubmission()
   const field = useRef<HTMLInputElement>(null)
   const { label, input, other, switchTo } = methods[method]
 
@@ -41,7 +42,10 @@ export function FactorProof<T>({
   }, [])
 
   function switchMethod() {
-    flushSync(() => setMethod(other))
+    flushSync(() => {
+      fail('')
+      setMethod(other)
+    })
     field.current?.focus()
   }
 
@@ -68,19 +72,24 @@ export function FactorProof<T>({
   )
 }
 
-type Call = ReturnType<Parameters<typeof send<unknown>>[0]>
-
 export function TotpEnrollment({
   enrollment,
   confirm,
   onDone,
+  heading = 'h2',
 }: {
   enrollment: components['schemas']['TotpEnrollment']
   confirm: (code: string) => Call
   onDone: () => void
+  heading?: 'h2' | 'h3'
 }) {
   const [confirmed, setConfirmed] = useState(false)
   const { submit, waiting, refusal, describedBy } = useSubmission()
+  const intro = useRef<HTMLParagraphElement>(null)
+
+  useEffect(() => {
+    intro.current?.focus()
+  }, [])
 
   async function verify(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -92,11 +101,11 @@ export function TotpEnrollment({
   }
 
   if (confirmed) {
-    return <RecoveryCodes codes={enrollment.recoveryCodes} onDone={onDone} />
+    return <RecoveryCodes codes={enrollment.recoveryCodes} onDone={onDone} Heading={heading} />
   }
   return (
     <>
-      <p className="auth__intro">
+      <p ref={intro} className="auth__intro" tabIndex={-1}>
         Scannez ce QR code avec votre application d'authentification, puis saisissez le code qu'elle affiche.
       </p>
       <div className="auth__qr">
@@ -128,7 +137,7 @@ export function TotpEnrollment({
   )
 }
 
-function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void }) {
+function RecoveryCodes({ codes, onDone, Heading }: { codes: string[]; onDone: () => void; Heading: 'h2' | 'h3' }) {
   const id = useId()
   const heading = useRef<HTMLHeadingElement>(null)
 
@@ -138,9 +147,9 @@ function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void 
 
   return (
     <>
-      <h2 ref={heading} className="auth__subtitle" id={id} tabIndex={-1}>
+      <Heading ref={heading} className="auth__subtitle" id={id} tabIndex={-1}>
         Codes de récupération
-      </h2>
+      </Heading>
       <p className="auth__aside">
         Chacun ne sert qu'une fois, si l'application vous manque. Conservez-les hors de cet appareil : ils ne seront
         plus affichés.
@@ -162,12 +171,11 @@ function CopyButton({ label, value }: { label: string; value: string }) {
   const [outcome, setOutcome] = useState('')
 
   function copy() {
-    Promise.resolve()
-      .then(() => navigator.clipboard.writeText(value))
-      .then(
-        () => setOutcome('Copié.'),
-        () => setOutcome('Le navigateur a refusé la copie ; sélectionnez le texte et copiez-le.'),
-      )
+    setOutcome('')
+    navigator.clipboard.writeText(value).then(
+      () => setOutcome('Copié.'),
+      () => setOutcome('Le navigateur a refusé la copie ; sélectionnez le texte et copiez-le.'),
+    )
   }
 
   return (
@@ -185,10 +193,16 @@ function CopyButton({ label, value }: { label: string; value: string }) {
 export function TotpReplacement({ remaining, onReplaced }: { remaining: number; onReplaced: () => void }) {
   const id = useId()
   const [step, setStep] = useState<'idle' | 'proof' | components['schemas']['TotpEnrollment']>('idle')
+  const heading = useRef<HTMLHeadingElement>(null)
+
+  function back() {
+    flushSync(() => setStep('idle'))
+    heading.current?.focus()
+  }
 
   return (
     <section className="auth__form" aria-labelledby={id}>
-      <h2 className="auth__subtitle" id={id}>
+      <h2 ref={heading} className="auth__subtitle" id={id} tabIndex={-1}>
         Application d'authentification
       </h2>
       {step === 'idle' && (
@@ -207,7 +221,7 @@ export function TotpReplacement({ remaining, onReplaced }: { remaining: number; 
             prove={(method, code) => api.POST('/auth/mfa/totp/enroll', { body: { method, code } })}
             onProved={setStep}
           />
-          <button className="ui-button ui-button--secondary" type="button" onClick={() => setStep('idle')}>
+          <button className="ui-button ui-button--secondary" type="button" onClick={back}>
             Annuler
           </button>
         </>
@@ -216,8 +230,9 @@ export function TotpReplacement({ remaining, onReplaced }: { remaining: number; 
         <TotpEnrollment
           enrollment={step}
           confirm={(code) => api.POST('/auth/mfa/totp/confirm', { body: { code } })}
+          heading="h3"
           onDone={() => {
-            setStep('idle')
+            back()
             onReplaced()
           }}
         />

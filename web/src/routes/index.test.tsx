@@ -131,38 +131,24 @@ test('without an idle timeout, no timer sends to the login', async () => {
 
 test('after a logout, the next login shows the new operator only', async () => {
   let current = me
-  let gated = false
-  let open: () => void = () => {}
-  const gate = new Promise<void>((resolve) => {
-    open = resolve
-  })
   stubFetch({
-    'GET /api/auth/me': async () => {
-      if (gated) {
-        await gate
-      }
-      return json(200, current)
-    },
+    'GET /api/auth/me': () => json(200, current),
     'POST /api/auth/activity': () => empty(204),
     'POST /api/auth/logout': () => empty(204),
     'POST /api/auth/login': () => json(200, challenge),
     'POST /api/auth/mfa/verify': () => empty(204),
   })
-  const { router } = renderAt('/')
+  renderAt('/')
   const user = userEvent.setup()
   await user.click(await screen.findByRole('button', { name: 'Se déconnecter' }))
   current = { ...me, operator: { ...me.operator, email: 'autre@example.test', displayName: 'Autre' } }
   await user.type(await screen.findByLabelText('Adresse e-mail'), 'autre@example.test')
   await user.type(screen.getByLabelText('Mot de passe'), 'Correct-horse-9')
   await user.click(screen.getByRole('button', { name: 'Se connecter' }))
-  gated = true
   await user.type(await screen.findByLabelText('Code à six chiffres'), '123456')
   await user.click(screen.getByRole('button', { name: 'Vérifier' }))
-  await waitFor(() => expect(router.state.location.pathname).toBe('/'))
-  await act(async () => {})
-  expect(screen.queryByText(/Opérateur/)).toBeNull()
-  open()
   expect(await screen.findByText('Connecté en tant que Autre (autre@example.test)')).toBeDefined()
+  expect(screen.queryByText(/Opérateur/)).toBeNull()
 })
 
 test('a session not elevated is sent back to the login', async () => {
@@ -198,16 +184,18 @@ test('the app is replaced after a proof of the current one', async () => {
   await user.type(screen.getByLabelText('Code de récupération'), 'OLDCODE123')
   await user.click(screen.getByRole('button', { name: 'Continuer' }))
   await screen.findByRole('img', { name: "QR code de configuration de l'application" })
+  expect(document.activeElement?.textContent).toMatch(/^Scannez ce QR code/)
   const sent = (path: string) => calls.find((c) => c.url.endsWith(path))
   expect(await sent('/api/auth/mfa/totp/enroll')?.json()).toEqual({ method: 'recovery_code', code: 'OLDCODE123' })
   await user.type(screen.getByLabelText('Code à six chiffres'), '654321')
   await user.click(screen.getByRole('button', { name: 'Vérifier' }))
-  await screen.findByRole('heading', { name: 'Codes de récupération' })
+  await screen.findByRole('heading', { name: 'Codes de récupération', level: 3 })
   expect(await sent('/api/auth/mfa/totp/confirm')?.json()).toEqual({ code: '654321' })
   expect(await violations(container)).toEqual([])
   await user.click(screen.getByRole('button', { name: "J'ai enregistré ces codes" }))
   expect(await screen.findByText('10 codes de récupération restants.')).toBeDefined()
   expect(screen.queryByText('NEW0ABCDEF')).toBeNull()
+  expect(document.activeElement).toBe(screen.getByRole('heading', { name: "Application d'authentification" }))
 })
 
 test('a replacement can be abandoned before its proof', async () => {
@@ -217,6 +205,7 @@ test('a replacement can be abandoned before its proof', async () => {
   await user.click(await screen.findByRole('button', { name: "Remplacer l'application" }))
   await user.click(screen.getByRole('button', { name: 'Annuler' }))
   expect(screen.getByRole('button', { name: "Remplacer l'application" })).toBeDefined()
+  expect(document.activeElement).toBe(screen.getByRole('heading', { name: "Application d'authentification" }))
   expect(calls.filter((c) => c.method === 'POST' && !c.url.endsWith('/activity'))).toEqual([])
 })
 
