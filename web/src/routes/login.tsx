@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
-import { api } from '../api'
+import { api, send } from '../api'
 
 const notices = {
   'session-fermee': 'Votre session est fermée. Reconnectez-vous.',
@@ -11,8 +11,9 @@ const notices = {
 type Notice = keyof typeof notices
 
 export const Route = createFileRoute('/login')({
-  validateSearch: (search: Record<string, unknown>): { avis?: Notice } =>
-    typeof search.avis === 'string' && search.avis in notices ? { avis: search.avis as Notice } : {},
+  validateSearch: (search: Record<string, unknown>): { avis?: Notice } => ({
+    avis: typeof search.avis === 'string' && Object.hasOwn(notices, search.avis) ? (search.avis as Notice) : undefined,
+  }),
   component: Login,
 })
 
@@ -39,16 +40,17 @@ function Login() {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
     const body = { email: String(form.get('email') ?? ''), password: String(form.get('password') ?? '') }
+    setError('')
     setWaiting(true)
-    const { error: refused, response } = await api.POST('/auth/login', { body })
-    if (!refused) {
+    const { response, failure } = await send(() => api.POST('/auth/login', { body }))
+    if (!failure) {
       queryClient.removeQueries({ queryKey: ['me'] })
       await navigate({ to: '/' })
       return
     }
-    setError(refused.message)
-    const retry = Number(response.headers.get('Retry-After'))
-    if (response.status === 429 && retry > 0) {
+    setError(failure)
+    const retry = Number(response?.headers.get('Retry-After'))
+    if (response?.status === 429 && retry > 0) {
       setTimeout(() => setWaiting(false), retry * 1000)
       return
     }

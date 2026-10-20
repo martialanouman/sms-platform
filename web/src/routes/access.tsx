@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, useRouterState } from '@tanstack/react-router'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
-import { api } from '../api'
+import { api, send } from '../api'
 
 export const Route = createFileRoute('/access')({ component: Access })
 
@@ -28,15 +28,15 @@ function Access() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    const body = { token, password: String(new FormData(event.currentTarget).get('password') ?? '') }
+    setError('')
     setWaiting(true)
-    const { error: refused } = await api.POST('/auth/access-link', {
-      body: { token, password: String(new FormData(event.currentTarget).get('password') ?? '') },
-    })
-    if (!refused) {
+    const { failure } = await send(() => api.POST('/auth/access-link', { body }))
+    if (!failure) {
       await navigate({ to: '/login', search: { avis: 'mot-de-passe-enregistre' } })
       return
     }
-    setError(refused.message)
+    setError(failure)
     setWaiting(false)
   }
 
@@ -51,9 +51,6 @@ function Access() {
   return (
     <main>
       <h1>Définir un mot de passe</h1>
-      <p id="password-rules">
-        Douze caractères au moins, dont une majuscule, une minuscule, un chiffre et un caractère spécial.
-      </p>
       <form noValidate onSubmit={submit}>
         <label htmlFor="password">Nouveau mot de passe</label>
         <input
@@ -63,7 +60,7 @@ function Access() {
           type="password"
           autoComplete="new-password"
           required
-          aria-describedby={error ? 'password-rules access-error' : 'password-rules'}
+          aria-describedby={error ? 'access-error' : undefined}
         />
         {error && (
           <p ref={alert} id="access-error" role="alert" tabIndex={-1}>

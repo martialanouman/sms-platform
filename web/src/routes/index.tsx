@@ -1,7 +1,6 @@
-import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { api, json } from '../api'
+import { api, json, send, unreachable } from '../api'
 import { Unauthenticated, useActivity, useMe, useSessionClosed } from '../session'
 
 export const Route = createFileRoute('/')({ component: Home })
@@ -10,8 +9,8 @@ function Home() {
   const me = useMe()
   const closed = useSessionClosed()
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const [leaving, setLeaving] = useState(false)
+  const [failure, setFailure] = useState('')
   useActivity(leaving ? undefined : me.data?.idleTimeoutSeconds)
 
   useEffect(() => {
@@ -24,15 +23,23 @@ function Home() {
   }, [me.error, closed])
 
   async function logout() {
+    setFailure('')
     setLeaving(true)
-    await api.POST('/auth/logout', { headers: json })
-    queryClient.removeQueries({ queryKey: ['me'] })
+    const { failure } = await send(() => api.POST('/auth/logout', { headers: json }))
+    if (failure) {
+      setLeaving(false)
+      setFailure(failure)
+      return
+    }
     await navigate({ to: '/login' })
   }
 
   return (
     <main>
       <h1>Tableau de bord</h1>
+      {(failure || (me.error && !(me.error instanceof Unauthenticated))) && (
+        <p role="alert">{failure || unreachable}</p>
+      )}
       {me.data && (
         <>
           <p>

@@ -28,11 +28,11 @@ export function stubFetch(handlers: Record<string, Handler>) {
   vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = new Request(input, init)
     const key = `${request.method} ${new URL(request.url).pathname}`
+    calls.push(request)
     const handler = handlers[key]
     if (!handler) {
       throw new Error(`unexpected request ${key}`)
     }
-    calls.push(request)
     return handler(request)
   })
   return calls
