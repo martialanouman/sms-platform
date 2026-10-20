@@ -154,15 +154,14 @@ func flows(fsys fs.FS, file string) (policy, error) {
 	}
 	var grpcPort int
 	var callers []string
-	grpcSet := false
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	for {
 		var w workload
 		if err := dec.Decode(&w); errors.Is(err, io.EOF) {
 			switch {
-			case grpcSet != (len(callers) > 0):
+			case (grpcPort != 0) != (len(callers) > 0):
 				return p, fmt.Errorf("%s: GRPC_ADDR and TLS_ALLOWED_CLIENTS go together", name)
-			case grpcSet:
+			case grpcPort != 0:
 				in := ingress{Ports: []port{{"TCP", grpcPort}}}
 				for _, c := range callers {
 					in.From = append(in.From, to("sms", map[string]string{"app.kubernetes.io/name": c}).To...)
@@ -190,7 +189,7 @@ func flows(fsys fs.FS, file string) (policy, error) {
 					if m == nil || tcpPort(m[1]) == 0 {
 						return p, fmt.Errorf("%s: GRPC_ADDR %q is not :<port>", name, e.Value)
 					}
-					grpcPort, grpcSet = tcpPort(m[1]), true
+					grpcPort = tcpPort(m[1])
 				case "TLS_ALLOWED_CLIENTS":
 					for c := range strings.SplitSeq(e.Value, ",") {
 						if c = strings.TrimSpace(c); c == "" {

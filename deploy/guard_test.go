@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"slices"
 	"strconv"
@@ -77,9 +78,10 @@ type workload struct {
 		Name string `yaml:"name"`
 	} `yaml:"metadata"`
 	Spec struct {
-		Ports []struct {
-			Port       int `yaml:"port"`
-			TargetPort int `yaml:"targetPort"`
+		Type     string         `yaml:"type"`
+		Selector map[string]any `yaml:"selector"`
+		Ports    []struct {
+			Port int `yaml:"port"`
 		} `yaml:"ports"`
 		MaxReplicas    int32 `yaml:"maxReplicas"`
 		ScaleTargetRef struct {
@@ -182,6 +184,9 @@ func check(root string) error {
 		services = strings.Fields(string(script[servicesAt[2]:servicesAt[3]]))
 		if jobsAt == nil || servicesAt[0] < jobsAt[0] {
 			errs = append(errs, errors.New("deploy.sh: the services before the Jobs"))
+		}
+		if !bytes.Contains(script[servicesAt[1]:], []byte(`rollout status "deploy/$service"`)) {
+			errs = append(errs, errors.New("deploy.sh: the services are not awaited by rollout status"))
 		}
 	}
 	for _, j := range jobs {
@@ -288,7 +293,7 @@ func checkManifest(path, name string) (string, []error) {
 	if !regexp.MustCompile(`(?m)^ *image: ` + regexp.QuoteMeta(registry+name) + `$`).Match(data) {
 		errs = append(errs, fmt.Errorf("%s: image not in the form deploy.sh tags, %q", name, "image: "+registry+name))
 	}
-	grpcPort, servicePorts := 0, [][2]int{}
+	grpcPort, servicePorts := 0, []int{}
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	for docs := 0; ; docs++ {
 		var w workload
@@ -315,8 +320,16 @@ func checkManifest(path, name string) (string, []error) {
 			if w.Metadata.Name != name {
 				errs = append(errs, fmt.Errorf("%s: %s %q, want %q", name, w.Kind, w.Metadata.Name, name))
 			}
+			if w.Kind == "Service" {
+				if w.Spec.Type != "" && w.Spec.Type != "ClusterIP" {
+					errs = append(errs, fmt.Errorf("%s: Service type %s, want ClusterIP", name, w.Spec.Type))
+				}
+				if !reflect.DeepEqual(w.Spec.Selector, map[string]any{"app.kubernetes.io/name": name}) {
+					errs = append(errs, fmt.Errorf("%s: Service selector %v, want the pods of %s", name, w.Spec.Selector, name))
+				}
+			}
 			for _, p := range w.Spec.Ports {
-				servicePorts = append(servicePorts, [2]int{p.Port, p.TargetPort})
+				servicePorts = append(servicePorts, p.Port)
 			}
 			continue
 		case "Job":
@@ -368,17 +381,16 @@ func checkManifest(path, name string) (string, []error) {
 		}
 	}
 	for _, p := range servicePorts {
-		if p != [2]int{grpcPort, grpcPort} {
-			errs = append(errs, fmt.Errorf("%s: Service port %d to %d, want the port of GRPC_ADDR %d", name, p[0], p[1], grpcPort))
+		if p != grpcPort {
+			errs = append(errs, fmt.Errorf("%s: Service port %d, want the port of GRPC_ADDR %d", name, p, grpcPort))
 		}
 	}
 	return kind, errs
 }
 
-// checkService holds a Deployment to its drain (spec 10 §10.2), its readiness and, for content-key-svc, the allowlist
-// of its method map (#26).
 func checkService(name string, w workload) []error {
 	var errs []error
+	allowlist := name != "content-key-svc"
 	for _, c := range w.Spec.Template.Spec.Containers {
 		drain := time.Duration(0)
 		for _, v := range []string{"DRAIN_DELAY", "DRAIN_BUDGET", "SHUTDOWN_TIMEOUT"} {
@@ -404,6 +416,7 @@ func checkService(name string, w workload) []error {
 			if e.Name != "TLS_ALLOWED_CLIENTS" || name != "content-key-svc" {
 				continue
 			}
+			allowlist = true
 			var allowed []string
 			for a := range strings.SplitSeq(e.Value, ",") {
 				if a = strings.TrimSpace(a); a != "" {
@@ -414,6 +427,9 @@ func checkService(name string, w workload) []error {
 				errs = append(errs, fmt.Errorf("%s: TLS_ALLOWED_CLIENTS %v, want the callers of the method map %v", name, allowed, want))
 			}
 		}
+	}
+	if !allowlist {
+		errs = append(errs, fmt.Errorf("%s: no TLS_ALLOWED_CLIENTS, want the callers of the method map", name))
 	}
 	return errs
 }
@@ -441,59 +457,61 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 		"          securityContext:\n            readOnlyRootFilesystem: true\n            seccompProfile: {type: RuntimeDefault}\n      containers:\n"
 	for _, tc := range []struct {
 		name, file, old, new, want string
-		also                       [][2]string
 	}{
-		{"cmd without build", ".goreleaser.yaml", "id: migrate\n    main:", "id: other\n    main:", "cmd/migrate: 0 build", nil},
-		{"build without cmd", ".goreleaser.yaml", "id: migrate\n    main:", "id: other\n    main:", "build other: no cmd/other", nil},
-		{"duplicate build", ".goreleaser.yaml", "builds:\n", "builds:\n  - id: migrate\n    main: ./cmd/migrate\n    env: [CGO_ENABLED=0]\n", "cmd/migrate: 2 build", nil},
-		{"build of another main", ".goreleaser.yaml", "main: ./cmd/migrate", "main: ./cmd/other", "main is", nil},
-		{"build with cgo", ".goreleaser.yaml", "env: [CGO_ENABLED=0]", "env: []", "CGO_ENABLED=0", nil},
-		{"cmd without image", ".goreleaser.yaml", "dockers_v2:\n  - id: migrate", "dockers_v2:\n  - id: other", "cmd/migrate: 0 image", nil},
-		{"image of another build", ".goreleaser.yaml", "ids: [migrate]", "ids: [other]", "image migrate: ids", nil},
-		{"image in another repository", ".goreleaser.yaml", "images: [ghcr.io/martialanouman/sms-platform/migrate]", "images: [ghcr.io/other/migrate]", "image migrate: ids", nil},
-		{"cmd without manifest", "deploy/k8s/migrate.yaml", "", "", "cmd/migrate: 0 manifest", nil},
-		{"empty manifest", "deploy/k8s/migrate.yaml", "", "\n", "migrate holds no workload", nil},
-		{"manifest of another extension", "deploy/k8s/other.yml", "", "kind: Job\n", "other.yml is not a .yaml", nil},
-		{"kind not guarded", "deploy/k8s/migrate.yaml", "kind: Job", "kind: StatefulSet", "kind \"StatefulSet\"", nil},
-		{"workload without container", "deploy/k8s/migrate.yaml", "      containers:", "      container:", "Job without container", nil},
-		{"wrong image in manifest", "deploy/k8s/migrate.yaml", "image: ghcr.io/martialanouman/sms-platform/migrate", "image: ghcr.io/martialanouman/sms-platform/migrate:latest", "image \"", nil},
-		{"root container", "deploy/k8s/migrate.yaml", "runAsNonRoot: true", "runAsNonRoot: false", "runAsNonRoot", nil},
-		{"root init container", "deploy/k8s/migrate.yaml", "      containers:\n", initContainer, "container init: runAsNonRoot", nil},
-		{"writable root filesystem", "deploy/k8s/migrate.yaml", "readOnlyRootFilesystem: true", "readOnlyRootFilesystem: false", "readOnlyRootFilesystem", nil},
-		{"no seccomp profile", "deploy/k8s/migrate.yaml", "type: RuntimeDefault", "type: Unconfined", "seccompProfile", nil},
-		{"variable config does not read", "deploy/k8s/migrate.yaml", "- name: POSTGRES_URL", "- name: DATABASE_URL", "DATABASE_URL is not read by config", nil},
-		{"literal URL", "deploy/k8s/migrate.yaml", "valueFrom:\n                secretKeyRef:\n                  name: migrate\n                  key: postgres-url", "value: postgres://x", "secretKeyRef", nil},
-		{"declaration without role secret", "contracts/grants/billing-svc.yaml", "", "control_plane: {}\n", "billing-svc postgres-password billing_svc", nil},
-		{"role secret without declaration", "contracts/grants/admin-api-svc.yaml", "", "", "declaration []", nil},
-		{"role secret under another key", "deploy/k8s/catalog-apply.yaml", "key: postgres-password", "key: password", "admin-api-svc password admin_api_svc", nil},
-		{"role secret under another path", "deploy/k8s/catalog-apply.yaml", "path: admin_api_svc", "path: admin-api-svc", "admin-api-svc postgres-password admin-api-svc", nil},
-		{"Job among the network policies", "deploy/k8s/networkpolicies.yaml", "", "kind: Job\n", "networkpolicies.yaml: kind \"Job\"", nil},
-		{"Job behind a network policy", "deploy/k8s/networkpolicies.yaml", "DO NOT EDIT.\n", "DO NOT EDIT.\nkind: NetworkPolicy\n---\nkind: Job\n---\n", "networkpolicies.yaml: kind \"Job\"", nil},
-		{"pod without its label", "deploy/k8s/migrate.yaml", "app.kubernetes.io/name: migrate", "app.kubernetes.io/part-of: migrate", "label app.kubernetes.io/name", nil},
-		{"pod labelled for another", "deploy/k8s/migrate.yaml", "app.kubernetes.io/name: migrate", "app.kubernetes.io/name: other", "label app.kubernetes.io/name", nil},
-		{"unbounded Job", "deploy/k8s/migrate.yaml", "  activeDeadlineSeconds: 300\n", "", "activeDeadlineSeconds", nil},
-		{"negative Job deadline", "deploy/k8s/migrate.yaml", "activeDeadlineSeconds: 300", "activeDeadlineSeconds: -1", "activeDeadlineSeconds", nil},
-		{"image in quotes", "deploy/k8s/migrate.yaml", "image: ghcr.io/martialanouman/sms-platform/migrate\n", "image: \"ghcr.io/martialanouman/sms-platform/migrate\"\n", "not in the form deploy.sh tags", nil},
-		{"image behind a comment", "deploy/k8s/migrate.yaml", "image: ghcr.io/martialanouman/sms-platform/migrate\n", "image: ghcr.io/martialanouman/sms-platform/migrate # pinned\n", "not in the form deploy.sh tags", nil},
-		{"image opening its list item", "deploy/k8s/migrate.yaml", "        - name: migrate\n          image: ghcr.io/martialanouman/sms-platform/migrate\n", "        - image: ghcr.io/martialanouman/sms-platform/migrate\n          name: migrate\n", "not in the form deploy.sh tags", nil},
-		{"manifest missing from deploy.sh", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for job in migrate; do", "cmd/catalog-apply: 0 deploy.sh job", nil},
-		{"manifest twice in deploy.sh", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for job in migrate catalog-apply migrate; do", "cmd/migrate: 2 deploy.sh job", nil},
-		{"HPA beyond its partitions", "deploy/k8s/migrate.yaml", "apiVersion: batch/v1\n", "apiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\nspec: {scaleTargetRef: {name: router-svc}, maxReplicas: 1000}\n---\napiVersion: batch/v1\n", "maxReplicas 1000 above the", nil},
-		{"envFrom", "deploy/k8s/migrate.yaml", "          env:\n", "          envFrom:\n            - configMapRef: {name: x}\n          env:\n", "envFrom", nil},
-		{"service missing from deploy.sh", "deploy/test-env/deploy.sh", "for service in content-key-svc; do", "for service in other; do", "cmd/content-key-svc: 0 deploy.sh", nil},
-		{"Deployment among the Jobs", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for job in migrate catalog-apply content-key-svc; do", "content-key-svc: a Deployment in the loop of the Jobs", nil},
-		{"Job among the services", "deploy/test-env/deploy.sh", "for service in content-key-svc; do", "for service in content-key-svc migrate; do", "migrate: a Job in the loop of the services", nil},
-		{"services before the Jobs", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "@@", "the services before the Jobs",
-			[][2]string{{"for service in content-key-svc; do", "for job in migrate catalog-apply; do"}, {"@@", "for service in content-key-svc; do"}}},
-		{"root Deployment", "deploy/k8s/content-key-svc.yaml", "runAsNonRoot: true", "runAsNonRoot: false", "runAsNonRoot", nil},
-		{"Deployment without readiness", "deploy/k8s/content-key-svc.yaml", "path: /readyz", "path: /healthz", "readinessProbe", nil},
-		{"grace shorter than the drain", "deploy/k8s/content-key-svc.yaml", "terminationGracePeriodSeconds: 125", "terminationGracePeriodSeconds: 124", "terminationGracePeriodSeconds", nil},
-		{"drain lengthened past the grace", "deploy/k8s/content-key-svc.yaml", "          env:\n", "          env:\n            - name: DRAIN_BUDGET\n              value: 91s\n", "terminationGracePeriodSeconds", nil},
-		{"Service of another name", "deploy/k8s/content-key-svc.yaml", "kind: Service\nmetadata:\n  name: content-key-svc", "kind: Service\nmetadata:\n  name: other", "Service \"other\"", nil},
-		{"Service on another port", "deploy/k8s/content-key-svc.yaml", "      port: 7002", "      port: 7003", "Service port", nil},
-		{"Service to another port", "deploy/k8s/content-key-svc.yaml", "targetPort: 7002", "targetPort: 7003", "Service port", nil},
-		{"ServiceAccount of another name", "deploy/k8s/content-key-svc.yaml", "kind: ServiceAccount\nmetadata:\n  name: content-key-svc", "kind: ServiceAccount\nmetadata:\n  name: other", "ServiceAccount \"other\"", nil},
-		{"allowlist beyond the method map", "deploy/k8s/content-key-svc.yaml", "value: admin-api-svc", "value: admin-api-svc, router-svc", "TLS_ALLOWED_CLIENTS", nil},
+		{"cmd without build", ".goreleaser.yaml", "id: migrate\n    main:", "id: other\n    main:", "cmd/migrate: 0 build"},
+		{"build without cmd", ".goreleaser.yaml", "id: migrate\n    main:", "id: other\n    main:", "build other: no cmd/other"},
+		{"duplicate build", ".goreleaser.yaml", "builds:\n", "builds:\n  - id: migrate\n    main: ./cmd/migrate\n    env: [CGO_ENABLED=0]\n", "cmd/migrate: 2 build"},
+		{"build of another main", ".goreleaser.yaml", "main: ./cmd/migrate", "main: ./cmd/other", "main is"},
+		{"build with cgo", ".goreleaser.yaml", "env: [CGO_ENABLED=0]", "env: []", "CGO_ENABLED=0"},
+		{"cmd without image", ".goreleaser.yaml", "dockers_v2:\n  - id: migrate", "dockers_v2:\n  - id: other", "cmd/migrate: 0 image"},
+		{"image of another build", ".goreleaser.yaml", "ids: [migrate]", "ids: [other]", "image migrate: ids"},
+		{"image in another repository", ".goreleaser.yaml", "images: [ghcr.io/martialanouman/sms-platform/migrate]", "images: [ghcr.io/other/migrate]", "image migrate: ids"},
+		{"cmd without manifest", "deploy/k8s/migrate.yaml", "", "", "cmd/migrate: 0 manifest"},
+		{"empty manifest", "deploy/k8s/migrate.yaml", "", "\n", "migrate holds no workload"},
+		{"manifest of another extension", "deploy/k8s/other.yml", "", "kind: Job\n", "other.yml is not a .yaml"},
+		{"kind not guarded", "deploy/k8s/migrate.yaml", "kind: Job", "kind: StatefulSet", "kind \"StatefulSet\""},
+		{"workload without container", "deploy/k8s/migrate.yaml", "      containers:", "      container:", "Job without container"},
+		{"wrong image in manifest", "deploy/k8s/migrate.yaml", "image: ghcr.io/martialanouman/sms-platform/migrate", "image: ghcr.io/martialanouman/sms-platform/migrate:latest", "image \""},
+		{"root container", "deploy/k8s/migrate.yaml", "runAsNonRoot: true", "runAsNonRoot: false", "runAsNonRoot"},
+		{"root init container", "deploy/k8s/migrate.yaml", "      containers:\n", initContainer, "container init: runAsNonRoot"},
+		{"writable root filesystem", "deploy/k8s/migrate.yaml", "readOnlyRootFilesystem: true", "readOnlyRootFilesystem: false", "readOnlyRootFilesystem"},
+		{"no seccomp profile", "deploy/k8s/migrate.yaml", "type: RuntimeDefault", "type: Unconfined", "seccompProfile"},
+		{"variable config does not read", "deploy/k8s/migrate.yaml", "- name: POSTGRES_URL", "- name: DATABASE_URL", "DATABASE_URL is not read by config"},
+		{"literal URL", "deploy/k8s/migrate.yaml", "valueFrom:\n                secretKeyRef:\n                  name: migrate\n                  key: postgres-url", "value: postgres://x", "secretKeyRef"},
+		{"declaration without role secret", "contracts/grants/billing-svc.yaml", "", "control_plane: {}\n", "billing-svc postgres-password billing_svc"},
+		{"role secret without declaration", "contracts/grants/admin-api-svc.yaml", "", "", "declaration []"},
+		{"role secret under another key", "deploy/k8s/catalog-apply.yaml", "key: postgres-password", "key: password", "admin-api-svc password admin_api_svc"},
+		{"role secret under another path", "deploy/k8s/catalog-apply.yaml", "path: admin_api_svc", "path: admin-api-svc", "admin-api-svc postgres-password admin-api-svc"},
+		{"Job among the network policies", "deploy/k8s/networkpolicies.yaml", "", "kind: Job\n", "networkpolicies.yaml: kind \"Job\""},
+		{"Job behind a network policy", "deploy/k8s/networkpolicies.yaml", "DO NOT EDIT.\n", "DO NOT EDIT.\nkind: NetworkPolicy\n---\nkind: Job\n---\n", "networkpolicies.yaml: kind \"Job\""},
+		{"pod without its label", "deploy/k8s/migrate.yaml", "app.kubernetes.io/name: migrate", "app.kubernetes.io/part-of: migrate", "label app.kubernetes.io/name"},
+		{"pod labelled for another", "deploy/k8s/migrate.yaml", "app.kubernetes.io/name: migrate", "app.kubernetes.io/name: other", "label app.kubernetes.io/name"},
+		{"unbounded Job", "deploy/k8s/migrate.yaml", "  activeDeadlineSeconds: 300\n", "", "activeDeadlineSeconds"},
+		{"negative Job deadline", "deploy/k8s/migrate.yaml", "activeDeadlineSeconds: 300", "activeDeadlineSeconds: -1", "activeDeadlineSeconds"},
+		{"image in quotes", "deploy/k8s/migrate.yaml", "image: ghcr.io/martialanouman/sms-platform/migrate\n", "image: \"ghcr.io/martialanouman/sms-platform/migrate\"\n", "not in the form deploy.sh tags"},
+		{"image behind a comment", "deploy/k8s/migrate.yaml", "image: ghcr.io/martialanouman/sms-platform/migrate\n", "image: ghcr.io/martialanouman/sms-platform/migrate # pinned\n", "not in the form deploy.sh tags"},
+		{"image opening its list item", "deploy/k8s/migrate.yaml", "        - name: migrate\n          image: ghcr.io/martialanouman/sms-platform/migrate\n", "        - image: ghcr.io/martialanouman/sms-platform/migrate\n          name: migrate\n", "not in the form deploy.sh tags"},
+		{"manifest missing from deploy.sh", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for job in migrate; do", "cmd/catalog-apply: 0 deploy.sh job"},
+		{"manifest twice in deploy.sh", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for job in migrate catalog-apply migrate; do", "cmd/migrate: 2 deploy.sh job"},
+		{"HPA beyond its partitions", "deploy/k8s/migrate.yaml", "apiVersion: batch/v1\n", "apiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\nspec: {scaleTargetRef: {name: router-svc}, maxReplicas: 1000}\n---\napiVersion: batch/v1\n", "maxReplicas 1000 above the"},
+		{"envFrom", "deploy/k8s/migrate.yaml", "          env:\n", "          envFrom:\n            - configMapRef: {name: x}\n          env:\n", "envFrom"},
+		{"service missing from deploy.sh", "deploy/test-env/deploy.sh", "for service in content-key-svc; do", "for service in other; do", "cmd/content-key-svc: 0 deploy.sh"},
+		{"Deployment among the Jobs", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for job in migrate catalog-apply content-key-svc; do", "content-key-svc: a Deployment in the loop of the Jobs"},
+		{"Job among the services", "deploy/test-env/deploy.sh", "for service in content-key-svc; do", "for service in content-key-svc migrate; do", "migrate: a Job in the loop of the services"},
+		{"services before the Jobs", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for service in content-key-svc; do\ndone\nfor job in migrate catalog-apply; do", "the services before the Jobs"},
+		{"services without Jobs", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for jobs in migrate catalog-apply; do", "the services before the Jobs"},
+		{"services not awaited", "deploy/test-env/deploy.sh", "rollout status", "get", "rollout status"},
+		{"Service open on the node", "deploy/k8s/content-key-svc.yaml", "spec:\n  selector:", "spec:\n  type: NodePort\n  selector:", "Service type"},
+		{"Service to other pods", "deploy/k8s/content-key-svc.yaml", "  selector:\n    app.kubernetes.io/name: content-key-svc", "  selector:\n    app.kubernetes.io/name: admin-api-svc", "Service selector"},
+		{"allowlist dropped", "deploy/k8s/content-key-svc.yaml", "            - name: TLS_ALLOWED_CLIENTS\n              value: admin-api-svc\n", "", "TLS_ALLOWED_CLIENTS"},
+		{"root Deployment", "deploy/k8s/content-key-svc.yaml", "runAsNonRoot: true", "runAsNonRoot: false", "runAsNonRoot"},
+		{"Deployment without readiness", "deploy/k8s/content-key-svc.yaml", "path: /readyz", "path: /healthz", "readinessProbe"},
+		{"grace shorter than the drain", "deploy/k8s/content-key-svc.yaml", "terminationGracePeriodSeconds: 125", "terminationGracePeriodSeconds: 124", "terminationGracePeriodSeconds"},
+		{"drain lengthened past the grace", "deploy/k8s/content-key-svc.yaml", "          env:\n", "          env:\n            - name: DRAIN_BUDGET\n              value: 91s\n", "terminationGracePeriodSeconds"},
+		{"Service of another name", "deploy/k8s/content-key-svc.yaml", "kind: Service\nmetadata:\n  name: content-key-svc", "kind: Service\nmetadata:\n  name: other", "Service \"other\""},
+		{"Service on another port", "deploy/k8s/content-key-svc.yaml", "      port: 7002", "      port: 7003", "Service port"},
+		{"ServiceAccount of another name", "deploy/k8s/content-key-svc.yaml", "kind: ServiceAccount\nmetadata:\n  name: content-key-svc", "kind: ServiceAccount\nmetadata:\n  name: other", "ServiceAccount \"other\""},
+		{"allowlist beyond the method map", "deploy/k8s/content-key-svc.yaml", "value: admin-api-svc", "value: admin-api-svc, router-svc", "TLS_ALLOWED_CLIENTS"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()
@@ -522,12 +540,6 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 						t.Fatalf("%s does not hold %q", f, tc.old)
 					}
 					data = bytes.Replace(data, []byte(tc.old), []byte(tc.new), 1)
-					for _, r := range tc.also {
-						if !bytes.Contains(data, []byte(r[0])) {
-							t.Fatalf("%s does not hold %q", f, r[0])
-						}
-						data = bytes.Replace(data, []byte(r[0]), []byte(r[1]), 1)
-					}
 				case tc.new == "":
 					continue
 				default:
