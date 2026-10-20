@@ -50,8 +50,9 @@ Arrêtés en 010b-1 (Fable), rappelés ici ; les points 9 à 12 sont tranchés p
    `X-Vault-Token` et le JWT suivraient un 307 ; la propriété vit avec qui en dépend.
 10. **Client OpenBao sans certificat client** : racines de `TLS_CA_FILE`, TLS 1.3 ; le listener d'OpenBao demande un
     certificat sans l'exiger, et le certificat du service n'est que `server auth`.
-11. **Adaptateur `grpclog` dans `internal/platform/observability`** : tout serveur gRPC en aura besoin. Info de grpc
-    en Debug (bavard), Warning en Warn, Error en Error, Fatal en Error puis sortie ; verbosité 0.
+11. **Adaptateur `grpclog` dans `internal/platform/observability`** : tout serveur gRPC en aura besoin. Chaque niveau
+    de grpc sur le même niveau slog, Fatal en Error puis sortie ; verbosité 0. L'Info n'est pas rabattu en Debug : le
+    refus de handshake sort en Info (`channelz.Info`, « failed to create ServerTransport », grpc-go 1.84).
 12. **Arrêt du serveur gRPC** : `GracefulStop` à l'annulation, borné par `SHUTDOWN_TIMEOUT`, puis `Stop`.
 
 ## Design arrêté
