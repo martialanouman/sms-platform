@@ -35,7 +35,7 @@ func (s Service) Resolve(ctx context.Context, cookie string) (Current, error) {
 	case !found || !v.Live:
 		return Current{}, ErrUnauthenticated
 	}
-	return Current{SessionID: v.ID, OperatorID: v.OperatorID, Email: v.Email, DisplayName: v.DisplayName, ExpiresAt: v.ExpiresAt}, nil
+	return v.Current, nil
 }
 
 // Activity is an operator's gesture: the only extension of a live session.

@@ -50,8 +50,8 @@ func optional(s string) *string {
 	return &s
 }
 
-func (t tx) CreateOperator(ctx context.Context, email, displayName string) (string, bool, error) {
-	id, err := queries.CreateOperator(ctx, t.db, sqlc.CreateOperatorParams{Email: email, DisplayName: displayName})
+func (t tx) CreateOperator(ctx context.Context, email string) (string, bool, error) {
+	id, err := queries.CreateOperator(ctx, t.db, email)
 	created, err := found(err)
 	return id, created, err
 }
@@ -70,14 +70,10 @@ func (t tx) QueueLink(ctx context.Context, operatorID string, kind dashboard.Lin
 	return queries.QueueLink(ctx, t.db, sqlc.QueueLinkParams{OperatorID: operatorID, Kind: string(kind)})
 }
 
-func (t tx) LinkUsable(ctx context.Context, digest []byte) (bool, error) {
-	return queries.LinkUsable(ctx, t.db, digest)
-}
-
-func (t tx) ConsumeLink(ctx context.Context, digest []byte) (string, dashboard.LinkKind, bool, error) {
-	r, err := queries.ConsumeLink(ctx, t.db, digest)
+func (t tx) ConsumeLink(ctx context.Context, digest []byte) (string, bool, error) {
+	id, err := queries.ConsumeLink(ctx, t.db, digest)
 	ok, err := found(err)
-	return r.OperatorID, dashboard.LinkKind(r.Kind), ok, err
+	return id, ok, err
 }
 
 func (t tx) NextDue(ctx context.Context, maxAttempts int) (dashboard.Due, bool, error) {
@@ -100,7 +96,7 @@ func (t tx) Reserve(ctx context.Context, subject []byte, window time.Duration, l
 		return 0, err
 	}
 	left, err := queries.LockedFor(ctx, t.db, sqlc.LockedForParams{WindowSeconds: window.Seconds(), Subject: subject})
-	return max(time.Duration(left*float64(time.Second)), time.Nanosecond), err
+	return time.Duration(left * float64(time.Second)), err
 }
 
 func (t tx) Forget(ctx context.Context, subject []byte) error {
@@ -115,8 +111,8 @@ func (t tx) OpenSession(ctx context.Context, operatorID string, digest, challeng
 func (t tx) SessionOf(ctx context.Context, digest []byte, idle time.Duration) (dashboard.SessionView, bool, error) {
 	r, err := queries.SessionOf(ctx, t.db, sqlc.SessionOfParams{IdleSeconds: idle.Seconds(), Digest: digest})
 	ok, err := found(err)
-	return dashboard.SessionView{ID: r.ID, OperatorID: r.OperatorID, Email: r.Email, DisplayName: r.DisplayName,
-		ExpiresAt: r.ExpiresAt, Live: r.Live}, ok, err
+	return dashboard.SessionView{Current: dashboard.Current{SessionID: r.ID, OperatorID: r.OperatorID, Email: r.Email,
+		DisplayName: r.DisplayName, ExpiresAt: r.ExpiresAt}, Live: r.Live}, ok, err
 }
 
 func (t tx) Touch(ctx context.Context, digest []byte, idle time.Duration) (bool, error) {

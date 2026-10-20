@@ -44,9 +44,9 @@ func (s Service) Login(ctx context.Context, email, password string, source netip
 	}
 	var match bool
 	if known && operator.Active && operator.PasswordHash != "" {
-		match, err = s.Hasher.Verify(ctx, operator.PasswordHash, password)
+		match, err = s.Hasher.Verify(operator.PasswordHash, password)
 	} else {
-		err = s.Hasher.VerifyDummy(ctx, password)
+		err = s.Hasher.VerifyDummy(password)
 	}
 	if err != nil {
 		return Login{}, err

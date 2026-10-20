@@ -3,7 +3,6 @@
 package dashboard
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
@@ -87,7 +86,7 @@ func (h *Hasher) hold(do func() error) error {
 }
 
 // Hash is the PHC string of password under a fresh salt.
-func (h *Hasher) Hash(_ context.Context, password string) (string, error) {
+func (h *Hasher) Hash(password string) (string, error) {
 	salt := make([]byte, saltLength)
 	_, _ = rand.Read(salt)
 	var phc string
@@ -102,7 +101,7 @@ func (h *Hasher) Hash(_ context.Context, password string) (string, error) {
 
 // Verify tells whether password is the one phc was computed from. A hash this binary would not have written is an
 // error, never a match.
-func (h *Hasher) Verify(_ context.Context, phc, password string) (bool, error) {
+func (h *Hasher) Verify(phc, password string) (bool, error) {
 	fields := strings.Split(phc, "$")
 	if len(fields) != 6 || fields[0] != "" || fields[1] != "argon2id" ||
 		fields[2] != fmt.Sprintf("v=%d", argon2.Version) || fields[3] != params {
@@ -126,7 +125,7 @@ func (h *Hasher) Verify(_ context.Context, phc, password string) (bool, error) {
 
 // VerifyDummy costs what Verify costs, under the same slot, for an operator who does not exist or cannot log in: the
 // time of a refusal tells nothing.
-func (h *Hasher) VerifyDummy(_ context.Context, password string) error {
+func (h *Hasher) VerifyDummy(password string) error {
 	return h.hold(func() error {
 		runtime.KeepAlive(argon2.IDKey([]byte(password), make([]byte, saltLength), passes, memory, lanes, keyLength))
 		return nil

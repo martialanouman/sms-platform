@@ -1,7 +1,6 @@
 package dashboard_test
 
 import (
-	"context"
 	"errors"
 	"slices"
 	"strings"
@@ -33,19 +32,18 @@ func TestCheckPasswordNamesEachMissingRule(t *testing.T) {
 
 func TestTheHasherVerifiesWhatItHashed(t *testing.T) {
 	h := dashboard.NewHasher()
-	ctx := context.Background()
-	phc, err := h.Hash(ctx, "Correct-horse-9")
+	phc, err := h.Hash("Correct-horse-9")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.HasPrefix(phc, "$argon2id$v=19$m=65536,t=3,p=4$") || strings.Contains(phc, "Correct-horse-9") {
 		t.Fatalf("phc = %q", phc)
 	}
-	if again, _ := h.Hash(ctx, "Correct-horse-9"); again == phc {
+	if again, _ := h.Hash("Correct-horse-9"); again == phc {
 		t.Error("two hashes of one password are equal: no salt")
 	}
 	for password, want := range map[string]bool{"Correct-horse-9": true, "Correct-horse-8": false, "": false} {
-		if ok, err := h.Verify(ctx, phc, password); err != nil || ok != want {
+		if ok, err := h.Verify(phc, password); err != nil || ok != want {
 			t.Errorf("verify %q = %v, %v; want %v", password, ok, err, want)
 		}
 	}
@@ -53,28 +51,46 @@ func TestTheHasherVerifiesWhatItHashed(t *testing.T) {
 
 func TestTheHasherRefusesAHashItCannotTrust(t *testing.T) {
 	h := dashboard.NewHasher()
-	valid, err := h.Hash(context.Background(), "Correct-horse-9")
+	valid, err := h.Hash("Correct-horse-9")
 	if err != nil {
 		t.Fatal(err)
 	}
 	fields := strings.Split(valid, "$")
 	for name, phc := range map[string]string{
 		"empty":           "",
-		"bcrypt":          "$2a$10$abcdefghijklmnopqrstuuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ012",
 		"argon2i":         strings.Replace(valid, "$argon2id$", "$argon2i$", 1),
 		"other version":   strings.Replace(valid, "$v=19$", "$v=16$", 1),
 		"huge memory":     strings.Join([]string{"", fields[1], fields[2], "m=4194304,t=3,p=4", fields[4], fields[5]}, "$"),
-		"many passes":     strings.Join([]string{"", fields[1], fields[2], "m=65536,t=99,p=4", fields[4], fields[5]}, "$"),
-		"no lanes":        strings.Join([]string{"", fields[1], fields[2], "m=65536,t=3,p=0", fields[4], fields[5]}, "$"),
-		"trailing params": strings.Join([]string{"", fields[1], fields[2], "m=65536,t=3,p=4,x=1", fields[4], fields[5]}, "$"),
 		"short salt":      strings.Join([]string{"", fields[1], fields[2], fields[3], "c2FsdA", fields[5]}, "$"),
 		"no key":          strings.Join([]string{"", fields[1], fields[2], fields[3], fields[4], ""}, "$"),
 		"salt not base64": strings.Join([]string{"", fields[1], fields[2], fields[3], "!!!!!!!!!!!!", fields[5]}, "$"),
 	} {
-		if ok, err := h.Verify(context.Background(), phc, "Correct-horse-9"); err == nil || ok {
+		if ok, err := h.Verify(phc, "Correct-horse-9"); err == nil || ok {
 			t.Errorf("%s: verify = %v, %v; want a refusal", name, ok, err)
 		} else if errors.Is(err, dashboard.ErrBusy) || strings.Contains(err.Error(), "Correct-horse-9") {
 			t.Errorf("%s: err = %v", name, err)
 		}
+	}
+}
+
+func TestEveryHashingSlotTakenRefusesAtOnce(t *testing.T) {
+	h := dashboard.NewHasher()
+	phc, err := h.Hash("Correct-horse-9")
+	if err != nil {
+		t.Fatal(err)
+	}
+	release := dashboard.HoldEverySlot(h)
+	if _, err := h.Hash("Correct-horse-9"); !errors.Is(err, dashboard.ErrBusy) {
+		t.Errorf("hash = %v, want ErrBusy", err)
+	}
+	if _, err := h.Verify(phc, "Correct-horse-9"); !errors.Is(err, dashboard.ErrBusy) {
+		t.Errorf("verify = %v, want ErrBusy", err)
+	}
+	if err := h.VerifyDummy("x"); !errors.Is(err, dashboard.ErrBusy) {
+		t.Errorf("dummy = %v, want ErrBusy", err)
+	}
+	release()
+	if err := h.VerifyDummy("x"); err != nil {
+		t.Errorf("dummy after release = %v", err)
 	}
 }

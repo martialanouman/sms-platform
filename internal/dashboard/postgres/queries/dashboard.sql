@@ -1,5 +1,5 @@
 -- name: CreateOperator :one
-INSERT INTO dashboard.operators (email, display_name) VALUES (@email, @display_name)
+INSERT INTO dashboard.operators (email, display_name) VALUES (@email, @email)
 ON CONFLICT ((lower(email))) DO NOTHING
 RETURNING id::text AS id;
 
@@ -15,15 +15,11 @@ INSERT INTO dashboard.access_links (operator_id, kind) VALUES (@operator_id::uui
 ON CONFLICT (operator_id) DO UPDATE SET kind = excluded.kind, token_hash = NULL, expires_at = NULL, sent_at = NULL,
   attempts = 0, next_attempt_at = now();
 
--- name: LinkUsable :one
-SELECT EXISTS (SELECT FROM dashboard.access_links l JOIN dashboard.operators o ON o.id = l.operator_id
-  WHERE l.token_hash = @digest AND l.expires_at > now() AND o.status = 'active');
-
 -- name: ConsumeLink :one
 UPDATE dashboard.access_links l SET token_hash = NULL
 FROM dashboard.operators o
 WHERE l.token_hash = @digest AND l.expires_at > now() AND o.id = l.operator_id AND o.status = 'active'
-RETURNING l.operator_id::text AS operator_id, l.kind;
+RETURNING l.operator_id::text AS operator_id;
 
 -- name: NextDue :one
 SELECT l.operator_id::text AS operator_id, o.email, l.kind
@@ -51,7 +47,7 @@ ON CONFLICT (subject) DO UPDATE SET
   failures = CASE WHEN c.last_failure_at + make_interval(secs => @window_seconds::float8) <= now() THEN 1 ELSE c.failures + 1 END,
   last_failure_at = now()
 WHERE c.last_failure_at + make_interval(secs => @window_seconds::float8) <= now() OR c.failures < @max_failures::bigint
-RETURNING failures;
+RETURNING true;
 
 -- name: LockedFor :one
 SELECT extract(epoch FROM last_failure_at + make_interval(secs => @window_seconds::float8) - now())::float8

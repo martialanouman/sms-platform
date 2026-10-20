@@ -36,12 +36,8 @@ type Operator struct {
 // SessionView is a session found by its token, Live when neither its idle timeout, its lifetime nor its
 // operator's account has ended it.
 type SessionView struct {
-	ID          string
-	OperatorID  string
-	Email       string
-	DisplayName string
-	ExpiresAt   time.Time
-	Live        bool
+	Current
+	Live bool
 }
 
 // Entry is a line of the access log; Actor and Target are empty when absent.
@@ -68,13 +64,12 @@ type Store interface {
 
 // Tx is what the core reads and writes; every comparison to the time is the database's.
 type Tx interface {
-	CreateOperator(ctx context.Context, email, displayName string) (id string, created bool, err error)
+	CreateOperator(ctx context.Context, email string) (id string, created bool, err error)
 	OperatorByEmail(ctx context.Context, email string) (Operator, bool, error)
 	SetPassword(ctx context.Context, operatorID, phc string) error
 
 	QueueLink(ctx context.Context, operatorID string, kind LinkKind) error
-	LinkUsable(ctx context.Context, digest []byte) (bool, error)
-	ConsumeLink(ctx context.Context, digest []byte) (operatorID string, kind LinkKind, ok bool, err error)
+	ConsumeLink(ctx context.Context, digest []byte) (operatorID string, ok bool, err error)
 	NextDue(ctx context.Context, maxAttempts int) (Due, bool, error)
 	MarkSent(ctx context.Context, operatorID string, digest []byte, ttl time.Duration) error
 	MarkFailed(ctx context.Context, operatorID string, base, ceiling time.Duration) error

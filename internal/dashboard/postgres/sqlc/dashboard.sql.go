@@ -84,34 +84,24 @@ const consumeLink = `-- name: ConsumeLink :one
 UPDATE dashboard.access_links l SET token_hash = NULL
 FROM dashboard.operators o
 WHERE l.token_hash = $1 AND l.expires_at > now() AND o.id = l.operator_id AND o.status = 'active'
-RETURNING l.operator_id::text AS operator_id, l.kind
+RETURNING l.operator_id::text AS operator_id
 `
 
-type ConsumeLinkRow struct {
-	OperatorID string
-	Kind       string
-}
-
-func (q *Queries) ConsumeLink(ctx context.Context, db DBTX, digest []byte) (ConsumeLinkRow, error) {
+func (q *Queries) ConsumeLink(ctx context.Context, db DBTX, digest []byte) (string, error) {
 	row := db.QueryRow(ctx, consumeLink, digest)
-	var i ConsumeLinkRow
-	err := row.Scan(&i.OperatorID, &i.Kind)
-	return i, err
+	var operator_id string
+	err := row.Scan(&operator_id)
+	return operator_id, err
 }
 
 const createOperator = `-- name: CreateOperator :one
-INSERT INTO dashboard.operators (email, display_name) VALUES ($1, $2)
+INSERT INTO dashboard.operators (email, display_name) VALUES ($1, $1)
 ON CONFLICT ((lower(email))) DO NOTHING
 RETURNING id::text AS id
 `
 
-type CreateOperatorParams struct {
-	Email       string
-	DisplayName string
-}
-
-func (q *Queries) CreateOperator(ctx context.Context, db DBTX, arg CreateOperatorParams) (string, error) {
-	row := db.QueryRow(ctx, createOperator, arg.Email, arg.DisplayName)
+func (q *Queries) CreateOperator(ctx context.Context, db DBTX, email string) (string, error) {
+	row := db.QueryRow(ctx, createOperator, email)
 	var id string
 	err := row.Scan(&id)
 	return id, err
@@ -124,18 +114,6 @@ DELETE FROM dashboard.login_attempt_counters WHERE subject = $1
 func (q *Queries) Forget(ctx context.Context, db DBTX, subject []byte) error {
 	_, err := db.Exec(ctx, forget, subject)
 	return err
-}
-
-const linkUsable = `-- name: LinkUsable :one
-SELECT EXISTS (SELECT FROM dashboard.access_links l JOIN dashboard.operators o ON o.id = l.operator_id
-  WHERE l.token_hash = $1 AND l.expires_at > now() AND o.status = 'active')
-`
-
-func (q *Queries) LinkUsable(ctx context.Context, db DBTX, digest []byte) (bool, error) {
-	row := db.QueryRow(ctx, linkUsable, digest)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
 }
 
 const lockedFor = `-- name: LockedFor :one
@@ -323,7 +301,7 @@ ON CONFLICT (subject) DO UPDATE SET
   failures = CASE WHEN c.last_failure_at + make_interval(secs => $2::float8) <= now() THEN 1 ELSE c.failures + 1 END,
   last_failure_at = now()
 WHERE c.last_failure_at + make_interval(secs => $2::float8) <= now() OR c.failures < $3::bigint
-RETURNING failures
+RETURNING true
 `
 
 type ReserveParams struct {
@@ -332,11 +310,11 @@ type ReserveParams struct {
 	MaxFailures   int64
 }
 
-func (q *Queries) Reserve(ctx context.Context, db DBTX, arg ReserveParams) (int32, error) {
+func (q *Queries) Reserve(ctx context.Context, db DBTX, arg ReserveParams) (bool, error) {
 	row := db.QueryRow(ctx, reserve, arg.Subject, arg.WindowSeconds, arg.MaxFailures)
-	var failures int32
-	err := row.Scan(&failures)
-	return failures, err
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const sessionOf = `-- name: SessionOf :one

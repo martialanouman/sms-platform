@@ -2,12 +2,12 @@ package dashboard
 
 import "context"
 
-// Bootstrap creates the operator of email, without password, and queues its activation link; an existing operator is
-// left as it is.
+// Bootstrap creates the operator of email, named after it and without password, and queues its activation link; an
+// existing operator is left as it is.
 func (s Service) Bootstrap(ctx context.Context, email string) error {
 	email = normalize(email)
 	return s.Store.Tx(ctx, func(tx Tx) error {
-		id, created, err := tx.CreateOperator(ctx, email, email)
+		id, created, err := tx.CreateOperator(ctx, email)
 		if err != nil || !created {
 			return err
 		}
