@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -72,7 +73,7 @@ func (s server) Me(ctx context.Context, _ MeRequestObject) (MeResponseObject, er
 		Operator:           CurrentOperator{Id: c.OperatorID, Email: c.Email, DisplayName: c.DisplayName},
 		Permissions:        []Permission{},
 		Elevated:           c.Elevated,
-		SecondFactors:      SecondFactors{Totp: c.Totp, RecoveryCodesRemaining: c.RecoveryCodesRemaining},
+		SecondFactors:      SecondFactors{Totp: c.Totp, RecoveryCodesRemaining: c.RecoveryCodesRemaining, Passkeys: c.Passkeys},
 		IdleTimeoutSeconds: &idle,
 		AbsoluteExpiresAt:  c.ExpiresAt,
 	}, nil
@@ -83,7 +84,7 @@ func (s server) ReportActivity(ctx context.Context, _ ReportActivityRequestObjec
 	err := s.Service.Activity(ctx, cookie.Value)
 	switch {
 	case errors.Is(err, dashboard.ErrUnauthenticated):
-		return ReportActivity401JSONResponse{UnauthorizedJSONResponse{Code: ErrorCodeUnauthenticated, Message: "Aucune session ouverte."}}, nil
+		return ReportActivity401JSONResponse{UnauthorizedJSONResponse{Code: ErrorCodeUnauthenticated, Message: noSession}}, nil
 	case err != nil:
 		return nil, err
 	}
@@ -101,6 +102,8 @@ func (s server) Logout(ctx context.Context, _ LogoutRequestObject) (LogoutRespon
 	return Logout204Response{}, nil
 }
 
+const elevationRequired = "Vérifiez d'abord votre second facteur."
+
 const factorRefused = "Second facteur refusé ; si la connexion date de plus de 5 minutes, reconnectez-vous."
 
 func (s server) EnrollTotp(ctx context.Context, request EnrollTotpRequestObject) (EnrollTotpResponseObject, error) {
@@ -113,12 +116,14 @@ func (s server) EnrollTotp(ctx context.Context, request EnrollTotpRequestObject)
 	switch {
 	case errors.As(err, &limited):
 		return EnrollTotp429JSONResponse{tooMany(limited)}, nil
+	case errors.Is(err, dashboard.ErrElevationRequired):
+		return EnrollTotp409JSONResponse{Code: ErrorCodeMfaElevationRequired, Message: elevationRequired}, nil
 	case errors.Is(err, dashboard.ErrAlreadyEnrolled):
 		return EnrollTotp409JSONResponse{Code: ErrorCodeMfaAlreadyEnrolled, Message: "Un facteur est en place ; présentez-en un code pour le remplacer."}, nil
 	case errors.Is(err, dashboard.ErrReplacementRefused):
 		return EnrollTotp409JSONResponse{Code: ErrorCodeMfaReplacementRefused, Message: "Le code du facteur en place est refusé."}, nil
 	case errors.Is(err, dashboard.ErrUnauthenticated):
-		return EnrollTotp401JSONResponse{UnauthorizedJSONResponse{Code: ErrorCodeUnauthenticated, Message: "Aucune session ouverte."}}, nil
+		return EnrollTotp401JSONResponse{UnauthorizedJSONResponse{Code: ErrorCodeUnauthenticated, Message: noSession}}, nil
 	case err != nil:
 		return nil, err
 	}
@@ -132,13 +137,13 @@ func (s server) ConfirmTotp(ctx context.Context, request ConfirmTotpRequestObjec
 	case errors.As(err, &limited):
 		return ConfirmTotp429JSONResponse{tooMany(limited)}, nil
 	case errors.Is(err, dashboard.ErrElevationRequired):
-		return ConfirmTotp409JSONResponse{Code: ErrorCodeMfaElevationRequired, Message: "Vérifiez d'abord votre second facteur."}, nil
+		return ConfirmTotp409JSONResponse{Code: ErrorCodeMfaElevationRequired, Message: elevationRequired}, nil
 	case errors.Is(err, dashboard.ErrNothingToConfirm):
 		return ConfirmTotp409JSONResponse{Code: ErrorCodeMfaNothingToConfirm, Message: "Aucune application n'attend de confirmation."}, nil
 	case errors.Is(err, dashboard.ErrCodeRefused):
 		return ConfirmTotp422JSONResponse{Code: ErrorCodeMfaCodeRefused, Message: "Ce code n'est pas accepté."}, nil
 	case errors.Is(err, dashboard.ErrUnauthenticated):
-		return ConfirmTotp401JSONResponse{UnauthorizedJSONResponse{Code: ErrorCodeUnauthenticated, Message: "Aucune session ouverte."}}, nil
+		return ConfirmTotp401JSONResponse{UnauthorizedJSONResponse{Code: ErrorCodeUnauthenticated, Message: noSession}}, nil
 	case err != nil:
 		return nil, err
 	}
@@ -150,7 +155,11 @@ func (s server) VerifyMfa(ctx context.Context, request VerifyMfaRequestObject) (
 	if request.Body.Code != nil {
 		code = *request.Body.Code
 	}
-	next, err := s.Service.Verify(ctx, cookie(ctx), request.Body.Challenge, dashboard.Proof{Method: dashboard.Method(request.Body.Method), Code: code})
+	proof := dashboard.Proof{Method: dashboard.Method(request.Body.Method), Code: code}
+	if request.Body.Assertion != nil {
+		proof.Assertion, _ = json.Marshal(*request.Body.Assertion)
+	}
+	next, err := s.Service.Verify(ctx, cookie(ctx), request.Body.Challenge, proof)
 	var limited dashboard.RateLimited
 	switch {
 	case errors.As(err, &limited):
@@ -201,4 +210,85 @@ func optional(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+const noSession = "Aucune session ouverte."
+
+func (s server) BeginWebauthnRegistration(ctx context.Context, _ BeginWebauthnRegistrationRequestObject) (BeginWebauthnRegistrationResponseObject, error) {
+	options, err := s.Service.BeginRegistration(ctx, cookie(ctx))
+	var out BeginWebauthnRegistration200JSONResponse
+	switch {
+	case errors.Is(err, dashboard.ErrElevationRequired):
+		return BeginWebauthnRegistration409JSONResponse{Code: ErrorCodeMfaElevationRequired, Message: elevationRequired}, nil
+	case errors.Is(err, dashboard.ErrUnauthenticated):
+		return BeginWebauthnRegistration401JSONResponse{UnauthorizedJSONResponse{Code: ErrorCodeUnauthenticated, Message: noSession}}, nil
+	case err != nil:
+		return nil, err
+	}
+	return out, json.Unmarshal(options, &out)
+}
+
+func (s server) FinishWebauthnRegistration(ctx context.Context, request FinishWebauthnRegistrationRequestObject) (FinishWebauthnRegistrationResponseObject, error) {
+	attestation, err := json.Marshal(request.Body.Attestation)
+	if err != nil {
+		return nil, err
+	}
+	id, err := s.Service.FinishRegistration(ctx, cookie(ctx), request.Body.Name, attestation)
+	switch {
+	case errors.Is(err, dashboard.ErrElevationRequired):
+		return FinishWebauthnRegistration409JSONResponse{Code: ErrorCodeMfaElevationRequired, Message: elevationRequired}, nil
+	case errors.Is(err, dashboard.ErrCeremonyRefused):
+		return FinishWebauthnRegistration422JSONResponse{Code: ErrorCodeWebauthnCeremonyRefused, Message: "La clé d'accès n'a pas été enregistrée ; recommencez."}, nil
+	case errors.Is(err, dashboard.ErrUnauthenticated):
+		return FinishWebauthnRegistration401JSONResponse{UnauthorizedJSONResponse{Code: ErrorCodeUnauthenticated, Message: noSession}}, nil
+	case err != nil:
+		return nil, err
+	}
+	return FinishWebauthnRegistration200JSONResponse{Id: id}, nil
+}
+
+func (s server) BeginWebauthnAssertion(ctx context.Context, _ BeginWebauthnAssertionRequestObject) (BeginWebauthnAssertionResponseObject, error) {
+	options, err := s.Service.BeginAssertion(ctx, cookie(ctx))
+	var out BeginWebauthnAssertion200JSONResponse
+	switch {
+	case errors.Is(err, dashboard.ErrNoPasskey):
+		return BeginWebauthnAssertion404JSONResponse{Code: ErrorCodeNotFound, Message: "Aucune clé d'accès n'est enregistrée."}, nil
+	case errors.Is(err, dashboard.ErrUnauthenticated):
+		return BeginWebauthnAssertion401JSONResponse{UnauthorizedJSONResponse{Code: ErrorCodeUnauthenticated, Message: noSession}}, nil
+	case err != nil:
+		return nil, err
+	}
+	return out, json.Unmarshal(options, &out)
+}
+
+func (s server) ListWebauthnPasskeys(ctx context.Context, _ ListWebauthnPasskeysRequestObject) (ListWebauthnPasskeysResponseObject, error) {
+	keys, err := s.Service.ListPasskeys(ctx, cookie(ctx))
+	switch {
+	case errors.Is(err, dashboard.ErrUnauthenticated):
+		return ListWebauthnPasskeys401JSONResponse{UnauthorizedJSONResponse{Code: ErrorCodeUnauthenticated, Message: noSession}}, nil
+	case err != nil:
+		return nil, err
+	}
+	out := make(ListWebauthnPasskeys200JSONResponse, len(keys))
+	for i, k := range keys {
+		out[i] = PasskeySummary{Id: k.ID, Name: k.Name, CreatedAt: k.CreatedAt}
+	}
+	return out, nil
+}
+
+func (s server) DeleteWebauthnPasskey(ctx context.Context, request DeleteWebauthnPasskeyRequestObject) (DeleteWebauthnPasskeyResponseObject, error) {
+	err := s.Service.RemovePasskey(ctx, cookie(ctx), request.PasskeyId)
+	switch {
+	case errors.Is(err, dashboard.ErrElevationRequired):
+		return DeleteWebauthnPasskey409JSONResponse{Code: ErrorCodeMfaElevationRequired, Message: elevationRequired}, nil
+	case errors.Is(err, dashboard.ErrLastFactor):
+		return DeleteWebauthnPasskey409JSONResponse{Code: ErrorCodeMfaLastFactor, Message: "C'est votre dernier facteur : ajoutez-en un autre avant de le retirer."}, nil
+	case errors.Is(err, dashboard.ErrPasskeyUnknown):
+		return DeleteWebauthnPasskey404JSONResponse{Code: ErrorCodeNotFound, Message: "Cette clé d'accès est inconnue."}, nil
+	case errors.Is(err, dashboard.ErrUnauthenticated):
+		return DeleteWebauthnPasskey401JSONResponse{UnauthorizedJSONResponse{Code: ErrorCodeUnauthenticated, Message: noSession}}, nil
+	case err != nil:
+		return nil, err
+	}
+	return DeleteWebauthnPasskey204Response{}, nil
 }

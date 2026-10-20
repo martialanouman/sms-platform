@@ -37,6 +37,12 @@ type TotpFactor struct {
 	Confirmed bool
 }
 
+// StoredPasskey is a passkey of an operator, with the credential the WebAuthn library records, as JSON.
+type StoredPasskey struct {
+	Passkey
+	Credential []byte
+}
+
 // Operator is an account as login reads it; PasswordHash is empty until the account is activated.
 type Operator struct {
 	ID           string
@@ -104,6 +110,13 @@ type Tx interface {
 	UseRecoveryCode(ctx context.Context, factorID string, digest []byte) (bool, error)
 	DropFactors(ctx context.Context, operatorID string) (bool, error)
 	Elevate(ctx context.Context, digest, challenge, newDigest []byte, idle time.Duration) (bool, error)
+
+	OpenCeremony(ctx context.Context, sessionID string, purpose Purpose, ceremony []byte) error
+	TakeCeremony(ctx context.Context, sessionID string, purpose Purpose) (ceremony []byte, ok bool, err error)
+	Passkeys(ctx context.Context, operatorID string) ([]StoredPasskey, error)
+	AddPasskey(ctx context.Context, operatorID string, credentialID []byte, name string, signCount uint32, credential []byte) (id string, added bool, err error)
+	AdvancePasskey(ctx context.Context, id string, signCount uint32, credential []byte) (bool, error)
+	RemovePasskey(ctx context.Context, operatorID, id string) (bool, error)
 
 	Log(ctx context.Context, e Entry) error
 	AccessLog(ctx context.Context, before *Entry, limit int) ([]Entry, error)

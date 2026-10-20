@@ -108,6 +108,10 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger, registry pro
 	if err != nil {
 		return err
 	}
+	passkeys, err := dashboard.NewPasskeys(expected)
+	if err != nil {
+		return fmt.Errorf("DASHBOARD_PUBLIC_URL: %w", err)
+	}
 	secret, err := os.ReadFile(infra.CookieKeyFile)
 	if err != nil {
 		return err
@@ -146,7 +150,7 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger, registry pro
 		return errors.New("POSTGRES_URL is unreadable")
 	}
 	defer pool.Close()
-	svc := dashboard.Service{Store: postgres.New(pool), Hasher: dashboard.NewHasher(), Keys: keys, Totp: totp, Mailer: mailer, PublicURL: expected}
+	svc := dashboard.Service{Store: postgres.New(pool), Hasher: dashboard.NewHasher(), Keys: keys, Totp: totp, Passkeys: passkeys, Mailer: mailer, PublicURL: expected}
 	if err := pgdial.Retry(ctx, log, func(ctx context.Context) error { return svc.Bootstrap(ctx, infra.BootstrapEmail) }); err != nil {
 		return fmt.Errorf("bootstrap: %w", err)
 	}

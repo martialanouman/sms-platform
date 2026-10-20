@@ -68,3 +68,19 @@ type DashboardTotpFactor struct {
 	ConfirmedAt *time.Time
 	CreatedAt   time.Time
 }
+
+type DashboardWebauthnChallenge struct {
+	SessionID string
+	Purpose   string
+	Ceremony  []byte
+}
+
+type DashboardWebauthnCredential struct {
+	ID           string
+	OperatorID   string
+	CredentialID []byte
+	Name         string
+	SignCount    int64
+	Credential   []byte
+	CreatedAt    time.Time
+}

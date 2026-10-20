@@ -97,10 +97,14 @@ func newHarness(t *testing.T) *harness {
 	if err != nil {
 		t.Fatal(err)
 	}
+	passkeys, err := dashboard.NewPasskeys(publicURL)
+	if err != nil {
+		t.Fatal(err)
+	}
 	mail := &mailbox{}
 	return &harness{
-		svc: dashboard.Service{Store: postgres.New(pool), Hasher: dashboard.NewHasher(), Keys: k, Totp: totp, Mailer: mail,
-			PublicURL: publicURL},
+		svc: dashboard.Service{Store: postgres.New(pool), Hasher: dashboard.NewHasher(), Keys: k, Totp: totp, Passkeys: passkeys,
+			Mailer: mail, PublicURL: publicURL},
 		mail:  mail,
 		owner: migrator,
 	}

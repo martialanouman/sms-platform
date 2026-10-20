@@ -17,10 +17,11 @@ const (
 	MethodRecoveryCode Method = "recovery_code"
 )
 
-// Proof is a second factor presented.
+// Proof is a second factor presented: a code, or a passkey assertion as navigator.credentials.get() produced it.
 type Proof struct {
-	Method Method
-	Code   string
+	Method    Method
+	Code      string
+	Assertion []byte
 }
 
 // TotpEnrollment is shown once, at enrolment (I2).
@@ -71,7 +72,11 @@ func (s Service) EnrollTotp(ctx context.Context, cookie string, proof *Proof) (T
 		if err != nil {
 			return err
 		}
-		if confirmed, _ := split(factors); confirmed != nil {
+		confirmed, _ := split(factors)
+		if confirmed == nil && c.Passkeys > 0 && !c.Elevated {
+			return ErrElevationRequired
+		}
+		if confirmed != nil {
 			if proof == nil {
 				return ErrAlreadyEnrolled
 			}
@@ -142,12 +147,22 @@ func (s Service) Verify(ctx context.Context, cookie, challenge string, p Proof) 
 			return err
 		}
 		confirmed, pending := split(factors)
+		if c.Passkeys > 0 {
+			pending = nil
+		}
 		factor := cmp.Or(confirmed, pending)
-		ok, err := s.prove(ctx, tx, c.OperatorID, factor, p)
+		var ok bool
+		if p.Method == MethodWebauthn {
+			if ok, err = s.assert(ctx, tx, c, p.Assertion); err == nil && ok {
+				err = tx.Forget(ctx, s.Keys.MfaSubject(c.OperatorID))
+			}
+		} else {
+			ok, err = s.prove(ctx, tx, c.OperatorID, factor, p)
+		}
 		if err != nil || !ok {
 			return cmp.Or(err, ErrUnauthenticated)
 		}
-		if !factor.Confirmed {
+		if factor != nil && !factor.Confirmed {
 			if err := s.confirm(ctx, tx, c.OperatorID, factor); err != nil {
 				return err
 			}

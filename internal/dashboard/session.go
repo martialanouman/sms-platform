@@ -15,6 +15,7 @@ type Current struct {
 	Elevated               bool
 	Totp                   bool
 	RecoveryCodesRemaining int
+	Passkeys               int
 }
 
 // Resolve is the live session of cookie; it never extends it (spec 08 §8.3). A sealed cookie whose session has

@@ -6,3 +6,5 @@ dashboard:
   access_log: [select, insert]
   totp_factors: [select, insert, update, delete]
   recovery_codes: [select, insert, update, delete]
+  webauthn_credentials: [select, insert, update, delete]
+  webauthn_challenges: [select, insert, update, delete]
