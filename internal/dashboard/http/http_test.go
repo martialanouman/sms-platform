@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
@@ -72,7 +73,7 @@ func newAPI(t *testing.T, trusted ...netip.Prefix) *api {
 	}
 	mail := &mailbox{}
 	svc := dashboard.Service{Store: postgres.New(pool), Hasher: dashboard.NewHasher(), Keys: keys, Mailer: mail, PublicURL: origin}
-	h, err := dashboardhttp.New(dashboardhttp.Config{Service: svc, Origin: origin, TrustedProxies: trusted})
+	h, err := dashboardhttp.New(dashboardhttp.Config{Service: svc, Origin: origin, TrustedProxies: trusted, Log: slog.New(slog.DiscardHandler)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,6 +171,7 @@ func TestEveryUnsafeRequestIsCheckedBeforeTheOperation(t *testing.T) {
 		"body too large":     {call{method: "POST", path: "/api/auth/login", size: 17 << 10}, 413, "payload_too_large"},
 		"missing password":   {call{method: "POST", path: "/api/auth/login", body: `{"email":"owner@example.test"}`}, 422, "validation_error"},
 		"unknown field":      {call{method: "POST", path: "/api/auth/login", body: `{"email":"o@example.test","password":"x","extra":1}`}, 422, "validation_error"},
+		"json with charset":  {call{method: "POST", path: "/api/auth/login", body: login, contentType: "application/json; charset=utf-8"}, 401, "unauthenticated"},
 		"not served":         {call{method: "GET", path: "/api/operators"}, 404, "not_found"},
 		"wrong method":       {call{method: "GET", path: "/api/auth/login"}, 404, "not_found"},
 		"me without session": {call{method: "GET", path: "/api/auth/me"}, 401, "unauthenticated"},
@@ -332,5 +334,45 @@ func TestABusyHasherAnswers503(t *testing.T) {
 	}
 	if busy == 0 {
 		t.Fatal("forty simultaneous logins on ten hashing slots: none refused")
+	}
+}
+
+func TestA422NamesTheParameterOrTheBody(t *testing.T) {
+	a := newAPI(t)
+	for name, tc := range map[string]struct {
+		c     call
+		field string
+	}{
+		"cursor too long": {call{method: "GET", path: "/api/access-log?cursor=" + strings.Repeat("a", 257)}, "cursor"},
+		"body not JSON":   {call{method: "POST", path: "/api/auth/login", body: `{"email":`}, "body"},
+	} {
+		got := a.do(t, tc.c)
+		errs, _ := got.body["errors"].([]any)
+		first := map[string]any{}
+		if len(errs) == 1 {
+			first, _ = errs[0].(map[string]any)
+		}
+		if got.status != 422 || got.code() != "validation_error" || first["field"] != tc.field {
+			t.Errorf("%s: %d %s, want 422 on %s", name, got.status, got.raw, tc.field)
+		}
+	}
+}
+
+func TestTheSourceSkipsEveryTrustedHopAndNeverVanishes(t *testing.T) {
+	a := newAPI(t, netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("10.0.0.0/8"))
+	for i := range 5 {
+		a.do(t, call{method: "POST", path: "/api/auth/login", forwarded: "198.51.100.1, 10.0.0.2",
+			body: `{"email":"x` + strconv.Itoa(i) + `@example.test","password":"x"}`})
+	}
+	if got := a.do(t, call{method: "POST", path: "/api/auth/login", forwarded: "198.51.100.1, 10.0.0.3",
+		body: `{"email":"y@example.test","password":"x"}`}); got.status != 429 {
+		t.Errorf("the client behind two proxies: %d %s, want its own count locked", got.status, got.raw)
+	}
+	if got := a.do(t, call{method: "POST", path: "/api/auth/login", forwarded: "198.51.100.9, 10.0.0.3",
+		body: `{"email":"y@example.test","password":"x"}`}); got.status != 401 {
+		t.Errorf("another client behind the same proxies: %d %s, want its own count", got.status, got.raw)
+	}
+	if got := a.do(t, call{method: "POST", path: "/api/auth/login", body: `{"email":"z@example.test","password":"x"}`}); got.status != 401 {
+		t.Errorf("a trusted proxy without X-Forwarded-For: %d %s, want the proxy as the source", got.status, got.raw)
 	}
 }

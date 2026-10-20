@@ -1,5 +1,4 @@
-// Package http serves the dashboard BFF contract (contracts/openapi-bff.yaml) over the core's use cases. It holds no
-// rule: it checks what the contract checks, maps the core's answers to the contract's, and carries the cookie.
+// Package http serves the dashboard BFF contract (contracts/openapi-bff.yaml) over the core's use cases.
 package http
 
 import (
@@ -28,8 +27,7 @@ const (
 	maxBody    = 16 << 10
 )
 
-// Config is what the handler serves with: the core, the origin the browser loads the SPA from, and the proxies whose
-// X-Forwarded-For is believed.
+// Config is what the handler serves with.
 type Config struct {
 	Service        dashboard.Service
 	Origin         string
@@ -44,9 +42,6 @@ func New(c Config) (http.Handler, error) {
 		return nil, err
 	}
 	spec.Servers = nil
-	if c.Log == nil {
-		c.Log = slog.New(slog.DiscardHandler)
-	}
 	s := server{Config: c, permission: permissions(spec)}
 	strict := NewStrictHandlerWithOptions(s, []StrictMiddlewareFunc{s.session, exchange}, StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, _ error) {
@@ -58,10 +53,9 @@ func New(c Config) (http.Handler, error) {
 		},
 	})
 	validate := middleware.OapiRequestValidatorWithOptions(spec, &middleware.Options{
-		Options:               openapi3filter.Options{AuthenticationFunc: openapi3filter.NoopAuthenticationFunc},
-		ErrorHandlerWithOpts:  refuse,
-		Prefix:                "/api",
-		SilenceServersWarning: true,
+		Options:              openapi3filter.Options{AuthenticationFunc: openapi3filter.NoopAuthenticationFunc},
+		ErrorHandlerWithOpts: refuse,
+		Prefix:               "/api",
 	})
 	return c.guard(validate(HandlerWithOptions(strict, StdHTTPServerOptions{BaseURL: "/api"}))), nil
 }
@@ -178,7 +172,6 @@ func from(ctx context.Context) exchanged {
 
 type currentKey struct{}
 
-// held is what an operator's roles grant; roles arrive in step 012.
 var held []string
 
 func (s server) session(next StrictHandlerFunc, operation string) StrictHandlerFunc {
@@ -213,21 +206,20 @@ func (s server) session(next StrictHandlerFunc, operation string) StrictHandlerF
 func (c Config) source(r *http.Request) netip.Addr {
 	host, _, _ := net.SplitHostPort(r.RemoteAddr)
 	addr, _ := netip.ParseAddr(host)
-	if !slices.ContainsFunc(c.TrustedProxies, func(p netip.Prefix) bool { return p.Contains(addr.Unmap()) }) {
-		return addr
+	trusted := func(a netip.Addr) bool {
+		return slices.ContainsFunc(c.TrustedProxies, func(p netip.Prefix) bool { return p.Contains(a.Unmap()) })
 	}
 	hops := strings.Split(r.Header.Get("X-Forwarded-For"), ",")
-	forwarded, err := netip.ParseAddr(strings.TrimSpace(hops[len(hops)-1]))
-	if err != nil {
-		return netip.Addr{}
+	for i := len(hops) - 1; i >= 0 && trusted(addr); i-- {
+		hop, err := netip.ParseAddr(strings.TrimSpace(hops[i]))
+		if err != nil {
+			break
+		}
+		addr = hop
 	}
-	return forwarded
+	return addr
 }
 
 func sessionCookie(value string, maxAge int) *http.Cookie {
 	return &http.Cookie{Name: cookieName, Value: value, Path: "/", MaxAge: maxAge, HttpOnly: true, Secure: true, SameSite: http.SameSiteStrictMode}
-}
-
-func retrySeconds(limited dashboard.RateLimited) int {
-	return int(limited.RetryAfter.Seconds())
 }

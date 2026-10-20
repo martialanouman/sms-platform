@@ -21,9 +21,9 @@ const File = "networkpolicies.yaml"
 
 var (
 	broker  = regexp.MustCompile(`^([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)-kafka-bootstrap\.([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.svc:([0-9]+)$`)
-	openbao = regexp.MustCompile(`^https://([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.svc:([0-9]+)$`)
 	listen  = regexp.MustCompile(`^:([0-9]+)$`)
 	relay   = regexp.MustCompile(`^([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.svc:([0-9]+)$`)
+	openbao = regexp.MustCompile(`^https://` + relay.String()[1:])
 	podName = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$`)
 )
 

@@ -35,7 +35,9 @@ for declaration in contracts/grants/*.yaml; do
 done
 
 ensure_key() {
-	[ -n "$(kubectl -n "$1" get secret "$2" -o "jsonpath={.data.$3}")" ] && return
+	local held
+	held=$(kubectl -n "$1" get secret "$2" -o "jsonpath={.data.$3}")
+	[ -n "$held" ] && return
 	nonempty "$1/$2/$3" "$4"
 	printf '{"data":{"%s":"%s"}}' "$3" "$(printf '%s' "$4" | base64 | tr -d '\n')" | kubectl -n "$1" patch secret "$2" --type merge --patch-file /dev/stdin >/dev/null
 }

@@ -149,20 +149,23 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger, registry pro
 			if err != nil {
 				log.WarnContext(ctx, "access link not sent", "error", err)
 			}
-			if !sent {
+			if !sent || err != nil {
 				break
 			}
 		}
-		if n, err := svc.Undeliverable(ctx); err == nil {
-			undeliverable.Set(float64(n))
+		n, err := svc.Undeliverable(ctx)
+		if err != nil {
+			log.WarnContext(ctx, "undeliverable links not counted", "error", err)
+			return
 		}
+		undeliverable.Set(float64(n))
 	}))
 	sup.Add("purge", every(purgeEvery, func(ctx context.Context) {
 		if err := svc.Purge(ctx); err != nil {
 			log.WarnContext(ctx, "purge failed", "error", err)
 		}
 	}))
-	sup.Add("http", serve(&http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second,
+	sup.Add("http", serve(&http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second,
 		ErrorLog: slog.NewLogLogger(log.Handler(), slog.LevelWarn)}, ln, infra.ShutdownTimeout))
 	sup.OnDrain(opsServer.Drain)
 	return sup.Run(ctx, log)

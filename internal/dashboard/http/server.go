@@ -27,9 +27,10 @@ func (s server) Login(ctx context.Context, request LoginRequestObject) (LoginRes
 	var limited dashboard.RateLimited
 	switch {
 	case errors.As(err, &limited):
+		retry := int(limited.RetryAfter.Seconds())
 		return Login429JSONResponse{RateLimitedJSONResponse{
-			Body:    Error{Code: ErrorCodeRateLimited, Message: "Trop de tentatives ; réessayez dans " + strconv.Itoa(retrySeconds(limited)) + " s."},
-			Headers: RateLimitedResponseHeaders{RetryAfter: retrySeconds(limited)},
+			Body:    Error{Code: ErrorCodeRateLimited, Message: "Trop de tentatives ; réessayez dans " + strconv.Itoa(retry) + " s."},
+			Headers: RateLimitedResponseHeaders{RetryAfter: retry},
 		}}, nil
 	case errors.Is(err, dashboard.ErrUnauthenticated):
 		return Login401JSONResponse{UnauthorizedJSONResponse{Code: ErrorCodeUnauthenticated, Message: "Adresse ou mot de passe refusé."}}, nil
@@ -103,10 +104,7 @@ func (s server) ListAccessLog(ctx context.Context, request ListAccessLogRequestO
 	switch {
 	case errors.Is(err, dashboard.ErrBadCursor):
 		return ListAccessLog422JSONResponse{ValidationErrorJSONResponse{Code: ErrorCodeValidationError, Message: "La requête est mal formée.",
-			Errors: &[]struct {
-				Field   string `json:"field"`
-				Message string `json:"message"`
-			}{{Field: "cursor", Message: "curseur inconnu"}}}}, nil
+			Errors: &[]fieldError{{Field: "cursor", Message: "curseur inconnu"}}}}, nil
 	case err != nil:
 		return nil, err
 	}
