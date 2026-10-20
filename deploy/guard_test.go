@@ -428,6 +428,7 @@ type listener struct {
 
 type role struct {
 	Name       string `yaml:"name"`
+	Ensure     string `yaml:"ensure"`
 	Login      bool   `yaml:"login"`
 	CreateRole bool   `yaml:"createrole"`
 }
@@ -494,25 +495,32 @@ func checkBricks(dir string) error {
 			errs = append(errs, errors.New("postgres: track_commit_timestamp is not on, which config_propagation_seconds reads"))
 		}
 		if !slices.ContainsFunc(pg.Spec.Managed.Roles, func(r role) bool {
-			return r.Name == "openbao" && r.Login && r.CreateRole
+			return r.Name == "openbao" && r.Ensure != "absent" && r.Login && r.CreateRole
 		}) {
 			errs = append(errs, errors.New("postgres: no managed role openbao with LOGIN CREATEROLE, under which openbao.sh creates breakglass"))
 		}
 	}
 	if bao := find("HelmChart"); bao == nil || bao.Spec.Chart != "openbao" || bao.Spec.TargetNamespace != "openbao" {
-		errs = append(errs, errors.New("no HelmChart openbao in namespace openbao, which content-key-svc dials"))
+		errs = append(errs, errors.New("no HelmChart openbao in namespace openbao, which the NetworkPolicy of postgres admits"))
 	} else {
 		var v struct {
 			Server struct {
+				Dev struct {
+					Enabled bool `yaml:"enabled"`
+				} `yaml:"dev"`
 				HA struct {
-					Raft struct {
-						Enabled bool `yaml:"enabled"`
+					Enabled bool `yaml:"enabled"`
+					Raft    struct {
+						Enabled bool   `yaml:"enabled"`
+						Config  string `yaml:"config"`
 					} `yaml:"raft"`
 				} `yaml:"ha"`
 			} `yaml:"server"`
 		}
-		if err := yaml.Unmarshal([]byte(bao.Spec.ValuesContent), &v); err != nil || !v.Server.HA.Raft.Enabled {
-			errs = append(errs, errors.New("openbao: raft storage is off, without which no snapshot exists"))
+		if err := yaml.Unmarshal([]byte(bao.Spec.ValuesContent), &v); err != nil {
+			errs = append(errs, fmt.Errorf("openbao: valuesContent unreadable: %w", err))
+		} else if h := v.Server.HA; v.Server.Dev.Enabled || !h.Enabled || !h.Raft.Enabled || !strings.Contains(h.Raft.Config, `storage "raft"`) {
+			errs = append(errs, errors.New("openbao: not in HA raft mode, without which no snapshot exists"))
 		}
 	}
 	k := find("Kafka")
@@ -566,7 +574,12 @@ func TestTheBrickGuardFails(t *testing.T) {
 		{"openbao role without login", "postgres.yaml", "      - name: openbao\n        ensure: present\n        login: true", "      - name: openbao\n        ensure: present\n        login: false", "no managed role openbao"},
 		{"openbao chart renamed", "openbao.yaml", "  chart: openbao\n", "  chart: vault\n", "no HelmChart openbao"},
 		{"openbao elsewhere", "openbao.yaml", "  targetNamespace: openbao\n", "  targetNamespace: kms\n", "no HelmChart openbao"},
-		{"openbao without raft", "openbao.yaml", "        raft:\n          enabled: true", "        raft:\n          enabled: false", "raft"},
+		{"openbao without raft", "openbao.yaml", "        raft:\n          enabled: true", "        raft:\n          enabled: false", "not in HA raft mode"},
+		{"openbao role absent", "postgres.yaml", "      - name: openbao\n        ensure: present", "      - name: openbao\n        ensure: absent", "no managed role openbao"},
+		{"openbao standalone", "openbao.yaml", "      ha:\n        enabled: true", "      ha:\n        enabled: false", "not in HA raft mode"},
+		{"openbao in dev mode", "openbao.yaml", "    server:\n", "    server:\n      dev:\n        enabled: true\n", "not in HA raft mode"},
+		{"openbao on file storage", "openbao.yaml", `storage "raft" {`, `storage "file" {`, "not in HA raft mode"},
+		{"openbao values unreadable", "openbao.yaml", "    global:\n", "    global: [\n", "valuesContent unreadable"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
