@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -99,5 +100,17 @@ func TestRetryReplaysAnUnresolvedName(t *testing.T) {
 	})
 	if err != nil || attempts != 2 {
 		t.Errorf("Retry = %v after %d attempts, want the unresolved name of pgx replayed", err, attempts)
+	}
+}
+
+func TestDatabaseNamesAnotherDatabaseOfTheSameServer(t *testing.T) {
+	got, err := pgdial.Database("postgres://migrator:s%40cret@postgres-rw.postgres.svc:5432/control_plane?sslmode=verify-full&sslrootcert=/tls/ca.crt", "dashboard")
+	if want := "postgres://migrator:s%40cret@postgres-rw.postgres.svc:5432/dashboard?sslmode=verify-full&sslrootcert=/tls/ca.crt"; err != nil || got != want {
+		t.Fatalf("got %q, %v; want %q", got, err, want)
+	}
+	for _, bad := range []string{"::not a url pass1", "mysql://u:pass1@h/control_plane", "postgres://u:pass1@h", "postgres://u:pass1@h/x\x7f"} {
+		if got, err := pgdial.Database(bad, "dashboard"); err == nil || strings.Contains(err.Error(), "pass1") {
+			t.Errorf("%q: %q, %v; want a refusal that does not quote the URL", bad, got, err)
+		}
 	}
 }
