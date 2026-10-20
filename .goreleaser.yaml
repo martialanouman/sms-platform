@@ -16,6 +16,13 @@ builds:
     flags: [-trimpath]
     goos: [linux]
     goarch: [amd64]
+  - id: content-key-svc
+    main: ./cmd/content-key-svc
+    binary: content-key-svc
+    env: [CGO_ENABLED=0]
+    flags: [-trimpath]
+    goos: [linux]
+    goarch: [amd64]
 
 dockers_v2:
   - id: migrate
@@ -32,6 +39,13 @@ dockers_v2:
     platforms: [linux/amd64]
     build_args:
       BINARY: catalog-apply
+  - id: content-key-svc
+    ids: [content-key-svc]
+    images: [ghcr.io/martialanouman/sms-platform/content-key-svc]
+    tags: ["{{ .Tag }}"]
+    platforms: [linux/amd64]
+    build_args:
+      BINARY: content-key-svc
 
 archives:
   - formats: [none]

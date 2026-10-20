@@ -28,7 +28,7 @@ done
 kubectl -n cert-manager wait --for=condition=available deploy/cert-manager-webhook --timeout=5m
 
 kubectl apply -f deploy/bricks/namespaces.yaml -f deploy/bricks/ca.yaml
-for certificate in cert-manager/internal-ca postgres/postgres-server kafka/kafka-listener openbao/openbao sms/catalog-apply-tls; do
+for certificate in cert-manager/internal-ca postgres/postgres-server kafka/kafka-listener openbao/openbao sms/catalog-apply-tls sms/content-key-svc-tls; do
 	kubectl -n "${certificate%/*}" wait --for=condition=ready "certificate/${certificate#*/}" --timeout=5m
 done
 bash deploy/bricks/secrets.sh
@@ -54,5 +54,9 @@ for job in migrate catalog-apply; do
 	kubectl -n sms delete job "$job" --ignore-not-found --wait
 	sed -E "s#^( *image: ghcr\.io/martialanouman/sms-platform/[a-z-]+)\$#\1:$tag#" "deploy/k8s/$job.yaml" | kubectl -n sms apply -f -
 	finish "$job"
+done
+for service in content-key-svc; do
+	sed -E "s#^( *image: ghcr\.io/martialanouman/sms-platform/[a-z-]+)\$#\1:$tag#" "deploy/k8s/$service.yaml" | kubectl -n sms apply -f -
+	kubectl -n sms rollout status "deploy/$service" --timeout=5m
 done
 echo "deploy.sh: $tag déployé"

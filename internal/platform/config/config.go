@@ -51,6 +51,11 @@ var defaults = map[string]string{
 	"OPENBAO_ADDR":              "",
 }
 
+// Default is the value Load reads for name when the environment leaves it unset.
+func Default(name string) string {
+	return defaults[name]
+}
+
 // Variables is the sorted closed list of the environment variables Load reads.
 func Variables() []string {
 	return slices.Sorted(maps.Keys(defaults))

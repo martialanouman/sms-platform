@@ -86,6 +86,21 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
+  name: content-key-svc-tls
+  namespace: sms
+spec:
+  secretName: content-key-svc-tls
+  dnsNames:
+    - content-key-svc
+  usages:
+    - server auth
+  issuerRef:
+    name: internal-ca
+    kind: ClusterIssuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
   name: openbao
   namespace: openbao
 spec:
