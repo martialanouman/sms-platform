@@ -1,0 +1,17 @@
+:root{
+  --dur-instant:80ms;/* @kind other */
+  --dur-fast:120ms;/* @kind other */
+  --dur-base:160ms;/* @kind other */
+  --dur-slow:240ms;/* @kind other */
+  --dur-pulse:1800ms;/* @kind other */
+  --dur-skeleton:1400ms;/* @kind other */
+  --dur-spin:800ms;/* @kind other */
+
+  --ease-productive:cubic-bezier(0.2,0,0.38,0.9);/* @kind other */
+  --ease-entrance:cubic-bezier(0,0,0.38,0.9);/* @kind other */
+  --ease-exit:cubic-bezier(0.2,0,1,0.9);/* @kind other */
+  --ease-expressive:cubic-bezier(0.4,0.14,0.3,1);/* @kind other */
+
+  --transition-control:background-color var(--dur-fast) var(--ease-productive),border-color var(--dur-fast) var(--ease-productive),color var(--dur-fast) var(--ease-productive);/* @kind other */
+  --transition-surface:background-color var(--dur-base) var(--ease-productive);/* @kind other */
+}

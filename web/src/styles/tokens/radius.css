@@ -1,0 +1,20 @@
+:root {
+  --r-0: 0;
+  --r-1: 3px;
+  --r-2: 5px;
+  --r-field: 7px;
+  --r-card: 12px;
+  --r-pill: 20px;
+  --r-round: 999px;
+
+  --radius-control: var(--r-field);
+  --radius-input: var(--r-field);
+  --radius-card: var(--r-card);
+  --radius-panel: var(--r-card);
+  --radius-badge: var(--r-pill);
+  --radius-pill: var(--r-pill);
+  --r-3: var(--r-field);
+  --r-4: var(--r-field);
+  --r-5: var(--r-card);
+  --r-6: var(--r-card);
+}

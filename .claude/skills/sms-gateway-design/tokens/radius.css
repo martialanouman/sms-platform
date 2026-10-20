@@ -1,0 +1,21 @@
+:root{
+  /* Charte §04 — trois rayons canoniques. */
+  --r-0:0;/* @kind radius */
+  --r-1:3px;
+  --r-2:5px;
+  --r-field:7px;   /* champs, boutons, petits contrôles */
+  --r-card:12px;   /* cartes, panneaux, modales, bandeaux */
+  --r-pill:20px;   /* pilules de statut, badges, segmented */
+  --r-round:999px; /* points, pastilles */
+
+  --radius-control:var(--r-field);
+  --radius-input:var(--r-field);
+  --radius-card:var(--r-card);
+  --radius-panel:var(--r-card);
+  --radius-badge:var(--r-pill);
+  --radius-pill:var(--r-pill);
+  --r-3:var(--r-field);
+  --r-4:var(--r-field);
+  --r-5:var(--r-card);
+  --r-6:var(--r-card);
+}

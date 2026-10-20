@@ -1,0 +1,120 @@
+/* SMS Gateway — palette de la charte graphique (v1.0, dark only).
+   « Ambiance control room (NOC) sombre : lisibilité prolongée, hiérarchie claire,
+   sémantique de statut sans ambiguïté. » Un seul accent : le teal. */
+:root{
+  /* ---- surfaces froides quasi-noires (échelle : petit = clair) ---- */
+  --n-0:#ffffff;
+  --n-50:#e6edf3;   /* texte primaire */
+  --n-100:#b8c0cb;
+  --n-200:#8b95a3;  /* texte discret */
+  --n-300:#6b7684;
+  --n-400:#4a5563;
+  --n-500:#2f3945;
+  --n-600:#232b36;  /* bordure de carte */
+  --n-700:#1c242f;  /* bordure fine, séparateur */
+  --n-800:#11161e;  /* surface : cartes, panneaux */
+  --n-850:#0c1017;  /* surface creuse : champs, encarts */
+  --n-900:#0c0f14;  /* fond app, canvas principal */
+  --n-950:#0a0d12;  /* fond nav, topbar */
+
+  /* ---- accent unique ---- */
+  --teal-100:#a7f3e6;
+  --teal-300:#5fe3d0;
+  --teal-500:#2dd4bf;  /* accent primaire */
+  --teal-600:#22b3a2;
+  --teal-700:#178578;
+
+  /* ---- sémantique de statut ---- */
+  --green-500:#2fd18a;  /* sain, up, closed, delivered, connecté */
+  --amber-500:#f0b84a;  /* dégradé, reconnecting, breaker open, expired */
+  --red-500:#e5484d;    /* panne, failed, suspended, action destructive */
+  --blue-500:#7fb2ff;   /* métrique secondaire, types techniques, alertmanager */
+  --violet-500:#c586c0; /* domaine métier : réputation, facturation, évaluation BFF */
+
+  /* ---- teintes (fonds de pilule, bandeaux, aires de graphe) ---- */
+  --tint-teal:color-mix(in srgb,var(--teal-500) 14%,transparent);
+  --tint-teal-strong:color-mix(in srgb,var(--teal-500) 22%,transparent);
+  --tint-green:color-mix(in srgb,var(--green-500) 14%,transparent);
+  --tint-amber:color-mix(in srgb,var(--amber-500) 14%,transparent);
+  --tint-red:color-mix(in srgb,var(--red-500) 14%,transparent);
+  --tint-blue:color-mix(in srgb,var(--blue-500) 14%,transparent);
+  --tint-violet:color-mix(in srgb,var(--violet-500) 14%,transparent);
+
+  /* ================= alias sémantiques ================= */
+  --text-primary:var(--n-50);
+  --text-secondary:var(--n-100);
+  --text-muted:var(--n-200);
+  --text-faint:var(--n-300);
+  --text-inverse:var(--n-900);
+  --text-link:var(--teal-500);
+  --text-link-hover:var(--teal-300);
+  --text-accent:var(--teal-500);
+  --text-danger:var(--red-500);
+  --text-success:var(--green-500);
+  --text-warning:var(--amber-500);
+  --text-info:var(--blue-500);
+  --text-domain:var(--violet-500);
+
+  --surface-page:var(--n-900);
+  --surface-card:var(--n-800);
+  --surface-raised:var(--n-800);
+  --surface-sunken:var(--n-850);
+  --surface-hover:color-mix(in srgb,var(--n-50) 4%,var(--n-800));
+  --surface-active:color-mix(in srgb,var(--n-50) 7%,var(--n-800));
+  --surface-selected:var(--tint-teal);
+  --surface-chrome:var(--n-950);
+  --surface-chrome-hover:color-mix(in srgb,var(--n-50) 5%,var(--n-950));
+  --surface-disabled:color-mix(in srgb,var(--n-50) 3%,var(--n-800));
+
+  --border-subtle:var(--n-700);
+  --border-default:var(--n-600);
+  --border-strong:var(--n-500);
+  --border-focus:var(--teal-500);
+  --border-chrome:var(--n-700);
+  --border-dashed:var(--n-600);
+
+  /* Boutons : contour + teinte, jamais un aplat plein (charte §05). */
+  --action-primary-fg:var(--teal-500);
+  --action-primary-border:color-mix(in srgb,var(--teal-500) 55%,transparent);
+  --action-primary-bg:var(--tint-teal);
+  --action-primary-bg-hover:var(--tint-teal-strong);
+  --action-secondary-fg:var(--n-50);
+  --action-secondary-bg:transparent;
+  --action-secondary-border:var(--border-default);
+  --action-danger-fg:var(--red-500);
+  --action-danger-border:color-mix(in srgb,var(--red-500) 55%,transparent);
+  --action-danger-bg:transparent;
+  --action-danger-bg-hover:var(--tint-red);
+
+  --focus-ring:0 0 0 2px var(--surface-page),0 0 0 4px var(--teal-500);
+
+  /* ---- sémantique domaine SMS ---- */
+  --mt-accent:var(--teal-500);
+  --mt-surface:var(--tint-teal);
+  --mo-accent:var(--blue-500);
+  --mo-surface:var(--tint-blue);
+  --status-up:var(--green-500);
+  --status-degraded:var(--amber-500);
+  --status-down:var(--red-500);
+  --status-restricted:var(--violet-500);
+  --status-idle:var(--n-300);
+  --breaker-closed:var(--green-500);
+  --breaker-open:var(--amber-500);
+  --breaker-half-open:var(--amber-500);
+  --script-accent:var(--violet-500);
+  --script-surface:var(--tint-violet);
+  --source-alertmanager:var(--blue-500);
+  --source-bff:var(--violet-500);
+  --audit-accent:var(--n-200);
+  --sev-info:var(--blue-500);
+  --sev-warning:var(--amber-500);
+  --sev-critical:var(--red-500);
+
+  /* ---- data-viz ---- */
+  --viz-primary:var(--teal-500);
+  --viz-primary-area:color-mix(in srgb,var(--teal-500) 18%,transparent);
+  --viz-secondary:var(--blue-500);
+  --viz-grid:color-mix(in srgb,var(--n-50) 6%,transparent);
+  --viz-meter-track:var(--n-700);
+  --viz-meter-fill:var(--teal-500);
+}

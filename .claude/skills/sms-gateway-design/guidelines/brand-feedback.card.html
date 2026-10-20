@@ -1,0 +1,19 @@
+<!-- @dsCard group="Brand" viewport="700x230" name="Bandeaux & toasts" subtitle="Bandeau teinté pleine largeur · toast à barre latérale colorée, coin bas-droit" -->
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>body{padding:16px;background:var(--surface-page);font:var(--text-body);color:var(--text-primary)}
+.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.stack{display:flex;flex-direction:column;gap:12px}
+.grid{display:grid;gap:10px}
+.k{font:var(--text-data-sm);color:var(--text-primary)}.v{font:var(--text-data-sm);color:var(--text-faint)}
+.cap{font:var(--text-overline);letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--text-faint)}
+.tile{border:1px solid var(--border-default);border-radius:var(--r-card);overflow:hidden;background:var(--surface-card)}
+.tile .chip{height:44px;border-bottom:1px solid var(--border-subtle)}
+.tile .meta{padding:7px 9px;display:flex;flex-direction:column;gap:2px}
+.note{font-size:var(--fs-12);color:var(--text-faint);line-height:var(--lh-normal);margin:12px 0 0}
+</style></head><body><div class="stack">
+<div class="pl-banner pl-banner--info"><span class="pl-banner__icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="5.6"/><path d="M8 7.2v3.6"/><path d="M8 5.2h.01"/></svg></span><span class="pl-banner__body"><span class="pl-banner__text">Le compte bulk-sms-ci a un script de routage actif — il prévaudra sur cette route en production.</span></span></div>
+<div class="pl-banner pl-banner--warning"><span class="pl-banner__icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2.8 14.2 13.2H1.8Z"/><path d="M8 6.6v3.1"/></svg></span><span class="pl-banner__body"><span class="pl-banner__text">Bac à sable : timeout 50 ms · mémoire 8 Mo. En cas d'échec, le routage déclaratif prend le relais.</span></span></div>
+<div class="pl-banner pl-banner--danger"><span class="pl-banner__icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 3.4v6"/><path d="M8 12.2h.01"/></svg></span><span class="pl-banner__body"><span class="pl-banner__text">Connecteur orange-sn-1 en panne (link down) depuis 2 min — évalué par Alertmanager, indépendamment du tableau de bord.</span></span></div>
+<div class="row" style="align-items:flex-start;gap:12px">
+<div class="pl-toast pl-toast--success"><span class="pl-toast__dot"></span><span class="pl-toast__body"><span class="pl-toast__title">Route « MTN CI direct » enregistrée</span></span></div>
+<div class="pl-toast pl-toast--critical"><span class="pl-toast__dot"></span><span class="pl-toast__body"><span class="pl-toast__title">Échec de la recharge — solde inchangé</span></span></div>
+</div></div></body></html>

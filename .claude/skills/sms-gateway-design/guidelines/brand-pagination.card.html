@@ -1,0 +1,24 @@
+<!-- @dsCard group="Brand" viewport="700x170" name="Pagination & grands ensembles" subtitle="Curseur serveur, pas de numéro de page · fenêtre virtualisée" -->
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>body{padding:16px;background:var(--surface-page);font:var(--text-body);color:var(--text-primary)}
+.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.stack{display:flex;flex-direction:column;gap:12px}
+.grid{display:grid;gap:10px}
+.k{font:var(--text-data-sm);color:var(--text-primary)}.v{font:var(--text-data-sm);color:var(--text-faint)}
+.cap{font:var(--text-overline);letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--text-faint)}
+.tile{border:1px solid var(--border-default);border-radius:var(--r-card);overflow:hidden;background:var(--surface-card)}
+.tile .chip{height:44px;border-bottom:1px solid var(--border-subtle)}
+.tile .meta{padding:7px 9px;display:flex;flex-direction:column;gap:2px}
+.note{font-size:var(--fs-12);color:var(--text-faint);line-height:var(--lh-normal);margin:12px 0 0}
+</style></head><body><div class="grid" style="grid-template-columns:1fr 1fr;gap:14px">
+<div class="pl-card"><div class="pl-card__body">
+<div class="v" style="margin-bottom:10px">50 lignes · ~1,24 M au total</div>
+<div class="row"><button class="pl-btn pl-btn--secondary pl-btn--sm" disabled>‹ Précédent</button><button class="pl-btn pl-btn--primary pl-btn--sm">Suivant ›</button></div>
+<p class="note">Un curseur (côté serveur, non affiché) suit le dernier élément vu. « Précédent » est désactivé sur la première fenêtre.</p>
+</div></div>
+<div class="pl-card"><div class="pl-card__body"><div class="stack" style="gap:6px">
+<div class="pl-input pl-input--mono" style="display:flex;align-items:center">ses_9f2a… · bulk-sms-ci</div>
+<div class="pl-input pl-input--mono" style="display:flex;align-items:center">ses_a10c… · orange-marketing</div>
+<span class="pl-skel" style="height:34px;border-radius:var(--r-field)"></span>
+<span class="pl-skel" style="height:34px;border-radius:var(--r-field);opacity:.5"></span>
+</div><p class="note">Les listes de dizaines de milliers de lignes ne rendent que la fenêtre visible ; la suite se charge en skeleton au scroll.</p></div></div>
+</div></body></html>

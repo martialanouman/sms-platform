@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, useRouterState } from '@tanstack/react-router'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { api, send } from '../api'
+import { AuthLayout, Field } from '../ui'
 
 export const Route = createFileRoute('/access')({ component: Access })
 
@@ -42,20 +43,19 @@ function Access() {
 
   if (!token) {
     return (
-      <main>
-        <h1>Définir un mot de passe</h1>
-        <p role="alert">Ce lien est incomplet. Ouvrez celui du courriel reçu, en entier.</p>
-      </main>
+      <AuthLayout title="Définir un mot de passe">
+        <p className="auth__refusal" role="alert">
+          Ce lien est incomplet. Ouvrez celui du courriel reçu, en entier.
+        </p>
+      </AuthLayout>
     )
   }
   return (
-    <main>
-      <h1>Définir un mot de passe</h1>
-      <form noValidate onSubmit={submit}>
-        <label htmlFor="password">Nouveau mot de passe</label>
-        <input
+    <AuthLayout title="Définir un mot de passe">
+      <form className="auth__form" noValidate onSubmit={submit}>
+        <Field
+          label="Nouveau mot de passe"
           ref={password}
-          id="password"
           name="password"
           type="password"
           autoComplete="new-password"
@@ -63,14 +63,14 @@ function Access() {
           aria-describedby={error ? 'access-error' : undefined}
         />
         {error && (
-          <p ref={alert} id="access-error" role="alert" tabIndex={-1}>
+          <p ref={alert} className="auth__refusal" id="access-error" role="alert" tabIndex={-1}>
             {error}
           </p>
         )}
-        <button type="submit" disabled={waiting}>
+        <button className="ui-button ui-button--primary" type="submit" disabled={waiting}>
           Enregistrer le mot de passe
         </button>
       </form>
-    </main>
+    </AuthLayout>
   )
 }

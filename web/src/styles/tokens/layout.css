@@ -1,0 +1,22 @@
+:root {
+  --nav-width: 236px;
+  --nav-width-collapsed: 56px;
+  --topbar-height: 56px;
+  --subbar-height: 44px;
+  --detail-panel-width: 420px;
+  --row-height: 38px;
+  --row-height-dense: 32px;
+  --control-height-sm: 28px;
+  --control-height: 34px;
+  --control-height-lg: 40px;
+  --content-max: 1600px;
+  --breakpoint-tablet: 768px;
+  --breakpoint-desktop: 1280px;
+  --breakpoint-wide: 1680px;
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-nav: 20;
+  --z-popover: 40;
+  --z-modal: 60;
+  --z-toast: 80;
+}

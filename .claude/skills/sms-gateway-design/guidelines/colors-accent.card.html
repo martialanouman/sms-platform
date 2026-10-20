@@ -1,0 +1,16 @@
+<!-- @dsCard group="Colors" viewport="700x180" name="Accent & statut" subtitle="Un seul accent teal ; vert/ambre/rouge strictement sémantiques" -->
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>body{padding:16px;background:var(--surface-page);font:var(--text-body);color:var(--text-primary)}
+.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.stack{display:flex;flex-direction:column;gap:12px}
+.grid{display:grid;gap:10px}
+.k{font:var(--text-data-sm);color:var(--text-primary)}.v{font:var(--text-data-sm);color:var(--text-faint)}
+.cap{font:var(--text-overline);letter-spacing:var(--ls-caps);text-transform:uppercase;color:var(--text-faint)}
+.tile{border:1px solid var(--border-default);border-radius:var(--r-card);overflow:hidden;background:var(--surface-card)}
+.tile .chip{height:44px;border-bottom:1px solid var(--border-subtle)}
+.tile .meta{padding:7px 9px;display:flex;flex-direction:column;gap:2px}
+.note{font-size:var(--fs-12);color:var(--text-faint);line-height:var(--lh-normal);margin:12px 0 0}
+</style></head><body><div class="grid" style="grid-template-columns:repeat(4,1fr)"><div class="tile"><div class="chip" style="background:var(--teal-500)"></div><div class="meta"><span class="k">--teal-500 · accent</span><span class="v">#2dd4bf</span><span class="v">action, sélection, métrique principale, vivant</span></div></div><div class="tile"><div class="chip" style="background:var(--green-500)"></div><div class="meta"><span class="k">--status-up</span><span class="v">#2fd18a</span><span class="v">sain, up, closed, delivered</span></div></div><div class="tile"><div class="chip" style="background:var(--amber-500)"></div><div class="meta"><span class="k">--status-degraded</span><span class="v">#f0b84a</span><span class="v">dégradé, reconnecting, breaker open</span></div></div><div class="tile"><div class="chip" style="background:var(--red-500)"></div><div class="meta"><span class="k">--status-down</span><span class="v">#e5484d</span><span class="v">panne, failed, suspended, destructif</span></div></div></div><div class="row" style="margin-top:12px">
+<span class="pl-badge pl-badge--success">active</span><span class="pl-badge pl-badge--warning">degraded</span>
+<span class="pl-badge pl-badge--danger">down</span><span class="pl-badge pl-badge--domain">restricted</span>
+<span class="pl-badge pl-badge--accent">live</span></div>
+<p class="note">« Chaque état critique a une couleur et un libellé dédiés — jamais deux sens sous une même teinte. »</p></body></html>

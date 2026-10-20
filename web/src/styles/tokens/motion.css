@@ -1,0 +1,19 @@
+:root {
+  --dur-instant: 80ms;
+  --dur-fast: 120ms;
+  --dur-base: 160ms;
+  --dur-slow: 240ms;
+  --dur-pulse: 1800ms;
+  --dur-skeleton: 1400ms;
+  --dur-spin: 800ms;
+
+  --ease-productive: cubic-bezier(0.2, 0, 0.38, 0.9);
+  --ease-entrance: cubic-bezier(0, 0, 0.38, 0.9);
+  --ease-exit: cubic-bezier(0.2, 0, 1, 0.9);
+  --ease-expressive: cubic-bezier(0.4, 0.14, 0.3, 1);
+
+  --transition-control:
+    background-color var(--dur-fast) var(--ease-productive), border-color var(--dur-fast) var(--ease-productive),
+    color var(--dur-fast) var(--ease-productive);
+  --transition-surface: background-color var(--dur-base) var(--ease-productive);
+}

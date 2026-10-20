@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { api, send } from '../api'
+import { AuthLayout, Field } from '../ui'
 
 const notices = {
   'session-fermee': 'Votre session est fermée. Reconnectez-vous.',
@@ -58,23 +59,24 @@ function Login() {
   }
 
   return (
-    <main>
-      <h1>Connexion</h1>
-      {avis && <p role="status">{notices[avis]}</p>}
-      <form noValidate onSubmit={submit}>
-        <label htmlFor="email">Adresse e-mail</label>
-        <input
+    <AuthLayout title="Connexion">
+      {avis && (
+        <p className="auth__notice" role="status">
+          {notices[avis]}
+        </p>
+      )}
+      <form className="auth__form" noValidate onSubmit={submit}>
+        <Field
+          label="Adresse e-mail"
           ref={email}
-          id="email"
           name="email"
           type="email"
           autoComplete="username"
           required
           aria-describedby={error ? 'login-error' : undefined}
         />
-        <label htmlFor="password">Mot de passe</label>
-        <input
-          id="password"
+        <Field
+          label="Mot de passe"
           name="password"
           type="password"
           autoComplete="current-password"
@@ -82,14 +84,14 @@ function Login() {
           aria-describedby={error ? 'login-error' : undefined}
         />
         {error && (
-          <p ref={alert} id="login-error" role="alert" tabIndex={-1}>
+          <p ref={alert} className="auth__refusal" id="login-error" role="alert" tabIndex={-1}>
             {error}
           </p>
         )}
-        <button type="submit" disabled={waiting}>
+        <button className="ui-button ui-button--primary" type="submit" disabled={waiting}>
           Se connecter
         </button>
       </form>
-    </main>
+    </AuthLayout>
   )
 }

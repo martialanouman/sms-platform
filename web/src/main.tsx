@@ -3,6 +3,7 @@ import { RouterProvider } from '@tanstack/react-router'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { newRouter } from './router'
+import './styles/app.css'
 import { Unauthenticated } from './session'
 
 const root = document.getElementById('root')

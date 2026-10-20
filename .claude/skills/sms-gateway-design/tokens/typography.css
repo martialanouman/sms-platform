@@ -1,0 +1,53 @@
+:root{
+  /* Charte §03 — IBM Plex Sans (interface) + IBM Plex Mono (valeurs machine). */
+  --fs-10:10.5px;  /* micro-label caps */
+  --fs-11:11px;
+  --fs-12:12px;    /* libellé secondaire */
+  --fs-13:13px;    /* corps de texte */
+  --fs-15:15px;    /* titre de carte */
+  --fs-19:19px;    /* titre de section */
+  --fs-28:28px;    /* titre de page, valeur KPI */
+  --fs-14:14px;
+  --fs-16:16px;
+  --fs-18:18px;
+  --fs-20:20px;
+  --fs-24:24px;
+  --fs-30:30px;
+  --fs-38:38px;
+
+  --lh-tight:1.15;/* @kind other */
+  --lh-snug:1.3;/* @kind other */
+  --lh-normal:1.5;/* @kind other */
+  --lh-relaxed:1.65;/* @kind other */
+
+  --fw-regular:400;/* @kind font */
+  --fw-medium:500;/* @kind font */
+  --fw-semibold:600;/* @kind font */
+  --fw-bold:700;/* @kind font */
+
+  --ls-tight:-0.015em;
+  --ls-snug:-0.008em;
+  --ls-normal:0;/* @kind other */
+  --ls-wide:0.02em;
+  --ls-caps:0.08em;
+  --ls-mono:0.01em;
+
+  /* rôles typographiques — la charte n'en définit que six */
+  --text-page-title:var(--fw-semibold) var(--fs-28)/var(--lh-tight) var(--font-sans);
+  --text-section-title:var(--fw-semibold) var(--fs-19)/var(--lh-snug) var(--font-sans);
+  --text-card-title:var(--fw-semibold) var(--fs-15)/var(--lh-snug) var(--font-sans);
+  --text-body:var(--fw-regular) var(--fs-13)/var(--lh-normal) var(--font-sans);
+  --text-body-lg:var(--fw-regular) var(--fs-15)/var(--lh-normal) var(--font-sans);
+  --text-label:var(--fw-regular) var(--fs-12)/var(--lh-snug) var(--font-sans);
+  --text-caption:var(--fw-regular) var(--fs-12)/var(--lh-snug) var(--font-sans);
+  --text-overline:var(--fw-semibold) var(--fs-10)/var(--lh-snug) var(--font-sans);
+  --text-display:var(--fw-semibold) var(--fs-28)/var(--lh-tight) var(--font-sans);
+
+  /* valeurs machine — mono exclusivement */
+  --text-metric:var(--fw-semibold) var(--fs-28)/var(--lh-tight) var(--font-mono);
+  --text-metric-sm:var(--fw-semibold) var(--fs-19)/var(--lh-tight) var(--font-mono);
+  --text-data:var(--fw-regular) var(--fs-12)/var(--lh-snug) var(--font-mono);
+  --text-data-sm:var(--fw-regular) var(--fs-11)/var(--lh-snug) var(--font-mono);
+  --text-pill:var(--fw-medium) var(--fs-11)/1 var(--font-mono);
+  --text-code:var(--fw-regular) var(--fs-12)/var(--lh-relaxed) var(--font-mono);
+}

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Écran de console" description="Squelette d'écran d'exploitation Passerelle : rail de navigation, barre supérieure, barre de filtres, tuiles temps réel et table dense." -->
+<helmet><script src="./ds-base.js"></script>
+<style>body{margin:0;background:#0c0f14;color:#e6edf3;font-family:"IBM Plex Sans",system-ui,sans-serif}</style>
+</helmet>
+<div style="display:flex;height:100vh;overflow:hidden;background:#0c0f14;color:#e6edf3;font-family:'IBM Plex Sans',system-ui,sans-serif">
+<x-import component-from-global-scope="PasserelleDesignSystem_18220e.SideNav" groups="{{ navGroups }}" active-id="{{ activeId }}" on-navigate="{{ setActive }}" monogram="SG" wordmark="SMS Gateway" env="PROD" hint-size="232px,100%"></x-import>
+<div style="flex:1;display:flex;flex-direction:column;min-width:0">
+<x-import component-from-global-scope="PasserelleDesignSystem_18220e.TopBar" crumbs="{{ crumbs }}" title="Tableau de bord de trafic" operator="A. Kouadio" role="ops" hint-size="100%,48px"></x-import>
+<div style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:#0c0f14;border-bottom:1px solid #232b36;min-height:44px;flex-wrap:wrap">
+<x-import component-from-global-scope="PasserelleDesignSystem_18220e.StatusPill" state="up" live="{{ true }}" label="live · WS connecté" meta="metrics.traffic" hint-size="180px,20px"></x-import>
+<div style="margin-left:auto;display:flex;gap:8px">
+<x-import component-from-global-scope="PasserelleDesignSystem_18220e.Button" size="sm" variant="secondary" icon="filter" hint-size="90px,26px">Filtrer</x-import>
+<x-import component-from-global-scope="PasserelleDesignSystem_18220e.Button" size="sm" variant="primary" icon="plus" hint-size="120px,26px">Nouvelle règle</x-import>
+</div>
+</div>
+<main style="flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:16px;max-width:1600px">
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+<x-import component-from-global-scope="PasserelleDesignSystem_18220e.MetricTile" label="MT / s" value="8 123" tone="mt" live="{{ true }}" delta="+4,2 %" hint-size="100%,92px"></x-import>
+<x-import component-from-global-scope="PasserelleDesignSystem_18220e.MetricTile" label="MO / s" value="1 987" tone="mo" live="{{ true }}" hint-size="100%,92px"></x-import>
+<x-import component-from-global-scope="PasserelleDesignSystem_18220e.MetricTile" label="Taux de succès" value="99,64" unit="%" hint-size="100%,92px"></x-import>
+<x-import component-from-global-scope="PasserelleDesignSystem_18220e.MetricTile" label="Latence p99" value="1,24" unit="s" tone="danger" hint-size="100%,92px"></x-import>
+</div>
+<x-import component-from-global-scope="PasserelleDesignSystem_18220e.Card" title="Connecteurs" subtitle="4 configurés · link_status (point) et breaker_state (pilule) restent distincts" flush="{{ true }}" hint-size="100%,220px">
+<x-import component-from-global-scope="PasserelleDesignSystem_18220e.DataTable" dense="{{ dense }}" rows="{{ rows }}" columns="{{ columns }}" hint-size="100%,180px"></x-import>
+</x-import>
+<x-import component-from-global-scope="PasserelleDesignSystem_18220e.Banner" tone="warning" title="Remplacez ce bandeau par la conséquence réelle de l'écran" hint-size="100%,52px">Chaque état ambigu de la console énonce sa conséquence en clair : ce que l'action fait, ce qu'elle ne fait pas.</x-import>
+</main>
+</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;dense&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Densité&quot;}}">
+class Component extends DCLogic {
+  state = { activeId: 'traffic' };
+  renderVals() {
+    const React = window.React;
+    const NS = window.PasserelleDesignSystem_18220e || {};
+    const StatusPill = NS.StatusPill;
+    const pill = (state, extra) => (StatusPill ? React.createElement(StatusPill, { state, ...extra }) : state);
+    return {
+      activeId: this.state.activeId,
+      setActive: (id) => this.setState({ activeId: id }),
+      dense: this.props.dense ?? true,
+      crumbs: [{ label: 'Exploitation' }, { label: 'Trafic' }],
+      navGroups: [
+        { label: 'Exploitation', items: [
+          { id: 'traffic', label: 'Trafic' },
+          { id: 'cdr', label: 'CDR Explorer' },
+          { id: 'sessions', label: 'Sessions', count: 412 },
+          { id: 'connectors', label: 'Connecteurs', count: 4 },
+        ] },
+        { label: 'Clients', items: [
+          { id: 'customers', label: 'Clients', count: 87 },
+          { id: 'accounts', label: 'Comptes SMPP' },
+        ] },
+        { label: 'Routage', items: [
+          { id: 'routes', label: 'Routes' },
+          { id: 'scripts', label: 'Scripts' },
+        ] },
+      ],
+      rows: [
+        { id: 'orange-ci', name: 'orange-ci', link: 'up', breaker: 'closed', binds: '4/4', tps: 620, err: '0,4 %' },
+        { id: 'mtn-ci', name: 'mtn-ci', link: 'reconnecting', breaker: 'half_open', binds: '3/4', tps: 410, err: '5,8 %' },
+        { id: 'moov-ci', name: 'moov-ci', link: 'up', breaker: 'closed', binds: '2/2', tps: 180, err: '0,1 %' },
+        { id: 'wholesale-eu', name: 'wholesale-eu', link: 'down', breaker: 'open', binds: '0/2', tps: 0, err: '100 %' },
+      ],
+      columns: [
+        { key: 'name', header: 'Connecteur', mono: true },
+        { key: 'link', header: 'link_status', width: 130, render: (r) => pill(r.link, { live: true, meta: r.binds }) },
+        { key: 'breaker', header: 'breaker_state', width: 120, render: (r) => pill(r.breaker) },
+        { key: 'tps', header: 'MT/s', numeric: true, width: 70 },
+        { key: 'err', header: 'Erreur', numeric: true, width: 80 },
+      ],
+    };
+  }
+}
+
+</script>
+</body>
+</html>

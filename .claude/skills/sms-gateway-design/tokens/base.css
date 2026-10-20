@@ -1,0 +1,14 @@
+/* Resets globaux. Thème sombre unique — pas de bascule clair (charte v1.0). */
+*,*::before,*::after{box-sizing:border-box}
+html{color-scheme:dark}
+body{margin:0;font:var(--text-body);color:var(--text-primary);background:var(--surface-page);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+a{color:var(--text-link);text-decoration:none}
+a:hover{color:var(--text-link-hover);text-decoration:underline}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:none;box-shadow:var(--focus-ring)}
+code,kbd,pre,samp{font-family:var(--font-mono)}
+::selection{background:var(--tint-teal-strong)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:var(--n-900)}
+::-webkit-scrollbar-thumb{background:var(--n-600);border-radius:var(--r-pill);border:2px solid var(--n-900)}
+::-webkit-scrollbar-thumb:hover{background:var(--n-500)}
+@media (prefers-reduced-motion:reduce){*{animation-duration:0.01ms !important;transition-duration:0.01ms !important}}

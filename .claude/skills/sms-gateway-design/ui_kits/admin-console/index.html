@@ -1,0 +1,84 @@
+<!-- @dsCard group="Tableau de bord Admin" viewport="1440x900" name="Console d'exploitation" subtitle="Login MFA → trafic temps réel → CDR → compte SMPP → routes → facturation" -->
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<title>Passerelle — Tableau de bord Admin</title>
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script src="./mock.js"></script>
+<script type="text/babel" data-presets="react" src="./AppShell.jsx"></script>
+<script type="text/babel" data-presets="react" src="./LoginScreen.jsx"></script>
+<script type="text/babel" data-presets="react" src="./TrafficScreen.jsx"></script>
+<script type="text/babel" data-presets="react" src="./CdrExplorerScreen.jsx"></script>
+<script type="text/babel" data-presets="react" src="./AccountScreen.jsx"></script>
+<script type="text/babel" data-presets="react" src="./RoutesScreen.jsx"></script>
+<script type="text/babel" data-presets="react" src="./BillingScreen.jsx"></script>
+<style>html,body{height:100%}body{margin:0;overflow:hidden}</style></head><body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+(() => {
+const { Button, Badge, IconButton, StatusPill, EmptyState, Card } = window.PasserelleDesignSystem_18220e;
+
+const META = {
+  traffic: { title: 'Tableau de bord de trafic', crumbs: [{ label: 'Exploitation' }, { label: 'Trafic' }] },
+  cdr: { title: 'CDR Explorer', crumbs: [{ label: 'Exploitation' }, { label: 'CDR Explorer' }] },
+  account: { title: 'smpp-banquex-01', crumbs: [{ label: 'Clients', href: '#' }, { label: 'Banque X', href: '#' }, { label: 'smpp-banquex-01' }], badges: <Badge tone="domain">script actif</Badge> },
+  routes: { title: 'Constructeur de routes', crumbs: [{ label: 'Routage' }, { label: 'Routes' }] },
+  billing: { title: 'Soldes & crédits — Banque X', crumbs: [{ label: 'Facturation' }, { label: 'Banque X' }] },
+};
+
+function App() {
+  const [authed, setAuthed] = React.useState(false);
+  const [nav, setNav] = React.useState('traffic');
+  const [toasts, setToasts] = React.useState([]);
+  const dismiss = (id) => setToasts((l) => l.filter((t) => t.id !== id));
+  // Charte §10 : éphémères, auto-disparition, fermables.
+  const push = (t) => {
+    const id = Date.now() + Math.random();
+    setToasts((l) => [...l, { id, ...t }].slice(-3));
+    setTimeout(() => dismiss(id), t.severity === 'critical' ? 9000 : 6000);
+  };
+  React.useEffect(() => {
+    if (!authed) return;
+    const t = setTimeout(() => push({ severity: 'critical', title: 'mtn-ci : taux d’erreur au-dessus de 5 %', text: 'Évalué par Alertmanager, indépendamment de la disponibilité du tableau de bord.', source: 'alertmanager' }), 3500);
+    return () => clearTimeout(t);
+  }, [authed]);
+
+  if (!authed) return <LoginScreen onDone={() => setAuthed(true)} />;
+  const meta = META[nav];
+  const screen = nav === 'traffic' ? <TrafficScreen onDrill={setNav} />
+    : nav === 'cdr' ? <CdrExplorerScreen />
+    : nav === 'account' ? <AccountScreen onToast={push} />
+    : nav === 'routes' ? <RoutesScreen onToast={push} />
+    : nav === 'billing' ? <BillingScreen onToast={push} />
+    : (
+      <div style={{ padding: 'var(--sp-9)' }}>
+        <Card flat flush>
+          <EmptyState icon="diamond" title="Écran non inclus dans ce kit">
+            La spécification décrit cette surface (§6) mais aucune maquette n’en existe dans les sources fournies : elle est volontairement laissée vide plutôt que réinventée.
+          </EmptyState>
+        </Card>
+      </div>
+    );
+
+  return (
+    <AppShell
+      activeId={nav} onNavigate={setNav}
+      crumbs={meta ? meta.crumbs : [{ label: 'SMS Gateway' }]}
+      title={meta ? meta.title : 'Console d’exploitation'}
+      badges={meta ? meta.badges : null}
+      actions={<>
+        <StatusPill state="up" live label="live" meta="WS · 4 sujets" />
+        <Button size="sm" variant="ghost">Alertes</Button>
+      </>}
+      toasts={toasts} onDismissToast={dismiss}
+    >
+      {screen}
+    </AppShell>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+})();
+</script>
+</body></html>
