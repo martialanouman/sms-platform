@@ -276,8 +276,16 @@ func TestAnAccessLinkSetsThePasswordOnceAndOnlyWhileValid(t *testing.T) {
 	if err := h.svc.UseAccessLink(ctx, "unknown"+token[7:], "short"); !errors.Is(err, dashboard.ErrLinkInvalid) {
 		t.Fatalf("unknown link judged after the policy: %v", err)
 	}
+	busy := h.svc
+	busy.Hasher = dashboard.NewHasher()
+	release := dashboard.HoldEverySlot(busy.Hasher)
+	err := busy.UseAccessLink(ctx, token, password)
+	release()
+	if !errors.Is(err, dashboard.ErrBusy) {
+		t.Fatalf("every slot held: %v, want ErrBusy", err)
+	}
 	if err := h.svc.UseAccessLink(ctx, token, password); err != nil {
-		t.Fatalf("the link did not survive a refused password: %v", err)
+		t.Fatalf("the link did not survive a refused password and a busy hasher: %v", err)
 	}
 	if err := h.svc.UseAccessLink(ctx, token, password); !errors.Is(err, dashboard.ErrLinkInvalid) {
 		t.Fatalf("a spent link: %v", err)
@@ -591,7 +599,7 @@ func TestTheAccessLogPagesNewestFirst(t *testing.T) {
 	}
 	encode := func(s string) string { return base64.RawURLEncoding.EncodeToString([]byte(s)) }
 	for _, bad := range []string{"x", "eyJ9", strings.Repeat("A", 300), encode("abc " + all[0].ID), encode("123 " + strings.Repeat("z", 36)),
-		encode("123 " + strings.ReplaceAll(all[0].ID, "-", "0"))} {
+		encode("123 " + strings.ReplaceAll(all[0].ID, "-", "0")), encode("123 " + all[0].ID[1:] + "0"), encode("123 0" + all[0].ID[:35])} {
 		if _, _, err := h.svc.AccessLog(ctx, bad); !errors.Is(err, dashboard.ErrBadCursor) {
 			t.Errorf("cursor %q: %v", bad, err)
 		}
@@ -714,7 +722,7 @@ func (g *gate) Send(ctx context.Context, to, subject, body string) error {
 func TestTwoDeliveriesSendTwoLinksOldestFirst(t *testing.T) {
 	h := newHarness(t)
 	ctx := context.Background()
-	for _, email := range []string{"older@example.test", "newer@example.test"} {
+	for _, email := range []string{"newer@example.test", "older@example.test"} {
 		if err := h.svc.Bootstrap(ctx, email); err != nil {
 			t.Fatal(err)
 		}

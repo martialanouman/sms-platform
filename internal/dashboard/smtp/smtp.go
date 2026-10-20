@@ -57,9 +57,6 @@ func (m Mailer) Send(ctx context.Context, to, subject, body string) error {
 }
 
 func (m Mailer) deliver(c *smtp.Client, host, to, subject, body string) error {
-	if ok, _ := c.Extension("STARTTLS"); !ok {
-		return errors.New("smtp: the relay offers no STARTTLS")
-	}
 	if err := c.StartTLS(&tls.Config{ServerName: host, RootCAs: m.Roots, MinVersion: tls.VersionTLS12}); err != nil {
 		return err
 	}
