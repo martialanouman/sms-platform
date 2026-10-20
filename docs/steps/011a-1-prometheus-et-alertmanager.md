@@ -186,3 +186,9 @@ Constats : 4 mineurs, aucun bloquant.
 3. **Cas « monitoring opened by a rule »** ancré sur la policy `default-deny` elle-même, plus sur l'ordre des documents.
 4. **Gardés tels quels** : l'absence du ConfigMap `internal-ca` bloque le pod et fait échouer `rollout status` ; un
    `ca_file` faux laisse OpenBao hors collecte, ce que `OpenBaoSealed` signale par `absent()`.
+
+## Correctifs de revue, tour 3
+
+Constats par tour : 17 (aucun bloquant), 4, 2. Une règle `- {}` (toutes sources, tous ports) dans la policy
+d'Alertmanager doit être refusée par la garde, pas la faire paniquer : un cas la couvre. Gardé : le `Kind` de la policy
+d'Alertmanager, qu'aucun autre document de `monitoring` ne partage.
