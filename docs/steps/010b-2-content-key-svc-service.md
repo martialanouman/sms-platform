@@ -97,3 +97,30 @@ Rouge vu : les premiers clients appelaient dès leur démarrage et prenaient « 
 kube-router n'admette leur sortie (`.claude/rules/ci-deploy.md`) ; relancés en `restartPolicy: OnFailure`.
 
 Objets de preuve supprimés ; `content-key-svc` reste déployé sous `proof` jusqu'à la release.
+
+## Correctifs de revue, tour 1
+
+Trois revues (correction et sécurité, tests creux, code en trop). Bloquants : 1 à 4.
+
+1. **L'arrêt n'était pas borné par `SHUTDOWN_TIMEOUT`** : `Stop` attend les handshakes en cours, que grpc-go borne à
+   120 s ; une connexion muette retenait le drain au-delà de son budget. Le serveur borne le handshake à
+   `SHUTDOWN_TIMEOUT` (`grpc.ConnectionTimeout`) : le listener se ferme au début du drain, aucun handshake ne survit
+   donc à l'échéance. Prouvé par une connexion qui n'envoie rien.
+2. **La confiance TLS du client OpenBao n'était pas falsifiée** : le client se construit dans une fonction testée
+   contre un serveur TLS de la CA (admis), d'une autre CA (refusé), plafonné à TLS 1.2 (refusé).
+3. **Le crochet de drain** : le test voit `/readyz` passer à 503 pendant `DRAIN_DELAY`.
+4. **`Stop` à l'échéance** : un appel jamais libéré est coupé passé `SHUTDOWN_TIMEOUT`.
+5. **Garde resserrée** : un Service sans `type` (ClusterIP) et sélectionnant les pods du `cmd/` ; `rollout status` dans
+   la boucle des services ; `TLS_ALLOWED_CLIENTS` présent dans le manifest de `content-key-svc` ; une boucle des
+   services sans boucle des Jobs. Écartés : le port de la sonde (un mauvais port fait échouer `rollout status`
+   bruyamment) ; le certificat du service (manque hérité de `catalog-apply`).
+6. **Tests resserrés** : `GRPC_ADDR` libre après un refus de démarrage, attente bornée de l'appel en vol, sortie de
+   `Fatal` en sous-processus.
+7. **Retraits** : la colonne `also` de la table de la garde (un remplacement de bloc suffit), `grpcSet` (un port
+   valide n'est jamais 0), le commentaire de `checkService`, et dans le manifest les défauts de Kubernetes (`protocol`,
+   `replicas`, `targetPort`, `expirationSeconds`, le port nommé `grpc` que rien ne vise, l'`automountServiceAccountToken`
+   du ServiceAccount que celui du pod remplace).
+8. **Gardés tels quels** : la lecture explicite de la CA (`mtls.Files.Client` chargerait aussi le certificat du
+   service) ; trois découpages de listes à virgules dans trois paquets ; le chemin du jeton projeté et l'ordre des
+   composants, prouvés sur le VPS et par le superviseur ; l'hypothèse d'`OPENBAO_ADDR` (port et nom du Service égaux à
+   ceux des pods), vraie pour la brique, à revoir avec un OpenBao managé (D1).
