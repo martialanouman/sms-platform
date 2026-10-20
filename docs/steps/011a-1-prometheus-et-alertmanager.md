@@ -167,3 +167,9 @@ Trois revues (correction et sécurité, tests creux, code en trop). Aucun bloqua
    `valuesContent` change (OpenBao compense par une comparaison de révision) ; les règles, qui changent le plus, ne
    passent pas par le `HelmChart`, et rien ne dépend de Prometheus. Le `ClusterRole` du chart lit `configmaps` et
    `nodes` de tout le cluster, sans Secrets. Deux ports `ops` dans un même pod : aucun manifest ne le fait.
+
+Preuve rejouée après le tour 1 (même jour, timer suspendu puis réarmé) : ConfigMap `internal-ca` et brique appliqués,
+`Certificate` et Secret `prometheus-tls` supprimés ; le `HelmChart` modifié relance `helm-install-prometheus` et le
+rollout. Six cibles `up`, OpenBao vérifié par la CA du ConfigMap ; Alertmanager découvert ; la règle `vector(1)` arrive
+dans Alertmanager en ~48 s sous le deny. Depuis `default` et `monitoring`, un pod `other` est refusé sur 9090 et 9093 ;
+un pod au label `prometheus` est admis sur 9093.
