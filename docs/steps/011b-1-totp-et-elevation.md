@@ -5,7 +5,7 @@ Plan : `docs/plan/composants.md` §011, première des trois PR de 011b. Arbitrag
 `contracts/openapi-bff.yaml` (`enrollTotp`, `confirmTotp`, `verifyMfa`, `me`). Règles : `.claude/rules/tests.md`,
 `.claude/rules/ci-deploy.md`. Mode : PR.
 
-Ce document porte les arbitrages de **toute la 011b** (82 à 97) ; 011b-2 et 011b-3 y renvoient.
+Ce document porte les arbitrages de **toute la 011b** (82 à 99) ; 011b-2 et 011b-3 y renvoient.
 
 ## Contexte
 
