@@ -114,17 +114,23 @@ type AddRecoveryCodesParams struct {
 
 const advancePasskey = `-- name: AdvancePasskey :execrows
 UPDATE dashboard.webauthn_credentials SET sign_count = $1, credential = $2
-WHERE id = $3::uuid AND ($1 > sign_count OR ($1 = 0 AND sign_count = 0))
+WHERE credential_id = $3 AND operator_id = $4::uuid AND ($1 > sign_count OR ($1 = 0 AND sign_count = 0))
 `
 
 type AdvancePasskeyParams struct {
-	SignCount  int64
-	Credential []byte
-	ID         string
+	SignCount    int64
+	Credential   []byte
+	CredentialID []byte
+	OperatorID   string
 }
 
 func (q *Queries) AdvancePasskey(ctx context.Context, db DBTX, arg AdvancePasskeyParams) (int64, error) {
-	result, err := db.Exec(ctx, advancePasskey, arg.SignCount, arg.Credential, arg.ID)
+	result, err := db.Exec(ctx, advancePasskey,
+		arg.SignCount,
+		arg.Credential,
+		arg.CredentialID,
+		arg.OperatorID,
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -566,7 +572,7 @@ func (q *Queries) QueueLink(ctx context.Context, db DBTX, arg QueueLinkParams) e
 	return err
 }
 
-const removePasskey = `-- name: RemovePasskey :execrows
+const removePasskey = `-- name: RemovePasskey :exec
 DELETE FROM dashboard.webauthn_credentials WHERE id = $1::uuid AND operator_id = $2::uuid
 `
 
@@ -575,12 +581,9 @@ type RemovePasskeyParams struct {
 	OperatorID string
 }
 
-func (q *Queries) RemovePasskey(ctx context.Context, db DBTX, arg RemovePasskeyParams) (int64, error) {
-	result, err := db.Exec(ctx, removePasskey, arg.ID, arg.OperatorID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+func (q *Queries) RemovePasskey(ctx context.Context, db DBTX, arg RemovePasskeyParams) error {
+	_, err := db.Exec(ctx, removePasskey, arg.ID, arg.OperatorID)
+	return err
 }
 
 const reserve = `-- name: Reserve :one
@@ -608,18 +611,20 @@ func (q *Queries) Reserve(ctx context.Context, db DBTX, arg ReserveParams) (bool
 const sessionOf = `-- name: SessionOf :one
 SELECT s.id::text AS id, s.operator_id::text AS operator_id, o.email, o.display_name, s.expires_at,
   (s.elevated_at IS NOT NULL)::bool AS elevated,
+  coalesce(s.elevated_at > now() - make_interval(secs => $1::float8), false)::bool AS fresh,
   EXISTS (SELECT 1 FROM dashboard.totp_factors f WHERE f.operator_id = s.operator_id AND f.confirmed_at IS NOT NULL) AS totp,
   (SELECT count(*) FROM dashboard.recovery_codes c JOIN dashboard.totp_factors f ON f.id = c.factor_id
     WHERE f.operator_id = s.operator_id AND f.confirmed_at IS NOT NULL AND c.used_at IS NULL)::int AS recovery_codes_remaining,
   (SELECT count(*) FROM dashboard.webauthn_credentials w WHERE w.operator_id = s.operator_id)::int AS passkeys,
-  (now() < s.expires_at AND now() < s.last_seen_at + make_interval(secs => $1::float8) AND o.status = 'active')::bool AS live
+  (now() < s.expires_at AND now() < s.last_seen_at + make_interval(secs => $2::float8) AND o.status = 'active')::bool AS live
 FROM dashboard.sessions s JOIN dashboard.operators o ON o.id = s.operator_id
-WHERE s.token_hash = $2
+WHERE s.token_hash = $3
 `
 
 type SessionOfParams struct {
-	IdleSeconds float64
-	Digest      []byte
+	FreshSeconds float64
+	IdleSeconds  float64
+	Digest       []byte
 }
 
 type SessionOfRow struct {
@@ -629,6 +634,7 @@ type SessionOfRow struct {
 	DisplayName            string
 	ExpiresAt              time.Time
 	Elevated               bool
+	Fresh                  bool
 	Totp                   bool
 	RecoveryCodesRemaining int32
 	Passkeys               int32
@@ -636,7 +642,7 @@ type SessionOfRow struct {
 }
 
 func (q *Queries) SessionOf(ctx context.Context, db DBTX, arg SessionOfParams) (SessionOfRow, error) {
-	row := db.QueryRow(ctx, sessionOf, arg.IdleSeconds, arg.Digest)
+	row := db.QueryRow(ctx, sessionOf, arg.FreshSeconds, arg.IdleSeconds, arg.Digest)
 	var i SessionOfRow
 	err := row.Scan(
 		&i.ID,
@@ -645,6 +651,7 @@ func (q *Queries) SessionOf(ctx context.Context, db DBTX, arg SessionOfParams) (
 		&i.DisplayName,
 		&i.ExpiresAt,
 		&i.Elevated,
+		&i.Fresh,
 		&i.Totp,
 		&i.RecoveryCodesRemaining,
 		&i.Passkeys,

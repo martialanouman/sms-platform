@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { QRCodeSVG } from 'qrcode.react'
 import { type FormEvent, useEffect, useId, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { api, json, type send } from './api'
+import { api, json, type send, unreachable } from './api'
 import type { components } from './api.gen'
 import { assertPasskey, passkeysSupported, registerPasskey } from './passkey'
 import { Field, useSubmission } from './ui'
@@ -325,12 +325,19 @@ export function PasskeyAssertion({ challenge, onProved }: { challenge: string; o
 
 export function PasskeySection({ count, onChange }: { count: number; onChange: () => void }) {
   const id = useId()
+  const heading = useRef<HTMLHeadingElement>(null)
   const queryClient = useQueryClient()
   const removal = useSubmission()
   const keys = useQuery({
     queryKey: ['passkeys'],
     enabled: count > 0,
-    queryFn: async () => (await api.GET('/auth/mfa/webauthn/passkeys')).data ?? [],
+    queryFn: async () => {
+      const { data } = await api.GET('/auth/mfa/webauthn/passkeys')
+      if (!data) {
+        throw new Error('passkeys')
+      }
+      return data
+    },
   })
 
   function refresh() {
@@ -344,18 +351,24 @@ export function PasskeySection({ count, onChange }: { count: number; onChange: (
     )
     if (outcome.failure === undefined) {
       refresh()
+      heading.current?.focus()
     }
   }
 
   return (
     <section className="auth__form" aria-labelledby={id}>
-      <h2 className="auth__subtitle" id={id}>
+      <h2 ref={heading} className="auth__subtitle" id={id} tabIndex={-1}>
         Clés d'accès
       </h2>
+      {keys.error && (
+        <p className="auth__refusal" role="alert">
+          {unreachable}
+        </p>
+      )}
       {count === 0 ? (
         <p className="auth__aside">Aucune clé d'accès sur ce compte.</p>
       ) : (
-        <ul className="auth__keys" aria-labelledby={id}>
+        <ul className="auth__keys">
           {keys.data?.map((key) => (
             <li key={key.id}>
               <span>{key.name}</span>

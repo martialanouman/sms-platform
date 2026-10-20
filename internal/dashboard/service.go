@@ -12,6 +12,7 @@ const (
 	// Lifetime ends every session after its login.
 	Lifetime       = 12 * time.Hour
 	challengeTTL   = 5 * time.Minute
+	freshness      = 5 * time.Minute
 	activationTTL  = 72 * time.Hour
 	resetTTL       = time.Hour
 	lockWindow     = 15 * time.Minute

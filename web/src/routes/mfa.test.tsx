@@ -225,3 +225,11 @@ test('a browser without the WebAuthn JSON methods is told so', async () => {
   ).toBeDefined()
   expect(screen.queryByRole('button', { name: "Utiliser une clé d'accès" })).toBeNull()
 })
+
+test('a session that cannot be read is told', async () => {
+  rememberChallenge(challenge)
+  stubFetch({ 'GET /api/auth/me': () => new Response(null, { status: 500 }) })
+  renderAt('/mfa')
+  expect((await screen.findByRole('alert')).textContent).toBe('Le service ne répond pas ; réessayez.')
+  expect(screen.queryByRole('button')).toBeNull()
+})

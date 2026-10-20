@@ -14,6 +14,7 @@ function Home() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [leaving, setLeaving] = useState(false)
+  const refreshMe = () => queryClient.invalidateQueries({ queryKey: meQuery.queryKey })
   const [failure, setFailure] = useState('')
   useActivity(leaving ? undefined : me.data?.idleTimeoutSeconds)
 
@@ -61,12 +62,9 @@ function Home() {
           <TotpReplacement
             held={me.data.secondFactors.totp}
             remaining={me.data.secondFactors.recoveryCodesRemaining}
-            onReplaced={() => queryClient.invalidateQueries({ queryKey: meQuery.queryKey })}
+            onReplaced={refreshMe}
           />
-          <PasskeySection
-            count={me.data.secondFactors.passkeys}
-            onChange={() => queryClient.invalidateQueries({ queryKey: meQuery.queryKey })}
-          />
+          <PasskeySection count={me.data.secondFactors.passkeys} onChange={refreshMe} />
         </>
       )}
     </AuthLayout>

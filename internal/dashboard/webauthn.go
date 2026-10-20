@@ -209,7 +209,7 @@ func (s Service) RemovePasskey(ctx context.Context, cookie, id string) error {
 	if err != nil {
 		return err
 	}
-	if !c.Elevated {
+	if !c.Fresh {
 		return ErrElevationRequired
 	}
 	return s.Store.Tx(ctx, func(tx Tx) error {
@@ -227,46 +227,31 @@ func (s Service) RemovePasskey(ctx context.Context, cookie, id string) error {
 		if confirmed, _ := split(factors); confirmed == nil && len(keys) == 1 {
 			return ErrLastFactor
 		}
-		if _, err := tx.RemovePasskey(ctx, c.OperatorID, id); err != nil {
+		if err := tx.RemovePasskey(ctx, c.OperatorID, id); err != nil {
 			return err
 		}
 		return tx.Log(ctx, Entry{Actor: c.OperatorID, Event: EventFactorRemoved, Success: true})
 	})
 }
 
-func (s Service) assert(ctx context.Context, tx Tx, c Current, assertion []byte) (bool, error) {
-	data, ok, err := tx.TakeCeremony(ctx, c.SessionID, PurposeAssertion)
-	if err != nil || !ok {
-		return false, err
-	}
-	var session webauthn.SessionData
-	if err := json.Unmarshal(data, &session); err != nil {
-		return false, err
-	}
+func (s Service) assert(ctx context.Context, tx Tx, c Current, keys []StoredPasskey, session webauthn.SessionData, assertion []byte) (bool, error) {
 	parsed, err := protocol.ParseCredentialRequestResponseBytes(assertion)
 	if err != nil {
 		return false, nil
-	}
-	keys, err := tx.Passkeys(ctx, c.OperatorID)
-	if err != nil {
-		return false, err
 	}
 	cred, err := s.Passkeys.rp.ValidateLogin(holder{Current: c, keys: keys}, session, parsed)
 	if err != nil {
 		return false, nil
 	}
-	id := ""
-	for _, k := range keys {
-		var stored webauthn.Credential
-		if json.Unmarshal(k.Credential, &stored) == nil && string(stored.ID) == string(cred.ID) {
-			id = k.ID
-		}
-	}
 	updated, err := json.Marshal(cred)
 	if err != nil {
 		return false, err
 	}
-	return tx.AdvancePasskey(ctx, id, cred.Authenticator.SignCount, updated)
+	ok, err := tx.AdvancePasskey(ctx, c.OperatorID, cred.ID, cred.Authenticator.SignCount, updated)
+	if err != nil || !ok {
+		return false, err
+	}
+	return true, tx.Forget(ctx, s.Keys.MfaSubject(c.OperatorID))
 }
 
 func (s Service) guard(ctx context.Context, tx Tx, c Current) (holder, error) {
@@ -278,7 +263,7 @@ func (s Service) guard(ctx context.Context, tx Tx, c Current) (holder, error) {
 	if err != nil {
 		return holder{}, err
 	}
-	if confirmed, _ := split(factors); (confirmed != nil || len(keys) > 0) && !c.Elevated {
+	if confirmed, _ := split(factors); (confirmed != nil || len(keys) > 0) && !c.Fresh {
 		return holder{}, ErrElevationRequired
 	}
 	return holder{Current: c, keys: keys}, nil

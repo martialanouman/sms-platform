@@ -96,7 +96,7 @@ type Tx interface {
 	Forget(ctx context.Context, subject []byte) error
 
 	OpenSession(ctx context.Context, operatorID string, digest, challenge []byte, lifetime, challengeTTL time.Duration) (challengeExpiresAt time.Time, err error)
-	SessionOf(ctx context.Context, digest []byte, idle time.Duration) (SessionView, bool, error)
+	SessionOf(ctx context.Context, digest []byte, idle, fresh time.Duration) (SessionView, bool, error)
 	Touch(ctx context.Context, digest []byte, idle time.Duration) (bool, error)
 	CloseSession(ctx context.Context, digest []byte) (operatorID string, ok bool, err error)
 	CloseSessions(ctx context.Context, operatorID string) error
@@ -115,8 +115,8 @@ type Tx interface {
 	TakeCeremony(ctx context.Context, sessionID string, purpose Purpose) (ceremony []byte, ok bool, err error)
 	Passkeys(ctx context.Context, operatorID string) ([]StoredPasskey, error)
 	AddPasskey(ctx context.Context, operatorID string, credentialID []byte, name string, signCount uint32, credential []byte) (id string, added bool, err error)
-	AdvancePasskey(ctx context.Context, id string, signCount uint32, credential []byte) (bool, error)
-	RemovePasskey(ctx context.Context, operatorID, id string) (bool, error)
+	AdvancePasskey(ctx context.Context, operatorID string, credentialID []byte, signCount uint32, credential []byte) (bool, error)
+	RemovePasskey(ctx context.Context, operatorID, id string) error
 
 	Log(ctx context.Context, e Entry) error
 	AccessLog(ctx context.Context, before *Entry, limit int) ([]Entry, error)

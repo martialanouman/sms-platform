@@ -277,7 +277,8 @@ test('the passkeys are listed, added under a name and removed', async () => {
   })
   const { container } = renderAt('/')
   const user = userEvent.setup()
-  const list = await screen.findByRole('list', { name: "Clés d'accès" })
+  await screen.findByRole('region', { name: "Clés d'accès" })
+  const list = within(screen.getByRole('region', { name: "Clés d'accès" })).getByRole('list')
   expect((await within(list).findAllByRole('listitem')).map((i) => i.firstChild?.textContent)).toEqual([
     'Clé USB',
     'Téléphone',
@@ -293,6 +294,7 @@ test('the passkeys are listed, added under a name and removed', async () => {
   })
   await user.click(screen.getByRole('button', { name: 'Retirer Clé USB' }))
   await waitFor(() => expect(screen.queryByText('Clé USB')).toBeNull())
+  expect(document.activeElement).toBe(screen.getByRole('heading', { name: "Clés d'accès" }))
   expect(screen.getByLabelText('Nom de la clé')).toHaveProperty('value', '')
 })
 
@@ -345,4 +347,50 @@ test('an account without passkey asks for none to be listed', async () => {
   await screen.findByRole('heading', { name: "Clés d'accès" })
   expect(screen.getByText("Aucune clé d'accès sur ce compte.")).toBeDefined()
   expect(calls.some((c) => c.url.endsWith('/passkeys'))).toBe(false)
+})
+
+test('a list of passkeys that fails is told', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, keyed),
+    'POST /api/auth/activity': () => empty(204),
+    'GET /api/auth/mfa/webauthn/passkeys': () => new Response(null, { status: 500 }),
+  })
+  renderAt('/')
+  expect((await screen.findByRole('alert')).textContent).toBe('Le service ne répond pas ; réessayez.')
+})
+
+test('the passkeys of the operator before are never shown to the next one', async () => {
+  let current = keyed
+  let open: () => void = () => {}
+  const gate = new Promise<void>((resolve) => {
+    open = resolve
+  })
+  stubFetch({
+    'GET /api/auth/me': () => json(200, current),
+    'POST /api/auth/activity': () => empty(204),
+    'GET /api/auth/mfa/webauthn/passkeys': async () => {
+      if (current !== keyed) {
+        await gate
+        return json(200, [{ id: 'k9', name: 'Clé de Autre', createdAt: '2026-10-20T12:00:00Z' }])
+      }
+      return json(200, keys)
+    },
+    'POST /api/auth/logout': () => empty(204),
+    'POST /api/auth/login': () => json(200, challenge),
+    'POST /api/auth/mfa/verify': () => empty(204),
+  })
+  renderAt('/')
+  const user = userEvent.setup()
+  await screen.findByText('Clé USB')
+  await user.click(screen.getByRole('button', { name: 'Se déconnecter' }))
+  current = { ...keyed, operator: { ...keyed.operator, email: 'autre@example.test', displayName: 'Autre' } }
+  await user.type(await screen.findByLabelText('Adresse e-mail'), 'autre@example.test')
+  await user.type(screen.getByLabelText('Mot de passe'), 'Correct-horse-9')
+  await user.click(screen.getByRole('button', { name: 'Se connecter' }))
+  await user.type(await screen.findByLabelText('Code à six chiffres'), '123456')
+  await user.click(screen.getByRole('button', { name: 'Vérifier' }))
+  await screen.findByText('Connecté en tant que Autre (autre@example.test)')
+  expect(screen.queryByText('Clé USB')).toBeNull()
+  open()
+  expect(await screen.findByText('Clé de Autre')).toBeDefined()
 })

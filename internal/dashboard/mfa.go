@@ -6,6 +6,8 @@ import (
 	"crypto/rand"
 	"errors"
 	"strings"
+
+	"github.com/go-webauthn/webauthn/webauthn"
 )
 
 // Method is how a second factor is presented.
@@ -72,8 +74,12 @@ func (s Service) EnrollTotp(ctx context.Context, cookie string, proof *Proof) (T
 		if err != nil {
 			return err
 		}
+		keys, err := tx.Passkeys(ctx, c.OperatorID)
+		if err != nil {
+			return err
+		}
 		confirmed, _ := split(factors)
-		if confirmed == nil && c.Passkeys > 0 && !c.Elevated {
+		if confirmed == nil && len(keys) > 0 && !c.Fresh {
 			return ErrElevationRequired
 		}
 		if confirmed != nil {
@@ -102,7 +108,7 @@ func (s Service) ConfirmTotp(ctx context.Context, cookie, code string) error {
 	if err != nil {
 		return err
 	}
-	if !c.Elevated {
+	if !c.Fresh {
 		return ErrElevationRequired
 	}
 	if err := s.reserve(ctx, c.OperatorID); err != nil {
@@ -135,6 +141,13 @@ func (s Service) Verify(ctx context.Context, cookie, challenge string, p Proof) 
 	if err := s.reserve(ctx, c.OperatorID); err != nil {
 		return "", err
 	}
+	var session webauthn.SessionData
+	var opened bool
+	if p.Method == MethodWebauthn {
+		if session, opened, err = s.take(ctx, c.SessionID, PurposeAssertion); err != nil {
+			return "", err
+		}
+	}
 	token, _ := s.Keys.Open(cookie)
 	next := NewToken()
 	err = s.Store.Tx(ctx, func(tx Tx) error {
@@ -146,23 +159,26 @@ func (s Service) Verify(ctx context.Context, cookie, challenge string, p Proof) 
 		if err != nil {
 			return err
 		}
+		keys, err := tx.Passkeys(ctx, c.OperatorID)
+		if err != nil {
+			return err
+		}
 		confirmed, pending := split(factors)
-		if c.Passkeys > 0 {
+		if len(keys) > 0 {
 			pending = nil
 		}
 		factor := cmp.Or(confirmed, pending)
-		var ok bool
-		if p.Method == MethodWebauthn {
-			if ok, err = s.assert(ctx, tx, c, p.Assertion); err == nil && ok {
-				err = tx.Forget(ctx, s.Keys.MfaSubject(c.OperatorID))
-			}
-		} else {
+		ok := false
+		switch {
+		case p.Method == MethodWebauthn && opened:
+			ok, err = s.assert(ctx, tx, c, keys, session, p.Assertion)
+		case p.Method != MethodWebauthn:
 			ok, err = s.prove(ctx, tx, c.OperatorID, factor, p)
 		}
 		if err != nil || !ok {
 			return cmp.Or(err, ErrUnauthenticated)
 		}
-		if factor != nil && !factor.Confirmed {
+		if p.Method != MethodWebauthn && !factor.Confirmed {
 			if err := s.confirm(ctx, tx, c.OperatorID, factor); err != nil {
 				return err
 			}

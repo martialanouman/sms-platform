@@ -59,7 +59,7 @@ export function useElevated() {
   const queryClient = useQueryClient()
   return useCallback(async () => {
     rememberChallenge(undefined)
-    queryClient.removeQueries({ queryKey: meQuery.queryKey })
+    queryClient.clear()
     await navigate({ to: '/' })
   }, [navigate, queryClient])
 }

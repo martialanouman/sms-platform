@@ -241,3 +241,38 @@ test('a browser without the WebAuthn JSON methods is offered the app only', asyn
   expect(screen.queryByLabelText('Nom de la clé')).toBeNull()
   expect(screen.getByRole('button', { name: "Configurer l'application" })).toBeDefined()
 })
+
+test('a name of spaces is not attempted', async () => {
+  rememberChallenge(challenge)
+  stubPasskeys()
+  const calls = stubFetch({})
+  renderAt('/enroll')
+  const user = userEvent.setup()
+  await user.type(await screen.findByLabelText('Nom de la clé'), '   ')
+  await user.click(screen.getByRole('button', { name: "Enregistrer une clé d'accès" }))
+  expect((await screen.findByRole('alert')).textContent).toBe('Nommez la clé : ce nom la distinguera des autres.')
+  expect(calls).toEqual([])
+})
+
+test('after a login without factor, the registered passkey is offered at once', async () => {
+  let passkeys = 0
+  stubPasskeys()
+  stubFetch({
+    'POST /api/auth/login': () => json(200, challenge),
+    'GET /api/auth/me': () =>
+      json(200, { ...me, elevated: false, secondFactors: { totp: false, recoveryCodesRemaining: 0, passkeys } }),
+    'POST /api/auth/mfa/webauthn/register/begin': () => json(200, creation),
+    'POST /api/auth/mfa/webauthn/register/finish': () => {
+      passkeys = 1
+      return json(200, { id: 'k1' })
+    },
+  })
+  renderAt('/login')
+  const user = userEvent.setup()
+  await user.type(await screen.findByLabelText('Adresse e-mail'), 'operateur@example.test')
+  await user.type(screen.getByLabelText('Mot de passe'), 'Correct-horse-9')
+  await user.click(screen.getByRole('button', { name: 'Se connecter' }))
+  await user.type(await screen.findByLabelText('Nom de la clé'), 'Clé USB')
+  await user.click(screen.getByRole('button', { name: "Enregistrer une clé d'accès" }))
+  expect(await screen.findByRole('button', { name: "Utiliser une clé d'accès" })).toBeDefined()
+})

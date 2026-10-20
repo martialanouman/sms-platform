@@ -70,6 +70,7 @@ RETURNING challenge_expires_at::timestamptz;
 -- name: SessionOf :one
 SELECT s.id::text AS id, s.operator_id::text AS operator_id, o.email, o.display_name, s.expires_at,
   (s.elevated_at IS NOT NULL)::bool AS elevated,
+  coalesce(s.elevated_at > now() - make_interval(secs => @fresh_seconds::float8), false)::bool AS fresh,
   EXISTS (SELECT 1 FROM dashboard.totp_factors f WHERE f.operator_id = s.operator_id AND f.confirmed_at IS NOT NULL) AS totp,
   (SELECT count(*) FROM dashboard.recovery_codes c JOIN dashboard.totp_factors f ON f.id = c.factor_id
     WHERE f.operator_id = s.operator_id AND f.confirmed_at IS NOT NULL AND c.used_at IS NULL)::int AS recovery_codes_remaining,
@@ -177,7 +178,7 @@ RETURNING id::text;
 
 -- name: AdvancePasskey :execrows
 UPDATE dashboard.webauthn_credentials SET sign_count = @sign_count, credential = @credential
-WHERE id = @id::uuid AND (@sign_count > sign_count OR (@sign_count = 0 AND sign_count = 0));
+WHERE credential_id = @credential_id AND operator_id = @operator_id::uuid AND (@sign_count > sign_count OR (@sign_count = 0 AND sign_count = 0));
 
--- name: RemovePasskey :execrows
+-- name: RemovePasskey :exec
 DELETE FROM dashboard.webauthn_credentials WHERE id = @id::uuid AND operator_id = @operator_id::uuid;

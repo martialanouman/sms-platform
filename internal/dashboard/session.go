@@ -13,6 +13,7 @@ type Current struct {
 	DisplayName            string
 	ExpiresAt              time.Time
 	Elevated               bool
+	Fresh                  bool
 	Totp                   bool
 	RecoveryCodesRemaining int
 	Passkeys               int
@@ -28,7 +29,7 @@ func (s Service) Resolve(ctx context.Context, cookie string) (Current, error) {
 	var v SessionView
 	var found bool
 	err := s.Store.Tx(ctx, func(tx Tx) (err error) {
-		if v, found, err = tx.SessionOf(ctx, Digest(token), IdleTimeout); err != nil || !found || v.Live {
+		if v, found, err = tx.SessionOf(ctx, Digest(token), IdleTimeout, freshness); err != nil || !found || v.Live {
 			return err
 		}
 		return tx.Log(ctx, Entry{Actor: v.OperatorID, Event: EventSessionRefused})

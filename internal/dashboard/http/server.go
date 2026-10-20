@@ -102,7 +102,7 @@ func (s server) Logout(ctx context.Context, _ LogoutRequestObject) (LogoutRespon
 	return Logout204Response{}, nil
 }
 
-const elevationRequired = "Vérifiez d'abord votre second facteur."
+const elevationRequired = "Cette opération demande une vérification récente du second facteur : reconnectez-vous."
 
 const factorRefused = "Second facteur refusé ; si la connexion date de plus de 5 minutes, reconnectez-vous."
 

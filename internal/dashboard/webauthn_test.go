@@ -187,9 +187,6 @@ func TestAChallengeServesOnlyItsPurposeItsSessionAndItsOrigin(t *testing.T) {
 	if _, err := h.svc.FinishRegistration(ctx, elevated, "Clé", strayAway.attest(t, h.begin(t, elevated))); !errors.Is(err, dashboard.ErrCeremonyRefused) {
 		t.Fatalf("a registration from another origin: %v", err)
 	}
-	if _, err := h.svc.FinishRegistration(ctx, elevated, "Clé", newDevice().attest(t, asCreation(mustOptions(t, h, elevated)))); !errors.Is(err, dashboard.ErrCeremonyRefused) {
-		t.Fatalf("an assertion challenge finished a registration: %v", err)
-	}
 }
 
 func mustOptions(t *testing.T, h *harness, cookie string) []byte {
@@ -199,10 +196,6 @@ func mustOptions(t *testing.T, h *harness, cookie string) []byte {
 		t.Fatal(err)
 	}
 	return options
-}
-
-func asCreation(assertion []byte) []byte {
-	return []byte(strings.Replace(string(assertion), `"publicKey":{`, `"publicKey":{"rp":{"id":"dashboard.example.test","name":"x"},"user":{"id":"AA","name":"x","displayName":"x"},"pubKeyCredParams":[{"type":"public-key","alg":-7}],`, 1))
 }
 
 func TestAKeyHeldIsExcludedAndRegisteredOnceAcrossOperators(t *testing.T) {
@@ -251,7 +244,7 @@ func TestTheSignCounterOnlyMovesForwardButMayStayAtZero(t *testing.T) {
 	h.elevate(t, h.login(t, "owner@example.test"), d)
 	d.cred.Counter = 5
 	h.elevate(t, h.login(t, "owner@example.test"), d)
-	for _, count := range []uint32{5, 3} {
+	for _, count := range []uint32{5, 3, 0} {
 		d.cred.Counter = count
 		l := h.login(t, "owner@example.test")
 		if _, err := h.svc.Verify(ctx, l.Cookie, l.Challenge, passkey(h.assertion(t, l.Cookie, d))); !errors.Is(err, dashboard.ErrUnauthenticated) {
@@ -406,4 +399,87 @@ func TestASessionHoldsOneChallengePerPurpose(t *testing.T) {
 	if !slices.Equal(purposes, []string{"assertion"}) {
 		t.Fatalf("the registration took %q", purposes)
 	}
+}
+
+func TestAddingOrRemovingAFactorWantsARecentElevation(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	elevated, _ := h.withPasskey(t)
+	pending := h.enroll(t, elevated, nil)
+	keys, err := h.svc.ListPasskeys(ctx, elevated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.register(t, elevated, "Seconde", newDevice())
+	h.exec(t, `UPDATE dashboard.sessions SET elevated_at = now() - interval '6 minutes'`)
+	if c := h.current(t, elevated); !c.Elevated {
+		t.Fatal("the session is no longer elevated")
+	}
+	if _, err := h.svc.BeginRegistration(ctx, elevated); !errors.Is(err, dashboard.ErrElevationRequired) {
+		t.Fatalf("a registration opened 6 minutes after the elevation: %v", err)
+	}
+	if err := h.svc.RemovePasskey(ctx, elevated, keys[0].ID); !errors.Is(err, dashboard.ErrElevationRequired) {
+		t.Fatalf("a removal 6 minutes after the elevation: %v", err)
+	}
+	if _, err := h.svc.EnrollTotp(ctx, elevated, nil); !errors.Is(err, dashboard.ErrElevationRequired) {
+		t.Fatalf("an app added 6 minutes after the elevation: %v", err)
+	}
+	if err := h.svc.ConfirmTotp(ctx, elevated, code(t, pending, h.step(t))); !errors.Is(err, dashboard.ErrElevationRequired) {
+		t.Fatalf("an app confirmed 6 minutes after the elevation: %v", err)
+	}
+}
+
+func TestARegistrationIsJudgedAgainWhenItFinishes(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	h.activate(t, "owner@example.test")
+	first := h.login(t, "owner@example.test").Cookie
+	opened := h.begin(t, first)
+	h.register(t, h.login(t, "owner@example.test").Cookie, "Clé", newDevice())
+	if _, err := h.svc.FinishRegistration(ctx, first, "Tardive", newDevice().attest(t, opened)); !errors.Is(err, dashboard.ErrElevationRequired) {
+		t.Fatalf("a key put in place since the opening: %v", err)
+	}
+	h2 := newHarness(t)
+	elevated, _ := h2.withPasskey(t)
+	opened = h2.begin(t, elevated)
+	var due bool
+	if err := h2.owner.QueryRow(ctx, `SELECT (ceremony->>'expires')::timestamptz BETWEEN now() + interval '4 minutes' AND now() + interval '5 minutes'
+		FROM dashboard.webauthn_challenges`).Scan(&due); err != nil || !due {
+		t.Fatalf("the ceremony is not due within 5 minutes (%v)", err)
+	}
+	h2.exec(t, `UPDATE dashboard.webauthn_challenges SET ceremony = jsonb_set(ceremony, '{expires}', '"2000-01-01T00:00:00Z"')`)
+	if _, err := h2.svc.FinishRegistration(ctx, elevated, "Échue", newDevice().attest(t, opened)); !errors.Is(err, dashboard.ErrCeremonyRefused) {
+		t.Fatalf("an expired ceremony: %v", err)
+	}
+}
+
+func TestEachPasskeyKeepsItsOwnCounterInRegistrationOrder(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	elevated, first := h.withPasskey(t)
+	second := newDevice()
+	h.register(t, elevated, "Seconde", second)
+	keys, err := h.svc.ListPasskeys(ctx, elevated)
+	if err != nil || len(keys) != 2 || keys[0].Name != "Clé USB" || keys[1].Name != "Seconde" {
+		t.Fatalf("passkeys %+v (%v)", keys, err)
+	}
+	first.cred.Counter = 5
+	h.elevate(t, h.login(t, "owner@example.test"), first)
+	second.cred.Counter = 1
+	h.elevate(t, h.login(t, "owner@example.test"), second)
+}
+
+func TestAnAssertionChallengeIsSpentByARefusal(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	_, d := h.withPasskey(t)
+	l := h.login(t, "owner@example.test")
+	options := mustOptions(t, h, l.Cookie)
+	if _, err := h.svc.Verify(ctx, l.Cookie, l.Challenge, passkey(newDevice().assert(t, options))); !errors.Is(err, dashboard.ErrUnauthenticated) {
+		t.Fatalf("an unknown key: %v", err)
+	}
+	if _, err := h.svc.Verify(ctx, l.Cookie, l.Challenge, passkey(d.assert(t, options))); !errors.Is(err, dashboard.ErrUnauthenticated) {
+		t.Fatalf("the challenge spent by a refusal served again: %v", err)
+	}
+	h.elevate(t, l, d)
 }
