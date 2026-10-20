@@ -100,3 +100,45 @@ Fable, 2026-10-20, sauf AA (le design entier, tel que présenté) et AB (au tour
   consignée.
 - **Preuve sur `contabo169`**, dans Chromium par `port-forward`, authentificateur virtuel posé par CDP
   (`WebAuthn.addVirtualAuthenticator`) : le parcours du « Terminé quand », captures, journal, axe.
+
+## Écarts au design, constatés à l'implémentation
+
+- **`github.com/go-webauthn/webauthn` rejoint la liste de depguard du cœur** : la bibliothèque ne fait que du calcul
+  (CBOR, signatures) ; le cœur reste sans I/O.
+- **L'URL publique des tests de `cmd/dashboard` passe de `127.0.0.1` à `localhost`** : WebAuthn refuse un `rpID` en
+  adresse IP, et c'est précisément le cas que ces tests gardent désormais (#13).
+- **Les options rendues au navigateur sont celles de la bibliothèque, filtrées par les types du contrat** :
+  sérialisées en JSON puis relues dans les types générés, qui écartent les champs hors schéma
+  (`requireResidentKey`, `hints`).
+- **La garde `CloneWarning` de la bibliothèque n'est pas reprise** : la bibliothèque n'avance pas un compteur qui
+  régresse, et l'`UPDATE` conditionnel refuse alors l'assertion.
+- **`/mfa` lit `me`** : il ne propose que les voies que le compte détient.
+
+## Mutations
+
+Cinquante-sept, à la main, sur le SQL généré, le cœur, l'adaptateur, les handlers et la SPA ; toutes tombent, sauf
+deux équivalents consignés : le filtre `operator_id` du retrait en SQL (le cœur prouve la propriété avant ;
+gardé en défense) et `sign_count = 0` dans la clause du zéro (un zéro n'atteint la base que si la bibliothèque l'a
+admis, donc sur un compteur stocké à zéro).
+
+## Correctifs de revue, tour 1
+
+Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloquant ; un constat tranché par
+l'humain.
+
+1. **Éviction par un cookie élevé capturé** (important) : arbitrage 135 (humain, AB) ; reste #146.
+2. **Correction** : le défi d'assertion est consommé même par un refus (pris hors de la transaction de `Verify`) ;
+   les clés sont comptées dans cette transaction, plus dans `Resolve` (une clé posée entre les deux laissait une
+   assertion confirmer l'application en attente) ; une assertion ne confirme jamais l'application en attente.
+3. **SPA** : tout le cache est vidé à l'élévation (les noms de clés de l'opérateur précédent restaient) ; une panne
+   de la liste est dite, plus rendue vide ; le focus revient au titre après un retrait ; message du 409 :
+   « reconnectez-vous ».
+4. **Code en trop retiré** : la boucle qui retrouvait la clé (le compteur avance par `credential_id`) ; le booléen
+   de `RemovePasskey` ; le `Forget` recopié ; un `aria-labelledby` redondant ; deux lambdas identiques ; le cas de
+   test bâti sur `asCreation`, que l'absence de défi refusait seule.
+5. **Tests** : revérification de `finish` ; échéance posée à l'ouverture ; deux clés, leur ordre et leurs
+   compteurs ; retour du compteur à zéro ; défi d'assertion consommé par un refus ; élévation récente sur les
+   quatre opérations ; nom fait d'espaces ; `me` illisible sur `/mfa` ; navigateur sans méthodes JSON.
+6. **Gardé** : un retrait refusé n'a pas de ligne au journal (§8.9 nomme les retraits faits) ; la lecture de la
+   liste garde le `FOR UPDATE` commun ; `/mfa` montre un instant le `me` de la connexion avant sa relecture ; la
+   forme réelle des options n'est éprouvée côté SPA que par la preuve dans Chromium.
