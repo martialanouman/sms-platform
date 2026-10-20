@@ -76,9 +76,6 @@ func TestRunRefusesEachFaultBeforeListening(t *testing.T) {
 				t.Fatalf("run = %v, want %q", err, c.want)
 			}
 			for _, addr := range []string{infra.OpsAddr, infra.GRPCAddr} {
-				if addr == "" {
-					continue
-				}
 				ln, lerr := net.Listen("tcp", addr)
 				if lerr != nil {
 					t.Fatalf("run listened on %s before refusing: %v", addr, lerr)
@@ -308,11 +305,16 @@ func TestServeStopsACallPastTheShutdownTimeout(t *testing.T) {
 		if err != nil {
 			t.Fatalf("serve = %v", err)
 		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("serve outlived its shutdown timeout")
+	case <-time.After(time.Second):
+		t.Fatal("serve outlived its shutdown timeout of 200ms by a second")
 	}
-	if err := <-called; err == nil {
-		t.Fatal("the call held past the shutdown timeout succeeded")
+	select {
+	case err := <-called:
+		if err == nil {
+			t.Fatal("the call held past the shutdown timeout succeeded")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the call held past the shutdown timeout never returned")
 	}
 }
 

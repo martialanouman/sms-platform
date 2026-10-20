@@ -32,6 +32,7 @@ const registry = "ghcr.io/martialanouman/sms-platform/"
 var (
 	deployedJobs     = regexp.MustCompile(`(?m)^for job in ([a-z -]+); do$`)
 	deployedServices = regexp.MustCompile(`(?m)^for service in ([a-z -]+); do$`)
+	awaited          = regexp.MustCompile(`(?m)^\tkubectl -n sms rollout status "deploy/\$service" --timeout=[0-9]+m$`)
 )
 
 type goreleaser struct {
@@ -81,7 +82,8 @@ type workload struct {
 		Type     string         `yaml:"type"`
 		Selector map[string]any `yaml:"selector"`
 		Ports    []struct {
-			Port int `yaml:"port"`
+			Port       int `yaml:"port"`
+			TargetPort any `yaml:"targetPort"`
 		} `yaml:"ports"`
 		MaxReplicas    int32 `yaml:"maxReplicas"`
 		ScaleTargetRef struct {
@@ -93,6 +95,7 @@ type workload struct {
 				Labels map[string]string `yaml:"labels"`
 			} `yaml:"metadata"`
 			Spec struct {
+				AutomountServiceAccountToken  *bool       `yaml:"automountServiceAccountToken"`
 				TerminationGracePeriodSeconds int         `yaml:"terminationGracePeriodSeconds"`
 				Containers                    []container `yaml:"containers"`
 				InitContainers                []container `yaml:"initContainers"`
@@ -185,7 +188,8 @@ func check(root string) error {
 		if jobsAt == nil || servicesAt[0] < jobsAt[0] {
 			errs = append(errs, errors.New("deploy.sh: the services before the Jobs"))
 		}
-		if !bytes.Contains(script[servicesAt[1]:], []byte(`rollout status "deploy/$service"`)) {
+		loop, _, _ := bytes.Cut(script[servicesAt[1]:], []byte("\ndone\n"))
+		if !awaited.Match(loop) {
 			errs = append(errs, errors.New("deploy.sh: the services are not awaited by rollout status"))
 		}
 	}
@@ -330,6 +334,9 @@ func checkManifest(path, name string) (string, []error) {
 			}
 			for _, p := range w.Spec.Ports {
 				servicePorts = append(servicePorts, p.Port)
+				if p.TargetPort != nil {
+					errs = append(errs, fmt.Errorf("%s: Service targetPort %v, want none: the port is the one of GRPC_ADDR", name, p.TargetPort))
+				}
 			}
 			continue
 		case "Job":
@@ -347,6 +354,9 @@ func checkManifest(path, name string) (string, []error) {
 			errs = append(errs, fmt.Errorf("%s: pod label app.kubernetes.io/name %q, want %q", name, got, name))
 		}
 		pod := w.Spec.Template.Spec
+		if a := pod.AutomountServiceAccountToken; a == nil || *a {
+			errs = append(errs, fmt.Errorf("%s: %s mounts the service account token, want automountServiceAccountToken false", name, w.Kind))
+		}
 		if len(pod.Containers) == 0 {
 			errs = append(errs, fmt.Errorf("%s: %s without container", name, w.Kind))
 		}
@@ -390,7 +400,6 @@ func checkManifest(path, name string) (string, []error) {
 
 func checkService(name string, w workload) []error {
 	var errs []error
-	allowlist := name != "content-key-svc"
 	for _, c := range w.Spec.Template.Spec.Containers {
 		drain := time.Duration(0)
 		for _, v := range []string{"DRAIN_DELAY", "DRAIN_BUDGET", "SHUTDOWN_TIMEOUT"} {
@@ -416,7 +425,6 @@ func checkService(name string, w workload) []error {
 			if e.Name != "TLS_ALLOWED_CLIENTS" || name != "content-key-svc" {
 				continue
 			}
-			allowlist = true
 			var allowed []string
 			for a := range strings.SplitSeq(e.Value, ",") {
 				if a = strings.TrimSpace(a); a != "" {
@@ -427,9 +435,6 @@ func checkService(name string, w workload) []error {
 				errs = append(errs, fmt.Errorf("%s: TLS_ALLOWED_CLIENTS %v, want the callers of the method map %v", name, allowed, want))
 			}
 		}
-	}
-	if !allowlist {
-		errs = append(errs, fmt.Errorf("%s: no TLS_ALLOWED_CLIENTS, want the callers of the method map", name))
 	}
 	return errs
 }
@@ -503,7 +508,13 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 		{"services not awaited", "deploy/test-env/deploy.sh", "rollout status", "get", "rollout status"},
 		{"Service open on the node", "deploy/k8s/content-key-svc.yaml", "spec:\n  selector:", "spec:\n  type: NodePort\n  selector:", "Service type"},
 		{"Service to other pods", "deploy/k8s/content-key-svc.yaml", "  selector:\n    app.kubernetes.io/name: content-key-svc", "  selector:\n    app.kubernetes.io/name: admin-api-svc", "Service selector"},
-		{"allowlist dropped", "deploy/k8s/content-key-svc.yaml", "            - name: TLS_ALLOWED_CLIENTS\n              value: admin-api-svc\n", "", "TLS_ALLOWED_CLIENTS"},
+		{"Service to another port", "deploy/k8s/content-key-svc.yaml", "      port: 7002\n", "      port: 7002\n      targetPort: 7003\n", "targetPort"},
+		{"Service to a named port", "deploy/k8s/content-key-svc.yaml", "      port: 7002\n", "      port: 7002\n      targetPort: grpc\n", "targetPort"},
+		{"wait commented out", "deploy/test-env/deploy.sh", "\tkubectl -n sms rollout status", "\t# kubectl -n sms rollout status", "rollout status"},
+		{"wait forgiven", "deploy/test-env/deploy.sh", "\"deploy/$service\" --timeout=5m\n", "\"deploy/$service\" --timeout=5m || true\n", "rollout status"},
+		{"wait after the loop", "deploy/test-env/deploy.sh", "\tkubectl -n sms rollout status \"deploy/$service\" --timeout=5m\ndone\n", "done\nkubectl -n sms rollout status \"deploy/$service\" --timeout=5m\n", "rollout status"},
+		{"Service account token mounted", "deploy/k8s/content-key-svc.yaml", "      automountServiceAccountToken: false\n", "", "automountServiceAccountToken"},
+		{"Job with the API token", "deploy/k8s/migrate.yaml", "automountServiceAccountToken: false", "automountServiceAccountToken: true", "automountServiceAccountToken"},
 		{"root Deployment", "deploy/k8s/content-key-svc.yaml", "runAsNonRoot: true", "runAsNonRoot: false", "runAsNonRoot"},
 		{"Deployment without readiness", "deploy/k8s/content-key-svc.yaml", "path: /readyz", "path: /healthz", "readinessProbe"},
 		{"grace shorter than the drain", "deploy/k8s/content-key-svc.yaml", "terminationGracePeriodSeconds: 125", "terminationGracePeriodSeconds: 124", "terminationGracePeriodSeconds"},
