@@ -14,6 +14,7 @@ spec:
     injector:
       enabled: false
     server:
+      configAnnotation: true
       extraEnvironmentVars:
         BAO_CACERT: /openbao/userconfig/openbao-tls/ca.crt
       extraVolumes:

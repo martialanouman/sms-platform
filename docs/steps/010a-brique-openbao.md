@@ -100,12 +100,21 @@ Trois revues (correction et sécurité, tests creux, code en trop) ; Fable, 2026
    ne voit jamais le certificat servi ; geste avant J+365 : supprimer le pod, desceller. Issue `debt`
    `go-live` (#122).
 3. **Reconfiguration** : le chart met à jour en `OnDelete` ; un changement de `openbao.yaml` ne s'applique
-   qu'au pod supprimé, puis descellé. `deploy.sh` ne le détecte pas.
+   qu'au pod supprimé, puis descellé. Amendé au tour 2 : `deploy.sh` le détecte et échoue, jusqu'au geste
+   humain. `configAnnotation` pose le checksum de la configuration sur le template, sans quoi un changement
+   du seul HCL ne changerait pas la révision (gardé) ; `deploy.sh` compare la révision du pod `openbao-0` à
+   `updateRevision`, après `observedGeneration`. Pas `currentRevision` : sous `OnDelete`, il ne suit pas
+   le pod recréé (vu sur le VPS).
 4. **Prometheus** (011a) : l'entrée 8200 d'OpenBao s'ouvre à lui, sinon `absent` sonne dès son arrivée.
 5. **Here-string** : un `<<<` passe par un fichier temporaire sous bash < 5.1 ; `printf` dans le tube.
 6. **Sessions `breakglass`** : `VALID UNTIL` n'agit qu'à la connexion ; une session ouverte survivrait au
    bail. `openbao` reçoit `pg_signal_backend` ; la révocation coupe les sessions du rôle puis le supprime,
-   à la révocation comme à l'échéance. Amendé sur le VPS : par `openbao.sh`, pas par `inRoles`. Posé,
+   à la révocation comme à l'échéance. Coût (tour 2) : un détenteur du mot de passe d'`openbao`, qui ne vit
+   que dans OpenBao et `postgres/openbao`, coupe des sessions non superutilisateur ; il ne lit ni n'écrit
+   rien. Écartés : `createrole_self_grant = 'inherit'` ferait hériter `openbao` des droits de
+   `breakglass` (des données contre de la disponibilité) ; `'set'` et un `SET ROLE "{{name}}"` dans la
+   révocation seraient plus étroits, mais reposent sur la transaction du plugin, à reprendre si un audit
+   exige le moindre privilège ici. Amendé sur le VPS : par `openbao.sh`, pas par `inRoles`. Posé,
    `inRoles` fait gérer à CloudNativePG toutes les adhésions du rôle : il a révoqué `breakglass` à
    `openbao` (`REVOKE "breakglass" FROM "openbao"`), qui en perdait l'`ADMIN OPTION`. La garde refuse
    `inRoles` sur `openbao`.
@@ -142,7 +151,10 @@ OpenBao réinitialisé. Sorties expurgées des adresses et des secrets.
    `control_plane`, membre de `breakglass`, `rolvaliduntil` à une heure, sans droit sur `goose_db_version`
    (#119). L'émission est au journal d'audit (`path`, `operation`, `display_name root`), comme les appels
    Transit du point 5.
-7. `bao lease revoke` pendant que la session du rôle est ouverte : la session tombe (« terminating
+7. Dérive (`configAnnotation` activé sans supprimer le pod) : `deploy.sh v0.4.0` échoue, « la
+   configuration d'OpenBao n'est pas appliquée » ; pod supprimé, la vérification passe, pod scellé ;
+   annotation injectée dans le template : échoue ; retirée : passe.
+8. `bao lease revoke` pendant que la session du rôle est ouverte : la session tombe (« terminating
    connection due to administrator command »), le rôle disparaît, aucune erreur de révocation ; les
    adhésions d'`openbao` intactes, CloudNativePG sans `cannotReconcile`.
 
@@ -159,4 +171,6 @@ Rouges vus :
   `inRoles` retiré, rôle `reconciled` et adhésions intactes.
 - **Device d'audit par l'API** : « cannot enable audit device via API; use declarative, config-based audit
   device management instead » ; déclaré dans la configuration.
+- **Dérive lue sur `currentRevision`** : après recréation du pod, `currentRevision` reste l'ancienne
+  révision (`updatedReplicas 1`) ; comparaison faite sur la révision du pod.
 - **Entrée d'OpenBao** depuis un pod de `default` (sans politique de sortie) : `connection refused` sur 8200.
