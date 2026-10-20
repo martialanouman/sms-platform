@@ -91,8 +91,10 @@ Fable, 2026-10-19, sauf le point 3 tranché par l'humain.
 
 Trois revues (correction et sécurité, tests creux, code en trop) ; Fable, 2026-10-20. Aucun bloquant.
 
-1. **Audit** : `openbao.sh` active un device `file` sur stdout (06 §8, 07 §7.6 : émission auditée par
-   OpenBao) ; un device non inscriptible bloque OpenBao, stdout l'est toujours ; valeurs HMACées.
+1. **Audit** : un device `file` sur stdout (06 §8, 07 §7.6 : émission auditée par OpenBao) ; un device
+   non inscriptible bloque OpenBao, stdout l'est toujours ; valeurs HMACées. Amendé sur le VPS : déclaré
+   dans la configuration d'`openbao.yaml`, gardé ; OpenBao 2 refuse de l'activer par l'API (« cannot
+   enable audit device via API; use declarative, config-based audit device management instead »).
 2. **Certificat du listener** : OpenBao ne relit `tls_cert_file` que sur SIGHUP, et redémarrer le pod le
    scelle. `duration: 8760h` ; plafond : le Secret se renouvelle vers J+240, et `CertificateExpiresSoon`
    ne voit jamais le certificat servi ; geste avant J+365 : supprimer le pod, desceller. Issue `debt`

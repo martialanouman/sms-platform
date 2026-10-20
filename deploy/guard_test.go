@@ -522,6 +522,8 @@ func checkBricks(dir string) error {
 			errs = append(errs, fmt.Errorf("openbao: valuesContent unreadable: %w", err))
 		} else if h := v.Server.HA; v.Server.Dev.Enabled || !h.Enabled || !h.Raft.Enabled || !strings.Contains(h.Raft.Config, `storage "raft"`) {
 			errs = append(errs, errors.New("openbao: not in HA raft mode, without which no snapshot exists"))
+		} else if !strings.Contains(h.Raft.Config, `audit "file"`) {
+			errs = append(errs, errors.New("openbao: no audit device, which spec 07 §7.6 requires of breakglass credentials"))
 		}
 	}
 	k := find("Kafka")
@@ -581,6 +583,7 @@ func TestTheBrickGuardFails(t *testing.T) {
 		{"openbao standalone", "openbao.yaml", "      ha:\n        enabled: true", "      ha:\n        enabled: false", "not in HA raft mode"},
 		{"openbao in dev mode", "openbao.yaml", "    server:\n", "    server:\n      dev:\n        enabled: true\n", "not in HA raft mode"},
 		{"openbao on file storage", "openbao.yaml", `storage "raft" {`, `storage "file" {`, "not in HA raft mode"},
+		{"openbao without audit", "openbao.yaml", `audit "file" "stdout"`, `audit "socket" "stdout"`, "no audit device"},
 		{"openbao values unreadable", "openbao.yaml", "    global:\n", "    global: [\n", "valuesContent unreadable"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

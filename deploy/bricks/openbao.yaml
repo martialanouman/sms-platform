@@ -43,6 +43,11 @@ spec:
               path = "/openbao/data"
             }
             service_registration "kubernetes" {}
+            audit "file" "stdout" {
+              options {
+                file_path = "stdout"
+              }
+            }
             telemetry {
               disable_hostname = true
             }

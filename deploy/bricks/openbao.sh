@@ -30,7 +30,6 @@ read -r BAO_TOKEN
 read -r pg
 export BAO_TOKEN
 
-bao audit list 2>/dev/null | grep -q "^file/" || bao audit enable file file_path=stdout
 bao secrets list | grep -q "^transit/" || bao secrets enable transit
 bao read transit/keys/config-secrets >/dev/null 2>&1 || bao write -f transit/keys/config-secrets
 bao policy write content-key-svc - <<HCL
