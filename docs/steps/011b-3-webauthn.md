@@ -21,7 +21,7 @@ journal ; axe ne relève aucune violation.
 
 ## Arbitrages
 
-Fable, 2026-10-20, sauf AA, tranché par l'humain le même jour (le design entier, tel que présenté).
+Fable, 2026-10-20, sauf AA (le design entier, tel que présenté) et AB (au tour de revue), tranchés par l'humain le même jour.
 
 119. **Une PR** (82, confirmé par l'humain, AA) : serveur et écrans ensemble, prouvés dans Chromium.
 120. **Bibliothèque** : `github.com/go-webauthn/webauthn` v0.18.2, celle de l'origine ; tests par
@@ -70,14 +70,23 @@ Fable, 2026-10-20, sauf AA, tranché par l'humain le même jour (le design entie
      après l'enregistrement, `/mfa`. `/mfa` lit `me` : « Utiliser une clé d'accès » si le compte en a, le formulaire
      de code s'il a l'application. `/` : section « Clés d'accès » (liste, ajout nommé, retrait par clé).
 
+135. **Élévation récente pour ajouter ou retirer un facteur** (humain, AB, au tour de revue) : un cookie élevé capturé
+     enregistrait sa propre clé, puis retirait celles de l'opérateur, qui n'étaient plus le dernier facteur ; le
+     contrat ne demande la preuve de l'ancien facteur qu'au remplacement du TOTP. `register/begin` et
+     `register/finish` sur un compte gardé, `enrollTotp` sur un compte gardé par une clé seule, `confirmTotp` et le
+     retrait d'une clé exigent une élévation de moins de 5 minutes, sinon le même 409 `mfa_elevation_required`. La
+     session reste élevée jusqu'à sa fin pour le reste (88). La fenêtre qui demeure, un cookie capturé dans ces
+     5 minutes, est reportée : issue #146 (`debt`, `go-live`).
+
 ## Design arrêté
 
 - **`go.mod`** : `go-webauthn/webauthn`, `descope/virtualwebauthn` (tests).
 - **`migrations/dashboard/00003_webauthn.sql`** : `webauthn_challenges`, `webauthn_credentials` ; classement d'audit
   ; GRANT du dashboard.
-- **Cœur `internal/dashboard`** : `webauthn.go` (configuration, cérémonies, retrait) ; `mfa.go` (`webauthn` dans
-  `prove`, règle 129) ; `session.go` (`Passkeys`) ; `accesslink.go` (retrait des clés) ; `store.go` (ports).
-- **`internal/dashboard/postgres`** : requêtes sqlc des défis et des clés.
+- **Cœur `internal/dashboard`** : `webauthn.go` (partie de confiance, cérémonies, liste, retrait) ; `mfa.go` (branche
+  `webauthn` de `Verify`, règles 129 et 135) ; `session.go` (`Passkeys`, `Fresh`) ; `service.go` (`Passkeys`) ;
+  `store.go` (ports).
+- **`internal/dashboard/postgres`** : requêtes sqlc des défis et des clés ; `DropFactors` retire aussi les clés (130).
 - **`internal/dashboard/http`** : les cinq opérations rejoignent `include-operation-ids` ; `verifyMfa` accepte
   `webauthn`.
 - **`cmd/dashboard`** : construction de WebAuthn avant l'écoute.
