@@ -188,8 +188,8 @@ func check(root string) error {
 		if jobsAt == nil || servicesAt[0] < jobsAt[0] {
 			errs = append(errs, errors.New("deploy.sh: the services before the Jobs"))
 		}
-		loop, _, _ := bytes.Cut(script[servicesAt[1]:], []byte("\ndone\n"))
-		if !awaited.Match(loop) {
+		loop, _, closed := bytes.Cut(script[servicesAt[1]:], []byte("\ndone\n"))
+		if !closed || !awaited.Match(loop) {
 			errs = append(errs, errors.New("deploy.sh: the services are not awaited by rollout status"))
 		}
 	}
@@ -512,7 +512,8 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 		{"Service to a named port", "deploy/k8s/content-key-svc.yaml", "      port: 7002\n", "      port: 7002\n      targetPort: grpc\n", "targetPort"},
 		{"wait commented out", "deploy/test-env/deploy.sh", "\tkubectl -n sms rollout status", "\t# kubectl -n sms rollout status", "rollout status"},
 		{"wait forgiven", "deploy/test-env/deploy.sh", "\"deploy/$service\" --timeout=5m\n", "\"deploy/$service\" --timeout=5m || true\n", "rollout status"},
-		{"wait after the loop", "deploy/test-env/deploy.sh", "\tkubectl -n sms rollout status \"deploy/$service\" --timeout=5m\ndone\n", "done\nkubectl -n sms rollout status \"deploy/$service\" --timeout=5m\n", "rollout status"},
+		{"wait after the loop", "deploy/test-env/deploy.sh", "\tkubectl -n sms rollout status \"deploy/$service\" --timeout=5m\ndone\n", "done\n\tkubectl -n sms rollout status \"deploy/$service\" --timeout=5m\n", "rollout status"},
+		{"loop forgiven", "deploy/test-env/deploy.sh", "--timeout=5m\ndone\necho", "--timeout=5m\ndone || true\necho", "rollout status"},
 		{"Service account token mounted", "deploy/k8s/content-key-svc.yaml", "      automountServiceAccountToken: false\n", "", "automountServiceAccountToken"},
 		{"Job with the API token", "deploy/k8s/migrate.yaml", "automountServiceAccountToken: false", "automountServiceAccountToken: true", "automountServiceAccountToken"},
 		{"root Deployment", "deploy/k8s/content-key-svc.yaml", "runAsNonRoot: true", "runAsNonRoot: false", "runAsNonRoot"},

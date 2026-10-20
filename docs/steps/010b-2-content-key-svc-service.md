@@ -144,3 +144,9 @@ Constats : 1 bloquant, 8 mineurs.
    l'arrêt borné, pas la valeur de la borne) ; le câblage du client OpenBao dans `run`, que seul le VPS prouve (le
    chemin du jeton projeté est une constante) ; `SHUTDOWN_TIMEOUT` borne désormais aussi chaque handshake en régime
    normal, à ne pas abaisser sous quelques secondes.
+
+## Correctifs de revue, tour 3
+
+Constats par tour : 21 (4 bloquants), 9 (1 bloquant), 2 ; aucun bloquant au tour 3. La boucle des services doit se
+fermer par un `done` seul (un `done || true` neutralise `set -e`) ; le cas « attente après la boucle » garde la
+tabulation, pour échouer sur la position et non sur la forme.
