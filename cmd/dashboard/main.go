@@ -63,8 +63,8 @@ func origin(raw string) (string, error) {
 }
 
 // debt: #141
-func totpKey(path string) (dashboard.TotpKey, error) {
-	held, err := os.ReadFile(path)
+func totpKey(infra config.Infra) (dashboard.TotpKey, error) {
+	held, err := os.ReadFile(infra.TotpKeyFile)
 	if err != nil {
 		return dashboard.TotpKey{}, err
 	}
@@ -116,7 +116,7 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger, registry pro
 	if err != nil {
 		return err
 	}
-	totp, err := totpKey(infra.TotpKeyFile)
+	totp, err := totpKey(infra)
 	if err != nil {
 		return err
 	}
