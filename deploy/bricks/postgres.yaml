@@ -18,20 +18,8 @@ spec:
       owner: migrator
       secret:
         name: migrator
-  managed:
-    roles:
-      - name: migrator
-        ensure: present
-        login: true
-        createrole: true
-        passwordSecret:
-          name: migrator
-      - name: openbao
-        ensure: present
-        login: true
-        createrole: true
-        passwordSecret:
-          name: openbao
+      postInitSQL:
+        - ALTER ROLE migrator CREATEROLE
   certificates:
     serverTLSSecret: postgres-server
     serverCASecret: postgres-server
