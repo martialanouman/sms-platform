@@ -12,8 +12,9 @@ paths:
 - **Un job agrégateur requis** ; actions épinglées par SHA ; un test qui saute échoue.
 - **Chaque `cmd/` neuf** entre dans GoReleaser et `deploy/k8s/` dans la même PR, son pod porte
   `app.kubernetes.io/name: <cmd>` ; `go generate` régénère `deploy/k8s/networkpolicies.yaml`. Un `cmd/` qui
-  pose `TLS_ALLOWED_CLIENTS` ou lit une dépendance neuve étend `internal/netpol` dans sa PR ; l'entrée du port ops
-  vient avec Prometheus (011a), kube-router admettant déjà les sondes du kubelet.
+  pose `TLS_ALLOWED_CLIENTS` ou lit une dépendance neuve étend `internal/netpol` dans sa PR. Le port nommé `ops` d'un
+  conteneur s'ouvre à Prometheus (`monitoring`) et Prometheus le collecte : le nom du port fait foi, pas une
+  annotation ; kube-router admet déjà les sondes du kubelet.
 - **Déploiement de l'environnement de test** : la VM tire le dernier tag de release (`deploy/test-env/sync.sh`,
   timer systemd) et joue `deploy/test-env/deploy.sh <tag>`. Un `cmd/` neuf y entre à sa place : la boucle des
   Jobs (`migrate`, `catalog-apply`), puis celle des services, attendus par `rollout status` ; la garde exige chaque

@@ -247,3 +247,41 @@ func TestRenderRefusesAServerItCannotBound(t *testing.T) {
 		}
 	}
 }
+
+func TestPrometheusReachesTheOpsPortOnly(t *testing.T) {
+	port := func(name, number string) string {
+		return "            - name: " + name + "\n              containerPort: " + number + "\n"
+	}
+	ports := "          ports:\n" + port("grpc", "7002") + port("ops", "9191") + port("metrics", "9292")
+	initOps := strings.Replace(job("unprobed"), "      containers:", "      initContainers:\n        - name: init\n          ports:\n"+port("ops", "9191")+"      containers:", 1)
+	got := render(t, fstest.MapFS{
+		"server.yaml":   {Data: []byte(job("server", [2]string{"GRPC_ADDR", ":7002"}, [2]string{"TLS_ALLOWED_CLIENTS", "dashboard"}) + ports)},
+		"probed.yaml":   {Data: []byte(job("probed") + ports)},
+		"unprobed.yaml": {Data: []byte(initOps + "          ports:\n" + port("metrics", "9292"))},
+	})
+	if p, ok := got["unprobed"]; ok {
+		t.Errorf("unprobed = %+v, want no policy: neither metrics nor an init container's ops is the ops port", p.Spec)
+	}
+	for _, name := range []string{"server", "probed"} {
+		p := got[name]
+		if !reflect.DeepEqual(p.Spec.PolicyTypes, []string{"Ingress", "Egress"}) {
+			t.Errorf("%s: policy types %v", name, p.Spec.PolicyTypes)
+		}
+		in := p.Spec.Ingress
+		if len(in) == 0 {
+			t.Fatalf("%s: no ingress", name)
+		}
+		ops := in[len(in)-1]
+		if len(ops.From) != 1 || len(ops.Ports) != 1 || ops.Ports[0].Protocol != "TCP" || ops.Ports[0].Port != 9191 ||
+			!reflect.DeepEqual(ops.From[0].NamespaceSelector.MatchLabels, map[string]string{"kubernetes.io/metadata.name": "monitoring"}) ||
+			!reflect.DeepEqual(ops.From[0].PodSelector.MatchLabels, map[string]string{"app.kubernetes.io/name": "prometheus"}) {
+			t.Errorf("%s: ops ingress %+v, want Prometheus on 9191", name, ops)
+		}
+	}
+	if in := got["server"].Spec.Ingress; len(in) != 2 || in[0].Ports[0].Port != 7002 {
+		t.Errorf("server ingress %+v, want its callers on 7002 then Prometheus", in)
+	}
+	if len(got["probed"].Spec.Ingress) != 1 || len(got["probed"].Spec.Egress) != 0 {
+		t.Errorf("probed = %+v, want the ops ingress alone", got["probed"].Spec)
+	}
+}

@@ -65,6 +65,10 @@ type policy struct {
 }
 
 type container struct {
+	Ports []struct {
+		Name          string `yaml:"name"`
+		ContainerPort int    `yaml:"containerPort"`
+	} `yaml:"ports"`
 	Env []struct {
 		Name  string `yaml:"name"`
 		Value string `yaml:"value"`
@@ -104,7 +108,7 @@ func tcpPort(s string) int {
 // Render reads every manifest of fsys but File and renders the namespace's default deny, the DNS egress of every pod,
 // the egress of each workload to the stores its variables name (Postgres for POSTGRES_URL, each Strimzi cluster of
 // KAFKA_BROKERS, the OpenBao of OPENBAO_ADDR), and the ingress of each caller of TLS_ALLOWED_CLIENTS on the port of
-// GRPC_ADDR.
+// GRPC_ADDR, and the ingress of Prometheus on the port each workload names ops.
 func Render(fsys fs.FS) ([]byte, error) {
 	dns := newPolicy("dns", nil, "Egress")
 	dns.Spec.Egress = []egress{to("kube-system", map[string]string{"k8s-app": "kube-dns"}, port{"UDP", 53}, port{"TCP", 53})}
@@ -152,7 +156,7 @@ func flows(fsys fs.FS, file string) (policy, error) {
 			p.Spec.Egress = append(p.Spec.Egress, f)
 		}
 	}
-	var grpcPort int
+	var grpcPort, opsPort int
 	var callers []string
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	for {
@@ -167,11 +171,24 @@ func flows(fsys fs.FS, file string) (policy, error) {
 					in.From = append(in.From, to("sms", map[string]string{"app.kubernetes.io/name": c}).To...)
 				}
 				p.Spec.Ingress = []ingress{in}
+			}
+			if opsPort != 0 {
+				prometheus := to("monitoring", map[string]string{"app.kubernetes.io/name": "prometheus"})
+				p.Spec.Ingress = append(p.Spec.Ingress, ingress{From: prometheus.To, Ports: []port{{"TCP", opsPort}}})
+			}
+			if len(p.Spec.Ingress) > 0 {
 				p.Spec.PolicyTypes = []string{"Ingress", "Egress"}
 			}
 			return p, nil
 		} else if err != nil {
 			return p, fmt.Errorf("%s: %w", file, err)
+		}
+		for _, c := range w.Spec.Template.Spec.Containers {
+			for _, cp := range c.Ports {
+				if cp.Name == "ops" {
+					opsPort = cp.ContainerPort
+				}
+			}
 		}
 		for _, c := range append(w.Spec.Template.Spec.InitContainers, w.Spec.Template.Spec.Containers...) {
 			for _, e := range c.Env {

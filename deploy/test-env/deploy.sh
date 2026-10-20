@@ -49,6 +49,14 @@ running=$(kubectl -n openbao get pod openbao-0 -o 'jsonpath={.metadata.labels.co
 wanted=$(kubectl -n openbao get statefulset openbao -o 'jsonpath={.status.updateRevision}')
 [ "$running" = "$wanted" ] || { echo "deploy.sh: la configuration d'OpenBao n'est pas appliquée ; supprimer le pod openbao-0, puis le desceller" >&2; exit 1; }
 
+rules=()
+for file in deploy/alerts/*.yaml; do [[ $file == *_test.yaml ]] || rules+=(--from-file="$file"); done
+kubectl -n monitoring create configmap alert-rules "${rules[@]}" --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply -f deploy/bricks/monitoring.yaml
+exists kube-system job/helm-install-prometheus
+kubectl -n kube-system wait --for=condition=complete job/helm-install-prometheus --timeout=10m
+kubectl -n monitoring rollout status deploy/prometheus-server --timeout=5m
+
 kubectl -n sms apply -f deploy/k8s/networkpolicies.yaml
 for job in migrate catalog-apply; do
 	kubectl -n sms delete job "$job" --ignore-not-found --wait

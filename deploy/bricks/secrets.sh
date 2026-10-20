@@ -37,4 +37,6 @@ done
 ca=$(read_secret cert-manager internal-ca 'tls\.crt')
 nonempty cert-manager/internal-ca "$ca"
 printf '%s' "$ca" | kubectl -n kafka create secret generic internal-ca-cert --from-file=ca.crt=/dev/stdin --dry-run=client -o yaml | kubectl apply -f -
-printf '%s' "$ca" | kubectl -n sms create configmap internal-ca --from-file=ca.crt=/dev/stdin --dry-run=client -o yaml | kubectl apply -f -
+for namespace in sms monitoring; do
+	printf '%s' "$ca" | kubectl -n "$namespace" create configmap internal-ca --from-file=ca.crt=/dev/stdin --dry-run=client -o yaml | kubectl apply -f -
+done

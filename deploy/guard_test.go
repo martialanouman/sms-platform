@@ -30,9 +30,12 @@ import (
 const registry = "ghcr.io/martialanouman/sms-platform/"
 
 var (
-	deployedJobs     = regexp.MustCompile(`(?m)^for job in ([a-z -]+); do$`)
-	deployedServices = regexp.MustCompile(`(?m)^for service in ([a-z -]+); do$`)
-	awaited          = regexp.MustCompile(`(?m)^\tkubectl -n sms rollout status "deploy/\$service" --timeout=[0-9]+m$`)
+	deployedJobs      = regexp.MustCompile(`(?m)^for job in ([a-z -]+); do$`)
+	deployedServices  = regexp.MustCompile(`(?m)^for service in ([a-z -]+); do$`)
+	awaited           = regexp.MustCompile(`(?m)^\tkubectl -n sms rollout status "deploy/\$service" --timeout=[0-9]+m$`)
+	rulesCreated      = regexp.MustCompile(`(?m)^kubectl -n monitoring create configmap alert-rules `)
+	monitoringBrick   = regexp.MustCompile(`(?m)^kubectl apply -f deploy/bricks/monitoring\.yaml$`)
+	prometheusAwaited = regexp.MustCompile(`(?m)^kubectl -n monitoring rollout status deploy/prometheus-server --timeout=[0-9]+m$`)
 )
 
 type goreleaser struct {
@@ -177,6 +180,13 @@ func check(root string) error {
 	script, err := os.ReadFile(filepath.Join(root, "deploy", "test-env", "deploy.sh"))
 	if err != nil {
 		return err
+	}
+	rules, brick, prometheus := rulesCreated.FindIndex(script), monitoringBrick.FindIndex(script), prometheusAwaited.FindIndex(script)
+	if rules == nil || brick == nil || brick[0] < rules[0] {
+		errs = append(errs, errors.New("deploy.sh: the ConfigMap alert-rules is not created before the brick monitoring, which mounts it"))
+	}
+	if prometheus == nil {
+		errs = append(errs, errors.New("deploy.sh: prometheus-server is not awaited by rollout status"))
 	}
 	var jobs, services []string
 	jobsAt, servicesAt := deployedJobs.FindSubmatchIndex(script), deployedServices.FindSubmatchIndex(script)
@@ -505,7 +515,10 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 		{"Job among the services", "deploy/test-env/deploy.sh", "for service in content-key-svc; do", "for service in content-key-svc migrate; do", "migrate: a Job in the loop of the services"},
 		{"services before the Jobs", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for service in content-key-svc; do\ndone\nfor job in migrate catalog-apply; do", "the services before the Jobs"},
 		{"services without Jobs", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for jobs in migrate catalog-apply; do", "the services before the Jobs"},
-		{"services not awaited", "deploy/test-env/deploy.sh", "rollout status", "get", "rollout status"},
+		{"rules not created", "deploy/test-env/deploy.sh", "kubectl -n monitoring create configmap alert-rules", "true", "alert-rules"},
+		{"rules created after the brick", "deploy/test-env/deploy.sh", "rules=()\n", "kubectl apply -f deploy/bricks/monitoring.yaml\nrules=()\n", "alert-rules"},
+		{"prometheus not awaited", "deploy/test-env/deploy.sh", "kubectl -n monitoring rollout status deploy/prometheus-server", "kubectl -n monitoring get deploy/prometheus-server", "prometheus-server"},
+		{"services not awaited", "deploy/test-env/deploy.sh", "-n sms rollout status", "-n sms get", "rollout status"},
 		{"Service open on the node", "deploy/k8s/content-key-svc.yaml", "spec:\n  selector:", "spec:\n  type: NodePort\n  selector:", "Service type"},
 		{"Service to other pods", "deploy/k8s/content-key-svc.yaml", "  selector:\n    app.kubernetes.io/name: content-key-svc", "  selector:\n    app.kubernetes.io/name: admin-api-svc", "Service selector"},
 		{"Service to another port", "deploy/k8s/content-key-svc.yaml", "      port: 7002\n", "      port: 7002\n      targetPort: 7003\n", "targetPort"},
@@ -603,15 +616,53 @@ type brick struct {
 				PostInitSQL []string `yaml:"postInitSQL"`
 			} `yaml:"initdb"`
 		} `yaml:"bootstrap"`
-		Chart           string `yaml:"chart"`
-		TargetNamespace string `yaml:"targetNamespace"`
-		ValuesContent   string `yaml:"valuesContent"`
+		PodSelector struct {
+			MatchLabels map[string]string `yaml:"matchLabels"`
+		} `yaml:"podSelector"`
+		PolicyTypes     []string      `yaml:"policyTypes"`
+		Ingress         []ingressRule `yaml:"ingress"`
+		Chart           string        `yaml:"chart"`
+		TargetNamespace string        `yaml:"targetNamespace"`
+		ValuesContent   string        `yaml:"valuesContent"`
 	} `yaml:"spec"`
 }
 
+type ingressRule struct {
+	From []struct {
+		PodSelector struct {
+			MatchLabels map[string]string `yaml:"matchLabels"`
+		} `yaml:"podSelector"`
+	} `yaml:"from"`
+	Ports []struct {
+		Port int `yaml:"port"`
+	} `yaml:"ports"`
+}
+
+type relabel struct {
+	SourceLabels []string `yaml:"source_labels"`
+	Regex        string   `yaml:"regex"`
+	Action       string   `yaml:"action"`
+}
+
+type mount struct {
+	ConfigMap string `yaml:"configMap"`
+	MountPath string `yaml:"mountPath"`
+}
+
+func rulesMount(mounts []mount) string {
+	for _, m := range mounts {
+		if m.ConfigMap == "alert-rules" {
+			return m.MountPath
+		}
+	}
+	return ""
+}
+
+var bricks = []string{"postgres.yaml", "kafka.yaml", "openbao.yaml", "monitoring.yaml"}
+
 func checkBricks(dir string) error {
 	var docs []brick
-	for _, f := range []string{"postgres.yaml", "kafka.yaml", "openbao.yaml"} {
+	for _, f := range bricks {
 		data, err := os.ReadFile(filepath.Join(dir, f))
 		if err != nil {
 			return err
@@ -635,6 +686,14 @@ func checkBricks(dir string) error {
 		}
 		return nil
 	}
+	chart := func(name string) *brick {
+		for i := range docs {
+			if docs[i].Kind == "HelmChart" && docs[i].Spec.Chart == name {
+				return &docs[i]
+			}
+		}
+		return nil
+	}
 	var errs []error
 	if pg := find("Cluster"); pg == nil || pg.Metadata.Name != "postgres" || pg.Metadata.Namespace != "postgres" {
 		errs = append(errs, errors.New("no Cluster postgres in namespace postgres, which internal/netpol targets"))
@@ -649,7 +708,7 @@ func checkBricks(dir string) error {
 			errs = append(errs, errors.New("postgres: migrator is not given CREATEROLE at initdb, without which it creates no service role"))
 		}
 	}
-	if bao := find("HelmChart"); bao == nil || bao.Spec.Chart != "openbao" || bao.Spec.TargetNamespace != "openbao" {
+	if bao := chart("openbao"); bao == nil || bao.Spec.TargetNamespace != "openbao" {
 		errs = append(errs, errors.New("no HelmChart openbao in namespace openbao, which the NetworkPolicy of postgres admits"))
 	} else {
 		var v struct {
@@ -676,6 +735,60 @@ func checkBricks(dir string) error {
 		} else if !v.Server.ConfigAnnotation {
 			errs = append(errs, errors.New("openbao: no config checksum on its pods, without which deploy.sh misses a configuration left unapplied"))
 		}
+	}
+	if prom := chart("prometheus"); prom == nil || prom.Spec.TargetNamespace != "monitoring" {
+		errs = append(errs, errors.New("no HelmChart prometheus in namespace monitoring, which internal/netpol and the NetworkPolicy of openbao admit"))
+	} else {
+		var v struct {
+			ConfigmapReload struct {
+				Prometheus struct {
+					ExtraVolumeDirs      []string `yaml:"extraVolumeDirs"`
+					ExtraConfigmapMounts []mount  `yaml:"extraConfigmapMounts"`
+				} `yaml:"prometheus"`
+			} `yaml:"configmapReload"`
+			Server struct {
+				ExtraConfigmapMounts []mount `yaml:"extraConfigmapMounts"`
+			} `yaml:"server"`
+			ScrapeConfigs map[string]struct {
+				RelabelConfigs []relabel `yaml:"relabel_configs"`
+			} `yaml:"scrapeConfigs"`
+			ServerFiles struct {
+				Prometheus struct {
+					RuleFiles []string `yaml:"rule_files"`
+				} `yaml:"prometheus.yml"`
+			} `yaml:"serverFiles"`
+		}
+		if err := yaml.Unmarshal([]byte(prom.Spec.ValuesContent), &v); err != nil {
+			errs = append(errs, fmt.Errorf("prometheus: valuesContent unreadable: %w", err))
+		} else {
+			if !slices.Contains(v.ServerFiles.Prometheus.RuleFiles, rulesMount(v.Server.ExtraConfigmapMounts)+"/*.yaml") {
+				errs = append(errs, errors.New("prometheus: rule_files is not the mount of the ConfigMap alert-rules, which deploy.sh creates from deploy/alerts"))
+			}
+			if !slices.Contains(v.ConfigmapReload.Prometheus.ExtraVolumeDirs, rulesMount(v.ConfigmapReload.Prometheus.ExtraConfigmapMounts)) {
+				errs = append(errs, errors.New("prometheus: the reloader does not watch the rules, which a release changes without restarting Prometheus"))
+			}
+			if !slices.ContainsFunc(v.ScrapeConfigs["sms"].RelabelConfigs, func(r relabel) bool {
+				return slices.Equal(r.SourceLabels, []string{"__meta_kubernetes_pod_container_port_name"}) && r.Regex == "ops" && r.Action == "keep"
+			}) {
+				errs = append(errs, errors.New("prometheus: the job sms does not keep the port named ops, the one internal/netpol opens to Prometheus"))
+			}
+		}
+	}
+	if !slices.ContainsFunc(docs, func(b brick) bool {
+		return b.Kind == "NetworkPolicy" && b.Metadata.Namespace == "monitoring" && b.Spec.PodSelector.MatchLabels == nil &&
+			slices.Contains(b.Spec.PolicyTypes, "Ingress") && b.Spec.Ingress == nil
+	}) {
+		errs = append(errs, errors.New("monitoring: no default deny of ingress, which 06 §4 requires of every namespace"))
+	}
+	if !slices.ContainsFunc(docs, func(b brick) bool {
+		return b.Kind == "NetworkPolicy" && b.Metadata.Namespace == "monitoring" &&
+			b.Spec.PodSelector.MatchLabels["app.kubernetes.io/name"] == "alertmanager" &&
+			slices.ContainsFunc(b.Spec.Ingress, func(in ingressRule) bool {
+				return len(in.From) == 1 && in.From[0].PodSelector.MatchLabels["app.kubernetes.io/name"] == "prometheus" &&
+					len(in.Ports) == 1 && in.Ports[0].Port == 9093
+			})
+	}) {
+		errs = append(errs, errors.New("monitoring: Prometheus does not reach Alertmanager on 9093 through the deny"))
 	}
 	k := find("Kafka")
 	if k == nil || k.Metadata.Name != "kafka" || k.Metadata.Namespace != "kafka" {
@@ -734,10 +847,31 @@ func TestTheBrickGuardFails(t *testing.T) {
 		{"openbao config not checksummed", "openbao.yaml", "      configAnnotation: true\n", "", "config checksum"},
 		{"openbao without audit", "openbao.yaml", `audit "file" "stdout"`, `audit "socket" "stdout"`, "no audit device"},
 		{"openbao values unreadable", "openbao.yaml", "    global:\n", "    global: [\n", "valuesContent unreadable"},
+		{"prometheus renamed", "monitoring.yaml", "  chart: prometheus\n", "  chart: kube-prometheus-stack\n", "no HelmChart prometheus"},
+		{"prometheus elsewhere", "monitoring.yaml", "  targetNamespace: monitoring\n", "  targetNamespace: observability\n", "no HelmChart prometheus"},
+		{"rules on another path", "monitoring.yaml", "          - /etc/alerts/*.yaml\n", "          - /etc/config/alerting_rules.yml\n", "rule_files"},
+		{"rules from another ConfigMap", "monitoring.yaml", "      extraConfigmapMounts:\n        - name: alert-rules\n          configMap: alert-rules\n", "      extraConfigmapMounts:\n        - name: alert-rules\n          configMap: rules\n", "rule_files"},
+		{"rules mounted elsewhere", "monitoring.yaml", "          mountPath: /etc/alerts\n        - name: internal-ca", "          mountPath: /etc/rules\n        - name: internal-ca", "rule_files"},
+		{"reloader without the rules", "monitoring.yaml", "        extraConfigmapMounts:\n          - name: alert-rules\n            configMap: alert-rules\n            mountPath: /etc/alerts\n", "", "reload"},
+		{"ops port not scraped", "monitoring.yaml", "            regex: ops\n", "            regex: metrics\n", "port named ops"},
+		{"ops on another label", "monitoring.yaml", "[__meta_kubernetes_pod_container_port_name]\n            regex: ops", "[__meta_kubernetes_pod_label_app]\n            regex: ops", "port named ops"},
+		{"ops port dropped", "monitoring.yaml", "            regex: ops\n            action: keep", "            regex: ops\n            action: drop", "port named ops"},
+		{"monitoring opened by a rule", "monitoring.yaml", "  name: default-deny\n  namespace: monitoring\nspec:\n  podSelector: {}\n  policyTypes:\n    - Ingress\n", "  name: default-deny\n  namespace: monitoring\nspec:\n  podSelector: {}\n  policyTypes:\n    - Ingress\n  ingress:\n    - {}\n", "deny"},
+		{"alertmanager on another port", "monitoring.yaml", "          port: 9093\n", "          port: 9094\n", "Alertmanager"},
+		{"alertmanager admits another peer", "monitoring.yaml", "              app.kubernetes.io/name: prometheus\n      ports:", "              app.kubernetes.io/name: grafana\n      ports:", "Alertmanager"},
+		{"alertmanager policy elsewhere", "monitoring.yaml", "  name: alertmanager\n  namespace: monitoring", "  name: alertmanager\n  namespace: sms", "Alertmanager"},
+		{"alertmanager open to all", "monitoring.yaml", "    - from:\n        - podSelector:\n            matchLabels:\n              app.kubernetes.io/name: prometheus\n      ports:\n        - protocol: TCP\n          port: 9093\n", "    - {}\n", "Alertmanager"},
+		{"alertmanager on every port", "monitoring.yaml", "      ports:\n        - protocol: TCP\n          port: 9093\n", "", "Alertmanager"},
+		{"alertmanager not selected", "monitoring.yaml", "      app.kubernetes.io/name: alertmanager\n  policyTypes", "      app.kubernetes.io/name: other\n  policyTypes", "Alertmanager"},
+		{"monitoring partly denied", "monitoring.yaml", "  namespace: monitoring\nspec:\n  podSelector: {}", "  namespace: monitoring\nspec:\n  podSelector:\n    matchLabels:\n      app.kubernetes.io/name: alertmanager", "deny"},
+		{"deny in another namespace", "monitoring.yaml", "  name: default-deny\n  namespace: monitoring", "  name: default-deny\n  namespace: sms", "deny"},
+		{"monitoring open", "monitoring.yaml", "  name: default-deny\n  namespace: monitoring\nspec:\n  podSelector: {}\n  policyTypes:\n    - Ingress", "  name: default-deny\n  namespace: monitoring\nspec:\n  podSelector: {}\n  policyTypes:\n    - Egress", "deny"},
+		{"rules not reloaded", "monitoring.yaml", "        extraVolumeDirs:\n          - /etc/alerts\n", "        extraVolumeDirs:\n          - /etc/rules\n", "reload"},
+		{"prometheus values unreadable", "monitoring.yaml", "    server:\n", "    server: [\n", "valuesContent unreadable"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
-			for _, f := range []string{"postgres.yaml", "kafka.yaml", "openbao.yaml"} {
+			for _, f := range bricks {
 				data, err := os.ReadFile(filepath.Join("bricks", f))
 				if err != nil {
 					t.Fatal(err)

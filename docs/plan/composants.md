@@ -19,7 +19,10 @@ une autre peut s'ajouter au démarrage d'une step, comme au socle.
 | 010a | Brique OpenBao | Fondations |
 | 010b-1 | `content-key-svc` : cœur et adaptateurs | Fondations |
 | 010b-2 | `content-key-svc` : service et déploiement | Fondations |
-| 011a | Dashboard : BFF, SPA, activation, mot de passe, sessions, journal d'accès | Fondations |
+| 011a-1 | Prometheus et Alertmanager | Fondations |
+| 011a-2 | Dashboard : cœur et adaptateurs | Fondations |
+| 011a-3 | Dashboard : service et déploiement | Fondations |
+| 011a-4 | Dashboard : SPA et écrans | Fondations |
 | 011b | Dashboard : TOTP, WebAuthn, session élevée | Fondations |
 | 012 | Dashboard : opérateurs, rôles, jetons | Fondations |
 | 013 | `admin-api-svc` : autorisation, audit, proxy ; écran Audit | Fondations |
@@ -113,6 +116,8 @@ l'atteignent.
   réinitialisation, politique de mot de passe, anti-brute-force, sessions (15 min, 12 h,
   `POST /auth/activity`), journal d'accès ; écrans de connexion, d'activation et de réinitialisation. Prometheus
   ouvre l'entrée 8200 d'OpenBao à sa collecte (010a).
+  Coupée en quatre (Fable, 2026-10-20) : Prometheus et Alertmanager ; cœur et adaptateurs ; service et
+  déploiement ; SPA et écrans (`docs/steps/011a-1-prometheus-et-alertmanager.md`).
 - **011b** : TOTP, codes de récupération, WebAuthn, session élevée, remplacement d'un facteur ; écrans
   d'enrôlement.
 
