@@ -17,8 +17,8 @@ import (
 
 const timeout = 10 * time.Second
 
-// Mailer sends through the relay at Addr, under STARTTLS when the relay offers it, verified by Roots (the system's
-// when nil). Username, when set, logs in with PLAIN, and only over TLS.
+// Mailer sends through the relay at Addr under STARTTLS, verified by Roots (the system's when nil); a relay that does
+// not offer it is refused, since a link in clear gives the account away. Username, when set, logs in with PLAIN.
 type Mailer struct {
 	Addr     string
 	From     string
@@ -57,17 +57,13 @@ func (m Mailer) Send(ctx context.Context, to, subject, body string) error {
 }
 
 func (m Mailer) deliver(c *smtp.Client, host, to, subject, body string) error {
-	secured := false
-	if ok, _ := c.Extension("STARTTLS"); ok {
-		if err := c.StartTLS(&tls.Config{ServerName: host, RootCAs: m.Roots, MinVersion: tls.VersionTLS12}); err != nil {
-			return err
-		}
-		secured = true
+	if ok, _ := c.Extension("STARTTLS"); !ok {
+		return errors.New("smtp: the relay offers no STARTTLS")
+	}
+	if err := c.StartTLS(&tls.Config{ServerName: host, RootCAs: m.Roots, MinVersion: tls.VersionTLS12}); err != nil {
+		return err
 	}
 	if m.Username != "" {
-		if !secured {
-			return errors.New("smtp: the relay offers no TLS, credentials are not sent in clear")
-		}
 		if err := c.Auth(smtp.PlainAuth("", m.Username, m.Password, host)); err != nil {
 			return err
 		}

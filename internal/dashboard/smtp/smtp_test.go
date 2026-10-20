@@ -111,12 +111,21 @@ func delivered(t *testing.T, m mailpit) {
 	}
 }
 
-func TestAMessageGoesInClearWhenTheServerOffersNoTLS(t *testing.T) {
+func TestARelayWithoutTLSIsRefused(t *testing.T) {
 	m := start(t, nil, map[string]string{})
-	if err := send(t, smtp.Mailer{Addr: m.smtp, From: "dashboard@example.test"}); err != nil {
-		t.Fatal(err)
+	if err := send(t, smtp.Mailer{Addr: m.smtp, From: "dashboard@example.test"}); err == nil {
+		t.Fatal("a message went in clear")
 	}
-	delivered(t, m)
+	if got := m.messages(t); len(got) != 0 {
+		t.Fatalf("delivered %+v", got)
+	}
+}
+
+func secured(t *testing.T, env map[string]string) (mailpit, *x509.CertPool) {
+	t.Helper()
+	ca := mtlstest.New(t)
+	files := ca.Issue(t, t.TempDir(), "localhost")
+	return start(t, &files, env), roots(ca)
 }
 
 func TestAMessageGoesUnderSTARTTLSVerifiedByTheCA(t *testing.T) {
@@ -132,43 +141,33 @@ func TestAMessageGoesUnderSTARTTLSVerifiedByTheCA(t *testing.T) {
 	delivered(t, m)
 }
 
-func TestCredentialsGoOnlyUnderTLS(t *testing.T) {
-	clear := start(t, nil, map[string]string{"MP_SMTP_AUTH_ACCEPT_ANY": "true", "MP_SMTP_AUTH_ALLOW_INSECURE": "true"})
-	err := send(t, smtp.Mailer{Addr: clear.smtp, From: "dashboard@example.test", Username: "relay", Password: "relay secret"})
-	if err == nil || strings.Contains(err.Error(), "relay secret") {
-		t.Fatalf("credentials over a clear connection: %v, want a refusal", err)
-	}
-	if got := clear.messages(t); len(got) != 0 {
-		t.Fatalf("delivered %+v", got)
-	}
-	ca := mtlstest.New(t)
-	files := ca.Issue(t, t.TempDir(), "localhost")
-	secured := start(t, &files, map[string]string{"MP_SMTP_AUTH": "relay:relay-secret"})
+func TestTheRelayCredentialsAreSent(t *testing.T) {
+	m, pool := secured(t, map[string]string{"MP_SMTP_AUTH": "relay:relay-secret"})
 	for _, wrong := range []smtp.Mailer{
-		{Addr: secured.smtp, From: "dashboard@example.test", Roots: roots(ca)},
-		{Addr: secured.smtp, From: "dashboard@example.test", Username: "relay", Password: "other-secret", Roots: roots(ca)},
+		{Addr: m.smtp, From: "dashboard@example.test", Roots: pool},
+		{Addr: m.smtp, From: "dashboard@example.test", Username: "relay", Password: "other-secret", Roots: pool},
 	} {
 		if err := send(t, wrong); err == nil {
 			t.Fatalf("the relay took a message with credentials %q:%q", wrong.Username, wrong.Password)
 		}
 	}
-	if err := send(t, smtp.Mailer{Addr: secured.smtp, From: "dashboard@example.test", Username: "relay", Password: "relay-secret", Roots: roots(ca)}); err != nil {
+	if err := send(t, smtp.Mailer{Addr: m.smtp, From: "dashboard@example.test", Username: "relay", Password: "relay-secret", Roots: pool}); err != nil {
 		t.Fatal(err)
 	}
-	delivered(t, secured)
+	delivered(t, m)
 }
 
 func TestARefusalCarriesTheCodeOnly(t *testing.T) {
-	m := start(t, nil, map[string]string{"MP_SMTP_ALLOWED_RECIPIENTS": "@nowhere\\.test$"})
-	err := send(t, smtp.Mailer{Addr: m.smtp, From: "dashboard@example.test"})
+	m, pool := secured(t, map[string]string{"MP_SMTP_ALLOWED_RECIPIENTS": "@nowhere\\.test$"})
+	err := send(t, smtp.Mailer{Addr: m.smtp, From: "dashboard@example.test", Roots: pool})
 	if err == nil || err.Error() != fmt.Sprintf("smtp: %d", 550) {
 		t.Fatalf("err = %v, want the code alone", err)
 	}
 }
 
 func TestAHeaderInjectionIsRefused(t *testing.T) {
-	m := start(t, nil, map[string]string{})
-	mailer := smtp.Mailer{Addr: m.smtp, From: "dashboard@example.test"}
+	m, pool := secured(t, map[string]string{})
+	mailer := smtp.Mailer{Addr: m.smtp, From: "dashboard@example.test", Roots: pool}
 	for _, tc := range [][2]string{
 		{"owner@example.test", "Activation\r\nBcc: intruder@example.test"},
 		{"owner@example.test\r\nBcc: intruder@example.test", "Activation"},
