@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"io"
@@ -347,8 +348,9 @@ func TestAnUnrecordedDeliveryWaitsItsTickAndASlowBodyIsCut(t *testing.T) {
 	}
 	start := time.Now()
 	_ = conn.SetReadDeadline(time.Now().Add(20 * time.Second))
-	got, err := io.ReadAll(conn)
-	if held := time.Since(start); held > 15*time.Second {
-		t.Fatalf("a body sent slowly held its connection %v (received %q, %v), want it cut by the read timeout", held, got, err)
+	resp, err := http.ReadResponse(bufio.NewReader(conn), nil)
+	if held := time.Since(start); err != nil || resp.StatusCode != http.StatusUnprocessableEntity || held > 15*time.Second {
+		t.Fatalf("a body sent slowly: %v after %v, want a 422 once the read timeout has cut the body", err, held)
 	}
+	_ = resp.Body.Close()
 }

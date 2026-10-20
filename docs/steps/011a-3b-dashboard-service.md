@@ -109,7 +109,8 @@ Trois revues (correction et sécurité, tests creux, code en trop). Un bloquant 
    - le 422 nomme `cursor` et `body` ;
    - `SMTP_ADDR` sans port et les URL publiques avec requête, fragment, identifiants ou schéma `ftp` sont refusés ;
    - deux proxies de confiance, ou un proxy sans en-tête, ne donnent ni 500 ni source partagée ;
-   - un corps envoyé lentement est coupé ;
+   - un corps envoyé lentement reçoit son 422 à l'échéance de lecture (sous Linux la connexion reste ensuite ouverte,
+     bornée par `IdleTimeout` ; sous macOS elle se ferme : le test lit la réponse, pas la fermeture) ;
    - `/readyz` est sondé jusqu'au 503, au lieu d'attendre un délai.
 6. **Retraits** : `SilenceServersWarning` (le validateur ne voit plus de `servers`), la struct anonyme recopiée de
    `fieldError`, le logger par défaut de `Config` (seul un test l'omettait), `retrySeconds`, la regex dupliquée
