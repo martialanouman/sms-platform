@@ -2,6 +2,12 @@
 
 > Amendé par la décision 3 (`connector_accounts.credentials_sealed`) et la décision 8 (§3 : `external_billing_providers.auth_config_sealed` disparaît avec sa table).
 >
+> Amendé en 010a et 010b-1 (`../steps/010b-1-content-key-svc-coeur.md`) : une clé OpenBao Transit par domaine
+> (`config-secrets`, `content`) remplace le tag de domaine, et la politique d'OpenBao les sépare ; `transit/encrypt`
+> remplace `WrapDataKey` ; `sealed` est le chiffré Transit (`vault:vN:…`), `kms_key_ref` le nom de la clé, stable
+> à la rotation (le rescellement devient un `rewrap`) ; la carte des appelants vit dans `internal/contentkey/grpc`,
+> pas dans `cmd/content-key-svc/authz.go`.
+>
 > Repris de `go-gateway`. Les chemins, steps et fiches `debts/` cités appartiennent à ce dépôt d'origine.
 
 **Status:** Accepted

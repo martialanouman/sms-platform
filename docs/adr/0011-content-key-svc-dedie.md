@@ -1,6 +1,8 @@
 # ADR-0011 : La garde des clés de contenu vit dans un service dédié (`content-key-svc`)
 
-> Amendé par la décision 6 (`../design/06-confiance-interne.md` §6) : la KEK vit dans OpenBao Transit ; `LocalKMS` reste pour les tests.
+> Amendé par la décision 6 (`../design/06-confiance-interne.md` §6) : la KEK vit dans OpenBao Transit. `LocalKMS` n'est pas
+> porté (humain, 2026-10-19, `../steps/010a-brique-openbao.md` arbitrage 3) : l'adaptateur se teste contre OpenBao
+> (`../steps/010b-1-content-key-svc-coeur.md`).
 >
 > Repris de `go-gateway`. Les chemins, steps et fiches `debts/` cités appartiennent à ce dépôt d'origine.
 
