@@ -90,6 +90,11 @@ func (t tx) MarkFailed(ctx context.Context, operatorID string, base, ceiling tim
 	return queries.MarkFailed(ctx, t.db, sqlc.MarkFailedParams{BaseSeconds: base.Seconds(), CeilingSeconds: ceiling.Seconds(), OperatorID: operatorID})
 }
 
+func (t tx) Undeliverable(ctx context.Context, maxAttempts int) (int, error) {
+	n, err := queries.Undeliverable(ctx, t.db, int64(maxAttempts))
+	return int(n), err
+}
+
 func (t tx) Reserve(ctx context.Context, subject []byte, window time.Duration, limit int) (time.Duration, error) {
 	_, err := queries.Reserve(ctx, t.db, sqlc.ReserveParams{Subject: subject, WindowSeconds: window.Seconds(), MaxFailures: int64(limit)})
 	if reserved, err := found(err); reserved || err != nil {

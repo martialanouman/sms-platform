@@ -41,6 +41,11 @@ SET next_attempt_at = now() + make_interval(secs => least(sqlc.arg(base_seconds)
   attempts = attempts + 1
 WHERE operator_id = @operator_id::uuid;
 
+-- name: Undeliverable :one
+SELECT count(*)::bigint
+FROM dashboard.access_links l JOIN dashboard.operators o ON o.id = l.operator_id
+WHERE l.sent_at IS NULL AND l.attempts >= @max_attempts::bigint AND o.status = 'active';
+
 -- name: Reserve :one
 INSERT INTO dashboard.login_attempt_counters AS c (subject, failures, last_failure_at) VALUES (@subject, 1, now())
 ON CONFLICT (subject) DO UPDATE SET

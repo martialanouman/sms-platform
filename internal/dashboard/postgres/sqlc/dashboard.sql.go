@@ -385,3 +385,16 @@ func (q *Queries) Touch(ctx context.Context, db DBTX, arg TouchParams) (int64, e
 	}
 	return result.RowsAffected(), nil
 }
+
+const undeliverable = `-- name: Undeliverable :one
+SELECT count(*)::bigint
+FROM dashboard.access_links l JOIN dashboard.operators o ON o.id = l.operator_id
+WHERE l.sent_at IS NULL AND l.attempts >= $1::bigint AND o.status = 'active'
+`
+
+func (q *Queries) Undeliverable(ctx context.Context, db DBTX, maxAttempts int64) (int64, error) {
+	row := db.QueryRow(ctx, undeliverable, maxAttempts)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}

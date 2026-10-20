@@ -795,3 +795,24 @@ func TestAnEmailStoredInUpperCaseLogsIn(t *testing.T) {
 	h.exec(t, `UPDATE dashboard.operators SET email = 'Owner@Example.TEST'`)
 	h.login(t, "owner@example.test")
 }
+
+func TestUndeliverableCountsTheLinksOfActiveAccountsThatGaveUp(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	if err := h.svc.Bootstrap(ctx, "owner@example.test"); err != nil {
+		t.Fatal(err)
+	}
+	for spoil, want := range map[string]int{
+		`UPDATE dashboard.access_links SET attempts = 9`:                   0,
+		`UPDATE dashboard.access_links SET attempts = 10`:                  1,
+		`UPDATE dashboard.access_links SET attempts = 10, sent_at = now()`: 0,
+		`UPDATE dashboard.operators SET status = 'disabled'`:               0,
+	} {
+		h.exec(t, `UPDATE dashboard.operators SET status = 'active'`)
+		h.exec(t, `UPDATE dashboard.access_links SET attempts = 10, sent_at = NULL`)
+		h.exec(t, spoil)
+		if got, err := h.svc.Undeliverable(ctx); err != nil || got != want {
+			t.Errorf("after %s: %d, %v; want %d", spoil, got, err, want)
+		}
+	}
+}
