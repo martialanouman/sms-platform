@@ -80,3 +80,42 @@ Tranchés par l'agent, sans contredire la spec ni les arbitrages 1 à 36.
   `password_hash`, et revive ne signale rien.
 - **sqlc** : `2 ^ attempts` casse sa réécriture des paramètres nommés ; le backoff s'écrit `power(2, attempts)` sous
   `sqlc.arg`. Les uuid, textes nullables et `timestamptz` sont surchargés en `string`, `*string` et `time.Time`.
+
+## Correctifs de revue, tour 1
+
+Trois revues (correction et sécurité, tests creux, code en trop). Un bloquant, tranché par l'humain ; 30 constats.
+
+1. **TLS exigé toujours** (humain, 2026-10-20 ; révise la décision B et l'arbitrage 44) : un relais qui n'offre pas
+   STARTTLS est refusé. Sinon, un tiers sur le chemin retirait STARTTLS de l'EHLO, et le lien de reset partait en
+   clair. Mailpit reçoit en 011a-3 un certificat de la CA interne.
+2. **Lien d'accès en une transaction** (révise l'arbitrage 40) : `ConsumeLink`, puis la politique, puis le hachage,
+   puis le mot de passe ; un refus de politique ou un hacheur occupé annulent la transaction, et le lien reste
+   valide. `LinkUsable` disparaît, avec ses filtres qui recouvraient ceux de `ConsumeLink`. Deux usages concurrents se
+   sérialisent sur la ligne. Le coût : une connexion tenue le temps d'un argon2, dix au plus.
+3. **Un 429 sur l'e-mail garde l'incrément de la source** : le refus sort après le commit.
+4. **Une adresse source invalide est refusée** par `Login` : une adresse zéro donnerait un sujet partagé par tous.
+5. **Curseur** : l'identifiant doit être un uuid (36 caractères hexadécimaux et tirets aux bonnes places), sinon
+   `ErrBadCursor`, au lieu d'un échec de conversion dans Postgres.
+6. **Les sessions se ferment à tout usage d'un lien**, activation comprise : un compte sans mot de passe n'en a pas,
+   la branche sur le genre de lien était inutile.
+7. **Tests resserrés** : un second opérateur témoin, avec son lien et ses sessions, que chaque écriture ciblée laisse
+   intact (`SetPassword`, `CloseSessions`, `Touch`, `MarkFailed`, `MarkSent`, `CloseSession`) ; le plus ancien lien
+   dû part d'abord ; deux livraisons concurrentes envoient deux liens distincts (`SKIP LOCKED`) ; l'objet de
+   l'activation ; les curseurs mal formés après le base64 ; tous les champs de `Current` ; un e-mail stocké en
+   majuscules se retrouve.
+8. **Retraits** : `SessionView` embarque `Current` ; le `ctx` ignoré du hacheur ; le `max` inatteignable de
+   `Reserve` ; le paramètre `displayName` (012 l'ajoutera avec ce qui l'édite) ; les cas redondants du PHC ;
+   `slots_internal_test.go`, rattaché à `password_test.go` ; `RETURNING failures`.
+9. **Gardés tels quels, transmis à 011a-3 ou 012** :
+   - La source compte aussi les succès (arbitrage 41) : derrière un NAT, cinq connexions en 15 min verrouillent
+     la sixième.
+   - Un tiers peut verrouiller l'e-mail d'un opérateur, et un reset n'oublie pas ce compteur (15 min au plus).
+   - Un hachage illisible rend 500 : une donnée corrompue doit se voir ; #17 changera les paramètres par
+     re-hachage.
+   - `session_refused` s'écrit à chaque requête jusqu'à la purge.
+   - Un `logout` sur une session morte et non purgée est journalisé.
+   - En 012 : désactiver un compte devra supprimer ses sessions et son lien, faute de quoi une réactivation rapide
+     les ferait revivre.
+   - En 011a-3 : `Current` ne dit rien de l'élévation, donc une session de premier facteur n'atteint que `/auth/*` ;
+     un lien en échec après dix tentatives doit devenir visible, par une métrique.
+   - `IdleTimeout` et `lockWindow` valent tous deux 15 min : leur permutation est indétectable.
