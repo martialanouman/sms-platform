@@ -22,7 +22,8 @@ une autre peut s'ajouter au démarrage d'une step, comme au socle.
 | 011a-1 | Prometheus et Alertmanager | Fondations |
 | 011a-2a | Dashboard : schéma et GRANT par base | Fondations |
 | 011a-2b | Dashboard : cœur et adaptateurs | Fondations |
-| 011a-3 | Dashboard : service et déploiement | Fondations |
+| 011a-3a | Dashboard : base sur le cluster, migrations multi-base, Pooler | Fondations |
+| 011a-3b | Dashboard : service et déploiement | Fondations |
 | 011a-4 | Dashboard : SPA et écrans | Fondations |
 | 011b | Dashboard : TOTP, WebAuthn, session élevée | Fondations |
 | 012 | Dashboard : opérateurs, rôles, jetons | Fondations |
@@ -121,6 +122,8 @@ l'atteignent.
   déploiement ; SPA et écrans (`docs/steps/011a-1-prometheus-et-alertmanager.md`).
   011a-2 coupée en deux (humain, 2026-10-20) : schéma et GRANT par base ; cœur et adaptateurs
   (`docs/steps/011a-2a-schema-par-base.md`).
+  011a-3 coupée en deux (humain, 2026-10-20) : base, migrations multi-base et Pooler ; service et déploiement
+  (`docs/steps/011a-3a-base-dashboard-et-pooler.md`).
 - **011b** : TOTP, codes de récupération, WebAuthn, session élevée, remplacement d'un facteur ; écrans
   d'enrôlement.
 
