@@ -6,4 +6,5 @@ package smsplatform
 //go:generate go run ./tools/openapi -gen internal/platform/scopes/scopes.gen.go
 //go:generate go run ./tools/grants
 //go:generate go tool sqlc generate
+//go:generate go tool oapi-codegen -config internal/dashboard/http/oapi-codegen.yaml contracts/openapi-bff.yaml
 //go:generate go run ./tools/netpol

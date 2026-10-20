@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"log/slog"
+	"net/netip"
 	"reflect"
 	"strings"
 	"testing"
@@ -57,6 +58,15 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 		"POSTGRES_ROLE_SECRETS_DIR": "/secrets/postgres",
 		"GRPC_ADDR":                 ":7002",
 		"OPENBAO_ADDR":              "https://openbao.openbao.svc:8200",
+		"HTTP_ADDR":                 ":8080",
+		"DASHBOARD_PUBLIC_URL":      "http://localhost:8080",
+		"DASHBOARD_BOOTSTRAP_EMAIL": "owner@example.test",
+		"SMTP_ADDR":                 "mailpit.mailpit.svc:1025",
+		"SMTP_FROM":                 "dashboard@example.test",
+		"SMTP_USERNAME":             "relay",
+		"SMTP_PASSWORD_FILE":        "/secrets/smtp-password",
+		"TRUSTED_PROXIES":           "10.42.0.0/16, fd00::/8",
+		"COOKIE_KEY_FILE":           "/secrets/cookie-key",
 	})
 	got, err := config.Load()
 	if err != nil {
@@ -75,6 +85,15 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 		PostgresRoleSecretsDir: "/secrets/postgres",
 		GRPCAddr:               ":7002",
 		OpenBaoAddr:            "https://openbao.openbao.svc:8200",
+		HTTPAddr:               ":8080",
+		PublicURL:              "http://localhost:8080",
+		BootstrapEmail:         "owner@example.test",
+		SMTPAddr:               "mailpit.mailpit.svc:1025",
+		SMTPFrom:               "dashboard@example.test",
+		SMTPUsername:           "relay",
+		SMTPPasswordFile:       "/secrets/smtp-password",
+		TrustedProxies:         []netip.Prefix{netip.MustParsePrefix("10.42.0.0/16"), netip.MustParsePrefix("fd00::/8")},
+		CookieKeyFile:          "/secrets/cookie-key",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Load() = %+v, want %+v", got, want)
@@ -83,8 +102,10 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 
 func TestVariablesIsTheClosedListLoadReads(t *testing.T) {
 	want := []string{
-		"DRAIN_BUDGET", "DRAIN_DELAY", "GRPC_ADDR", "KAFKA_BROKERS", "LOG_LEVEL", "OPENBAO_ADDR", "OPS_ADDR", "POSTGRES_ROLE_SECRETS_DIR", "POSTGRES_URL", "SHUTDOWN_TIMEOUT",
-		"TLS_ALLOWED_CLIENTS", "TLS_CA_FILE", "TLS_CERT_FILE", "TLS_KEY_FILE", "TRACE_SAMPLE_RATIO",
+		"COOKIE_KEY_FILE", "DASHBOARD_BOOTSTRAP_EMAIL", "DASHBOARD_PUBLIC_URL", "DRAIN_BUDGET", "DRAIN_DELAY", "GRPC_ADDR",
+		"HTTP_ADDR", "KAFKA_BROKERS", "LOG_LEVEL", "OPENBAO_ADDR", "OPS_ADDR", "POSTGRES_ROLE_SECRETS_DIR", "POSTGRES_URL",
+		"SHUTDOWN_TIMEOUT", "SMTP_ADDR", "SMTP_FROM", "SMTP_PASSWORD_FILE", "SMTP_USERNAME", "TLS_ALLOWED_CLIENTS",
+		"TLS_CA_FILE", "TLS_CERT_FILE", "TLS_KEY_FILE", "TRACE_SAMPLE_RATIO", "TRUSTED_PROXIES",
 	}
 	if got := config.Variables(); !reflect.DeepEqual(got, want) {
 		t.Errorf("Variables() = %v, want %v", got, want)
@@ -122,6 +143,7 @@ func TestLoadRefusesEachRule(t *testing.T) {
 		"unreadable ratio":         {map[string]string{"TRACE_SAMPLE_RATIO": "half"}, "TRACE_SAMPLE_RATIO"},
 		"unreadable shutdown":      {map[string]string{"SHUTDOWN_TIMEOUT": "long"}, `SHUTDOWN_TIMEOUT: time: invalid duration "long"`},
 		"unreadable delay":         {map[string]string{"DRAIN_DELAY": "later"}, "DRAIN_DELAY"},
+		"proxy not a prefix":       {map[string]string{"TRUSTED_PROXIES": "10.42.0.0/16, 10.43.0.1"}, "TRUSTED_PROXIES"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			env(t, c.values)

@@ -73,6 +73,7 @@ type Tx interface {
 	NextDue(ctx context.Context, maxAttempts int) (Due, bool, error)
 	MarkSent(ctx context.Context, operatorID string, digest []byte, ttl time.Duration) error
 	MarkFailed(ctx context.Context, operatorID string, base, ceiling time.Duration) error
+	Undeliverable(ctx context.Context, maxAttempts int) (int, error)
 
 	Reserve(ctx context.Context, subject []byte, window time.Duration, limit int) (retryAfter time.Duration, err error)
 	Forget(ctx context.Context, subject []byte) error

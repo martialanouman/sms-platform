@@ -34,6 +34,18 @@ for declaration in contracts/grants/*.yaml; do
 	exists sms "$service" || create sms "$service" postgres-password "$(openssl rand -hex 32)"
 done
 
+ensure_key() {
+	local held
+	held=$(kubectl -n "$1" get secret "$2" -o "jsonpath={.data.$3}")
+	[ -n "$held" ] && return
+	nonempty "$1/$2/$3" "$4"
+	printf '{"data":{"%s":"%s"}}' "$3" "$(printf '%s' "$4" | base64 | tr -d '\n')" | kubectl -n "$1" patch secret "$2" --type merge --patch-file /dev/stdin >/dev/null
+}
+ensure_key sms dashboard cookie-key "$(openssl rand -hex 32)"
+password=$(read_secret sms dashboard postgres-password)
+nonempty sms/dashboard "$password"
+ensure_key sms dashboard postgres-url "postgres://dashboard:$password@postgres-pooler-rw.postgres.svc:5432/dashboard?sslmode=verify-full&sslrootcert=/ca/ca.crt"
+
 ca=$(read_secret cert-manager internal-ca 'tls\.crt')
 nonempty cert-manager/internal-ca "$ca"
 printf '%s' "$ca" | kubectl -n kafka create secret generic internal-ca-cert --from-file=ca.crt=/dev/stdin --dry-run=client -o yaml | kubectl apply -f -

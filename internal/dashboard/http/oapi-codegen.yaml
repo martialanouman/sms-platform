@@ -1,0 +1,9 @@
+package: http
+generate:
+  std-http-server: true
+  strict-server: true
+  models: true
+  embedded-spec: false
+output-options:
+  include-operation-ids: [health, login, setPasswordFromAccessLink, me, reportActivity, logout, listAccessLog]
+output: internal/dashboard/http/bff.gen.go

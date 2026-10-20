@@ -23,6 +23,13 @@ builds:
     flags: [-trimpath]
     goos: [linux]
     goarch: [amd64]
+  - id: dashboard
+    main: ./cmd/dashboard
+    binary: dashboard
+    env: [CGO_ENABLED=0]
+    flags: [-trimpath]
+    goos: [linux]
+    goarch: [amd64]
 
 dockers_v2:
   - id: migrate
@@ -46,6 +53,13 @@ dockers_v2:
     platforms: [linux/amd64]
     build_args:
       BINARY: content-key-svc
+  - id: dashboard
+    ids: [dashboard]
+    images: [ghcr.io/martialanouman/sms-platform/dashboard]
+    tags: ["{{ .Tag }}"]
+    platforms: [linux/amd64]
+    build_args:
+      BINARY: dashboard
 
 archives:
   - formats: [none]

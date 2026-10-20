@@ -285,3 +285,19 @@ func TestPrometheusReachesTheOpsPortOnly(t *testing.T) {
 		t.Errorf("probed = %+v, want the ops ingress alone", got["probed"].Spec)
 	}
 }
+
+func TestAServiceReachesTheRelayOfSMTPAddr(t *testing.T) {
+	got := render(t, fstest.MapFS{"mailer.yaml": {Data: []byte(job("mailer", [2]string{"SMTP_ADDR", "mailpit.mail.svc:1025"}))}})
+	e := got["mailer"].Spec.Egress
+	if len(e) != 1 || len(e[0].To) != 1 ||
+		!reflect.DeepEqual(e[0].To[0].NamespaceSelector.MatchLabels, map[string]string{"kubernetes.io/metadata.name": "mail"}) ||
+		!reflect.DeepEqual(e[0].To[0].PodSelector.MatchLabels, map[string]string{"app.kubernetes.io/name": "mailpit"}) ||
+		len(e[0].Ports) != 1 || e[0].Ports[0].Protocol != "TCP" || e[0].Ports[0].Port != 1025 {
+		t.Fatalf("egress %+v, want the relay on 1025", e)
+	}
+	for _, bad := range []string{"mailpit:1025", "smtp.example.com:25", "mailpit.mail.svc", "mailpit.mail.svc:0"} {
+		if _, err := netpol.Render(fstest.MapFS{"mailer.yaml": {Data: []byte(job("mailer", [2]string{"SMTP_ADDR", bad}))}}); err == nil || !strings.Contains(err.Error(), "SMTP_ADDR") {
+			t.Errorf("%q: err = %v, want a refusal", bad, err)
+		}
+	}
+}

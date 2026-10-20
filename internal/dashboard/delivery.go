@@ -30,6 +30,16 @@ func (s Service) DeliverNext(ctx context.Context) (bool, error) {
 	return found, sendErr
 }
 
+// Undeliverable is the number of access links of active accounts that ran out of attempts without being sent.
+func (s Service) Undeliverable(ctx context.Context) (int, error) {
+	var n int
+	err := s.Store.Tx(ctx, func(tx Tx) (err error) {
+		n, err = tx.Undeliverable(ctx, maxDeliveries)
+		return err
+	})
+	return n, err
+}
+
 func (s Service) message(kind LinkKind, token string) (subject, body string, ttl time.Duration) {
 	link := s.PublicURL + "/access#" + token
 	if kind == Reset {
