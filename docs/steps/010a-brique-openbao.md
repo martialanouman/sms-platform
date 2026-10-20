@@ -102,8 +102,11 @@ Trois revues (correction et sécurité, tests creux, code en trop) ; Fable, 2026
 4. **Prometheus** (011a) : l'entrée 8200 d'OpenBao s'ouvre à lui, sinon `absent` sonne dès son arrivée.
 5. **Here-string** : un `<<<` passe par un fichier temporaire sous bash < 5.1 ; `printf` dans le tube.
 6. **Sessions `breakglass`** : `VALID UNTIL` n'agit qu'à la connexion ; une session ouverte survivrait au
-   bail. `openbao` reçoit `pg_signal_backend` (`inRoles`) ; la révocation coupe les sessions du rôle puis
-   le supprime, à la révocation comme à l'échéance.
+   bail. `openbao` reçoit `pg_signal_backend` ; la révocation coupe les sessions du rôle puis le supprime,
+   à la révocation comme à l'échéance. Amendé sur le VPS : par `openbao.sh`, pas par `inRoles`. Posé,
+   `inRoles` fait gérer à CloudNativePG toutes les adhésions du rôle : il a révoqué `breakglass` à
+   `openbao` (`REVOKE "breakglass" FROM "openbao"`), qui en perdait l'`ADMIN OPTION`. La garde refuse
+   `inRoles` sur `openbao`.
 7. **Tests** : l'alerte prouve `for: 5m` (en attente et muette avant) et son retour au silence ; la garde
    exige `ha.enabled`, aucun mode `dev`, `storage "raft"` dans la configuration, un rôle `openbao` non
    `absent`, et nomme à part des valeurs illisibles.
@@ -140,4 +143,8 @@ Rouges vus :
 - **Bail `breakglass` irrévocable** (révocation par défaut du plugin) : à la révocation du jeton,
   « could not perform all revocation statements: ERROR: permission denied for sequence
   goose_db_version_id_seq », relancé sans fin, le rôle dynamique toujours dans Postgres ; script amendé.
+- **`inRoles: [pg_signal_backend]`** sur `openbao` : CloudNativePG en `cannotReconcile`
+  (« UPDATE_MEMBERSHIPS », `REVOKE "breakglass" FROM "openbao"` : « dependent privileges exist »), puis,
+  le rôle dynamique orphelin supprimé, la révocation passe et `openbao` n'est plus membre de `breakglass` ;
+  `inRoles` retiré, rôle `reconciled` et adhésions intactes.
 - **Entrée d'OpenBao** depuis un pod de `default` (sans politique de sortie) : `connection refused` sur 8200.

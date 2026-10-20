@@ -20,6 +20,8 @@ DO $$ BEGIN
     CREATE ROLE breakglass NOLOGIN;
   END IF;
 END $$;
+RESET ROLE;
+GRANT pg_signal_backend TO openbao;
 SQL
 
 printf '%s\n%s\n' "$token" "$password" | kubectl -n openbao exec -i openbao-0 -c openbao -- sh -c '

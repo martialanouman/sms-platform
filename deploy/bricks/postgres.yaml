@@ -30,8 +30,6 @@ spec:
         ensure: present
         login: true
         createrole: true
-        inRoles:
-          - pg_signal_backend
         passwordSecret:
           name: openbao
   certificates:
