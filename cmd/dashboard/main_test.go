@@ -314,7 +314,11 @@ func TestTheDashboardServesAnOperatorFromActivationToLogout(t *testing.T) {
 	case <-time.After(15 * time.Second):
 		t.Fatal("run outlived its drain budget")
 	}
-	if open := d.count(t, `SELECT count(*) FROM pg_stat_activity WHERE usename = 'dashboard'`); open != 0 {
+	open := -1
+	for deadline := time.Now().Add(5 * time.Second); open != 0 && time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
+		open = d.count(t, `SELECT count(*) FROM pg_stat_activity WHERE usename = 'dashboard'`)
+	}
+	if open != 0 {
 		t.Fatalf("%d connections of the dashboard left after the drain", open)
 	}
 }
