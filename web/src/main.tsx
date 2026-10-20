@@ -4,8 +4,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { newRouter } from './router'
 
-const root = document.getElementById('root')
-if (root) {
+export function mount(root: HTMLElement) {
   createRoot(root).render(
     <StrictMode>
       <QueryClientProvider client={new QueryClient()}>
@@ -13,4 +12,9 @@ if (root) {
       </QueryClientProvider>
     </StrictMode>,
   )
+}
+
+const root = document.getElementById('root')
+if (root) {
+  mount(root)
 }

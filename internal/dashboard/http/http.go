@@ -89,7 +89,6 @@ func secured(next http.Handler) http.Handler {
 }
 
 func spa(assets fs.FS) http.Handler {
-	files := http.FileServerFS(assets)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			w.Header().Set("Allow", "GET, HEAD")
@@ -97,11 +96,13 @@ func spa(assets fs.FS) http.Handler {
 			return
 		}
 		if name := strings.TrimPrefix(r.URL.Path, "/"); strings.HasPrefix(name, "assets/") {
-			if info, err := fs.Stat(assets, name); err == nil && !info.IsDir() {
-				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-				files.ServeHTTP(w, r)
+			if info, err := fs.Stat(assets, name); err != nil || info.IsDir() {
+				http.NotFound(w, r)
 				return
 			}
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			http.ServeFileFS(w, r, assets, name)
+			return
 		}
 		w.Header().Set("Cache-Control", "no-cache")
 		http.ServeFileFS(w, r, assets, "index.html")

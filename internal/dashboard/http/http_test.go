@@ -32,6 +32,7 @@ const origin = "http://localhost:8080"
 var spa = fstest.MapFS{
 	"index.html":           {Data: []byte(`<!doctype html><html lang="fr"><title>Tableau de bord</title></html>`)},
 	"assets/index-Ab12.js": {Data: []byte(`console.log(1)`)},
+	"assets/sub/x.js":      {Data: []byte(`x`)},
 }
 
 type mailbox struct {
@@ -394,13 +395,15 @@ func TestTheSPAIsServedWithItsCachePolicy(t *testing.T) {
 		"a route":           {call{method: "GET", path: "/login"}, 200, "Tableau de bord", "no-cache"},
 		"a deep route":      {call{method: "GET", path: "/access/x"}, 200, "Tableau de bord", "no-cache"},
 		"a hashed asset":    {call{method: "GET", path: "/assets/index-Ab12.js"}, 200, "console.log(1)", "public, max-age=31536000, immutable"},
-		"a missing asset":   {call{method: "GET", path: "/assets/gone.js"}, 200, "Tableau de bord", "no-cache"},
+		"a missing asset":   {call{method: "GET", path: "/assets/gone.js"}, 404, "", ""},
+		"an asset folder":   {call{method: "GET", path: "/assets/sub"}, 404, "", ""},
 		"head":              {call{method: "HEAD", path: "/"}, 200, "", "no-cache"},
 		"the shell by name": {call{method: "GET", path: "/index.html"}, 301, "", "no-cache"},
 		"post":              {call{method: "POST", path: "/"}, 405, "", ""},
 	} {
 		got := a.do(t, tc.c)
-		if got.status != tc.status || !strings.Contains(got.raw, tc.body) || got.header.Get("Cache-Control") != tc.cache {
+		if got.status != tc.status || !strings.Contains(got.raw, tc.body) || got.header.Get("Cache-Control") != tc.cache ||
+			(tc.status == 405) != (got.header.Get("Allow") == "GET, HEAD") || (tc.status == 404 && strings.Contains(got.raw, "Tableau de bord")) {
 			t.Errorf("%s: %d %q cache %q, want %d %q cache %q", name, got.status, got.raw, got.header.Get("Cache-Control"), tc.status, tc.body, tc.cache)
 		}
 	}

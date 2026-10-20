@@ -27,6 +27,8 @@ updates:
     directory: /web
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 14
     groups:
       web:
         patterns: ["*"]

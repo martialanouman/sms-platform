@@ -14,14 +14,14 @@ help: ## Liste les cibles
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "%-16s %s\n", $$1, $$2}'
 
 web: ## Construit la SPA dans web/dist, que le binaire du dashboard embarque
-	cd web && pnpm install --frozen-lockfile && pnpm build && touch dist/.gitkeep
+	cd web && pnpm install --frozen-lockfile && pnpm build
 
 lint: web ## golangci-lint, gofmt compris ; Biome et tsc ; une exclusion vit dans .golangci.yml, jamais en nolint ni go:linkname
 	go tool golangci-lint run ./...
 	@! git grep --untracked -nE 'nolint|go:linkname' -- '*.go'
 	cd web && pnpm lint && pnpm typecheck
 
-vuln: ## govulncheck et pnpm audit : une vulnérabilité connue atteinte par le code échoue
+vuln: ## govulncheck (une vulnérabilité atteinte par le code) et pnpm audit (tout avis, devDependencies comprises) échouent
 	go tool govulncheck ./...
 	cd web && pnpm audit --audit-level=low
 

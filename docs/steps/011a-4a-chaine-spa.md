@@ -114,10 +114,11 @@ Deux revues (correction et sécurité ; tests creux et code en trop). Aucun bloq
 5. **Proxy de dev** limité à `/api/` ; en dev, le BFF tourne avec `DASHBOARD_PUBLIC_URL=http://localhost:3000`, faute de
    quoi `guard` refuse l'origine du serveur Vite (pour 011a-4b).
 6. **Tests resserrés** : `Allow` sur le 405 ; un sous-répertoire d'`assets/` ; le montage réel de `main.tsx` ; le test
-   du squelette déplacé sous `routes/`, où le motif d'exclusion du routeur devient une propriété prouvée.
-7. **Retraits** : la configuration du routeur doublée dans `vite.config.ts` (elle vit dans `tsr.config.json`, que lisent
-   la CLI et le plugin) et ses valeurs par défaut, `outDir`, le `--noEmit` doublé, le `FileServerFS` remplacé par
-   `ServeFileFS`.
+   du squelette déplacé sous `routes/`, où l'arbre généré prouve qu'un test n'y devient pas une route.
+7. **Retraits** : `tsr.config.json` et la configuration du routeur dans `vite.config.ts`, qui ne portaient que des
+   valeurs par défaut et un motif d'exclusion des tests sans effet (un fichier de test n'exporte pas de `Route`, et le
+   générateur l'écarte ; l'arbre reste identique sans le motif) ; `outDir` ; le `--noEmit` doublé ; le `FileServerFS`
+   remplacé par `ServeFileFS`.
 8. **Gardés tels quels** :
    - `pnpm audit` échoue sur tout avis, devDependencies comprises : le libellé de `vuln` le dit désormais.
    - `index.html` est embarqué sans date, donc sans validateur : retransféré à chaque navigation, pour quelques
