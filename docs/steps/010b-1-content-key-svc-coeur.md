@@ -51,8 +51,8 @@ Fable, 2026-10-20 ; aucun renvoi à l'humain.
 9. **Aucun secret dans une erreur** (I2) : messages de statut gRPC constants ; aucun corps de réponse d'OpenBao relayé.
 10. **Test** : vrai OpenBao (`openbao/openbao:2.7.1`, version de la brique, en `-dev`) ; méthode `kubernetes` dont
     `kubernetes_host` vise un faux TokenReview servi par le test (`HostAccessPorts`), qui répond `authenticated`,
-    `system:serviceaccount:sms:content-key-svc` et l'audience `openbao` ; le jeton envoyé est un JWT HS256 aux claims
-    `kubernetes.io`. Serveur gRPC en processus sous `mtlstest`.
+    `system:serviceaccount:sms:content-key-svc` et l'audience `openbao` ; le jeton envoyé est un JWT aux claims
+    `kubernetes.io`, signé en ES256 (OpenBao refuse HS256 même sans vérifier la signature). Serveur gRPC en processus sous `mtlstest`.
 11. **ADR** : ADR-0011 et 06 §11 (`LocalKMS` non porté, 010a arbitrage 3) ; ADR-0016 (clé par domaine au lieu du tag,
     `transit/encrypt` au lieu de `WrapDataKey`, carte dans l'adaptateur gRPC, `kms_key_ref` nom de clé Transit).
 12. **Pour 010b-2** (arrêté ici, conçu là) : `/readyz` sans dépendance à OpenBao ; `GRPC_ADDR` et `OPENBAO_ADDR`
@@ -84,3 +84,26 @@ Fable, 2026-10-20 ; aucun renvoi à l'humain.
   erreur de la KMS n'atteint pas le statut).
 - **ADR** : en-têtes d'ADR-0011 et d'ADR-0016, ligne ADR-0011 de 06 §11.
 - **Plan** : §010 coupé en 010b-1 et 010b-2.
+
+## Correctifs de revue, tour 1
+
+Trois revues (correction et sécurité, tests creux, code en trop). Bloquants : 1, 2, 3.
+
+1. **Un login refusé en 400 passait pour un chiffré refusé** : `Decrypt` classait tout 400, celui du login compris
+   (rôle inconnu, jeton vide), en `ErrUndecryptable`, donc `DataLoss` et dead-letter d'un backlog sur une erreur de
+   déploiement. Seul le 400 de `transit/decrypt` l'est désormais.
+2. **Le faux TokenReview ne lisait pas le jeton** : il compare `spec.token` au fichier projeté ; un test réécrit le
+   fichier entre deux logins (le kubelet le fait tourner).
+3. **La garde `VerifiedChains` n'était pas prouvée** : le test présente un certificat que le serveur demande sans le
+   vérifier (`RequestClientCert`).
+4. **Le contexte de l'appelant borne aussi l'attente du login** : un sémaphore à canal remplace le mutex, un appel
+   dont l'échéance tombe pendant le login d'un autre revient.
+5. **Un 200 sans chiffré est une erreur** : `Seal` aurait rendu un `sealed` vide, persisté comme un secret perdu.
+6. **Une réponse indécodable ne cite pas son contenu** : l'erreur de `json` peut citer une valeur du corps, donc un
+   clair ; l'erreur ne garde que le chemin.
+7. **Tests resserrés** : moitié du bail encadrée au plus près, un seul login après des 400, clair vide `[]byte{}`,
+   déchiffrement d'un chiffré produit par OpenBao hors de l'adaptateur.
+8. **Retraits** : la comparaison au jeton oublié (un 403 sur un ancien jeton coûte au pire un login de plus) ; la
+   branche du login sans jeton (un jeton vide rend un 403, déjà classé) ; le drain du corps d'erreur.
+9. **Pour 010b-2** : le client HTTP refuse les redirections (`X-Vault-Token` et le JWT suivraient un 307) ; un test du
+   `cmd/` construit le serveur réel, intercepteur compris (`Register` ne l'installe pas).
