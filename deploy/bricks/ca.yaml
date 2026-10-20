@@ -45,6 +45,9 @@ spec:
     - postgres-rw
     - postgres-rw.postgres
     - postgres-rw.postgres.svc
+    - postgres-pooler-rw
+    - postgres-pooler-rw.postgres
+    - postgres-pooler-rw.postgres.svc
   usages:
     - server auth
   issuerRef:
