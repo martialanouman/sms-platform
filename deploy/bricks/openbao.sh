@@ -13,7 +13,20 @@ echo >&2
 
 # debt: #119
 primary=$(kubectl -n postgres get cluster postgres -o 'jsonpath={.status.currentPrimary}')
-kubectl -n postgres exec -i "$primary" -c postgres -- psql -v ON_ERROR_STOP=1 -d control_plane <<'SQL'
+verifier=$(printf '%s' "$password" | kubectl -n postgres exec -i "$primary" -c postgres -- python3 -c '
+import base64, hashlib, hmac, os, sys
+salt = os.urandom(16)
+salted = hashlib.pbkdf2_hmac("sha256", sys.stdin.buffer.read(), salt, 4096)
+client = hmac.new(salted, b"Client Key", "sha256").digest()
+server = hmac.new(salted, b"Server Key", "sha256").digest()
+b = lambda x: base64.b64encode(x).decode()
+print("SCRAM-SHA-256$4096:" + b(salt) + "$" + b(hashlib.sha256(client).digest()) + ":" + b(server))')
+{ printf '\\set verifier %s\n' "$verifier"; cat <<'SQL'; } | kubectl -n postgres exec -i "$primary" -c postgres -- psql -v ON_ERROR_STOP=1 -d control_plane
+SELECT NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'openbao') AS absent \gset
+\if :absent
+CREATE ROLE openbao;
+\endif
+ALTER ROLE openbao LOGIN CREATEROLE PASSWORD :'verifier';
 SET ROLE openbao;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'breakglass') THEN
