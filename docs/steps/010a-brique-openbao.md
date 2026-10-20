@@ -29,7 +29,10 @@ Fable, 2026-10-19, sauf le point 3 tranché par l'humain.
 4. **Authentification Kubernetes** : rôle `content-key-svc` lié au SA `sms/content-key-svc`, audience
    `openbao`, jeton d'une heure, politique `content-key-svc` seule (pas de `default`). Le SA d'OpenBao porte
    `system:auth-delegator` (chart). Le rôle est inerte jusqu'au SA de 010b.
-5. **`breakglass` naît sous `openbao`** : CloudNativePG ne sait pas poser l'`ADMIN OPTION`, que PG 16+
+5. Amendé le 2026-10-20 (#124) : `openbao` n'est plus un rôle géré ; `openbao.sh` le crée sous le
+   superutilisateur et pose son mot de passe depuis le Secret. Géré, CloudNativePG lui retirait à chaque
+   événement du `Cluster` toute adhésion hors `inRoles`, `inRoles` absent compris.
+   **`breakglass` naît sous `openbao`** : CloudNativePG ne sait pas poser l'`ADMIN OPTION`, que PG 16+
    exige pour créer un rôle `IN ROLE breakglass`. `managed.roles` crée `openbao` (`LOGIN CREATEROLE`) ;
    `breakglass` (`NOLOGIN`) est créé sous `SET ROLE openbao`, qui en reçoit l'`ADMIN OPTION`. OpenBao n'en
    fait jamais tourner le mot de passe (`rotate-root`) : CloudNativePG le réconcilierait.
