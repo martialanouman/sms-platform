@@ -30,9 +30,11 @@ Fable, 2026-10-19, sauf le point 3 tranché par l'humain.
    `openbao`, jeton d'une heure, politique `content-key-svc` seule (pas de `default`). Le SA d'OpenBao porte
    `system:auth-delegator` (chart). Le rôle est inerte jusqu'au SA de 010b.
 5. **`breakglass` naît sous `openbao`** : CloudNativePG ne sait pas poser l'`ADMIN OPTION`, que PG 16+
-   exige pour créer un rôle `IN ROLE breakglass`. `managed.roles` crée `openbao` (`LOGIN CREATEROLE`) ;
-   `breakglass` (`NOLOGIN`) est créé sous `SET ROLE openbao`, qui en reçoit l'`ADMIN OPTION`. OpenBao n'en
-   fait jamais tourner le mot de passe (`rotate-root`) : CloudNativePG le réconcilierait.
+   exige pour créer un rôle `IN ROLE breakglass`. `breakglass` (`NOLOGIN`) est créé sous `SET ROLE
+   openbao`, qui en reçoit l'`ADMIN OPTION`. Amendé le 2026-10-20 (#124) : `openbao` n'est plus un rôle géré
+   (`.claude/rules/migrations.md`) ; `openbao.sh` le crée sous le superutilisateur, son mot de passe posé
+   depuis le Secret à chaque passage. OpenBao ne le fait donc jamais tourner (`rotate-root`) : le passage
+   suivant le reposerait.
 6. **Droits de `breakglass` sur les tables** : pas d'`ALTER DEFAULT PRIVILEGES` (il couvrirait `audit_log`,
    immuable, 07 §7.5) ; une déclaration générée entre avec la première table que le secours écrit. Issue
    `debt`.
@@ -114,13 +116,11 @@ Trois revues (correction et sécurité, tests creux, code en trop) ; Fable, 2026
    rien. Écartés : `createrole_self_grant = 'inherit'` ferait hériter `openbao` des droits de
    `breakglass` (des données contre de la disponibilité) ; `'set'` et un `SET ROLE "{{name}}"` dans la
    révocation seraient plus étroits, mais reposent sur la transaction du plugin, à reprendre si un audit
-   exige le moindre privilège ici. Amendé sur le VPS : par `openbao.sh`, pas par `inRoles`. Posé,
-   `inRoles` fait gérer à CloudNativePG toutes les adhésions du rôle : il a révoqué `breakglass` à
-   `openbao` (`REVOKE "breakglass" FROM "openbao"`), qui en perdait l'`ADMIN OPTION`. La garde refuse
-   `inRoles` sur `openbao`.
+   exige le moindre privilège ici. Amendé sur le VPS : par `openbao.sh`, pas par `inRoles` ; puis (#124)
+   aucun rôle géré, la garde refuse tout `managed.roles`.
 7. **Tests** : l'alerte prouve `for: 5m` (en attente et muette avant) et son retour au silence ; la garde
-   exige `ha.enabled`, aucun mode `dev`, `storage "raft"` dans la configuration, un rôle `openbao` non
-   `absent`, et nomme à part des valeurs illisibles.
+   exige `ha.enabled`, aucun mode `dev`, `storage "raft"` dans la configuration, et nomme à part des
+   valeurs illisibles ; (#124) aucun `managed.roles`, `CREATEROLE` de `migrator` par `postInitSQL`.
 8. **Retraits** : défauts du chart (`ui.enabled`, `authDelegator.enabled`), de Transit (`type`), du serveur
    (`ui`, `prometheus_retention_time`, coupé après lecture des métriques sur le VPS) ; `setNodeId` ; les
    noms `openbao` et `openbao.openbao` du certificat, que personne ne compose.

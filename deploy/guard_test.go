@@ -426,14 +426,6 @@ type listener struct {
 	} `yaml:"authentication"`
 }
 
-type role struct {
-	Name       string   `yaml:"name"`
-	Ensure     string   `yaml:"ensure"`
-	Login      bool     `yaml:"login"`
-	CreateRole bool     `yaml:"createrole"`
-	InRoles    []string `yaml:"inRoles"`
-}
-
 type brick struct {
 	Kind     string `yaml:"kind"`
 	Metadata struct {
@@ -453,9 +445,12 @@ type brick struct {
 		} `yaml:"kafka"`
 		EntityOperator any `yaml:"entityOperator"`
 		ClientsCa      any `yaml:"clientsCa"`
-		Managed        struct {
-			Roles []role `yaml:"roles"`
-		} `yaml:"managed"`
+		Managed        any `yaml:"managed"`
+		Bootstrap      struct {
+			InitDB struct {
+				PostInitSQL []string `yaml:"postInitSQL"`
+			} `yaml:"initdb"`
+		} `yaml:"bootstrap"`
 		Chart           string `yaml:"chart"`
 		TargetNamespace string `yaml:"targetNamespace"`
 		ValuesContent   string `yaml:"valuesContent"`
@@ -495,10 +490,11 @@ func checkBricks(dir string) error {
 		if pg.Spec.PostgreSQL.Parameters["track_commit_timestamp"] != "on" {
 			errs = append(errs, errors.New("postgres: track_commit_timestamp is not on, which config_propagation_seconds reads"))
 		}
-		if !slices.ContainsFunc(pg.Spec.Managed.Roles, func(r role) bool {
-			return r.Name == "openbao" && r.Ensure != "absent" && r.Login && r.CreateRole && r.InRoles == nil
-		}) {
-			errs = append(errs, errors.New("postgres: no managed role openbao with LOGIN CREATEROLE and memberships left to openbao.sh; with inRoles, CloudNativePG revokes breakglass from it"))
+		if pg.Spec.Managed != nil {
+			errs = append(errs, errors.New("postgres: managed roles have their memberships reconciled by CloudNativePG, which revokes the ADMIN OPTION a creator holds (#124)"))
+		}
+		if !slices.Contains(pg.Spec.Bootstrap.InitDB.PostInitSQL, "ALTER ROLE migrator CREATEROLE") {
+			errs = append(errs, errors.New("postgres: migrator is not given CREATEROLE at initdb, without which it creates no service role"))
 		}
 	}
 	if bao := find("HelmChart"); bao == nil || bao.Spec.Chart != "openbao" || bao.Spec.TargetNamespace != "openbao" {
@@ -575,14 +571,11 @@ func TestTheBrickGuardFails(t *testing.T) {
 		{"authorization not simple", "kafka.yaml", "      type: simple", "      type: opa", "authorization is not simple"},
 		{"entity operator", "kafka.yaml", "      transaction.state.log.min.isr: 2\n", "      transaction.state.log.min.isr: 2\n  entityOperator:\n    topicOperator: {}\n", "entityOperator"},
 		{"clients CA provided", "kafka.yaml", "      transaction.state.log.min.isr: 2\n", "      transaction.state.log.min.isr: 2\n  clientsCa:\n    generateCertificateAuthority: false\n", "clientsCa"},
-		{"openbao role removed", "postgres.yaml", "      - name: openbao\n", "      - name: vault\n", "no managed role openbao"},
-		{"openbao role without createrole", "postgres.yaml", "      - name: openbao\n        ensure: present\n        login: true\n        createrole: true", "      - name: openbao\n        ensure: present\n        login: true\n        createrole: false", "no managed role openbao"},
-		{"openbao role without login", "postgres.yaml", "      - name: openbao\n        ensure: present\n        login: true", "      - name: openbao\n        ensure: present\n        login: false", "no managed role openbao"},
+		{"roles managed by CloudNativePG", "postgres.yaml", "  certificates:\n", "  managed:\n    roles:\n      - name: openbao\n        ensure: present\n  certificates:\n", "managed roles"},
+		{"migrator without CREATEROLE", "postgres.yaml", "        - ALTER ROLE migrator CREATEROLE\n", "", "CREATEROLE"},
 		{"openbao chart renamed", "openbao.yaml", "  chart: openbao\n", "  chart: vault\n", "no HelmChart openbao"},
 		{"openbao elsewhere", "openbao.yaml", "  targetNamespace: openbao\n", "  targetNamespace: kms\n", "no HelmChart openbao"},
 		{"openbao without raft", "openbao.yaml", "        raft:\n          enabled: true", "        raft:\n          enabled: false", "not in HA raft mode"},
-		{"openbao memberships managed", "postgres.yaml", "        passwordSecret:\n          name: openbao\n", "        passwordSecret:\n          name: openbao\n        inRoles:\n          - pg_signal_backend\n", "no managed role openbao"},
-		{"openbao role absent", "postgres.yaml", "      - name: openbao\n        ensure: present", "      - name: openbao\n        ensure: absent", "no managed role openbao"},
 		{"openbao standalone", "openbao.yaml", "      ha:\n        enabled: true", "      ha:\n        enabled: false", "not in HA raft mode"},
 		{"openbao in dev mode", "openbao.yaml", "    server:\n", "    server:\n      dev:\n        enabled: true\n", "not in HA raft mode"},
 		{"openbao on file storage", "openbao.yaml", `storage "raft" {`, `storage "file" {`, "not in HA raft mode"},

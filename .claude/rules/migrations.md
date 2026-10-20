@@ -14,6 +14,8 @@ GRANT de chaque service qui la lit ; les gardes refusent sinon. Une migration re
 code pendant un déploiement progressif. **Aucune migration ne crée de rôle** : `migrator` ne crée que les
 rôles de service, par `migrations/grants/control_plane.sql`, qui retire tout rôle qu'il a créé et ne déclare
 plus (`NOLOGIN`, mot de passe effacé, droits révoqués). Un autre rôle naît hors de `migrator` (007b-2).
+**Aucun rôle géré par CloudNativePG** (`managed.roles`) : il réconcilie les adhésions d'un rôle géré contre
+son `inRoles` et retire l'`ADMIN OPTION` que PG 16 donne au créateur d'un rôle (#124).
 
 ## Postgres
 
