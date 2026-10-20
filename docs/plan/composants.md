@@ -17,7 +17,8 @@ une autre peut s'ajouter au démarrage d'une step, comme au socle.
 | 008b | Runtime de lane : garage global, `per_tenant` | Fondations |
 | 009 | Instantané de configuration | Fondations |
 | 010a | Brique OpenBao | Fondations |
-| 010b | `content-key-svc` | Fondations |
+| 010b-1 | `content-key-svc` : cœur et adaptateurs | Fondations |
+| 010b-2 | `content-key-svc` : service et déploiement | Fondations |
 | 011a | Dashboard : BFF, SPA, activation, mot de passe, sessions, journal d'accès | Fondations |
 | 011b | Dashboard : TOTP, WebAuthn, session élevée | Fondations |
 | 012 | Dashboard : opérateurs, rôles, jetons | Fondations |
@@ -99,7 +100,9 @@ l'écoute est suivie d'une resync complète ; une notification `<table>:*` recha
   accorder l'adhésion (Fable, 2026-10-19).
 - **010b, `content-key-svc`** : scellement et ouverture des secrets rejoués sous la clé maître (ADR-0016) ;
   seul appelant d'OpenBao Transit. Les clés par client et le crypto-shred viennent en 032. Premier
-  service : la garde de `deploy.sh` (ordre des Jobs et des services) y est revue.
+  service : la garde de `deploy.sh` (ordre des Jobs et des services) y est revue. Coupée au `cmd/` (Fable,
+  2026-10-20) : **010b-1**, cœur et adaptateurs OpenBao et gRPC ; **010b-2**, `cmd/`, NetworkPolicy, manifest,
+  garde et `deploy.sh`.
 
 **Terminé quand** : un secret scellé ne s'ouvre que par `content-key-svc` ; seuls ses appelants admis
 l'atteignent.
