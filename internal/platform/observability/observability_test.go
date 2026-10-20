@@ -139,3 +139,35 @@ func TestPropagatorIsTraceContextOnly(t *testing.T) {
 		t.Errorf("propagator = %T", otel.GetTextMapPropagator())
 	}
 }
+
+func TestGRPCLoggerWritesEachLevelAsJSON(t *testing.T) {
+	var w bytes.Buffer
+	l := observability.GRPCLogger(observability.NewLogger(&w, "content-key-svc", slog.LevelDebug))
+	l.Info("a", 1)
+	l.Infoln("b", 2)
+	l.Infof("c %d", 3)
+	l.Warning("d")
+	l.Warningln("e")
+	l.Warningf("f %s", "x")
+	l.Error("g")
+	l.Errorln("h")
+	l.Errorf("i %s", "y")
+	want := [][2]string{{"INFO", "a1"}, {"INFO", "b 2"}, {"INFO", "c 3"}, {"WARN", "d"}, {"WARN", "e"}, {"WARN", "f x"},
+		{"ERROR", "g"}, {"ERROR", "h"}, {"ERROR", "i y"}}
+	lines := strings.Split(strings.TrimSpace(w.String()), "\n")
+	if len(lines) != len(want) {
+		t.Fatalf("got %d lines, want %d: %s", len(lines), len(want), w.String())
+	}
+	for i, line := range lines {
+		var rec map[string]any
+		if err := json.Unmarshal([]byte(line), &rec); err != nil {
+			t.Fatal(err)
+		}
+		if rec["level"] != want[i][0] || rec["msg"] != want[i][1] || rec["service"] != "content-key-svc" || rec["logger"] != "grpc" {
+			t.Errorf("line %d = %v, want level %s, msg %q, service and logger", i, rec, want[i][0], want[i][1])
+		}
+	}
+	if !l.V(0) || l.V(1) {
+		t.Errorf("V(0) = %v, V(1) = %v; want verbosity 0", l.V(0), l.V(1))
+	}
+}
