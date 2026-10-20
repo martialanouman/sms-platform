@@ -68,6 +68,11 @@ linters:
         text: "G204:|G702:"
         linters:
           - gosec
+      # G101 : sqlc nomme la requête qui pose un mot de passe ; la constante est du SQL, pas un secret.
+      - path: ^internal/dashboard/postgres/sqlc/
+        text: "G101:"
+        linters:
+          - gosec
       # Code de protoc : gosec y voit des constantes et unsafe qu'on ne réécrit pas.
       - path: ^internal/gen/
         linters:

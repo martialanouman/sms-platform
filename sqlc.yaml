@@ -1,0 +1,25 @@
+version: "2"
+sql:
+  - engine: postgresql
+    schema: migrations/dashboard
+    queries: internal/dashboard/postgres/queries
+    gen:
+      go:
+        package: sqlc
+        out: internal/dashboard/postgres/sqlc
+        sql_package: pgx/v5
+        emit_methods_with_db_argument: true
+        overrides:
+          - db_type: uuid
+            go_type: string
+          - db_type: uuid
+            nullable: true
+            go_type: {type: string, pointer: true}
+          - db_type: text
+            nullable: true
+            go_type: {type: string, pointer: true}
+          - db_type: timestamptz
+            go_type: time.Time
+          - db_type: timestamptz
+            nullable: true
+            go_type: {import: time, type: Time, pointer: true}
