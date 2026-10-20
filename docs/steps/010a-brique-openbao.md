@@ -71,7 +71,10 @@ Fable, 2026-10-19, sauf le point 3 tranché par l'humain.
   (`update` sur `transit/encrypt/config-secrets` et `transit/decrypt/config-secrets`) ; auth `kubernetes` et
   son rôle ; moteur `database`, connexion `control_plane` sous `openbao` en `verify-full`, rôle
   `breakglass` (`CREATE ROLE "{{name}}" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}' IN
-  ROLE breakglass`, 1 h) ; `CREATE ROLE breakglass NOLOGIN` sous `SET ROLE openbao`.
+  ROLE breakglass`, 1 h ; révocation `DROP ROLE IF EXISTS "{{name}}"`) ; `CREATE ROLE breakglass NOLOGIN` sous
+  `SET ROLE openbao`. Amendé sur le VPS : la révocation par défaut du plugin (`REVOKE ALL` sur chaque
+  schéma) échoue sur les objets de `migrator`, où `openbao` n'a aucun droit, et le rôle survivait à son
+  bail ; il ne possède rien et ne tient ses droits que de `breakglass`.
 - **`deploy/test-env/deploy.sh`** : `openbao.yaml` après les certificats ; attente du Job
   `helm-install-openbao` et du pod `openbao-0` `Running`.
 - **`deploy/alerts/openbao.yaml`** et `openbao_test.yaml` : part sur 0, part sur absence, muette sur 1.
@@ -110,4 +113,7 @@ Rouges vus :
 
 - **Jeton racine révoqué par la première version d'`openbao.sh`** : `generate-root` rend 403 « permission
   denied » (OpenBao ≥ 2.5.3) ; OpenBao réinitialisé (PVC supprimé), script amendé (arbitrage 8).
+- **Bail `breakglass` irrévocable** (révocation par défaut du plugin) : à la révocation du jeton,
+  « could not perform all revocation statements: ERROR: permission denied for sequence
+  goose_db_version_id_seq », relancé sans fin, le rôle dynamique toujours dans Postgres ; script amendé.
 - **Entrée d'OpenBao** depuis un pod de `default` (sans politique de sortie) : `connection refused` sur 8200.

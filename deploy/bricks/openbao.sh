@@ -46,7 +46,8 @@ printf "%s" "$pg" | bao write database/config/control_plane plugin_name=postgres
   connection_url="postgresql://{{username}}:{{password}}@postgres-rw.postgres.svc:5432/control_plane?sslmode=verify-full&sslrootcert=/openbao/userconfig/openbao-tls/ca.crt" \
   username=openbao password=- allowed_roles=breakglass
 bao write database/roles/breakglass db_name=control_plane default_ttl=1h max_ttl=1h \
-  creation_statements="CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '"'"'{{password}}'"'"' VALID UNTIL '"'"'{{expiration}}'"'"' IN ROLE breakglass;"
+  creation_statements="CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '"'"'{{password}}'"'"' VALID UNTIL '"'"'{{expiration}}'"'"' IN ROLE breakglass;" \
+  revocation_statements="DROP ROLE IF EXISTS \"{{name}}\";"
 ' <<<"$token
 $password"
 echo "openbao.sh: OpenBao configuré ; révoquer le jeton racine (bao token revoke -self) une fois le travail fini" >&2
