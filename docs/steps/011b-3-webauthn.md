@@ -116,7 +116,7 @@ Fable, 2026-10-20, sauf AA (le design entier, tel que présenté) et AB (au tour
 
 ## Mutations
 
-Cinquante-sept, à la main, sur le SQL généré, le cœur, l'adaptateur, les handlers et la SPA ; toutes tombent, sauf
+Soixante-cinq, à la main, sur le SQL généré, le cœur, l'adaptateur, les handlers et la SPA ; toutes tombent, sauf
 deux équivalents consignés : le filtre `operator_id` du retrait en SQL (le cœur prouve la propriété avant ;
 gardé en défense) et `sign_count = 0` dans la clause du zéro (un zéro n'atteint la base que si la bibliothèque l'a
 admis, donc sur un compteur stocké à zéro).
