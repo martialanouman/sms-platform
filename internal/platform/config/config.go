@@ -41,6 +41,7 @@ type Infra struct {
 	SMTPPasswordFile       string
 	TrustedProxies         []netip.Prefix
 	CookieKeyFile          string
+	TotpKeyFile            string
 }
 
 var defaults = map[string]string{
@@ -68,6 +69,7 @@ var defaults = map[string]string{
 	"SMTP_PASSWORD_FILE":        "",
 	"TRUSTED_PROXIES":           "",
 	"COOKIE_KEY_FILE":           "",
+	"TOTP_KEY_FILE":             "",
 }
 
 // Default is the value Load reads for name when the environment leaves it unset.
@@ -127,6 +129,7 @@ func Load() (Infra, error) {
 		SMTPUsername:           value("SMTP_USERNAME"),
 		SMTPPasswordFile:       value("SMTP_PASSWORD_FILE"),
 		CookieKeyFile:          value("COOKIE_KEY_FILE"),
+		TotpKeyFile:            value("TOTP_KEY_FILE"),
 	}
 	for _, p := range list("TRUSTED_PROXIES") {
 		prefix, err := netip.ParsePrefix(p)

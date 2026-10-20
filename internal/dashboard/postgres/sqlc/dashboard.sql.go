@@ -60,6 +60,30 @@ func (q *Queries) AccessLog(ctx context.Context, db DBTX, arg AccessLogParams) (
 	return items, nil
 }
 
+const addPending = `-- name: AddPending :one
+INSERT INTO dashboard.totp_factors (operator_id, sealed) VALUES ($1::uuid, $2)
+ON CONFLICT (operator_id) WHERE confirmed_at IS NULL
+DO UPDATE SET sealed = excluded.sealed, last_step = 0, created_at = now()
+RETURNING id::text
+`
+
+type AddPendingParams struct {
+	OperatorID string
+	Sealed     []byte
+}
+
+func (q *Queries) AddPending(ctx context.Context, db DBTX, arg AddPendingParams) (string, error) {
+	row := db.QueryRow(ctx, addPending, arg.OperatorID, arg.Sealed)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
+type AddRecoveryCodesParams struct {
+	FactorID string
+	Digest   []byte
+}
+
 const closeSession = `-- name: CloseSession :one
 DELETE FROM dashboard.sessions WHERE token_hash = $1 RETURNING operator_id::text
 `
@@ -80,6 +104,15 @@ func (q *Queries) CloseSessions(ctx context.Context, db DBTX, operatorID string)
 	return err
 }
 
+const confirm = `-- name: Confirm :exec
+UPDATE dashboard.totp_factors SET confirmed_at = now() WHERE id = $1::uuid
+`
+
+func (q *Queries) Confirm(ctx context.Context, db DBTX, id string) error {
+	_, err := db.Exec(ctx, confirm, id)
+	return err
+}
+
 const consumeLink = `-- name: ConsumeLink :one
 UPDATE dashboard.access_links l SET token_hash = NULL
 FROM dashboard.operators o
@@ -94,6 +127,20 @@ func (q *Queries) ConsumeLink(ctx context.Context, db DBTX, digest []byte) (stri
 	return operator_id, err
 }
 
+const consumeStep = `-- name: ConsumeStep :exec
+UPDATE dashboard.totp_factors SET last_step = $1 WHERE id = $2::uuid
+`
+
+type ConsumeStepParams struct {
+	Step int64
+	ID   string
+}
+
+func (q *Queries) ConsumeStep(ctx context.Context, db DBTX, arg ConsumeStepParams) error {
+	_, err := db.Exec(ctx, consumeStep, arg.Step, arg.ID)
+	return err
+}
+
 const createOperator = `-- name: CreateOperator :one
 INSERT INTO dashboard.operators (email, display_name) VALUES ($1, $1)
 ON CONFLICT ((lower(email))) DO NOTHING
@@ -105,6 +152,117 @@ func (q *Queries) CreateOperator(ctx context.Context, db DBTX, email string) (st
 	var id string
 	err := row.Scan(&id)
 	return id, err
+}
+
+const currentStep = `-- name: CurrentStep :one
+SELECT floor(extract(epoch FROM now()) / 30)::bigint
+`
+
+func (q *Queries) CurrentStep(ctx context.Context, db DBTX) (int64, error) {
+	row := db.QueryRow(ctx, currentStep)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const dropConfirmed = `-- name: DropConfirmed :execrows
+DELETE FROM dashboard.totp_factors WHERE operator_id = $1::uuid AND confirmed_at IS NOT NULL
+`
+
+func (q *Queries) DropConfirmed(ctx context.Context, db DBTX, operatorID string) (int64, error) {
+	result, err := db.Exec(ctx, dropConfirmed, operatorID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const dropFactors = `-- name: DropFactors :execrows
+DELETE FROM dashboard.totp_factors WHERE operator_id = $1::uuid
+`
+
+func (q *Queries) DropFactors(ctx context.Context, db DBTX, operatorID string) (int64, error) {
+	result, err := db.Exec(ctx, dropFactors, operatorID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const dropRecoveryCodes = `-- name: DropRecoveryCodes :exec
+DELETE FROM dashboard.recovery_codes WHERE factor_id = $1::uuid
+`
+
+func (q *Queries) DropRecoveryCodes(ctx context.Context, db DBTX, factorID string) error {
+	_, err := db.Exec(ctx, dropRecoveryCodes, factorID)
+	return err
+}
+
+const elevate = `-- name: Elevate :execrows
+UPDATE dashboard.sessions s SET token_hash = $1, elevated_at = now(), last_seen_at = now(),
+  challenge_hash = NULL, challenge_expires_at = NULL
+FROM dashboard.operators o
+WHERE s.token_hash = $2 AND s.challenge_hash = $3 AND s.challenge_expires_at > now()
+  AND o.id = s.operator_id AND o.status = 'active'
+  AND now() < s.expires_at AND now() < s.last_seen_at + make_interval(secs => $4::float8)
+`
+
+type ElevateParams struct {
+	NewDigest   []byte
+	Digest      []byte
+	Challenge   []byte
+	IdleSeconds float64
+}
+
+func (q *Queries) Elevate(ctx context.Context, db DBTX, arg ElevateParams) (int64, error) {
+	result, err := db.Exec(ctx, elevate,
+		arg.NewDigest,
+		arg.Digest,
+		arg.Challenge,
+		arg.IdleSeconds,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const factors = `-- name: Factors :many
+SELECT id::text AS id, sealed, last_step, (confirmed_at IS NOT NULL)::bool AS confirmed
+FROM dashboard.totp_factors WHERE operator_id = $1::uuid
+FOR UPDATE
+`
+
+type FactorsRow struct {
+	ID        string
+	Sealed    []byte
+	LastStep  int64
+	Confirmed bool
+}
+
+func (q *Queries) Factors(ctx context.Context, db DBTX, operatorID string) ([]FactorsRow, error) {
+	rows, err := db.Query(ctx, factors, operatorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FactorsRow
+	for rows.Next() {
+		var i FactorsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Sealed,
+			&i.LastStep,
+			&i.Confirmed,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const forget = `-- name: Forget :exec
@@ -319,6 +477,10 @@ func (q *Queries) Reserve(ctx context.Context, db DBTX, arg ReserveParams) (bool
 
 const sessionOf = `-- name: SessionOf :one
 SELECT s.id::text AS id, s.operator_id::text AS operator_id, o.email, o.display_name, s.expires_at,
+  (s.elevated_at IS NOT NULL)::bool AS elevated,
+  EXISTS (SELECT 1 FROM dashboard.totp_factors f WHERE f.operator_id = s.operator_id AND f.confirmed_at IS NOT NULL) AS totp,
+  (SELECT count(*) FROM dashboard.recovery_codes c JOIN dashboard.totp_factors f ON f.id = c.factor_id
+    WHERE f.operator_id = s.operator_id AND f.confirmed_at IS NOT NULL AND c.used_at IS NULL)::int AS recovery_codes_remaining,
   (now() < s.expires_at AND now() < s.last_seen_at + make_interval(secs => $1::float8) AND o.status = 'active')::bool AS live
 FROM dashboard.sessions s JOIN dashboard.operators o ON o.id = s.operator_id
 WHERE s.token_hash = $2
@@ -330,12 +492,15 @@ type SessionOfParams struct {
 }
 
 type SessionOfRow struct {
-	ID          string
-	OperatorID  string
-	Email       string
-	DisplayName string
-	ExpiresAt   time.Time
-	Live        bool
+	ID                     string
+	OperatorID             string
+	Email                  string
+	DisplayName            string
+	ExpiresAt              time.Time
+	Elevated               bool
+	Totp                   bool
+	RecoveryCodesRemaining int32
+	Live                   bool
 }
 
 func (q *Queries) SessionOf(ctx context.Context, db DBTX, arg SessionOfParams) (SessionOfRow, error) {
@@ -347,6 +512,9 @@ func (q *Queries) SessionOf(ctx context.Context, db DBTX, arg SessionOfParams) (
 		&i.Email,
 		&i.DisplayName,
 		&i.ExpiresAt,
+		&i.Elevated,
+		&i.Totp,
+		&i.RecoveryCodesRemaining,
 		&i.Live,
 	)
 	return i, err
@@ -397,4 +565,22 @@ func (q *Queries) Undeliverable(ctx context.Context, db DBTX, maxAttempts int64)
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const useRecoveryCode = `-- name: UseRecoveryCode :execrows
+UPDATE dashboard.recovery_codes SET used_at = now()
+WHERE factor_id = $1::uuid AND digest = $2 AND used_at IS NULL
+`
+
+type UseRecoveryCodeParams struct {
+	FactorID string
+	Digest   []byte
+}
+
+func (q *Queries) UseRecoveryCode(ctx context.Context, db DBTX, arg UseRecoveryCodeParams) (int64, error) {
+	result, err := db.Exec(ctx, useRecoveryCode, arg.FactorID, arg.Digest)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

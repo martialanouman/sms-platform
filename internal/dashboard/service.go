@@ -27,6 +27,7 @@ type Service struct {
 	Store     Store
 	Hasher    *Hasher
 	Keys      Keys
+	Totp      TotpKey
 	Mailer    Mailer
 	PublicURL string
 }

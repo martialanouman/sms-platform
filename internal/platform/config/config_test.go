@@ -67,6 +67,7 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 		"SMTP_PASSWORD_FILE":        "/secrets/smtp-password",
 		"TRUSTED_PROXIES":           "10.42.0.0/16, fd00::/8",
 		"COOKIE_KEY_FILE":           "/secrets/cookie-key",
+		"TOTP_KEY_FILE":             "/secrets/totp-key",
 	})
 	got, err := config.Load()
 	if err != nil {
@@ -94,6 +95,7 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 		SMTPPasswordFile:       "/secrets/smtp-password",
 		TrustedProxies:         []netip.Prefix{netip.MustParsePrefix("10.42.0.0/16"), netip.MustParsePrefix("fd00::/8")},
 		CookieKeyFile:          "/secrets/cookie-key",
+		TotpKeyFile:            "/secrets/totp-key",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Load() = %+v, want %+v", got, want)
@@ -105,7 +107,7 @@ func TestVariablesIsTheClosedListLoadReads(t *testing.T) {
 		"COOKIE_KEY_FILE", "DASHBOARD_BOOTSTRAP_EMAIL", "DASHBOARD_PUBLIC_URL", "DRAIN_BUDGET", "DRAIN_DELAY", "GRPC_ADDR",
 		"HTTP_ADDR", "KAFKA_BROKERS", "LOG_LEVEL", "OPENBAO_ADDR", "OPS_ADDR", "POSTGRES_ROLE_SECRETS_DIR", "POSTGRES_URL",
 		"SHUTDOWN_TIMEOUT", "SMTP_ADDR", "SMTP_FROM", "SMTP_PASSWORD_FILE", "SMTP_USERNAME", "TLS_ALLOWED_CLIENTS",
-		"TLS_CA_FILE", "TLS_CERT_FILE", "TLS_KEY_FILE", "TRACE_SAMPLE_RATIO", "TRUSTED_PROXIES",
+		"TLS_CA_FILE", "TLS_CERT_FILE", "TLS_KEY_FILE", "TOTP_KEY_FILE", "TRACE_SAMPLE_RATIO", "TRUSTED_PROXIES",
 	}
 	if got := config.Variables(); !reflect.DeepEqual(got, want) {
 		t.Errorf("Variables() = %v, want %v", got, want)

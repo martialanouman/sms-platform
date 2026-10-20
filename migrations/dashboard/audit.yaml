@@ -3,3 +3,5 @@ access_links: {audit: exempt, reason: "état d'exécution de l'outbox ; demande 
 sessions: {audit: exempt, reason: "état d'exécution ; connexions et fermetures vont au journal d'accès"}
 login_attempt_counters: {audit: exempt, reason: "état d'exécution de l'anti-brute-force, aux sujets hachés"}
 access_log: {audit: exempt, reason: le journal lui-même}
+totp_factors: {audit: exempt, reason: "secrets scellés ; enrôlements et retraits vont au journal d'accès"}
+recovery_codes: {audit: exempt, reason: "codes hachés ; leur usage va au journal d'accès"}

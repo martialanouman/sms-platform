@@ -7,11 +7,14 @@ import (
 
 // Current is the live session of a request and its operator.
 type Current struct {
-	SessionID   string
-	OperatorID  string
-	Email       string
-	DisplayName string
-	ExpiresAt   time.Time
+	SessionID              string
+	OperatorID             string
+	Email                  string
+	DisplayName            string
+	ExpiresAt              time.Time
+	Elevated               bool
+	Totp                   bool
+	RecoveryCodesRemaining int
 }
 
 // Resolve is the live session of cookie; it never extends it (spec 08 §8.3). A sealed cookie whose session has

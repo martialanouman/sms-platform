@@ -4,3 +4,5 @@ dashboard:
   sessions: [select, insert, update, delete]
   login_attempt_counters: [select, insert, update, delete]
   access_log: [select, insert]
+  totp_factors: [select, insert, update, delete]
+  recovery_codes: [select, insert, update, delete]

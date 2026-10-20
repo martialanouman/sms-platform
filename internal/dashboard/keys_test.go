@@ -57,10 +57,15 @@ func TestTheDomainsOfTheKeyNeverMeet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	email, source := k.EmailSubject(value), k.SourceSubject(netip.MustParseAddr(value))
-	if bytes.Equal(mac, email) || bytes.Equal(mac, source) || bytes.Equal(email, source) {
-		t.Fatal("two domains share a subject")
+	subjects := [][]byte{mac, k.EmailSubject(value), k.SourceSubject(netip.MustParseAddr(value)), k.MfaSubject(value)}
+	for i := range subjects {
+		for j := range i {
+			if bytes.Equal(subjects[i], subjects[j]) {
+				t.Fatalf("domains %d and %d share a subject", i, j)
+			}
+		}
 	}
+	email := subjects[1]
 	if !bytes.Equal(email, k.EmailSubject(value)) || bytes.Equal(email, keys(t, 2).EmailSubject(value)) {
 		t.Fatal("a subject is not stable under its key, or not bound to it")
 	}

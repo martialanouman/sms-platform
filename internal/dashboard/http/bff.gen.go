@@ -203,6 +203,45 @@ func (e HealthStatus) Valid() bool {
 	}
 }
 
+// Defines values for MfaVerificationMethod.
+const (
+	MfaVerificationMethodRecoveryCode MfaVerificationMethod = "recovery_code"
+	MfaVerificationMethodTotp         MfaVerificationMethod = "totp"
+	MfaVerificationMethodWebauthn     MfaVerificationMethod = "webauthn"
+)
+
+// Valid indicates whether the value is a known member of the MfaVerificationMethod enum.
+func (e MfaVerificationMethod) Valid() bool {
+	switch e {
+	case MfaVerificationMethodRecoveryCode:
+		return true
+	case MfaVerificationMethodTotp:
+		return true
+	case MfaVerificationMethodWebauthn:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TotpEnrollmentRequestMethod.
+const (
+	TotpEnrollmentRequestMethodRecoveryCode TotpEnrollmentRequestMethod = "recovery_code"
+	TotpEnrollmentRequestMethodTotp         TotpEnrollmentRequestMethod = "totp"
+)
+
+// Valid indicates whether the value is a known member of the TotpEnrollmentRequestMethod enum.
+func (e TotpEnrollmentRequestMethod) Valid() bool {
+	switch e {
+	case TotpEnrollmentRequestMethodRecoveryCode:
+		return true
+	case TotpEnrollmentRequestMethodTotp:
+		return true
+	default:
+		return false
+	}
+}
+
 // AccessLinkUse defines model for AccessLinkUse.
 type AccessLinkUse struct {
 	Password string `json:"password"`
@@ -297,6 +336,18 @@ type MfaChallenge struct {
 	ExpiresAt time.Time `json:"expiresAt"`
 }
 
+// MfaVerification `code` for `totp` and `recovery_code`, `assertion` for `webauthn`.
+type MfaVerification struct {
+	// Assertion What `navigator.credentials.get()` produced, passed as is; the WebAuthn library parses it.
+	Assertion *map[string]interface{} `json:"assertion,omitempty"`
+	Challenge string                  `json:"challenge"`
+	Code      *string                 `json:"code,omitempty"`
+	Method    MfaVerificationMethod   `json:"method"`
+}
+
+// MfaVerificationMethod defines model for MfaVerification.Method.
+type MfaVerificationMethod string
+
 // Permission An Admin API scope or a BFF permission, checked against the generated lists.
 type Permission = string
 
@@ -308,6 +359,29 @@ type SecondFactors struct {
 	// Totp A confirmed authenticator app.
 	Totp bool `json:"totp"`
 }
+
+// TotpConfirmation defines model for TotpConfirmation.
+type TotpConfirmation struct {
+	Code string `json:"code"`
+}
+
+// TotpEnrollment Returned once, at enrolment.
+type TotpEnrollment struct {
+	OtpauthUri    string   `json:"otpauthUri"`
+	RecoveryCodes []string `json:"recoveryCodes"`
+
+	// Secret Base32, the same value the URI carries.
+	Secret string `json:"secret"`
+}
+
+// TotpEnrollmentRequest Nothing on a first enrolment; a proof of the factor in place to replace it.
+type TotpEnrollmentRequest struct {
+	Code   *string                      `json:"code,omitempty"`
+	Method *TotpEnrollmentRequestMethod `json:"method,omitempty"`
+}
+
+// TotpEnrollmentRequestMethod defines model for TotpEnrollmentRequest.Method.
+type TotpEnrollmentRequestMethod string
 
 // Cursor defines model for Cursor.
 type Cursor = string
@@ -363,6 +437,15 @@ type SetPasswordFromAccessLinkJSONRequestBody = AccessLinkUse
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
+// ConfirmTotpJSONRequestBody defines body for ConfirmTotp for application/json ContentType.
+type ConfirmTotpJSONRequestBody = TotpConfirmation
+
+// EnrollTotpJSONRequestBody defines body for EnrollTotp for application/json ContentType.
+type EnrollTotpJSONRequestBody = TotpEnrollmentRequest
+
+// VerifyMfaJSONRequestBody defines body for VerifyMfa for application/json ContentType.
+type VerifyMfaJSONRequestBody = MfaVerification
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// ListAccessLog List the dashboard access log, newest first
@@ -383,6 +466,15 @@ type ServerInterface interface {
 	// Me The signed-in operator and what they may do
 	// (GET /auth/me)
 	Me(w http.ResponseWriter, r *http.Request)
+	// ConfirmTotp Confirm a pending authenticator app
+	// (POST /auth/mfa/totp/confirm)
+	ConfirmTotp(w http.ResponseWriter, r *http.Request)
+	// EnrollTotp Enrol an authenticator app
+	// (POST /auth/mfa/totp/enroll)
+	EnrollTotp(w http.ResponseWriter, r *http.Request)
+	// VerifyMfa Second factor, TOTP code, recovery code or passkey assertion
+	// (POST /auth/mfa/verify)
+	VerifyMfa(w http.ResponseWriter, r *http.Request)
 	// Health Liveness probe
 	// (GET /health)
 	Health(w http.ResponseWriter, r *http.Request)
@@ -491,6 +583,48 @@ func (siw *ServerInterfaceWrapper) Me(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.Me(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ConfirmTotp operation middleware
+func (siw *ServerInterfaceWrapper) ConfirmTotp(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConfirmTotp(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EnrollTotp operation middleware
+func (siw *ServerInterfaceWrapper) EnrollTotp(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EnrollTotp(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// VerifyMfa operation middleware
+func (siw *ServerInterfaceWrapper) VerifyMfa(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.VerifyMfa(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -640,6 +774,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/auth/me", wrapper.Me)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/activity", wrapper.ReportActivity)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/logout", wrapper.Logout)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/mfa/totp/enroll", wrapper.EnrollTotp)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/mfa/totp/confirm", wrapper.ConfirmTotp)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/mfa/verify", wrapper.VerifyMfa)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/access-log", wrapper.ListAccessLog)
 
 	return m
@@ -1195,6 +1332,419 @@ func (response Me500JSONResponse) VisitMeResponse(w http.ResponseWriter) error {
 	return err
 }
 
+type ConfirmTotpRequestObject struct {
+	Body *ConfirmTotpJSONRequestBody
+}
+
+type ConfirmTotpResponseObject interface {
+	VisitConfirmTotpResponse(w http.ResponseWriter) error
+}
+
+type ConfirmTotp204Response struct {
+}
+
+func (response ConfirmTotp204Response) VisitConfirmTotpResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type ConfirmTotp401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ConfirmTotp401JSONResponse) VisitConfirmTotpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmTotp403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ConfirmTotp403JSONResponse) VisitConfirmTotpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmTotp409JSONResponse Error
+
+func (response ConfirmTotp409JSONResponse) VisitConfirmTotpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmTotp413JSONResponse struct{ PayloadTooLargeJSONResponse }
+
+func (response ConfirmTotp413JSONResponse) VisitConfirmTotpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmTotp415JSONResponse struct {
+	UnsupportedMediaTypeJSONResponse
+}
+
+func (response ConfirmTotp415JSONResponse) VisitConfirmTotpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(415)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmTotp422JSONResponse Error
+
+func (response ConfirmTotp422JSONResponse) VisitConfirmTotpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmTotp429JSONResponse struct{ RateLimitedJSONResponse }
+
+func (response ConfirmTotp429JSONResponse) VisitConfirmTotpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmTotp500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ConfirmTotp500JSONResponse) VisitConfirmTotpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnrollTotpRequestObject struct {
+	Body *EnrollTotpJSONRequestBody
+}
+
+type EnrollTotpResponseObject interface {
+	VisitEnrollTotpResponse(w http.ResponseWriter) error
+}
+
+type EnrollTotp200JSONResponse TotpEnrollment
+
+func (response EnrollTotp200JSONResponse) VisitEnrollTotpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnrollTotp401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response EnrollTotp401JSONResponse) VisitEnrollTotpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnrollTotp403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response EnrollTotp403JSONResponse) VisitEnrollTotpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnrollTotp409JSONResponse Error
+
+func (response EnrollTotp409JSONResponse) VisitEnrollTotpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnrollTotp413JSONResponse struct{ PayloadTooLargeJSONResponse }
+
+func (response EnrollTotp413JSONResponse) VisitEnrollTotpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnrollTotp415JSONResponse struct {
+	UnsupportedMediaTypeJSONResponse
+}
+
+func (response EnrollTotp415JSONResponse) VisitEnrollTotpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(415)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnrollTotp422JSONResponse struct{ ValidationErrorJSONResponse }
+
+func (response EnrollTotp422JSONResponse) VisitEnrollTotpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnrollTotp429JSONResponse struct{ RateLimitedJSONResponse }
+
+func (response EnrollTotp429JSONResponse) VisitEnrollTotpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnrollTotp500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response EnrollTotp500JSONResponse) VisitEnrollTotpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnrollTotp503JSONResponse struct{ HashingBusyJSONResponse }
+
+func (response EnrollTotp503JSONResponse) VisitEnrollTotpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyMfaRequestObject struct {
+	Body *VerifyMfaJSONRequestBody
+}
+
+type VerifyMfaResponseObject interface {
+	VisitVerifyMfaResponse(w http.ResponseWriter) error
+}
+
+type VerifyMfa204Response struct {
+}
+
+func (response VerifyMfa204Response) VisitVerifyMfaResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type VerifyMfa401JSONResponse Error
+
+func (response VerifyMfa401JSONResponse) VisitVerifyMfaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyMfa403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response VerifyMfa403JSONResponse) VisitVerifyMfaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyMfa413JSONResponse struct{ PayloadTooLargeJSONResponse }
+
+func (response VerifyMfa413JSONResponse) VisitVerifyMfaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyMfa415JSONResponse struct {
+	UnsupportedMediaTypeJSONResponse
+}
+
+func (response VerifyMfa415JSONResponse) VisitVerifyMfaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(415)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyMfa422JSONResponse struct{ ValidationErrorJSONResponse }
+
+func (response VerifyMfa422JSONResponse) VisitVerifyMfaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyMfa429JSONResponse struct{ RateLimitedJSONResponse }
+
+func (response VerifyMfa429JSONResponse) VisitVerifyMfaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyMfa500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response VerifyMfa500JSONResponse) VisitVerifyMfaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyMfa503JSONResponse struct{ HashingBusyJSONResponse }
+
+func (response VerifyMfa503JSONResponse) VisitVerifyMfaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type HealthRequestObject struct {
 }
 
@@ -1250,6 +1800,15 @@ type StrictServerInterface interface {
 	// Me The signed-in operator and what they may do
 	// (GET /auth/me)
 	Me(ctx context.Context, request MeRequestObject) (MeResponseObject, error)
+	// ConfirmTotp Confirm a pending authenticator app
+	// (POST /auth/mfa/totp/confirm)
+	ConfirmTotp(ctx context.Context, request ConfirmTotpRequestObject) (ConfirmTotpResponseObject, error)
+	// EnrollTotp Enrol an authenticator app
+	// (POST /auth/mfa/totp/enroll)
+	EnrollTotp(ctx context.Context, request EnrollTotpRequestObject) (EnrollTotpResponseObject, error)
+	// VerifyMfa Second factor, TOTP code, recovery code or passkey assertion
+	// (POST /auth/mfa/verify)
+	VerifyMfa(ctx context.Context, request VerifyMfaRequestObject) (VerifyMfaResponseObject, error)
 	// Health Liveness probe
 	// (GET /health)
 	Health(ctx context.Context, request HealthRequestObject) (HealthResponseObject, error)
@@ -1447,6 +2006,99 @@ func (sh *strictHandler) Me(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(MeResponseObject); ok {
 		if err := validResponse.VisitMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ConfirmTotp operation middleware
+func (sh *strictHandler) ConfirmTotp(w http.ResponseWriter, r *http.Request) {
+	var request ConfirmTotpRequestObject
+
+	var body ConfirmTotpJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ConfirmTotp(ctx, request.(ConfirmTotpRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ConfirmTotp")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ConfirmTotpResponseObject); ok {
+		if err := validResponse.VisitConfirmTotpResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// EnrollTotp operation middleware
+func (sh *strictHandler) EnrollTotp(w http.ResponseWriter, r *http.Request) {
+	var request EnrollTotpRequestObject
+
+	var body EnrollTotpJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.EnrollTotp(ctx, request.(EnrollTotpRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "EnrollTotp")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(EnrollTotpResponseObject); ok {
+		if err := validResponse.VisitEnrollTotpResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// VerifyMfa operation middleware
+func (sh *strictHandler) VerifyMfa(w http.ResponseWriter, r *http.Request) {
+	var request VerifyMfaRequestObject
+
+	var body VerifyMfaJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.VerifyMfa(ctx, request.(VerifyMfaRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "VerifyMfa")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(VerifyMfaResponseObject); ok {
+		if err := validResponse.VisitVerifyMfaResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

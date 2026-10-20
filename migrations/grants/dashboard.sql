@@ -46,7 +46,9 @@ GRANT select, insert, update ON dashboard.access_links TO dashboard;
 GRANT select, insert ON dashboard.access_log TO dashboard;
 GRANT select, insert, update, delete ON dashboard.login_attempt_counters TO dashboard;
 GRANT select, insert, update ON dashboard.operators TO dashboard;
+GRANT select, insert, update, delete ON dashboard.recovery_codes TO dashboard;
 GRANT select, insert, update, delete ON dashboard.sessions TO dashboard;
+GRANT select, insert, update, delete ON dashboard.totp_factors TO dashboard;
 
 DO $$ DECLARE r text; BEGIN
   FOR r IN SELECT g.rolname FROM pg_catalog.pg_auth_members m JOIN pg_catalog.pg_roles g ON g.oid = m.roleid

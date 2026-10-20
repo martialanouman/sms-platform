@@ -53,6 +53,8 @@ type api struct {
 	svc     dashboard.Service
 	mail    *mailbox
 	handler http.Handler
+	logins  int
+	logs    *bytes.Buffer
 }
 
 func newAPI(t *testing.T, trusted ...netip.Prefix) *api {
@@ -79,12 +81,17 @@ func newAPI(t *testing.T, trusted ...netip.Prefix) *api {
 		t.Fatal(err)
 	}
 	mail := &mailbox{}
-	svc := dashboard.Service{Store: postgres.New(pool), Hasher: dashboard.NewHasher(), Keys: keys, Mailer: mail, PublicURL: origin}
-	h, err := dashboardhttp.New(dashboardhttp.Config{Service: svc, Origin: origin, TrustedProxies: trusted, Log: slog.New(slog.DiscardHandler), Assets: spa})
+	totp, err := dashboard.NewTotpKey(bytes.Repeat([]byte{9}, 32))
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &api{svc: svc, mail: mail, handler: h}
+	svc := dashboard.Service{Store: postgres.New(pool), Hasher: dashboard.NewHasher(), Keys: keys, Totp: totp, Mailer: mail, PublicURL: origin}
+	logs := &bytes.Buffer{}
+	h, err := dashboardhttp.New(dashboardhttp.Config{Service: svc, Origin: origin, TrustedProxies: trusted, Log: slog.New(slog.NewJSONHandler(logs, nil)), Assets: spa})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &api{svc: svc, mail: mail, handler: h, logs: logs}
 }
 
 type call struct {

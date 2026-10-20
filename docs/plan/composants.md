@@ -26,7 +26,9 @@ une autre peut s'ajouter au démarrage d'une step, comme au socle.
 | 011a-3b | Dashboard : service et déploiement | Fondations |
 | 011a-4a | Dashboard : SPA, chaîne et embarquement | Fondations |
 | 011a-4b | Dashboard : écrans de connexion et de lien d'accès | Fondations |
-| 011b | Dashboard : TOTP, WebAuthn, session élevée | Fondations |
+| 011b-1 | Dashboard : TOTP, codes de récupération, session élevée | Fondations |
+| 011b-2 | Dashboard : écrans de vérification et d'enrôlement | Fondations |
+| 011b-3 | Dashboard : WebAuthn | Fondations |
 | 012 | Dashboard : opérateurs, rôles, jetons | Fondations |
 | 013 | `admin-api-svc` : autorisation, audit, proxy ; écran Audit | Fondations |
 | 014a | Clients, groupes, comptes | Tranche |
@@ -128,6 +130,8 @@ l'atteignent.
   011a-4 coupée en deux (humain, 2026-10-20) : chaîne et embarquement ; écrans (`docs/steps/011a-4a-chaine-spa.md`).
 - **011b** : TOTP, codes de récupération, WebAuthn, session élevée, remplacement d'un facteur ; écrans
   d'enrôlement.
+  Coupée en trois (humain, 2026-10-20) : TOTP, codes et session élevée côté serveur ; écrans de vérification et
+  d'enrôlement ; WebAuthn, serveur et écran (`docs/steps/011b-1-totp-et-elevation.md`).
 
 **Terminé quand** : un opérateur s'active, se connecte, enrôle un facteur et voit sa session close à
 l'inactivité ; chaque fait du §8.9 a sa ligne au journal.

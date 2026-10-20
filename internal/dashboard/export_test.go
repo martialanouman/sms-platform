@@ -22,3 +22,15 @@ func HoldEverySlot(h *Hasher) (release func()) {
 		returned.Wait()
 	}
 }
+
+var (
+	TotpCode   = totpCode
+	TotpMatch  = totpMatch
+	OtpauthURI = otpauthURI
+)
+
+func SealTotp(k TotpKey, operatorID string, secret []byte) []byte { return k.seal(operatorID, secret) }
+
+func OpenTotp(k TotpKey, operatorID string, sealed []byte) ([]byte, error) {
+	return k.open(operatorID, sealed)
+}

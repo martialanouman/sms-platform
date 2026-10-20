@@ -61,6 +61,7 @@ func valid(t *testing.T) config.Infra {
 		SMTPAddr:        "localhost:1025",
 		SMTPFrom:        "dashboard@example.test",
 		CookieKeyFile:   file(t, strings.Repeat("k", 64)),
+		TotpKeyFile:     file(t, strings.Repeat("ab", 32)+"\n"),
 		TLS:             mtlstest.New(t).Issue(t, t.TempDir(), "localhost"),
 	}
 }
@@ -79,6 +80,10 @@ func TestRunRefusesEachFaultBeforeConnecting(t *testing.T) {
 		"secret without user":  {func(i *config.Infra) { i.SMTPPasswordFile = "/x" }, "SMTP_USERNAME"},
 		"no cookie key":        {func(i *config.Infra) { i.CookieKeyFile = "" }, "COOKIE_KEY_FILE"},
 		"short cookie key":     {func(i *config.Infra) { i.CookieKeyFile = file(t, "short") }, "32 bytes"},
+		"no TOTP key":          {func(i *config.Infra) { i.TotpKeyFile = "" }, "TOTP_KEY_FILE"},
+		"TOTP key not hex":     {func(i *config.Infra) { i.TotpKeyFile = file(t, strings.Repeat("k", 64)) }, "TOTP_KEY_FILE"},
+		"short TOTP key":       {func(i *config.Infra) { i.TotpKeyFile = file(t, strings.Repeat("ab", 31)) }, "32 bytes"},
+		"unreadable TOTP key":  {func(i *config.Infra) { i.TotpKeyFile = "/nonexistent/totp-key" }, "totp-key"},
 		"no CA":                {func(i *config.Infra) { i.TLS.CA = "" }, "TLS_CA_FILE"},
 		"empty CA":             {func(i *config.Infra) { i.TLS.CA = file(t, "") }, "CA"},
 		"public URL with path": {func(i *config.Infra) { i.PublicURL += "/app" }, "DASHBOARD_PUBLIC_URL"},
@@ -244,7 +249,7 @@ func TestTheDashboardServesAnOperatorFromActivationToLogout(t *testing.T) {
 	if n := d.count(t, `SELECT count(*) FROM dashboard.sessions`); n != 0 {
 		t.Errorf("%d sessions left, want the ended one purged at start", n)
 	}
-	post := func(path, body, cookie string) *http.Response {
+	post := func(path, body, cookie string) (*http.Response, []byte) {
 		r, err := http.NewRequest("POST", base+path, strings.NewReader(body))
 		if err != nil {
 			t.Fatal(err)
@@ -258,18 +263,21 @@ func TestTheDashboardServesAnOperatorFromActivationToLogout(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, _ = io.Copy(io.Discard, resp.Body)
+		answer, _ := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
-		return resp
+		return resp, answer
 	}
-	if resp := post("/auth/access-link", `{"token":"`+token+`","password":"Correct-horse-9"}`, ""); resp.StatusCode != 204 {
+	if resp, _ := post("/auth/access-link", `{"token":"`+token+`","password":"Correct-horse-9"}`, ""); resp.StatusCode != 204 {
 		t.Fatalf("access link: %d", resp.StatusCode)
 	}
-	login := post("/auth/login", `{"email":"owner@example.test","password":"Correct-horse-9"}`, "")
+	login, _ := post("/auth/login", `{"email":"owner@example.test","password":"Correct-horse-9"}`, "")
 	if login.StatusCode != 200 || len(login.Cookies()) != 1 {
 		t.Fatalf("login: %d", login.StatusCode)
 	}
 	cookie := login.Cookies()[0].Value
+	if resp, answer := post("/auth/mfa/totp/enroll", `{}`, cookie); resp.StatusCode != 200 || !strings.Contains(string(answer), `"otpauthUri":"otpauth://totp/`) {
+		t.Fatalf("enroll: %d %.80q, want the TOTP key wired", resp.StatusCode, answer)
+	}
 	shell, err := http.Get("http://" + d.infra.HTTPAddr + "/login")
 	if err != nil {
 		t.Fatal(err)
@@ -292,7 +300,7 @@ func TestTheDashboardServesAnOperatorFromActivationToLogout(t *testing.T) {
 	if me.StatusCode != 200 {
 		t.Fatalf("me: %d", me.StatusCode)
 	}
-	if resp := post("/auth/logout", "", cookie); resp.StatusCode != 204 {
+	if resp, _ := post("/auth/logout", "", cookie); resp.StatusCode != 204 {
 		t.Fatalf("logout: %d", resp.StatusCode)
 	}
 	metrics, err := http.Get("http://" + d.infra.OpsAddr + "/metrics")

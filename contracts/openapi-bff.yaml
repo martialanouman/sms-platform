@@ -154,8 +154,9 @@ paths:
         Draws a TOTP secret, encrypts it at rest, and returns once the `otpauth://` URI (the client draws the
         QR code), the secret for manual entry and ten recovery codes. Nothing is shown again.
 
-        On an account already guarded by a confirmed factor, the enrolment waits for
-        `POST /auth/mfa/totp/confirm` and the factor in place stays the only valid one until then. Replacing a
+        On an account without a confirmed factor, the enrolment is confirmed by its first use: a code of it
+        accepted by `POST /auth/mfa/verify`. On an account already guarded by a confirmed factor, the enrolment
+        waits for `POST /auth/mfa/totp/confirm` and the factor in place stays the only valid one until then. Replacing a
         TOTP requires presenting a code of the one replaced, or a recovery code: otherwise a captured elevated
         cookie would evict the operator for good.
       operationId: enrollTotp
@@ -211,7 +212,9 @@ paths:
       description: |
         Elevates the session opened by `POST /auth/login` and regenerates its token (session fixation). It
         requires both the session cookie and the login challenge. The challenge is consumed on success only; a
-        per-operator counter, across logins, bounds the guessing of a code.
+        per-operator counter, across logins, bounds the guessing of a code. On an account without a confirmed
+        factor, a code of the pending authenticator app confirms it, with its recovery codes; a recovery code is
+        accepted only once its authenticator app is confirmed.
       operationId: verifyMfa
       security: [{ session: [] }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MfaVerification' } } } }

@@ -27,6 +27,15 @@ func (s Service) UseAccessLink(ctx context.Context, token, password string) erro
 		if err := tx.CloseSessions(ctx, id); err != nil {
 			return err
 		}
+		removed, err := tx.DropFactors(ctx, id)
+		if err != nil {
+			return err
+		}
+		if removed {
+			if err := tx.Log(ctx, Entry{Actor: id, Event: EventFactorRemoved, Success: true}); err != nil {
+				return err
+			}
+		}
 		return tx.Log(ctx, Entry{Actor: id, Event: EventAccessLinkUsed, Success: true})
 	})
 }

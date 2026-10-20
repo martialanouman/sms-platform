@@ -40,7 +40,7 @@ func (s Service) Login(ctx context.Context, email, password string, source netip
 		return Login{}, err
 	}
 	if retry > 0 {
-		return Login{}, RateLimited{RetryAfter: time.Duration(math.Ceil(retry.Seconds())) * time.Second}
+		return Login{}, limited(retry)
 	}
 	var match bool
 	if known && operator.Active && operator.PasswordHash != "" {
@@ -70,6 +70,10 @@ func (s Service) Login(ctx context.Context, email, password string, source netip
 		return Login{}, err
 	}
 	return Login{Cookie: s.Keys.Seal(token), Challenge: challenge, ChallengeExpiresAt: expires}, nil
+}
+
+func limited(retry time.Duration) error {
+	return RateLimited{RetryAfter: time.Duration(math.Ceil(retry.Seconds())) * time.Second}
 }
 
 func (s Service) refuse(ctx context.Context, operatorID string) error {
