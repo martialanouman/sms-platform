@@ -28,7 +28,7 @@ done
 kubectl -n cert-manager wait --for=condition=available deploy/cert-manager-webhook --timeout=5m
 
 kubectl apply -f deploy/bricks/namespaces.yaml -f deploy/bricks/ca.yaml
-for certificate in cert-manager/internal-ca postgres/postgres-server kafka/kafka-listener openbao/openbao sms/catalog-apply-tls sms/content-key-svc-tls; do
+for certificate in cert-manager/internal-ca postgres/postgres-server kafka/kafka-listener openbao/openbao sms/catalog-apply-tls sms/content-key-svc-tls mailpit/mailpit-tls; do
 	kubectl -n "${certificate%/*}" wait --for=condition=ready "certificate/${certificate#*/}" --timeout=5m
 done
 bash deploy/bricks/secrets.sh
@@ -60,13 +60,16 @@ exists kube-system job/helm-install-prometheus
 kubectl -n kube-system wait --for=condition=complete job/helm-install-prometheus --timeout=10m
 kubectl -n monitoring rollout status deploy/prometheus-server --timeout=5m
 
+kubectl apply -f deploy/bricks/mailpit.yaml
+kubectl -n mailpit rollout status deploy/mailpit --timeout=5m
+
 kubectl -n sms apply -f deploy/k8s/networkpolicies.yaml
 for job in migrate catalog-apply; do
 	kubectl -n sms delete job "$job" --ignore-not-found --wait
 	sed -E "s#^( *image: ghcr\.io/martialanouman/sms-platform/[a-z-]+)\$#\1:$tag#" "deploy/k8s/$job.yaml" | kubectl -n sms apply -f -
 	finish "$job"
 done
-for service in content-key-svc; do
+for service in content-key-svc dashboard; do
 	sed -E "s#^( *image: ghcr\.io/martialanouman/sms-platform/[a-z-]+)\$#\1:$tag#" "deploy/k8s/$service.yaml" | kubectl -n sms apply -f -
 	kubectl -n sms rollout status "deploy/$service" --timeout=5m
 done

@@ -1,0 +1,40 @@
+rule_files:
+  - dashboard.yaml
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: dashboard_access_links_undeliverable{pod="dashboard-a"}
+        values: 0x10 1x10 0x10
+      - series: dashboard_access_links_undeliverable{pod="dashboard-b"}
+        values: 0x30
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: AccessLinkUndeliverable
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: AccessLinkUndeliverable
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: AccessLinkUndeliverable
+        exp_alerts:
+          - exp_annotations:
+              summary: Un lien d'accès n'a pas pu être envoyé
+              description: Dix tentatives d'envoi ont échoué ; l'opérateur n'a pas reçu son lien. Vérifier le relais SMTP, puis en demander un nouveau.
+      - eval_time: 22m
+        alertname: AccessLinkUndeliverable
+        exp_alerts: []
+  - interval: 1m
+    input_series:
+      - series: up{job="other"}
+        values: 1x10
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: AccessLinkUndeliverable
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: AccessLinkUndeliverable
+        exp_alerts:
+          - exp_annotations:
+              summary: Un lien d'accès n'a pas pu être envoyé
+              description: Dix tentatives d'envoi ont échoué ; l'opérateur n'a pas reçu son lien. Vérifier le relais SMTP, puis en demander un nouveau.

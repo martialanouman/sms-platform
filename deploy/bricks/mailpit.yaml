@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailpit
+  namespace: mailpit
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mailpit
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mailpit
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: mailpit
+          image: axllent/mailpit:v1.31.4
+          env:
+            - name: MP_SMTP_TLS_CERT
+              value: /tls/tls.crt
+            - name: MP_SMTP_TLS_KEY
+              value: /tls/tls.key
+            - name: MP_SMTP_REQUIRE_STARTTLS
+              value: "true"
+          ports:
+            - name: smtp
+              containerPort: 1025
+            - name: http
+              containerPort: 8025
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+          volumeMounts:
+            - name: tls
+              mountPath: /tls
+              readOnly: true
+      volumes:
+        - name: tls
+          secret:
+            secretName: mailpit-tls
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mailpit
+  namespace: mailpit
+spec:
+  selector:
+    app.kubernetes.io/name: mailpit
+  ports:
+    - name: smtp
+      port: 1025
+    - name: http
+      port: 8025
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mailpit
+  namespace: mailpit
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sms
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: dashboard
+      ports:
+        - protocol: TCP
+          port: 1025

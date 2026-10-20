@@ -89,6 +89,7 @@ type workload struct {
 			Port       int `yaml:"port"`
 			TargetPort any `yaml:"targetPort"`
 		} `yaml:"ports"`
+		MinAvailable   any   `yaml:"minAvailable"`
 		MaxReplicas    int32 `yaml:"maxReplicas"`
 		ScaleTargetRef struct {
 			Name string `yaml:"name"`
@@ -308,7 +309,7 @@ func checkManifest(path, name string) (string, []error) {
 	if !regexp.MustCompile(`(?m)^ *image: ` + regexp.QuoteMeta(registry+name) + `$`).Match(data) {
 		errs = append(errs, fmt.Errorf("%s: image not in the form deploy.sh tags, %q", name, "image: "+registry+name))
 	}
-	grpcPort, servicePorts := 0, []int{}
+	listenPort, servicePorts := 0, []int{}
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	for docs := 0; ; docs++ {
 		var w workload
@@ -346,8 +347,16 @@ func checkManifest(path, name string) (string, []error) {
 			for _, p := range w.Spec.Ports {
 				servicePorts = append(servicePorts, p.Port)
 				if p.TargetPort != nil {
-					errs = append(errs, fmt.Errorf("%s: Service targetPort %v, want none: the port is the one of GRPC_ADDR", name, p.TargetPort))
+					errs = append(errs, fmt.Errorf("%s: Service targetPort %v, want none: the port is the one of the listener", name, p.TargetPort))
 				}
+			}
+			continue
+		case "PodDisruptionBudget":
+			if w.Metadata.Name != name || !reflect.DeepEqual(w.Spec.Selector, map[string]any{"matchLabels": map[string]any{"app.kubernetes.io/name": name}}) {
+				errs = append(errs, fmt.Errorf("%s: PodDisruptionBudget %q over %v, want %q over the pods of %s", name, w.Metadata.Name, w.Spec.Selector, name, name))
+			}
+			if w.Spec.MinAvailable == nil {
+				errs = append(errs, fmt.Errorf("%s: PodDisruptionBudget without minAvailable", name))
 			}
 			continue
 		case "Job":
@@ -395,15 +404,15 @@ func checkManifest(path, name string) (string, []error) {
 				if e.Name == "POSTGRES_URL" && e.ValueFrom.SecretKeyRef == nil {
 					errs = append(errs, fmt.Errorf("%s: POSTGRES_URL does not come from a secretKeyRef", at))
 				}
-				if port, ok := strings.CutPrefix(e.Value, ":"); e.Name == "GRPC_ADDR" && ok {
-					grpcPort, _ = strconv.Atoi(port)
+				if port, ok := strings.CutPrefix(e.Value, ":"); (e.Name == "GRPC_ADDR" || e.Name == "HTTP_ADDR") && ok {
+					listenPort, _ = strconv.Atoi(port)
 				}
 			}
 		}
 	}
 	for _, p := range servicePorts {
-		if p != grpcPort {
-			errs = append(errs, fmt.Errorf("%s: Service port %d, want the port of GRPC_ADDR %d", name, p, grpcPort))
+		if p != listenPort {
+			errs = append(errs, fmt.Errorf("%s: Service port %d, want the port of GRPC_ADDR or HTTP_ADDR %d", name, p, listenPort))
 		}
 	}
 	return kind, errs
@@ -511,14 +520,18 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 		{"manifest twice in deploy.sh", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for job in migrate catalog-apply migrate; do", "cmd/migrate: 2 deploy.sh job"},
 		{"HPA beyond its partitions", "deploy/k8s/migrate.yaml", "apiVersion: batch/v1\n", "apiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\nspec: {scaleTargetRef: {name: router-svc}, maxReplicas: 1000}\n---\napiVersion: batch/v1\n", "maxReplicas 1000 above the"},
 		{"envFrom", "deploy/k8s/migrate.yaml", "          env:\n", "          envFrom:\n            - configMapRef: {name: x}\n          env:\n", "envFrom"},
-		{"service missing from deploy.sh", "deploy/test-env/deploy.sh", "for service in content-key-svc; do", "for service in other; do", "cmd/content-key-svc: 0 deploy.sh"},
+		{"service missing from deploy.sh", "deploy/test-env/deploy.sh", "for service in content-key-svc dashboard; do", "for service in other; do", "cmd/content-key-svc: 0 deploy.sh"},
 		{"Deployment among the Jobs", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for job in migrate catalog-apply content-key-svc; do", "content-key-svc: a Deployment in the loop of the Jobs"},
-		{"Job among the services", "deploy/test-env/deploy.sh", "for service in content-key-svc; do", "for service in content-key-svc migrate; do", "migrate: a Job in the loop of the services"},
-		{"services before the Jobs", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for service in content-key-svc; do\ndone\nfor job in migrate catalog-apply; do", "the services before the Jobs"},
+		{"Job among the services", "deploy/test-env/deploy.sh", "for service in content-key-svc dashboard; do", "for service in content-key-svc dashboard migrate; do", "migrate: a Job in the loop of the services"},
+		{"services before the Jobs", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for service in content-key-svc dashboard; do\ndone\nfor job in migrate catalog-apply; do", "the services before the Jobs"},
 		{"services without Jobs", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for jobs in migrate catalog-apply; do", "the services before the Jobs"},
 		{"rules not created", "deploy/test-env/deploy.sh", "kubectl -n monitoring create configmap alert-rules", "true", "alert-rules"},
 		{"rules created after the brick", "deploy/test-env/deploy.sh", "rules=()\n", "kubectl apply -f deploy/bricks/monitoring.yaml\nrules=()\n", "alert-rules"},
 		{"prometheus not awaited", "deploy/test-env/deploy.sh", "kubectl -n monitoring rollout status deploy/prometheus-server", "kubectl -n monitoring get deploy/prometheus-server", "prometheus-server"},
+		{"budget renamed", "deploy/k8s/dashboard.yaml", "  name: dashboard\nspec:\n  minAvailable", "  name: other\nspec:\n  minAvailable", "PodDisruptionBudget"},
+		{"budget over other pods", "deploy/k8s/dashboard.yaml", "  minAvailable: 1\n  selector:\n    matchLabels:\n      app.kubernetes.io/name: dashboard", "  minAvailable: 1\n  selector:\n    matchLabels:\n      app.kubernetes.io/name: other", "PodDisruptionBudget"},
+		{"budget without minimum", "deploy/k8s/dashboard.yaml", "  minAvailable: 1\n", "", "minAvailable"},
+		{"service off the HTTP port", "deploy/k8s/dashboard.yaml", "    - name: http\n      port: 8080", "    - name: http\n      port: 8081", "HTTP_ADDR"},
 		{"services not awaited", "deploy/test-env/deploy.sh", "-n sms rollout status", "-n sms get", "rollout status"},
 		{"Service open on the node", "deploy/k8s/content-key-svc.yaml", "spec:\n  selector:", "spec:\n  type: NodePort\n  selector:", "Service type"},
 		{"Service to other pods", "deploy/k8s/content-key-svc.yaml", "  selector:\n    app.kubernetes.io/name: content-key-svc", "  selector:\n    app.kubernetes.io/name: admin-api-svc", "Service selector"},
@@ -553,7 +566,7 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 				t.Fatal(err)
 			}
 			files := []string{".goreleaser.yaml", "deploy/k8s/migrate.yaml", "cmd/migrate/main.go",
-				"deploy/k8s/catalog-apply.yaml", "cmd/catalog-apply/main.go", "deploy/k8s/content-key-svc.yaml", "cmd/content-key-svc/main.go", "contracts/grants/admin-api-svc.yaml", "deploy/k8s/networkpolicies.yaml", "deploy/test-env/deploy.sh"}
+				"deploy/k8s/catalog-apply.yaml", "cmd/catalog-apply/main.go", "deploy/k8s/content-key-svc.yaml", "cmd/content-key-svc/main.go", "deploy/k8s/dashboard.yaml", "cmd/dashboard/main.go", "contracts/grants/admin-api-svc.yaml", "deploy/k8s/networkpolicies.yaml", "deploy/test-env/deploy.sh"}
 			for _, f := range files {
 				data, err := os.ReadFile(filepath.Join("..", f))
 				if err != nil {

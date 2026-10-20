@@ -23,6 +23,7 @@ var (
 	broker  = regexp.MustCompile(`^([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)-kafka-bootstrap\.([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.svc:([0-9]+)$`)
 	openbao = regexp.MustCompile(`^https://([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.svc:([0-9]+)$`)
 	listen  = regexp.MustCompile(`^:([0-9]+)$`)
+	relay   = regexp.MustCompile(`^([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.svc:([0-9]+)$`)
 	podName = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$`)
 )
 
@@ -107,7 +108,7 @@ func tcpPort(s string) int {
 
 // Render reads every manifest of fsys but File and renders the namespace's default deny, the DNS egress of every pod,
 // the egress of each workload to the stores its variables name (Postgres for POSTGRES_URL, each Strimzi cluster of
-// KAFKA_BROKERS, the OpenBao of OPENBAO_ADDR), and the ingress of each caller of TLS_ALLOWED_CLIENTS on the port of
+// KAFKA_BROKERS, the OpenBao of OPENBAO_ADDR, the relay of SMTP_ADDR), and the ingress of each caller of TLS_ALLOWED_CLIENTS on the port of
 // GRPC_ADDR, and the ingress of Prometheus on the port each workload names ops.
 func Render(fsys fs.FS) ([]byte, error) {
 	dns := newPolicy("dns", nil, "Egress")
@@ -199,6 +200,12 @@ func flows(fsys fs.FS, file string) (policy, error) {
 					m := openbao.FindStringSubmatch(e.Value)
 					if m == nil || tcpPort(m[3]) == 0 {
 						return p, fmt.Errorf("%s: OPENBAO_ADDR %q is not https://<name>.<namespace>.svc:<port>", name, e.Value)
+					}
+					add(to(m[2], map[string]string{"app.kubernetes.io/name": m[1]}, port{"TCP", tcpPort(m[3])}))
+				case "SMTP_ADDR":
+					m := relay.FindStringSubmatch(e.Value)
+					if m == nil || tcpPort(m[3]) == 0 {
+						return p, fmt.Errorf("%s: SMTP_ADDR %q is not <name>.<namespace>.svc:<port>", name, e.Value)
 					}
 					add(to(m[2], map[string]string{"app.kubernetes.io/name": m[1]}, port{"TCP", tcpPort(m[3])}))
 				case "GRPC_ADDR":
