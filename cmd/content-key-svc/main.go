@@ -66,9 +66,13 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	client, err := openbaoClient(infra.TLS.CA)
+	ca, err := os.ReadFile(infra.TLS.CA)
 	if err != nil {
 		return err
+	}
+	client, err := openbaoClient(ca)
+	if err != nil {
+		return fmt.Errorf("%s: %w", infra.TLS.CA, err)
 	}
 
 	grpclog.SetLoggerV2(observability.GRPCLogger(log))
@@ -90,14 +94,10 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger) error {
 	return sup.Run(ctx, log)
 }
 
-func openbaoClient(caFile string) (*http.Client, error) {
-	ca, err := os.ReadFile(caFile)
-	if err != nil {
-		return nil, err
-	}
+func openbaoClient(ca []byte) (*http.Client, error) {
 	roots := x509.NewCertPool()
 	if !roots.AppendCertsFromPEM(ca) {
-		return nil, fmt.Errorf("%s holds no certificate", caFile)
+		return nil, errors.New("the internal CA holds no certificate")
 	}
 	return &http.Client{Timeout: 10 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: roots}}}, nil
 }

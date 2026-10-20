@@ -76,6 +76,11 @@ linters:
         text: "G101:"
         linters:
           - gosec
+      # G204, G702 : le test de GRPCLogger relance son propre binaire de test pour voir Fatal sortir.
+      - path: ^internal/platform/observability/observability_test\.go$
+        text: "G204:|G702:"
+        linters:
+          - gosec
       # G402 : le test du mTLS dresse un pair en TLS 1.2 pour prouver qu'il est refusé.
       - path: ^internal/platform/mtls/mtls_test\.go$
         text: "G402:"

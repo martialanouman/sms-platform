@@ -304,7 +304,10 @@ func TestServeStopsACallPastTheShutdownTimeout(t *testing.T) {
 	<-kms.entered
 	cancel()
 	select {
-	case <-served:
+	case err := <-served:
+		if err != nil {
+			t.Fatalf("serve = %v", err)
+		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("serve outlived its shutdown timeout")
 	}
@@ -316,7 +319,7 @@ func TestServeStopsACallPastTheShutdownTimeout(t *testing.T) {
 func TestTheOpenBaoClientTrustsOnlyTheInternalCAOverTLS13(t *testing.T) {
 	ca := mtlstest.New(t)
 	files := ca.Issue(t, t.TempDir(), "localhost")
-	client, err := openbaoClient(files.CA)
+	client, err := openbaoClient(ca.PEM)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -348,7 +351,7 @@ func TestTheOpenBaoClientTrustsOnlyTheInternalCAOverTLS13(t *testing.T) {
 	if err := get(server(files, tls.VersionTLS12)); err == nil {
 		t.Fatal("a server capped at TLS 1.2 was accepted")
 	}
-	if _, err := openbaoClient(files.Key); err == nil {
+	if _, err := openbaoClient([]byte("no certificate")); err == nil {
 		t.Fatal("a CA file without certificate was accepted")
 	}
 }

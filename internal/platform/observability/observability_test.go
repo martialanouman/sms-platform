@@ -4,8 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"flag"
 	"fmt"
 	"log/slog"
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -169,5 +173,30 @@ func TestGRPCLoggerWritesEachLevelAsJSON(t *testing.T) {
 	}
 	if !l.V(0) || l.V(1) {
 		t.Errorf("V(0) = %v, V(1) = %v; want verbosity 0", l.V(0), l.V(1))
+	}
+}
+
+func TestGRPCLoggerFatalLogsThenExits(t *testing.T) {
+	if mode, ok := strings.CutPrefix(strings.Join(flag.Args(), ""), "grpc-fatal="); ok {
+		l := observability.GRPCLogger(observability.NewLogger(os.Stdout, "content-key-svc", slog.LevelInfo))
+		switch mode {
+		case "Fatal":
+			l.Fatal("boom")
+		case "Fatalln":
+			l.Fatalln("boom")
+		case "Fatalf":
+			l.Fatalf("%s", "boom")
+		}
+		return
+	}
+	for _, mode := range []string{"Fatal", "Fatalln", "Fatalf"} {
+		out, err := exec.Command(os.Args[0], "-test.run=^TestGRPCLoggerFatalLogsThenExits$", "grpc-fatal="+mode).Output()
+		var exit *exec.ExitError
+		if !errors.As(err, &exit) || exit.ExitCode() != 1 {
+			t.Errorf("%s: err = %v, want exit status 1", mode, err)
+		}
+		if !strings.Contains(string(out), `"level":"ERROR","msg":"boom"`) {
+			t.Errorf("%s: output %q, want the error logged before the exit", mode, out)
+		}
 	}
 }
