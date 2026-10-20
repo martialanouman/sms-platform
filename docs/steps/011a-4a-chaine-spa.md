@@ -75,3 +75,25 @@ recommandation de Fable.
   inchangé) ; `cmd/dashboard` exige `index.html` embarqué ; Vitest sur le squelette ; garde de livraison inchangée.
 - **Preuve sur `contabo169`** : `GET /` 200 avec ses en-têtes, un asset haché immuable, une route inconnue rend
   `index.html`, `/api/health` inchangé.
+
+## Écart au design, constaté à l'implémentation
+
+`openapi-typescript` 7.13 appelle l'API JavaScript de TypeScript, que TypeScript 7 (natif) ne fournit plus, et déclare
+`typescript ^5.x` en pair : le projet suit TypeScript 5.9.3. Le formateur de Biome est réglé sur le style écrit
+(espaces, guillemets simples, sans point-virgule).
+
+## Preuve sur `contabo169`
+
+Jouée le 2026-10-20 depuis la branche, sur le cluster en v0.12.0 : image construite par GoReleaser en snapshot, dont
+le hook `make web` a construit la SPA ; importée sous le tag `proof-011a4a` ; timer de déploiement suspendu pendant la
+preuve, puis réarmé. Par `port-forward` :
+
+1. `GET /` : 200, `index.html` (`<html lang="fr">`, titre « Tableau de bord »), `Cache-Control: no-cache`, `nosniff`,
+   `X-Frame-Options: DENY`, `Referrer-Policy: same-origin`, CSP statique.
+2. `GET /assets/index-….js` : 200, `public, max-age=31536000, immutable`, `text/javascript`.
+3. `GET /access/x` : 200, `index.html`.
+4. `GET /api/health` : 200 inchangé ; `POST /` : 405.
+
+Rouge vu : un premier import échouait en silence (`k3s` hors du `PATH` de la session), et le tag `proof` désignait
+encore l'image de 011a-3b. Le pod servait donc l'ancien 404 JSON sur `/`. Rejoué avec le chemin explicite et un tag
+neuf.
