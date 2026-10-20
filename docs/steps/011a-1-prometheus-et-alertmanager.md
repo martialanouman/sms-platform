@@ -106,7 +106,6 @@ Arbitrages propres à 011a-1, tranchés par l'agent sans contredire la spec :
 ## Design arrêté
 
 - **`deploy/bricks/namespaces.yaml`** : `monitoring`.
-- **`deploy/bricks/ca.yaml`** : `Certificate` `monitoring/prometheus`.
 - **`deploy/bricks/monitoring.yaml`** : `HelmChart` `prometheus` 29.35.0 (arbitrages 13, 17, 18), rétention locale du
   chart, `extraConfigmapMounts` des règles, `extraSecretMounts` de la CA, `rule_files` sur le montage.
 - **`deploy/bricks/openbao.yaml`** : entrée 8200 depuis Prometheus.
@@ -114,7 +113,7 @@ Arbitrages propres à 011a-1, tranchés par l'agent sans contredire la spec :
 - **`deploy/test-env/deploy.sh`** : ConfigMap des règles, brique, attente du chart et du rollout de Prometheus.
 - **`deploy/guard_test.go`** : la brique entre sous les règles existantes des briques (image épinglée par le chart).
 - **`.claude/rules/ci-deploy.md`** : l'entrée ops ouverte ; `docs/plan/composants.md` : la coupe en quatre.
-- **Tests** : `netpol` (entrée ops d'un Deployment au port nommé, aucune pour un Job sans port `ops`, un cas faussé
+- **Tests** : `netpol` (entrée ops d'un workload au port nommé, aucune pour un Job sans port `ops`, un cas faussé
   par règle) ; garde des briques si elle s'étend.
 - **Preuve sur `contabo169`** : cibles `up` (content-key-svc, OpenBao, cert-manager) ; cinq groupes de règles chargés ;
   `OpenBaoSealed` muette OpenBao descellé ; une alerte forcée visible dans Alertmanager ; port ops refusé depuis un pod
@@ -140,3 +139,31 @@ Rouge vu : une première sonde depuis `sms` était refusée par la sortie de son
 ne prouvait rien de l'entrée ; rejouée depuis `monitoring` avec un témoin positif.
 
 La brique reste déployée ; la release suivante la réapplique par `deploy.sh`.
+
+## Correctifs de revue, tour 1
+
+Trois revues (correction et sécurité, tests creux, code en trop). Aucun bloquant ; 17 constats.
+
+1. **Arbitrage 20 révisé : `monitoring` sous deny par défaut en entrée.** Il contredisait 06 §4 (« deny par défaut
+   sur chaque namespace ») : un pod de `kube-system` ou de `cert-manager` pouvait poster `/-/quit` à Prometheus ou de
+   fausses alertes à Alertmanager. `monitoring.yaml` porte un deny d'entrée et n'admet sur 9093 d'Alertmanager que
+   Prometheus ; la sortie reste ouverte, comme celle des briques `postgres` et `openbao` (Prometheus atteint
+   l'API Kubernetes et chaque cible). Le `port-forward` passe par le kubelet, hors NetworkPolicy. Limite écrite : un pod
+   créé dans `monitoring` au label `prometheus` hérite de ses entrées ; créer un pod y exige des droits sur le
+   namespace.
+2. **Arbitrage 19 révisé : la CA par un ConfigMap, sans `Certificate`.** Le `Certificate` émettait une clé et un
+   certificat client valides pour la CA interne, que rien n'utilisait. `deploy.sh` copie le seul `ca.crt` du Secret
+   `cert-manager/internal-ca` dans le ConfigMap `monitoring/internal-ca` ; la rotation de la CA suit #70.
+3. **Garde resserrée** : le reloader surveille le montage d'`alert-rules` **dans son conteneur** ; la collecte `sms`
+   garde le port nommé `ops`, le nom qu'ouvre `internal/netpol` ; `deploy.sh` crée le ConfigMap `alert-rules` avant
+   d'appliquer la brique et attend `prometheus-server` ; `monitoring.yaml` porte le deny d'entrée. `rule_files`
+   **contient** le montage, au lieu de l'égaler : un fichier de règles de plus n'enlève rien.
+4. **Tests resserrés** : les ports dans l'ordre `grpc`, `ops`, `metrics` (« premier port » et « dernier port » tombent) ;
+   un workload au seul port `metrics` et au port `ops` porté par un conteneur init n'a aucune entrée.
+5. **Retraits** : les relabels `service` et `pod` (aucune règle ne les lit, `instance` distingue les pods), les
+   `subPath: ""` et `readOnly: true` (défauts du rendu et du kubelet), la puce « Une alerte neuve » de
+   `.claude/rules/ci-deploy.md`.
+6. **Gardés tels quels** : l'attente du Job `helm-install-prometheus` peut tomber sur l'ancien Job quand le
+   `valuesContent` change (OpenBao compense par une comparaison de révision) ; les règles, qui changent le plus, ne
+   passent pas par le `HelmChart`, et rien ne dépend de Prometheus. Le `ClusterRole` du chart lit `configmaps` et
+   `nodes` de tout le cluster, sans Secrets. Deux ports `ops` dans un même pod : aucun manifest ne le fait.
