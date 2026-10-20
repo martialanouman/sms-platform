@@ -1,0 +1,49 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html {
+  color-scheme: dark;
+}
+body {
+  margin: 0;
+  font: var(--text-body);
+  color: var(--text-primary);
+  background: var(--surface-page);
+  font-variant-numeric: tabular-nums;
+}
+a {
+  color: var(--text-link);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--text-link-hover);
+  text-decoration: underline;
+}
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--font-mono);
+}
+::selection {
+  background: var(--tint-teal-strong);
+}
+/* biome-ignore-start lint/complexity/noImportantStyles: une préférence d'accessibilité prime sur toute cascade */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+/* biome-ignore-end lint/complexity/noImportantStyles: une préférence d'accessibilité prime sur toute cascade */

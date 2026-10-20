@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { api, json, send, unreachable } from '../api'
 import { Unauthenticated, useActivity, useMe, useSessionClosed } from '../session'
+import { AuthLayout } from '../ui'
 
 export const Route = createFileRoute('/')({ component: Home })
 
@@ -35,21 +36,22 @@ function Home() {
   }
 
   return (
-    <main>
-      <h1>Tableau de bord</h1>
+    <AuthLayout title="Tableau de bord">
       {(failure || (me.error && !(me.error instanceof Unauthenticated))) && (
-        <p role="alert">{failure || unreachable}</p>
+        <p className="auth__refusal" role="alert">
+          {failure || unreachable}
+        </p>
       )}
       {me.data && (
         <>
-          <p>
+          <p className="auth__intro">
             Connecté en tant que {me.data.operator.displayName} ({me.data.operator.email})
           </p>
-          <button type="button" onClick={logout}>
+          <button className="ui-button ui-button--secondary" type="button" onClick={logout}>
             Se déconnecter
           </button>
         </>
       )}
-    </main>
+    </AuthLayout>
   )
 }
