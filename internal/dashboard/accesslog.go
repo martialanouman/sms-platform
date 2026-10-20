@@ -3,6 +3,7 @@ package dashboard
 import (
 	"context"
 	"encoding/base64"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -31,6 +32,8 @@ func (s Service) AccessLog(ctx context.Context, cursor string) ([]Entry, string,
 	return page, base64.RawURLEncoding.EncodeToString([]byte(strconv.FormatInt(last.At.UnixMicro(), 10) + " " + last.ID)), nil
 }
 
+var uuid = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+
 func parseCursor(cursor string) (Entry, bool) {
 	raw, err := base64.RawURLEncoding.DecodeString(cursor)
 	if err != nil {
@@ -38,7 +41,7 @@ func parseCursor(cursor string) (Entry, bool) {
 	}
 	at, id, found := strings.Cut(string(raw), " ")
 	micros, err := strconv.ParseInt(at, 10, 64)
-	if !found || err != nil || len(id) != 36 {
+	if !found || err != nil || !uuid.MatchString(id) {
 		return Entry{}, false
 	}
 	return Entry{At: time.UnixMicro(micros), ID: id}, true

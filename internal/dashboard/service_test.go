@@ -3,6 +3,7 @@ package dashboard_test
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"net/netip"
 	"regexp"
@@ -247,7 +248,7 @@ func TestDeliveryMailsTheLinkThenBacksOffOnFailure(t *testing.T) {
 	h.deliver(t)
 	m := h.mail.last(t)
 	token := h.mail.token(t)
-	if m.to != "owner@example.test" || !strings.Contains(m.body, publicURL+"/access#"+token) {
+	if m.to != "owner@example.test" || m.subject != "Activation de votre compte" || !strings.Contains(m.body, publicURL+"/access#"+token) {
 		t.Fatalf("message %+v", m)
 	}
 	var stored []byte
@@ -375,8 +376,12 @@ func TestLoginRefusesAlikeAndLogsWhoItCan(t *testing.T) {
 	if err := h.owner.QueryRow(ctx, `SELECT challenge_hash FROM dashboard.sessions`).Scan(&challenge); err != nil || !bytes.Equal(challenge, dashboard.Digest(l.Challenge)) {
 		t.Errorf("challenge stored %x (%v), want its digest", challenge, err)
 	}
+	var sessionID string
+	if err := h.owner.QueryRow(ctx, `SELECT id::text FROM dashboard.sessions`).Scan(&sessionID); err != nil {
+		t.Fatal(err)
+	}
 	s, err := h.svc.Resolve(ctx, l.Cookie)
-	if err != nil || s.OperatorID != owner || s.Email != "owner@example.test" || time.Until(s.ExpiresAt) < 12*time.Hour-time.Minute || time.Until(s.ExpiresAt) > 12*time.Hour {
+	if err != nil || s.SessionID != sessionID || s.OperatorID != owner || s.Email != "owner@example.test" || s.DisplayName != "owner@example.test" || time.Until(s.ExpiresAt) < 12*time.Hour-time.Minute || time.Until(s.ExpiresAt) > 12*time.Hour {
 		t.Fatalf("session %+v, %v", s, err)
 	}
 }
@@ -584,7 +589,9 @@ func TestTheAccessLogPagesNewestFirst(t *testing.T) {
 	}) || all[121].Event != dashboard.EventAccessLinkRequested {
 		t.Fatal("the log is not newest first")
 	}
-	for _, bad := range []string{"x", "eyJ9", strings.Repeat("A", 300)} {
+	encode := func(s string) string { return base64.RawURLEncoding.EncodeToString([]byte(s)) }
+	for _, bad := range []string{"x", "eyJ9", strings.Repeat("A", 300), encode("abc " + all[0].ID), encode("123 " + strings.Repeat("z", 36)),
+		encode("123 " + strings.ReplaceAll(all[0].ID, "-", "0"))} {
 		if _, _, err := h.svc.AccessLog(ctx, bad); !errors.Is(err, dashboard.ErrBadCursor) {
 			t.Errorf("cursor %q: %v", bad, err)
 		}
@@ -632,4 +639,151 @@ func TestNoLinkGoesToADisabledAccount(t *testing.T) {
 	if sent, err := h.svc.DeliverNext(ctx); sent || err != nil {
 		t.Fatalf("deliver = %v, %v; want nothing sent", sent, err)
 	}
+}
+
+func TestEveryWriteKeepsToItsOwnRows(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	h.activate(t, "witness@example.test")
+	w := h.login(t, "witness@example.test")
+	h.exec(t, `UPDATE dashboard.sessions SET last_seen_at = now() - interval '5 minutes'`)
+	h.exec(t, `UPDATE dashboard.access_links SET token_hash = 'w', sent_at = now(), attempts = 3, next_attempt_at = now() + interval '1 hour'`)
+	snapshot := func() string {
+		var s string
+		if err := h.owner.QueryRow(ctx, `SELECT o.password_hash || l.token_hash::text || l.attempts || l.next_attempt_at || l.sent_at
+			|| (SELECT string_agg(last_seen_at::text, ',') FROM dashboard.sessions WHERE operator_id = o.id)
+			FROM dashboard.operators o JOIN dashboard.access_links l ON l.operator_id = o.id WHERE o.email = 'witness@example.test'`).Scan(&s); err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+	before := snapshot()
+
+	if err := h.svc.Bootstrap(ctx, "owner@example.test"); err != nil {
+		t.Fatal(err)
+	}
+	h.mail.fail = errors.New("relay refused")
+	_, _ = h.svc.DeliverNext(ctx)
+	h.mail.fail = nil
+	h.exec(t, `UPDATE dashboard.access_links SET next_attempt_at = now() WHERE kind = 'activation' AND sent_at IS NULL`)
+	h.deliver(t)
+	if err := h.svc.UseAccessLink(ctx, h.mail.token(t), password); err != nil {
+		t.Fatal(err)
+	}
+	first, second := h.login(t, "owner@example.test"), h.login(t, "owner@example.test")
+	if err := h.svc.Activity(ctx, first.Cookie); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.svc.Logout(ctx, first.Cookie); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.svc.Resolve(ctx, second.Cookie); err != nil {
+		t.Errorf("logout closed another session of its operator: %v", err)
+	}
+	h.exec(t, `UPDATE dashboard.access_links SET kind = 'reset', token_hash = NULL, sent_at = NULL, next_attempt_at = now()
+		WHERE operator_id = (SELECT id FROM dashboard.operators WHERE email = 'owner@example.test')`)
+	h.deliver(t)
+	if err := h.svc.UseAccessLink(ctx, h.mail.token(t), "Another-horse-8"); err != nil {
+		t.Fatal(err)
+	}
+	if after := snapshot(); after != before {
+		t.Fatalf("the witness changed:\nbefore %s\nafter  %s", before, after)
+	}
+	if _, err := h.svc.Resolve(ctx, w.Cookie); err != nil {
+		t.Fatalf("the witness lost its session: %v", err)
+	}
+}
+
+type gate struct {
+	mailbox
+	entered chan string
+	release chan struct{}
+	once    sync.Once
+}
+
+func (g *gate) Send(ctx context.Context, to, subject, body string) error {
+	first := false
+	g.once.Do(func() { first = true })
+	if first {
+		g.entered <- to
+		<-g.release
+	}
+	return g.mailbox.Send(ctx, to, subject, body)
+}
+
+func TestTwoDeliveriesSendTwoLinksOldestFirst(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	for _, email := range []string{"older@example.test", "newer@example.test"} {
+		if err := h.svc.Bootstrap(ctx, email); err != nil {
+			t.Fatal(err)
+		}
+	}
+	h.exec(t, `UPDATE dashboard.access_links l SET next_attempt_at = now() - CASE o.email WHEN 'older@example.test' THEN interval '2 minutes' ELSE interval '1 minute' END
+		FROM dashboard.operators o WHERE o.id = l.operator_id`)
+	g := &gate{entered: make(chan string, 1), release: make(chan struct{})}
+	h.svc.Mailer = g
+	done := make(chan error, 1)
+	go func() {
+		_, err := h.svc.DeliverNext(ctx)
+		done <- err
+	}()
+	if first := <-g.entered; first != "older@example.test" {
+		t.Fatalf("first delivery to %s, want the oldest due", first)
+	}
+	short, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	sent, err := h.svc.DeliverNext(short)
+	close(g.release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if err != nil || !sent {
+		t.Fatalf("second delivery while the first is sending: %v, %v; want the other link", sent, err)
+	}
+	var to []string
+	for _, m := range g.sent {
+		to = append(to, m.to)
+	}
+	if slices.Sort(to); !slices.Equal(to, []string{"newer@example.test", "older@example.test"}) {
+		t.Fatalf("sent to %q, want each link once", to)
+	}
+}
+
+func TestA429OnTheEmailStillCountsTheSource(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	h.activate(t, "owner@example.test")
+	for range 5 {
+		_, _ = h.svc.Login(ctx, "owner@example.test", "wrong", h.source())
+	}
+	source := h.source()
+	var limited dashboard.RateLimited
+	if _, err := h.svc.Login(ctx, "owner@example.test", "wrong", source); !errors.As(err, &limited) {
+		t.Fatalf("locked email: %v", err)
+	}
+	for i := range 4 {
+		_, _ = h.svc.Login(ctx, "other"+string(rune('a'+i))+"@example.test", "wrong", source)
+	}
+	if _, err := h.svc.Login(ctx, "fresh@example.test", "wrong", source); !errors.As(err, &limited) {
+		t.Fatalf("a source after five attempts, one of them refused on its email: %v, want locked", err)
+	}
+}
+
+func TestAnInvalidSourceIsRefused(t *testing.T) {
+	h := newHarness(t)
+	if _, err := h.svc.Login(context.Background(), "owner@example.test", "wrong", netip.Addr{}); err == nil || errors.Is(err, dashboard.ErrUnauthenticated) {
+		t.Fatalf("login from no address: %v, want a refusal of the source", err)
+	}
+	var counters int
+	if err := h.owner.QueryRow(context.Background(), `SELECT count(*) FROM dashboard.login_attempt_counters`).Scan(&counters); err != nil || counters != 0 {
+		t.Fatalf("%d counters (%v), want none", counters, err)
+	}
+}
+
+func TestAnEmailStoredInUpperCaseLogsIn(t *testing.T) {
+	h := newHarness(t)
+	h.activate(t, "owner@example.test")
+	h.exec(t, `UPDATE dashboard.operators SET email = 'Owner@Example.TEST'`)
+	h.login(t, "owner@example.test")
 }

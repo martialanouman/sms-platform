@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"context"
+	"errors"
 	"math"
 	"net/netip"
 	"time"
@@ -18,26 +19,28 @@ type Login struct {
 // hashing; an unknown email, a wrong password, an account without password and a disabled one are refused alike, in
 // the same time.
 func (s Service) Login(ctx context.Context, email, password string, source netip.Addr) (Login, error) {
+	if !source.IsValid() {
+		return Login{}, errors.New("login without a source address")
+	}
 	email = normalize(email)
 	emailSubject := s.Keys.EmailSubject(email)
 	var operator Operator
 	var known bool
-	err := s.Store.Tx(ctx, func(tx Tx) error {
+	var retry time.Duration
+	err := s.Store.Tx(ctx, func(tx Tx) (err error) {
 		for _, subject := range [][]byte{s.Keys.SourceSubject(source), emailSubject} {
-			retry, err := tx.Reserve(ctx, subject, lockWindow, maxFailures)
-			if err != nil {
+			if retry, err = tx.Reserve(ctx, subject, lockWindow, maxFailures); err != nil || retry > 0 {
 				return err
 			}
-			if retry > 0 {
-				return RateLimited{RetryAfter: time.Duration(math.Ceil(retry.Seconds())) * time.Second}
-			}
 		}
-		var err error
 		operator, known, err = tx.OperatorByEmail(ctx, email)
 		return err
 	})
 	if err != nil {
 		return Login{}, err
+	}
+	if retry > 0 {
+		return Login{}, RateLimited{RetryAfter: time.Duration(math.Ceil(retry.Seconds())) * time.Second}
 	}
 	var match bool
 	if known && operator.Active && operator.PasswordHash != "" {
