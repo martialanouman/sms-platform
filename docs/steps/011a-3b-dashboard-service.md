@@ -132,3 +132,11 @@ Trois revues (correction et sécurité, tests creux, code en trop). Un bloquant 
 Constats : 2 mineurs, aucun bloquant, aucune mutation survivante. Le test de la livraison qui ne s'enregistre pas sonde
 jusqu'au premier courriel avant d'en compter d'autres, au lieu de supposer un démarrage en moins de 3 s ; son nom dit
 aussi la preuve du `ReadTimeout` qu'il porte. Constats par tour : 36 (1 bloquant), 2.
+
+## Correctif de CI
+
+`check-generated` rougissait en CI : la spec embarquée par oapi-codegen (`embedded-spec`) est un blob gzip, et
+`compress/flate` ne produit pas les mêmes octets sous Go 1.27 (le poste) et Go 1.26 (`go.mod`, la CI). Le généré ne
+l'embarque plus. Le handler charge le contrat que `contracts.OpenAPI()` embarque, et le chargeur ne résout la référence
+à `openapi-admin.yaml` que dans ces fichiers embarqués. Le contrat chargé étant complet, un repli `/api/` du mux rend le
+404 JSON d'une opération non servie. La génération est identique sous les deux versions.

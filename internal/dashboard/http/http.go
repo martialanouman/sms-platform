@@ -6,11 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"mime"
 	"net"
 	"net/http"
 	"net/netip"
+	"net/url"
+	"path"
 	"regexp"
 	"slices"
 	"strings"
@@ -19,6 +22,7 @@ import (
 	"github.com/getkin/kin-openapi/openapi3filter"
 	middleware "github.com/oapi-codegen/nethttp-middleware"
 
+	"github.com/martialanouman/sms-platform/contracts"
 	"github.com/martialanouman/sms-platform/internal/dashboard"
 )
 
@@ -37,7 +41,12 @@ type Config struct {
 
 // New serves the contract under /api.
 func New(c Config) (http.Handler, error) {
-	spec, err := GetSwagger()
+	loader := openapi3.NewLoader()
+	loader.IsExternalRefsAllowed = true
+	loader.ReadFromURIFunc = func(_ *openapi3.Loader, u *url.URL) ([]byte, error) {
+		return fs.ReadFile(contracts.OpenAPI(), path.Clean(u.Path))
+	}
+	spec, err := loader.LoadFromURI(&url.URL{Path: "openapi-bff.yaml"})
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +66,11 @@ func New(c Config) (http.Handler, error) {
 		ErrorHandlerWithOpts: refuse,
 		Prefix:               "/api",
 	})
-	return c.guard(validate(HandlerWithOptions(strict, StdHTTPServerOptions{BaseURL: "/api"}))), nil
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
+		write(w, http.StatusNotFound, ErrorCodeNotFound, "Aucune ressource à cette adresse.", nil)
+	})
+	return c.guard(validate(HandlerWithOptions(strict, StdHTTPServerOptions{BaseURL: "/api", BaseRouter: mux}))), nil
 }
 
 func permissions(spec *openapi3.T) map[string][]string {
