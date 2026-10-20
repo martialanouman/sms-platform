@@ -11,11 +11,10 @@ import (
 // Method is how a second factor is presented.
 type Method string
 
-// The methods of the BFF contract; webauthn arrives in 011b-3.
+// The methods of the BFF contract that a code proves.
 const (
 	MethodTotp         Method = "totp"
 	MethodRecoveryCode Method = "recovery_code"
-	MethodWebauthn     Method = "webauthn"
 )
 
 // Proof is a second factor presented.
@@ -42,8 +41,6 @@ var (
 	ErrNothingToConfirm = errors.New("no enrolment is pending")
 	// ErrCodeRefused is a code of the pending authenticator app refused.
 	ErrCodeRefused = errors.New("the code was refused")
-
-	errRefused = errors.New("second factor refused")
 )
 
 const (
@@ -83,11 +80,6 @@ func (s Service) EnrollTotp(ctx context.Context, cookie string, proof *Proof) (T
 				return cmp.Or(err, ErrReplacementRefused)
 			}
 		}
-		if proof != nil {
-			if err := tx.Forget(ctx, s.Keys.MfaSubject(c.OperatorID)); err != nil {
-				return err
-			}
-		}
 		return tx.AddPending(ctx, c.OperatorID, s.Totp.seal(c.OperatorID, secret), digests)
 	})
 	if errors.Is(err, ErrReplacementRefused) {
@@ -124,9 +116,6 @@ func (s Service) ConfirmTotp(ctx context.Context, cookie, code string) error {
 		if err != nil || !ok {
 			return cmp.Or(err, ErrCodeRefused)
 		}
-		if err := tx.Forget(ctx, s.Keys.MfaSubject(c.OperatorID)); err != nil {
-			return err
-		}
 		return s.confirm(ctx, tx, c.OperatorID, pending)
 	})
 }
@@ -146,7 +135,7 @@ func (s Service) Verify(ctx context.Context, cookie, challenge string, p Proof) 
 	err = s.Store.Tx(ctx, func(tx Tx) error {
 		elevated, err := tx.Elevate(ctx, Digest(token), Digest(challenge), Digest(next), IdleTimeout)
 		if err != nil || !elevated {
-			return cmp.Or(err, errRefused)
+			return cmp.Or(err, ErrUnauthenticated)
 		}
 		factors, err := tx.Factors(ctx, c.OperatorID)
 		if err != nil {
@@ -156,19 +145,16 @@ func (s Service) Verify(ctx context.Context, cookie, challenge string, p Proof) 
 		factor := cmp.Or(confirmed, pending)
 		ok, err := s.prove(ctx, tx, c.OperatorID, factor, p)
 		if err != nil || !ok {
-			return cmp.Or(err, errRefused)
+			return cmp.Or(err, ErrUnauthenticated)
 		}
 		if !factor.Confirmed {
 			if err := s.confirm(ctx, tx, c.OperatorID, factor); err != nil {
 				return err
 			}
 		}
-		if err := tx.Forget(ctx, s.Keys.MfaSubject(c.OperatorID)); err != nil {
-			return err
-		}
 		return tx.Log(ctx, Entry{Actor: c.OperatorID, Event: EventMFA, Success: true})
 	})
-	if errors.Is(err, errRefused) {
+	if errors.Is(err, ErrUnauthenticated) {
 		return "", cmp.Or(s.logMfaFailure(ctx, c.OperatorID), ErrUnauthenticated)
 	}
 	if err != nil {
@@ -178,6 +164,14 @@ func (s Service) Verify(ctx context.Context, cookie, challenge string, p Proof) 
 }
 
 func (s Service) prove(ctx context.Context, tx Tx, operatorID string, f *TotpFactor, p Proof) (bool, error) {
+	ok, err := s.check(ctx, tx, operatorID, f, p)
+	if err != nil || !ok {
+		return false, err
+	}
+	return true, tx.Forget(ctx, s.Keys.MfaSubject(operatorID))
+}
+
+func (s Service) check(ctx context.Context, tx Tx, operatorID string, f *TotpFactor, p Proof) (bool, error) {
 	switch {
 	case f == nil:
 		return false, nil

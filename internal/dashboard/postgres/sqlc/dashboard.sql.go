@@ -61,7 +61,10 @@ func (q *Queries) AccessLog(ctx context.Context, db DBTX, arg AccessLogParams) (
 }
 
 const addPending = `-- name: AddPending :one
-INSERT INTO dashboard.totp_factors (operator_id, sealed) VALUES ($1::uuid, $2) RETURNING id::text
+INSERT INTO dashboard.totp_factors (operator_id, sealed) VALUES ($1::uuid, $2)
+ON CONFLICT (operator_id) WHERE confirmed_at IS NULL
+DO UPDATE SET sealed = excluded.sealed, last_step = 0, created_at = now()
+RETURNING id::text
 `
 
 type AddPendingParams struct {
@@ -186,12 +189,12 @@ func (q *Queries) DropFactors(ctx context.Context, db DBTX, operatorID string) (
 	return result.RowsAffected(), nil
 }
 
-const dropPending = `-- name: DropPending :exec
-DELETE FROM dashboard.totp_factors WHERE operator_id = $1::uuid AND confirmed_at IS NULL
+const dropRecoveryCodes = `-- name: DropRecoveryCodes :exec
+DELETE FROM dashboard.recovery_codes WHERE factor_id = $1::uuid
 `
 
-func (q *Queries) DropPending(ctx context.Context, db DBTX, operatorID string) error {
-	_, err := db.Exec(ctx, dropPending, operatorID)
+func (q *Queries) DropRecoveryCodes(ctx context.Context, db DBTX, factorID string) error {
+	_, err := db.Exec(ctx, dropRecoveryCodes, factorID)
 	return err
 }
 
@@ -227,7 +230,6 @@ func (q *Queries) Elevate(ctx context.Context, db DBTX, arg ElevateParams) (int6
 const factors = `-- name: Factors :many
 SELECT id::text AS id, sealed, last_step, (confirmed_at IS NOT NULL)::bool AS confirmed
 FROM dashboard.totp_factors WHERE operator_id = $1::uuid
-ORDER BY confirmed_at NULLS LAST
 FOR UPDATE
 `
 

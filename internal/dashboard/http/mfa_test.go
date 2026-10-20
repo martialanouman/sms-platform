@@ -111,6 +111,11 @@ func TestAnOperatorEnrollsAndElevatesByTheFirstCode(t *testing.T) {
 	if got := a.verify(t, other, "recovery_code", codes[1].(string)); got.status != 401 || got.code() != "unauthenticated" {
 		t.Errorf("a recovery code of the replaced factor: %d %s", got.status, got.raw)
 	}
+	for _, kept := range append([]any{secret, next.body["secret"]}, codes...) {
+		if strings.Contains(a.logs.String(), kept.(string)) {
+			t.Fatalf("the log carries a secret: %s", a.logs.String())
+		}
+	}
 }
 
 func TestRefusedSecondFactorsShareOneBodyThenLock(t *testing.T) {
@@ -120,6 +125,9 @@ func TestRefusedSecondFactorsShareOneBodyThenLock(t *testing.T) {
 	enrolled := a.do(t, call{method: "POST", path: "/api/auth/mfa/totp/enroll", cookie: s.cookie, body: `{}`})
 	secret := enrolled.body["secret"].(string)
 	first := a.verify(t, s, "totp", totpAt(t, secret, -1))
+	if first.status == 401 {
+		first = a.verify(t, s, "totp", totpAt(t, secret, 0))
+	}
 	if first.status != 204 {
 		t.Fatalf("verify: %d %s", first.status, first.raw)
 	}

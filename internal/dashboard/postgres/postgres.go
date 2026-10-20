@@ -150,11 +150,11 @@ func (t tx) Factors(ctx context.Context, operatorID string) ([]dashboard.TotpFac
 }
 
 func (t tx) AddPending(ctx context.Context, operatorID string, sealed []byte, codes [][]byte) error {
-	if err := queries.DropPending(ctx, t.db, operatorID); err != nil {
-		return err
-	}
 	id, err := queries.AddPending(ctx, t.db, sqlc.AddPendingParams{OperatorID: operatorID, Sealed: sealed})
 	if err != nil {
+		return err
+	}
+	if err := queries.DropRecoveryCodes(ctx, t.db, id); err != nil {
 		return err
 	}
 	rows := make([]sqlc.AddRecoveryCodesParams, len(codes))

@@ -114,14 +114,16 @@ SELECT floor(extract(epoch FROM now()) / 30)::bigint;
 -- name: Factors :many
 SELECT id::text AS id, sealed, last_step, (confirmed_at IS NOT NULL)::bool AS confirmed
 FROM dashboard.totp_factors WHERE operator_id = @operator_id::uuid
-ORDER BY confirmed_at NULLS LAST
 FOR UPDATE;
 
--- name: DropPending :exec
-DELETE FROM dashboard.totp_factors WHERE operator_id = @operator_id::uuid AND confirmed_at IS NULL;
-
 -- name: AddPending :one
-INSERT INTO dashboard.totp_factors (operator_id, sealed) VALUES (@operator_id::uuid, @sealed) RETURNING id::text;
+INSERT INTO dashboard.totp_factors (operator_id, sealed) VALUES (@operator_id::uuid, @sealed)
+ON CONFLICT (operator_id) WHERE confirmed_at IS NULL
+DO UPDATE SET sealed = excluded.sealed, last_step = 0, created_at = now()
+RETURNING id::text;
+
+-- name: DropRecoveryCodes :exec
+DELETE FROM dashboard.recovery_codes WHERE factor_id = @factor_id::uuid;
 
 -- name: AddRecoveryCodes :copyfrom
 INSERT INTO dashboard.recovery_codes (factor_id, digest) VALUES ($1, $2);

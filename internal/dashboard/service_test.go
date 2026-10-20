@@ -347,6 +347,11 @@ func TestAResetLinkClosesEverySession(t *testing.T) {
 	if _, err := h.svc.Resolve(ctx, l.Cookie); !errors.Is(err, dashboard.ErrUnauthenticated) {
 		t.Fatalf("a session survived the reset: %v", err)
 	}
+	for _, e := range h.log(t) {
+		if e.Event == dashboard.EventFactorRemoved {
+			t.Fatal("a reset without factor logged a removal")
+		}
+	}
 }
 
 func TestLoginRefusesAlikeAndLogsWhoItCan(t *testing.T) {

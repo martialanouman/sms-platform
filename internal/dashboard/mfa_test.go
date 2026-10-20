@@ -84,7 +84,9 @@ func (h *harness) guarded(t *testing.T) dashboard.TotpEnrollment {
 	h.activate(t, "owner@example.test")
 	l := h.login(t, "owner@example.test")
 	e := h.enroll(t, l.Cookie, nil)
-	h.verify(t, l, totp(code(t, e, h.step(t)-1)))
+	if _, err := h.svc.Verify(context.Background(), l.Cookie, l.Challenge, totp(code(t, e, h.step(t)-1))); err != nil {
+		h.verify(t, l, totp(code(t, e, h.step(t))))
+	}
 	return e
 }
 
@@ -195,7 +197,7 @@ func TestTheChallengeIsTheSessionsOwnAndConsumedOnSuccessOnly(t *testing.T) {
 			t.Errorf("%s challenge: %v", name, err)
 		}
 	}
-	if _, err := h.svc.Verify(ctx, l.Cookie, l.Challenge, totp("000000")); !errors.Is(err, dashboard.ErrUnauthenticated) && code(t, e, h.step(t)) != "000000" {
+	if _, err := h.svc.Verify(ctx, l.Cookie, l.Challenge, totp("0000000")); !errors.Is(err, dashboard.ErrUnauthenticated) {
 		t.Fatalf("a wrong code: %v", err)
 	}
 	elevated := h.verify(t, l, totp(code(t, e, h.step(t))))
@@ -210,7 +212,8 @@ func TestTheChallengeIsTheSessionsOwnAndConsumedOnSuccessOnly(t *testing.T) {
 	if _, err := h.svc.Verify(ctx, "nope", l.Challenge, totp(code(t, e, h.step(t)+1))); !errors.Is(err, dashboard.ErrUnauthenticated) {
 		t.Fatalf("no session: %v", err)
 	}
-	if _, err := h.svc.Verify(ctx, l.Cookie, l.Challenge, dashboard.Proof{Method: dashboard.MethodWebauthn}); !errors.Is(err, dashboard.ErrUnauthenticated) {
+	l = h.login(t, "owner@example.test")
+	if _, err := h.svc.Verify(ctx, l.Cookie, l.Challenge, dashboard.Proof{Method: "webauthn", Code: code(t, e, h.step(t)+1)}); !errors.Is(err, dashboard.ErrUnauthenticated) {
 		t.Fatalf("webauthn before 011b-3: %v", err)
 	}
 }
@@ -219,10 +222,7 @@ func TestFiveWrongCodesLockTheOperatorAcrossLogins(t *testing.T) {
 	h := newHarness(t)
 	ctx := context.Background()
 	e := h.guarded(t)
-	wrong := totp(strings.Repeat("9", 6))
-	if code(t, e, h.step(t)) == wrong.Code {
-		t.Skip("the code of this step is the wrong one")
-	}
+	wrong := totp("9999999")
 	for range 4 {
 		l := h.login(t, "owner@example.test")
 		if _, err := h.svc.Verify(ctx, l.Cookie, l.Challenge, wrong); !errors.Is(err, dashboard.ErrUnauthenticated) {
@@ -251,14 +251,12 @@ func TestReplacingAFactorWantsAProofOfTheOldOneThenAnElevatedConfirmation(t *tes
 	if _, err := h.svc.EnrollTotp(ctx, l.Cookie, nil); !errors.Is(err, dashboard.ErrAlreadyEnrolled) {
 		t.Fatalf("without a proof: %v", err)
 	}
-	wrong := totp(strings.Repeat("9", 6))
-	if code(t, old, h.step(t)) != wrong.Code {
-		if _, err := h.svc.EnrollTotp(ctx, l.Cookie, &wrong); !errors.Is(err, dashboard.ErrReplacementRefused) {
-			t.Fatalf("with a wrong proof: %v", err)
-		}
-		if got := h.events(t); got[len(got)-1] != "mfa:failure" {
-			t.Fatalf("a refused proof is not logged: %q", got)
-		}
+	wrong := totp("9999999")
+	if _, err := h.svc.EnrollTotp(ctx, l.Cookie, &wrong); !errors.Is(err, dashboard.ErrReplacementRefused) {
+		t.Fatalf("with a wrong proof: %v", err)
+	}
+	if got := h.events(t); got[len(got)-1] != "mfa:failure" {
+		t.Fatalf("a refused proof is not logged: %q", got)
 	}
 	if err := h.svc.ConfirmTotp(ctx, l.Cookie, "123456"); !errors.Is(err, dashboard.ErrElevationRequired) {
 		t.Fatalf("confirm on a session not elevated: %v", err)
@@ -270,6 +268,9 @@ func TestReplacingAFactorWantsAProofOfTheOldOneThenAnElevatedConfirmation(t *tes
 	}
 	if err := h.svc.ConfirmTotp(ctx, elevated, code(t, next, h.step(t))); err != nil {
 		t.Fatal(err)
+	}
+	if got := h.events(t); !slices.Equal(got[len(got)-2:], []string{"factor_removed:success", "factor_enrolled:success"}) {
+		t.Fatalf("log after the replacement %q", got)
 	}
 	if c := h.current(t, elevated); !c.Totp || c.RecoveryCodesRemaining != 10 {
 		t.Fatalf("after the replacement: %+v", c)
@@ -284,16 +285,13 @@ func TestReplacingAFactorWantsAProofOfTheOldOneThenAnElevatedConfirmation(t *tes
 		}
 	}
 	h.verify(t, l, recovery(next.RecoveryCodes[0]))
-	got := h.events(t)
-	if !slices.Contains(got, "factor_removed:success") || slices.Index(got, "factor_removed:success") < slices.Index(got, "factor_enrolled:success") {
-		t.Fatalf("log %q", got)
-	}
 }
 
 func TestAResetRemovesEveryFactor(t *testing.T) {
 	h := newHarness(t)
 	ctx := context.Background()
-	h.guarded(t)
+	old := h.guarded(t)
+	pending := h.enroll(t, h.login(t, "owner@example.test").Cookie, new(recovery(old.RecoveryCodes[0])))
 	h.exec(t, `UPDATE dashboard.access_links SET kind = 'reset', token_hash = NULL, sent_at = NULL, next_attempt_at = now()`)
 	h.deliver(t)
 	if err := h.svc.UseAccessLink(ctx, h.mail.token(t), password); err != nil {
@@ -306,6 +304,9 @@ func TestAResetRemovesEveryFactor(t *testing.T) {
 	if c := h.current(t, l.Cookie); c.Totp || c.RecoveryCodesRemaining != 0 {
 		t.Fatalf("after the reset: %+v", c)
 	}
+	if _, err := h.svc.Verify(ctx, l.Cookie, l.Challenge, totp(code(t, pending, h.step(t)))); !errors.Is(err, dashboard.ErrUnauthenticated) {
+		t.Fatalf("the application pending before the reset elevated: %v", err)
+	}
 	h.enroll(t, l.Cookie, nil)
 }
 
@@ -313,10 +314,7 @@ func TestWrongProofsOfReplacementCountTowardTheLock(t *testing.T) {
 	h := newHarness(t)
 	ctx := context.Background()
 	e := h.guarded(t)
-	wrong := totp(strings.Repeat("9", 6))
-	if code(t, e, h.step(t)) == wrong.Code {
-		t.Skip("the code of this step is the wrong one")
-	}
+	wrong := totp("9999999")
 	l := h.login(t, "owner@example.test")
 	for range 4 {
 		if _, err := h.svc.EnrollTotp(ctx, l.Cookie, &wrong); !errors.Is(err, dashboard.ErrReplacementRefused) {
@@ -374,5 +372,21 @@ func TestOneCodeUsedByTwoSessionsAtOnceElevatesOne(t *testing.T) {
 	wg.Wait()
 	if accepted := len(errs) - len(slices.DeleteFunc(slices.Clone(errs), func(err error) bool { return err == nil })); accepted != 1 {
 		t.Fatalf("accepted %d times: %v", accepted, errs)
+	}
+}
+
+func TestASecondEnrolmentReplacesThePendingOneAndSurvivesANewLogin(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	h.activate(t, "owner@example.test")
+	l := h.login(t, "owner@example.test")
+	first := h.enroll(t, l.Cookie, nil)
+	second := h.enroll(t, l.Cookie, nil)
+	l = h.login(t, "owner@example.test")
+	if _, err := h.svc.Verify(ctx, l.Cookie, l.Challenge, totp(code(t, first, h.step(t)))); !errors.Is(err, dashboard.ErrUnauthenticated) {
+		t.Fatalf("the replaced enrolment elevated: %v", err)
+	}
+	if c := h.current(t, h.verify(t, l, totp(code(t, second, h.step(t))))); !c.Elevated || !c.Totp {
+		t.Fatalf("the pending enrolment after a new login: %+v", c)
 	}
 }

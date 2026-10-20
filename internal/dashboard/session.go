@@ -7,14 +7,12 @@ import (
 
 // Current is the live session of a request and its operator.
 type Current struct {
-	SessionID   string
-	OperatorID  string
-	Email       string
-	DisplayName string
-	ExpiresAt   time.Time
-	// Elevated is a second factor verified in this session.
-	Elevated bool
-	// Totp is a confirmed authenticator app; RecoveryCodesRemaining counts its unused codes.
+	SessionID              string
+	OperatorID             string
+	Email                  string
+	DisplayName            string
+	ExpiresAt              time.Time
+	Elevated               bool
 	Totp                   bool
 	RecoveryCodesRemaining int
 }
