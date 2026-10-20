@@ -71,6 +71,9 @@ func (t *Transit) Decrypt(ctx context.Context, key string, sealed []byte) ([]byt
 	if err != nil {
 		return nil, err
 	}
+	if out.Data.Plaintext == "" {
+		return nil, errors.New("openbao: transit/decrypt: no plaintext")
+	}
 	return base64.StdEncoding.DecodeString(out.Data.Plaintext)
 }
 

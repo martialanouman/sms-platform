@@ -108,3 +108,15 @@ Trois revues (correction et sécurité, tests creux, code en trop). Bloquants : 
    branche du login sans jeton (un jeton vide rend un 403, déjà classé) ; le drain du corps d'erreur.
 9. **Pour 010b-2** : le client HTTP refuse les redirections (`X-Vault-Token` et le JWT suivraient un 307) ; un test du
    `cmd/` construit le serveur réel, intercepteur compris (`Register` ne l'installe pas).
+
+## Correctifs de revue, tour 2
+
+Constats par tour : 20 (4 bloquants), 5 ; aucun bloquant au tour 2.
+
+1. **Un 200 sans clair est une erreur** : porte voisine du correctif 5 du tour 1 ; `Seal` refuse le vide, un clair vide
+   ne vient donc jamais d'OpenBao.
+2. **Barrière réelle** dans le test de l'échéance : le faux serveur signale l'arrivée de chaque login, le test
+   l'attend au lieu de dormir, puis vérifie que l'appel en attente n'a pas tenté le sien. Il lit le corps de la
+   requête : sans quoi le serveur HTTP/1 ne voit pas la déconnexion du client et le gestionnaire ne rend jamais la main.
+3. **Gardés tels quels** : l'écriture sous sémaphore de l'oubli du jeton n'a pas de test de course (un 403 concurrent
+   à un login) ; l'encadrement de la moitié du bail tolère environ 20 %.

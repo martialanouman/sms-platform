@@ -353,25 +353,28 @@ func TestEachLoginReadsTheRotatedToken(t *testing.T) {
 	}
 }
 
-func hanging(t *testing.T, transit string) string {
+func stuckLogin(t *testing.T) (string, <-chan struct{}) {
 	t.Helper()
-	release := make(chan struct{})
+	arrived := make(chan struct{}, 10)
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		arrived <- struct{}{}
+		<-r.Context().Done()
+	}))
+	t.Cleanup(srv.Close)
+	return srv.URL, arrived
+}
+
+func answering(t *testing.T, transit string) string {
+	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/v1/auth/kubernetes/login" && transit != "" {
+		if r.URL.Path == "/v1/auth/kubernetes/login" {
 			_, _ = fmt.Fprint(w, `{"auth":{"client_token":"t","lease_duration":3600}}`)
 			return
 		}
-		if transit != "" {
-			_, _ = fmt.Fprint(w, transit)
-			return
-		}
-		select {
-		case <-release:
-		case <-r.Context().Done():
-		}
+		_, _ = fmt.Fprint(w, transit)
 	}))
 	t.Cleanup(srv.Close)
-	t.Cleanup(func() { close(release) })
 	return srv.URL
 }
 
@@ -380,7 +383,8 @@ func TestTheCallersDeadlineBoundsTheLogin(t *testing.T) {
 	if err := os.WriteFile(jwt, []byte("jwt"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	tr := openbao.New(hanging(t, ""), &http.Client{}, role, jwt)
+	addr, arrived := stuckLogin(t)
+	tr := openbao.New(addr, &http.Client{}, role, jwt)
 	deadline := func() error {
 		ctx, cancel := context.WithTimeout(t.Context(), 200*time.Millisecond)
 		defer cancel()
@@ -398,14 +402,18 @@ func TestTheCallersDeadlineBoundsTheLogin(t *testing.T) {
 		}
 	}
 	if err := deadline(); err == nil {
-		t.Fatal("a hanging login succeeded")
+		t.Fatal("a stuck login succeeded")
 	}
+	<-arrived
 	holder, cancel := context.WithCancel(context.WithoutCancel(t.Context()))
 	t.Cleanup(cancel)
 	go func() { _, _ = tr.Encrypt(holder, "config-secrets", []byte("x")) }()
-	time.Sleep(100 * time.Millisecond)
+	<-arrived
 	if err := deadline(); err == nil {
-		t.Fatal("a call behind a hanging login succeeded")
+		t.Fatal("a call behind a stuck login succeeded")
+	}
+	if len(arrived) != 0 {
+		t.Fatal("the call behind the stuck login logged in itself")
 	}
 }
 
@@ -414,8 +422,11 @@ func TestAResponseWithoutItsFieldIsAnError(t *testing.T) {
 	if err := os.WriteFile(jwt, []byte("jwt"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	tr := openbao.New(hanging(t, `{}`), &http.Client{Timeout: 5 * time.Second}, role, jwt)
+	tr := openbao.New(answering(t, `{}`), &http.Client{Timeout: 5 * time.Second}, role, jwt)
 	if sealed, err := tr.Encrypt(t.Context(), "config-secrets", []byte("x")); err == nil {
 		t.Fatalf("Encrypt = %q without error", sealed)
+	}
+	if plain, err := tr.Decrypt(t.Context(), "config-secrets", []byte("vault:v1:x")); err == nil || errors.Is(err, contentkey.ErrUndecryptable) {
+		t.Fatalf("Decrypt = %q, %v; want a transient error", plain, err)
 	}
 }
