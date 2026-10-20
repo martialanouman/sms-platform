@@ -4,29 +4,44 @@ const sheets = import.meta.glob<string>('./**/*.css', { query: '?raw', import: '
 const all = Object.keys(sheets)
 const tokens = all.filter((f) => f.startsWith('./tokens/'))
 const read = (f: string) => sheets[f] ?? ''
-const declared = (files: string[]) =>
-  new Set(files.flatMap((f) => [...read(f).matchAll(/(?<![\w-])(--[\w-]+)\s*:/g)].map((m) => m[1])))
+const names = (css: string) => [...css.matchAll(/(?<![\w-])(--[\w-]+)\s*:/g)].map((m) => m[1] ?? '')
+const roots = (css: string) => [...css.matchAll(/:root\s*\{([^}]*)\}/g)].map((m) => m[1] ?? '').join('')
+const declared = (files: string[]) => new Set(files.flatMap((f) => names(roots(read(f)))))
 
 test('every custom property used is a token', () => {
   const known = declared(tokens)
-  const used = all.flatMap((f) => [...read(f).matchAll(/var\((--[\w-]+)/g)].map((m) => m[1]))
+  const used = all.flatMap((f) => [...read(f).matchAll(/var\((--[\w-]+)/g)].map((m) => m[1] ?? ''))
   expect(used.length).toBeGreaterThan(0)
   expect(used.filter((v) => !known.has(v))).toEqual([])
 })
 
-test('no token is declared outside the tokens', () => {
-  expect([...declared(all.filter((f) => !tokens.includes(f)))]).toEqual([])
+test('a token is declared under :root of one token sheet, once', () => {
+  expect(all.filter((f) => !tokens.includes(f)).flatMap((f) => names(read(f)))).toEqual([])
+  expect(tokens.flatMap((f) => names(read(f).replace(/:root\s*\{[^}]*\}/g, '')))).toEqual([])
+  const each = tokens.flatMap((f) => names(roots(read(f))))
+  expect(each.length).toBeGreaterThan(100)
+  expect(each.filter((n, i) => each.indexOf(n) !== i)).toEqual([])
+})
+
+test('the entry sheet imports every token sheet', () => {
+  const imported = [...read('./app.css').matchAll(/@import "([^"]+)"/g)].map((m) => m[1])
+  expect(imported.sort()).toEqual(tokens.sort())
 })
 
 test('every weight the tokens declare is loaded', () => {
   const typography = read('./tokens/typography.css')
   const fonts = read('./tokens/fonts.css')
-  const weight = Object.fromEntries([...typography.matchAll(/(--fw-\w+):\s*(\d+)/g)].map((m) => [m[1], m[2]]))
-  const wanted: string[] = Object.values(weight).map((w) => `@fontsource/ibm-plex-sans/latin-${w}.css`)
-  for (const [, fw] of typography.matchAll(/var\((--fw-\w+)\)[^;]*var\(--font-mono\)/g)) {
-    wanted.push(`@fontsource/ibm-plex-mono/latin-${fw && weight[fw]}.css`)
-  }
+  const weights = [...typography.matchAll(/--fw-\w+:\s*(\d+)/g)].map((m) => m[1])
+  const wanted = ['sans', 'mono'].flatMap((family) =>
+    weights.map((w) => `@fontsource/ibm-plex-${family}/latin-${w}.css`),
+  )
   const loaded = [...fonts.matchAll(/@import "([^"]+)"/g)].map((m) => m[1])
-  expect(wanted.length).toBeGreaterThan(4)
+  expect(weights.length).toBeGreaterThan(2)
   expect([...new Set(wanted)].sort()).toEqual([...loaded].sort())
+})
+
+test('a field draws its boundary with the tokens that reach 3:1', () => {
+  const rule = (selector: string) => read('./app.css').match(new RegExp(`\\n${selector} \\{([^}]*)\\}`))?.[1] ?? ''
+  expect(rule('\\.ui-input')).toMatch(/border: 1px solid var\(--border-field\);/)
+  expect(rule('\\.ui-input:hover')).toMatch(/border-color: var\(--border-field-hover\);/)
 })

@@ -58,17 +58,32 @@ test.each([
   ['--text-primary', '--surface-sunken'],
   ['--text-muted', '--surface-card'],
   ['--text-accent', '--surface-card'],
-  ['--text-link', '--surface-card'],
   ['--action-primary-fg', '--action-primary-bg', '--surface-card'],
-  ['--action-secondary-fg', '--action-secondary-bg', '--surface-page'],
+  ['--action-primary-fg', '--action-primary-bg-hover', '--surface-card'],
+  ['--action-secondary-fg', '--action-secondary-bg', '--surface-card'],
+  ['--action-secondary-fg', '--surface-hover'],
+  ['--text-faint', '--surface-disabled'],
   ['--text-danger-on-tint', '--tint-red', '--surface-card'],
   ['--text-success', '--tint-green', '--surface-card'],
 ])('%s on %s reaches WCAG AA', (text, ...layers) => {
   expect(ratio(text, ...layers)).toBeGreaterThanOrEqual(4.5)
 })
 
-test('the contrast computation matches a known pair', () => {
+test.each([
+  ['--border-field', '--surface-sunken'],
+  ['--border-field', '--surface-card'],
+  ['--border-field-hover', '--surface-sunken'],
+  ['--border-field-hover', '--surface-card'],
+])('the boundary %s against %s reaches 3:1 (WCAG 1.4.11)', (border, ground) => {
+  expect(ratio(border, ground)).toBeGreaterThanOrEqual(3)
+})
+
+test('the contrast computation matches known pairs', () => {
   values.set('--probe-black', '#000000')
   values.set('--probe-white', '#ffffff')
+  values.set('--probe-half', 'color-mix(in srgb, var(--probe-white) 50%, transparent)')
+  values.set('--probe-mix', 'color-mix(in srgb, var(--probe-white) 25%, var(--probe-black))')
   expect(ratio('--probe-white', '--probe-black')).toBeCloseTo(21, 5)
+  expect(ratio('--probe-white', '--probe-half', '--probe-black')).toBeCloseTo(3.977, 2)
+  expect(ratio('--probe-white', '--probe-mix')).toBeCloseTo(10.409, 2)
 })

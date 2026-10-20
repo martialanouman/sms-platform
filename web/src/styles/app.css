@@ -12,7 +12,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--sp-4);
   height: var(--control-height);
   padding: 0 var(--pad-control-x);
   border: 1px solid transparent;
@@ -79,7 +78,7 @@
   width: 100%;
   height: var(--control-height);
   padding: 0 var(--sp-5);
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--border-field);
   border-radius: var(--r-field);
   background: var(--surface-sunken);
   color: var(--text-primary);
@@ -89,7 +88,7 @@
 }
 
 .ui-input:hover {
-  border-color: var(--border-strong);
+  border-color: var(--border-field-hover);
 }
 
 .auth {
@@ -104,7 +103,7 @@
   gap: var(--sp-7);
   width: min(46ch, 100%);
   padding: var(--sp-10);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-card);
   background: var(--surface-card);
 }
