@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
@@ -26,6 +27,7 @@ import (
 	contentkeygrpc "github.com/martialanouman/sms-platform/internal/contentkey/grpc"
 	contentkeyv1 "github.com/martialanouman/sms-platform/internal/gen/contentkey/v1"
 	"github.com/martialanouman/sms-platform/internal/platform/config"
+	"github.com/martialanouman/sms-platform/internal/platform/mtls"
 	"github.com/martialanouman/sms-platform/internal/platform/mtls/mtlstest"
 	"github.com/martialanouman/sms-platform/internal/platform/observability"
 )
@@ -73,11 +75,16 @@ func TestRunRefusesEachFaultBeforeListening(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), c.want) {
 				t.Fatalf("run = %v, want %q", err, c.want)
 			}
-			ln, lerr := net.Listen("tcp", infra.OpsAddr)
-			if lerr != nil {
-				t.Fatalf("run listened before refusing: %v", lerr)
+			for _, addr := range []string{infra.OpsAddr, infra.GRPCAddr} {
+				if addr == "" {
+					continue
+				}
+				ln, lerr := net.Listen("tcp", addr)
+				if lerr != nil {
+					t.Fatalf("run listened on %s before refusing: %v", addr, lerr)
+				}
+				_ = ln.Close()
 			}
-			_ = ln.Close()
 		})
 	}
 }
@@ -102,6 +109,7 @@ func (l *lockedBuffer) String() string {
 func TestTheServiceServesBehindItsInterceptorAndDrains(t *testing.T) {
 	ca := mtlstest.New(t)
 	infra := complete(t, ca)
+	infra.DrainDelay, infra.DrainBudget, infra.ShutdownTimeout = 500*time.Millisecond, 2*time.Second, 300*time.Millisecond
 	var logs lockedBuffer
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
@@ -157,11 +165,26 @@ func TestTheServiceServesBehindItsInterceptorAndDrains(t *testing.T) {
 		t.Fatalf("no JSON line of grpc for the refused handshake; logs: %s", logs.String())
 	}
 
+	mute, err := net.Dial("tcp", infra.GRPCAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = mute.Close() }()
 	cancel()
+	draining := false
+	for deadline := time.Now().Add(infra.DrainDelay); time.Now().Before(deadline) && !draining; time.Sleep(20 * time.Millisecond) {
+		if resp, err := http.Get("http://" + infra.OpsAddr + "/readyz"); err == nil {
+			_ = resp.Body.Close()
+			draining = resp.StatusCode == http.StatusServiceUnavailable
+		}
+	}
+	if !draining {
+		t.Error("/readyz never answered 503 during the drain delay")
+	}
 	select {
 	case err := <-done:
 		if err != nil {
-			t.Fatalf("run = %v after the drain", err)
+			t.Fatalf("run = %v after the drain, behind a connection that never handshakes", err)
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("run did not drain")
@@ -183,10 +206,14 @@ type blockingKMS struct {
 	entered, release chan struct{}
 }
 
-func (k blockingKMS) Encrypt(context.Context, string, []byte) ([]byte, error) {
+func (k blockingKMS) Encrypt(ctx context.Context, _ string, _ []byte) ([]byte, error) {
 	k.entered <- struct{}{}
-	<-k.release
-	return []byte("vault:v1:x"), nil
+	select {
+	case <-k.release:
+		return []byte("vault:v1:x"), nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
 func (k blockingKMS) Decrypt(context.Context, string, []byte) ([]byte, error) {
@@ -214,7 +241,11 @@ func TestServeWaitsForTheCallsInFlight(t *testing.T) {
 		_, err := contentkeyv1.NewConfigSecretsServiceClient(conn).Seal(context.WithoutCancel(t.Context()), &contentkeyv1.SealRequest{Plaintext: []byte("x")})
 		called <- err
 	}()
-	<-kms.entered
+	select {
+	case <-kms.entered:
+	case err := <-called:
+		t.Fatalf("the call never reached the KMS: %v", err)
+	}
 	cancel()
 	select {
 	case err := <-served:
@@ -245,5 +276,79 @@ func TestServeReportsAFailedListener(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("serve hung on a closed listener")
+	}
+}
+
+func TestServeStopsACallPastTheShutdownTimeout(t *testing.T) {
+	kms := blockingKMS{make(chan struct{}, 1), make(chan struct{})}
+	t.Cleanup(func() { close(kms.release) })
+	s := grpc.NewServer()
+	contentkeygrpc.Register(s, contentkey.ConfigSecrets{KMS: kms})
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	served := make(chan error, 1)
+	go func() { served <- serve(s, ln, 200*time.Millisecond)(ctx) }()
+	conn, err := grpc.NewClient(ln.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = conn.Close() }()
+	called := make(chan error, 1)
+	go func() {
+		_, err := contentkeyv1.NewConfigSecretsServiceClient(conn).Seal(context.WithoutCancel(t.Context()), &contentkeyv1.SealRequest{Plaintext: []byte("x")})
+		called <- err
+	}()
+	<-kms.entered
+	cancel()
+	select {
+	case <-served:
+	case <-time.After(5 * time.Second):
+		t.Fatal("serve outlived its shutdown timeout")
+	}
+	if err := <-called; err == nil {
+		t.Fatal("the call held past the shutdown timeout succeeded")
+	}
+}
+
+func TestTheOpenBaoClientTrustsOnlyTheInternalCAOverTLS13(t *testing.T) {
+	ca := mtlstest.New(t)
+	files := ca.Issue(t, t.TempDir(), "localhost")
+	client, err := openbaoClient(files.CA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := func(files mtls.Files, maxVersion uint16) string {
+		cert, err := tls.LoadX509KeyPair(files.Cert, files.Key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		srv := httptest.NewUnstartedServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+		srv.TLS = &tls.Config{Certificates: []tls.Certificate{cert}, MaxVersion: maxVersion}
+		srv.StartTLS()
+		t.Cleanup(srv.Close)
+		_, port, _ := net.SplitHostPort(srv.Listener.Addr().String())
+		return "https://localhost:" + port
+	}
+	get := func(url string) error {
+		resp, err := client.Get(url)
+		if err == nil {
+			_ = resp.Body.Close()
+		}
+		return err
+	}
+	if err := get(server(files, 0)); err != nil {
+		t.Fatalf("a server of the internal CA: %v", err)
+	}
+	if err := get(server(mtlstest.New(t).Issue(t, t.TempDir(), "localhost"), 0)); err == nil {
+		t.Fatal("a server of another CA was trusted")
+	}
+	if err := get(server(files, tls.VersionTLS12)); err == nil {
+		t.Fatal("a server capped at TLS 1.2 was accepted")
+	}
+	if _, err := openbaoClient(files.Key); err == nil {
+		t.Fatal("a CA file without certificate was accepted")
 	}
 }

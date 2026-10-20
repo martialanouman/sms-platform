@@ -66,18 +66,14 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	ca, err := os.ReadFile(infra.TLS.CA)
+	client, err := openbaoClient(infra.TLS.CA)
 	if err != nil {
 		return err
 	}
-	roots := x509.NewCertPool()
-	if !roots.AppendCertsFromPEM(ca) {
-		return fmt.Errorf("%s holds no certificate", infra.TLS.CA)
-	}
-	client := &http.Client{Timeout: 10 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: roots}}}
 
 	grpclog.SetLoggerV2(observability.GRPCLogger(log))
-	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(serverTLS)), grpc.UnaryInterceptor(contentkeygrpc.Authorize))
+	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(serverTLS)), grpc.UnaryInterceptor(contentkeygrpc.Authorize),
+		grpc.ConnectionTimeout(infra.ShutdownTimeout))
 	contentkeygrpc.Register(s, contentkey.ConfigSecrets{KMS: openbao.New(infra.OpenBaoAddr, client, service, projectedJWT)})
 	opsServer, err := ops.New(infra.OpsAddr, infra.ShutdownTimeout, prometheus.DefaultGatherer)
 	if err != nil {
@@ -92,6 +88,18 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger) error {
 	sup.Add("grpc", serve(s, ln, infra.ShutdownTimeout))
 	sup.OnDrain(opsServer.Drain)
 	return sup.Run(ctx, log)
+}
+
+func openbaoClient(caFile string) (*http.Client, error) {
+	ca, err := os.ReadFile(caFile)
+	if err != nil {
+		return nil, err
+	}
+	roots := x509.NewCertPool()
+	if !roots.AppendCertsFromPEM(ca) {
+		return nil, fmt.Errorf("%s holds no certificate", caFile)
+	}
+	return &http.Client{Timeout: 10 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: roots}}}, nil
 }
 
 func serve(s *grpc.Server, ln net.Listener, shutdown time.Duration) func(context.Context) error {
