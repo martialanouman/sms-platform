@@ -25,6 +25,7 @@ import (
 	"github.com/martialanouman/sms-platform/internal/netpol"
 	"github.com/martialanouman/sms-platform/internal/platform/config"
 	"github.com/martialanouman/sms-platform/internal/schema"
+	"github.com/martialanouman/sms-platform/migrations"
 )
 
 const registry = "ghcr.io/martialanouman/sms-platform/"
@@ -613,9 +614,16 @@ type brick struct {
 		Managed        any `yaml:"managed"`
 		Bootstrap      struct {
 			InitDB struct {
+				Database    string   `yaml:"database"`
 				PostInitSQL []string `yaml:"postInitSQL"`
 			} `yaml:"initdb"`
 		} `yaml:"bootstrap"`
+		Name                  string `yaml:"name"`
+		Owner                 string `yaml:"owner"`
+		DatabaseReclaimPolicy string `yaml:"databaseReclaimPolicy"`
+		PgBouncer             struct {
+			PoolMode string `yaml:"poolMode"`
+		} `yaml:"pgbouncer"`
 		PodSelector struct {
 			MatchLabels map[string]string `yaml:"matchLabels"`
 		} `yaml:"podSelector"`
@@ -706,6 +714,21 @@ func checkBricks(dir string) error {
 		}
 		if !slices.Contains(pg.Spec.Bootstrap.InitDB.PostInitSQL, "ALTER ROLE migrator CREATEROLE") {
 			errs = append(errs, errors.New("postgres: migrator is not given CREATEROLE at initdb, without which it creates no service role"))
+		}
+		for _, database := range migrations.Databases {
+			if database == pg.Spec.Bootstrap.InitDB.Database {
+				continue
+			}
+			if !slices.ContainsFunc(docs, func(b brick) bool {
+				return b.Kind == "Database" && b.Spec.Name == database && b.Spec.Owner == "migrator" && b.Spec.DatabaseReclaimPolicy == "retain"
+			}) {
+				errs = append(errs, fmt.Errorf("postgres: no Database %s owned by migrator and retained, which migrate and catalog-apply reach", database))
+			}
+		}
+		if !slices.ContainsFunc(docs, func(b brick) bool {
+			return b.Kind == "Pooler" && b.Metadata.Name == "postgres-pooler-rw" && b.Spec.PgBouncer.PoolMode == "transaction"
+		}) {
+			errs = append(errs, errors.New("postgres: no Pooler postgres-pooler-rw in transaction mode, whose name the server certificate carries"))
 		}
 	}
 	if bao := chart("openbao"); bao == nil || bao.Spec.TargetNamespace != "openbao" {
@@ -837,6 +860,11 @@ func TestTheBrickGuardFails(t *testing.T) {
 		{"entity operator", "kafka.yaml", "      transaction.state.log.min.isr: 2\n", "      transaction.state.log.min.isr: 2\n  entityOperator:\n    topicOperator: {}\n", "entityOperator"},
 		{"clients CA provided", "kafka.yaml", "      transaction.state.log.min.isr: 2\n", "      transaction.state.log.min.isr: 2\n  clientsCa:\n    generateCertificateAuthority: false\n", "clientsCa"},
 		{"roles managed by CloudNativePG", "postgres.yaml", "  certificates:\n", "  managed:\n    roles:\n      - name: openbao\n        ensure: present\n  certificates:\n", "managed roles"},
+		{"dashboard database missing", "postgres.yaml", "spec:\n  name: dashboard\n", "spec:\n  name: dash\n", "no Database dashboard"},
+		{"dashboard database dropped with its object", "postgres.yaml", "databaseReclaimPolicy: retain", "databaseReclaimPolicy: delete", "no Database dashboard"},
+		{"dashboard database owned elsewhere", "postgres.yaml", "  owner: migrator\n  cluster:", "  owner: dashboard\n  cluster:", "no Database dashboard"},
+		{"pooler in session mode", "postgres.yaml", "poolMode: transaction", "poolMode: session", "no Pooler"},
+		{"pooler renamed", "postgres.yaml", "  name: postgres-pooler-rw\n", "  name: pooler\n", "no Pooler"},
 		{"migrator without CREATEROLE", "postgres.yaml", "        - ALTER ROLE migrator CREATEROLE\n", "", "CREATEROLE"},
 		{"openbao chart renamed", "openbao.yaml", "  chart: openbao\n", "  chart: vault\n", "no HelmChart openbao"},
 		{"openbao elsewhere", "openbao.yaml", "  targetNamespace: openbao\n", "  targetNamespace: kms\n", "no HelmChart openbao"},

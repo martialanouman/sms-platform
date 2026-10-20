@@ -24,6 +24,33 @@ spec:
     serverTLSSecret: postgres-server
     serverCASecret: postgres-server
 ---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: dashboard
+  namespace: postgres
+spec:
+  name: dashboard
+  owner: migrator
+  cluster:
+    name: postgres
+  databaseReclaimPolicy: retain
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: postgres-pooler-rw
+  namespace: postgres
+spec:
+  cluster:
+    name: postgres
+  instances: 2
+  type: rw
+  pgbouncer:
+    poolMode: transaction
+    parameters:
+      default_pool_size: "10"
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

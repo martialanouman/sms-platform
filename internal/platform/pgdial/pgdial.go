@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"net"
+	"net/url"
 	"time"
 )
 
@@ -36,4 +37,17 @@ func Retry(ctx context.Context, log *slog.Logger, attempt func(context.Context) 
 		case <-time.After(interval):
 		}
 	}
+}
+
+var errNotADatabaseURL = errors.New("not a postgres URL naming a database")
+
+// Database is the URL of database on the server of url, its credentials and options kept. Its error never quotes url,
+// which holds a password.
+func Database(rawURL, database string) (string, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil || (u.Scheme != "postgres" && u.Scheme != "postgresql") || len(u.Path) < 2 {
+		return "", errNotADatabaseURL
+	}
+	u.Path = "/" + database
+	return u.String(), nil
 }

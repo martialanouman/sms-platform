@@ -36,6 +36,9 @@ bash deploy/bricks/secrets.sh
 kubectl -n kafka wait --for=condition=available deploy/strimzi-cluster-operator --timeout=5m
 kubectl apply -f deploy/bricks/postgres.yaml -f deploy/bricks/kafka.yaml
 kubectl -n postgres wait --for=condition=ready cluster/postgres --timeout=15m
+kubectl -n postgres wait --for=jsonpath='{.status.applied}'=true database/dashboard --timeout=5m
+exists postgres deploy/postgres-pooler-rw
+kubectl -n postgres rollout status deploy/postgres-pooler-rw --timeout=5m
 kubectl -n kafka wait --for=condition=ready kafka/kafka --timeout=20m
 
 kubectl apply -f deploy/bricks/openbao.yaml

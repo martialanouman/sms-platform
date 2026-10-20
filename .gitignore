@@ -1,1 +1,5 @@
 dist/
+/migrate
+/catalog-apply
+/content-key-svc
+/dashboard

@@ -27,22 +27,24 @@ func TestRunAppliesEveryMigrationOnceAsMigrator(t *testing.T) {
 	if err := run(ctx, config.Infra{PostgresURL: url}, log); err != nil {
 		t.Fatal(err)
 	}
-	db, err := sql.Open("pgx", url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	p, err := goose.NewProvider(goose.DialectPostgres, db, migrations.Database("control_plane"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	sources := p.ListSources()
-	latest := sources[len(sources)-1].Version
-	if got, err := p.GetDBVersion(ctx); err != nil || got != latest {
-		t.Fatalf("version = %d, %v; want %d", got, err, latest)
-	}
-	if n := strings.Count(logs.String(), `"msg":"migration applied"`); n != len(sources) {
-		t.Errorf("%d migrations logged, want %d:\n%s", n, len(sources), logs.String())
+	for _, database := range migrations.Databases {
+		db, err := sql.Open("pgx", pg.In(database).As("migrator"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = db.Close() })
+		p, err := goose.NewProvider(goose.DialectPostgres, db, migrations.Database(database))
+		if err != nil {
+			t.Fatal(err)
+		}
+		sources := p.ListSources()
+		latest := sources[len(sources)-1].Version
+		if got, err := p.GetDBVersion(ctx); err != nil || got != latest {
+			t.Fatalf("%s at version %d, %v; want %d", database, got, err, latest)
+		}
+		if n := strings.Count(logs.String(), `"database":"`+database+`"`); n != len(sources) {
+			t.Errorf("%s: %d migrations logged, want %d:\n%s", database, n, len(sources), logs.String())
+		}
 	}
 	if strings.Contains(logs.String(), "migrator") {
 		t.Errorf("the URL or its password reached the log:\n%s", logs.String())
