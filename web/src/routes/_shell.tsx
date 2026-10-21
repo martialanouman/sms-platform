@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, Outlet, useNavigate } from '@tanstack/react-router'
 import { useEffect, useId, useState } from 'react'
 import { api, json, mfaRequired, send, unreachable } from '../api'
@@ -37,6 +38,7 @@ function Shell() {
   const me = useMe()
   const closed = useSessionClosed()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [leaving, setLeaving] = useState(false)
   const [failure, setFailure] = useState('')
   useActivity(leaving ? undefined : me.data?.idleTimeoutSeconds)
@@ -62,6 +64,7 @@ function Shell() {
       setFailure(failure)
       return
     }
+    queryClient.clear()
     await navigate({ to: '/login' })
   }
 

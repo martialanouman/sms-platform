@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { type FormEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import { api, json, send, unreachable } from '../api'
 import type { components } from '../api.gen'
-import { meQuery, useShellMe } from '../session'
+import { meQuery, Refused, useShellMe } from '../session'
 import { Field, useSubmission } from '../ui'
 
 type Operator = components['schemas']['Operator']
@@ -13,9 +13,11 @@ export const Route = createFileRoute('/_shell/operators')({ component: Operators
 const operatorsQuery = {
   queryKey: ['operators'],
   queryFn: async () => {
-    const { data } = await api.GET('/operators')
+    const { data, error, response } = await api.GET('/operators')
     if (!data) {
-      throw new Error('operators')
+      throw response.status >= 400 && response.status < 500 && error?.message
+        ? new Refused(error.message)
+        : new Error('operators')
     }
     return data
   },
@@ -47,14 +49,25 @@ function Operators() {
   const writable = held.includes('operators:write') ? '' : 'Il faut la permission operators:write.'
   const [editing, setEditing] = useState<{ operator: Operator; opener: HTMLButtonElement }>()
 
+  const title = useRef<HTMLHeadingElement>(null)
+  const wasReadable = useRef(readable)
+
   useEffect(() => {
     document.title = 'Opérateurs — Tableau de bord'
   }, [])
+  useEffect(() => {
+    if (wasReadable.current && !readable) {
+      title.current?.focus()
+    }
+    wasReadable.current = readable
+  }, [readable])
 
   if (!readable) {
     return (
       <section className="page">
-        <h1 className="page__title">Opérateurs</h1>
+        <h1 className="page__title" ref={title} tabIndex={-1}>
+          Opérateurs
+        </h1>
         <p className="auth__intro">Il faut la permission operators:read pour lire les opérateurs.</p>
       </section>
     )
@@ -67,7 +80,7 @@ function Operators() {
       {operators.error && (
         <div className="shell__failure">
           <p className="auth__refusal" role="alert">
-            {unreachable}
+            {operators.error instanceof Refused ? operators.error.message : unreachable}
           </p>
           <button className="ui-button ui-button--secondary" type="button" onClick={() => void operators.refetch()}>
             Réessayer
@@ -317,10 +330,10 @@ function RolesDialog({ operator, self, onClose }: { operator: Operator; self: bo
     )
     if (outcome.failure === undefined) {
       await queryClient.invalidateQueries({ queryKey: operatorsQuery.queryKey })
+      dialog.current?.close()
       if (self) {
         await queryClient.invalidateQueries({ queryKey: meQuery.queryKey })
       }
-      dialog.current?.close()
     }
   }
 

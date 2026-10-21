@@ -151,9 +151,8 @@ test('the roles are replaced in a dialog that gives the focus back', async () =>
   expect((await within(own).findByRole('alert')).textContent).toBe(
     'Ce changement vous retirerait la gestion des opérateurs ou des rôles.',
   )
-  await act(async () => {
-    ;(own as HTMLDialogElement).close()
-  })
+  await user.keyboard('{Escape}')
+  expect(own.hasAttribute('open')).toBe(false)
   expect(document.activeElement).toBe(mine)
   expect(reads).toBe(1)
 })
@@ -308,9 +307,8 @@ test('the dialog survives the list read again while it is open', async () => {
   })
   await screen.findByRole('rowheader', { name: 'Ada L.' })
   expect(dialog.hasAttribute('open')).toBe(true)
-  await act(async () => {
-    ;(dialog as HTMLDialogElement).close()
-  })
+  await user.click(within(dialog).getByRole('button', { name: 'Annuler' }))
+  expect(dialog.hasAttribute('open')).toBe(false)
   expect(document.activeElement).toBe(opener)
 })
 
@@ -321,4 +319,50 @@ test('an operator who may not read the operators is told why, without a request'
   expect(screen.queryByRole('form')).toBeNull()
   expect(calls.some((c) => c.url.endsWith('/api/operators'))).toBe(false)
   expect(await violations(container)).toEqual([])
+})
+
+test('an ordinary refusal stays on the screen with its message', async () => {
+  let reads = 0
+  stubFetch({
+    'GET /api/auth/me': () => json(200, owner),
+    'GET /api/operators': () => {
+      reads++
+      return json(403, { code: 'forbidden_scope', message: 'Il faut la permission operators:read (serveur).' })
+    },
+  })
+  const { router } = renderAt('/operators')
+  expect((await screen.findByRole('alert')).textContent).toBe('Il faut la permission operators:read (serveur).')
+  expect(router.state.location.pathname).toBe('/operators')
+  expect(reads).toBe(1)
+})
+
+test('an account guarded by a passkey alone is sent to the verification', async () => {
+  rememberChallenge(challenge)
+  stubFetch({
+    'GET /api/auth/me': () =>
+      json(200, { ...owner, elevated: false, secondFactors: { totp: false, recoveryCodesRemaining: 0, passkeys: 1 } }),
+    'GET /api/operators': mfaRequired,
+  })
+  const { router } = renderAt('/operators')
+  await waitFor(() => expect(router.state.location.pathname).toBe('/mfa'))
+})
+
+test('taking operators:read away from oneself closes the dialog and tells why', async () => {
+  let held = owner.permissions
+  stubFetch({
+    'GET /api/auth/me': () => json(200, { ...owner, permissions: held }),
+    'GET /api/operators': () => json(200, [self]),
+    'GET /api/roles': () => json(200, roles),
+    'PUT /api/operators/01a159b0-0000-7000-8000-000000000001/roles': () => {
+      held = []
+      return json(200, self)
+    },
+  })
+  renderAt('/operators')
+  const user = userEvent.setup()
+  await user.click(within(await screen.findByRole('row', { name: /Opérateur/ })).getByRole('button', { name: 'Rôles' }))
+  await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Enregistrer' }))
+  expect(await screen.findByText('Il faut la permission operators:read pour lire les opérateurs.')).toBeDefined()
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(document.activeElement?.closest('main')).not.toBeNull()
 })

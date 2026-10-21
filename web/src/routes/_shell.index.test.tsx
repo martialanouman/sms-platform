@@ -409,3 +409,62 @@ test('the passkeys of the operator before are never shown to the next one', asyn
   open()
   expect(await screen.findByText('Clé de Autre')).toBeDefined()
 })
+
+test('a logout forgets what the session had read', async () => {
+  let signedIn = true
+  stubFetch({
+    'GET /api/auth/me': () => (signedIn ? json(200, { ...me, permissions: ['operators:read'] }) : noSession()),
+    'GET /api/operators': () =>
+      json(200, [
+        {
+          id: 'o-ada',
+          email: 'ada@example.test',
+          displayName: 'Ada',
+          status: 'active',
+          roles: [],
+          secondFactorEnrolled: false,
+          accessLink: null,
+        },
+      ]),
+    'POST /api/auth/activity': () => empty(204),
+    'POST /api/auth/logout': () => {
+      signedIn = false
+      return empty(204)
+    },
+  })
+  const { router } = renderAt('/operators')
+  await screen.findByText('ada@example.test')
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Se déconnecter' }))
+  await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
+  await act(async () => {
+    await router.navigate({ to: '/operators' })
+  })
+  expect(screen.queryByText('ada@example.test')).toBeNull()
+})
+
+test('a session closed by the server forgets what it had read', async () => {
+  stubFetch({
+    'GET /api/auth/me': once(() => json(200, { ...me, permissions: ['operators:read'] })),
+    'GET /api/operators': () =>
+      json(200, [
+        {
+          id: 'o-ada',
+          email: 'ada@example.test',
+          displayName: 'Ada',
+          status: 'active',
+          roles: [],
+          secondFactorEnrolled: false,
+          accessLink: null,
+        },
+      ]),
+    'POST /api/auth/activity': () => noSession(),
+  })
+  const { router } = renderAt('/operators')
+  await screen.findByText('ada@example.test')
+  fireEvent.keyDown(document)
+  await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
+  await act(async () => {
+    await router.navigate({ to: '/operators' })
+  })
+  expect(screen.queryByText('ada@example.test')).toBeNull()
+})

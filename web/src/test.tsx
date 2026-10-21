@@ -11,10 +11,18 @@ HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
     throw new DOMException('The dialog is already open.', 'InvalidStateError')
   }
   this.setAttribute('open', '')
+  this.addEventListener('keydown', dismissOnEscape)
+}
+
+function dismissOnEscape(this: HTMLDialogElement, event: KeyboardEvent) {
+  if (event.key === 'Escape' && this.dispatchEvent(new Event('cancel', { cancelable: true }))) {
+    this.close()
+  }
 }
 HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
   if (this.hasAttribute('open')) {
     this.removeAttribute('open')
+    this.removeEventListener('keydown', dismissOnEscape)
     this.dispatchEvent(new Event('close'))
   }
 }
