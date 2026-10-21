@@ -34,6 +34,7 @@ const (
 	EventRoleCreated         Event = "role_created"
 	EventRoleUpdated         Event = "role_updated"
 	EventRoleDeleted         Event = "role_deleted"
+	EventPersonalTokenIssued Event = "personal_token_issued"
 )
 
 // TotpFactor is an authenticator app of an operator, its secret sealed.

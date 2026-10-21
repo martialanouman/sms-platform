@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -412,6 +413,18 @@ type Error struct {
 // ErrorCode defines model for Error.Code.
 type ErrorCode string
 
+// GatewayToken Set as `Authorization: Bearer` on the Admin API. Shown once.
+type GatewayToken struct {
+	ExpiresAt time.Time    `json:"expiresAt"`
+	Scopes    []Permission `json:"scopes"`
+	Token     string       `json:"token"`
+}
+
+// GatewayTokenRequest Admin API scopes only. Without `scopes`, the token carries every scope it may.
+type GatewayTokenRequest struct {
+	Scopes *[]Permission `json:"scopes,omitempty"`
+}
+
 // Health defines model for Health.
 type Health struct {
 	Status HealthStatus `json:"status"`
@@ -683,6 +696,9 @@ type RateLimited = Error
 // SelfLockout Flat error body. `code` is the stable code of the cause; the HTTP status is on the status line only.
 type SelfLockout = Error
 
+// ServiceUnavailable Flat error body. `code` is the stable code of the cause; the HTTP status is on the status line only.
+type ServiceUnavailable = Error
+
 // Unauthorized Flat error body. `code` is the stable code of the cause; the HTTP status is on the status line only.
 type Unauthorized = Error
 
@@ -715,6 +731,9 @@ type VerifyMfaJSONRequestBody = MfaVerification
 
 // FinishWebauthnRegistrationJSONRequestBody defines body for FinishWebauthnRegistration for application/json ContentType.
 type FinishWebauthnRegistrationJSONRequestBody = WebauthnRegistration
+
+// IssueGatewayTokenJSONRequestBody defines body for IssueGatewayToken for application/json ContentType.
+type IssueGatewayTokenJSONRequestBody = GatewayTokenRequest
 
 // CreateOperatorJSONRequestBody defines body for CreateOperator for application/json ContentType.
 type CreateOperatorJSONRequestBody = OperatorCreate
@@ -775,6 +794,9 @@ type ServerInterface interface {
 	// FinishWebauthnRegistration Register the passkey the device produced
 	// (POST /auth/mfa/webauthn/register/finish)
 	FinishWebauthnRegistration(w http.ResponseWriter, r *http.Request)
+	// IssueGatewayToken Issue a personal token for the Admin API
+	// (POST /gateway-token)
+	IssueGatewayToken(w http.ResponseWriter, r *http.Request)
 	// Health Liveness probe
 	// (GET /health)
 	Health(w http.ResponseWriter, r *http.Request)
@@ -1034,6 +1056,20 @@ func (siw *ServerInterfaceWrapper) FinishWebauthnRegistration(w http.ResponseWri
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.FinishWebauthnRegistration(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// IssueGatewayToken operation middleware
+func (siw *ServerInterfaceWrapper) IssueGatewayToken(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.IssueGatewayToken(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1377,6 +1413,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/mfa/webauthn/assert/begin", wrapper.BeginWebauthnAssertion)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/auth/mfa/webauthn/passkeys", wrapper.ListWebauthnPasskeys)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/auth/mfa/webauthn/passkeys/{passkeyId}", wrapper.DeleteWebauthnPasskey)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/gateway-token", wrapper.IssueGatewayToken)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/operators", wrapper.ListOperators)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/operators", wrapper.CreateOperator)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/operators/{operatorId}", wrapper.UpdateOperator)
@@ -1411,6 +1448,8 @@ type RateLimitedJSONResponse struct {
 }
 
 type SelfLockoutJSONResponse Error
+
+type ServiceUnavailableJSONResponse Error
 
 type UnauthorizedJSONResponse Error
 
@@ -2847,6 +2886,128 @@ func (response FinishWebauthnRegistration500JSONResponse) VisitFinishWebauthnReg
 	return err
 }
 
+type IssueGatewayTokenRequestObject struct {
+	Body *IssueGatewayTokenJSONRequestBody
+}
+
+type IssueGatewayTokenResponseObject interface {
+	VisitIssueGatewayTokenResponse(w http.ResponseWriter) error
+}
+
+type IssueGatewayToken200JSONResponse GatewayToken
+
+func (response IssueGatewayToken200JSONResponse) VisitIssueGatewayTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type IssueGatewayToken401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response IssueGatewayToken401JSONResponse) VisitIssueGatewayTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type IssueGatewayToken403JSONResponse Error
+
+func (response IssueGatewayToken403JSONResponse) VisitIssueGatewayTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type IssueGatewayToken413JSONResponse struct{ PayloadTooLargeJSONResponse }
+
+func (response IssueGatewayToken413JSONResponse) VisitIssueGatewayTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type IssueGatewayToken415JSONResponse struct {
+	UnsupportedMediaTypeJSONResponse
+}
+
+func (response IssueGatewayToken415JSONResponse) VisitIssueGatewayTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(415)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type IssueGatewayToken422JSONResponse struct{ ValidationErrorJSONResponse }
+
+func (response IssueGatewayToken422JSONResponse) VisitIssueGatewayTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type IssueGatewayToken500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response IssueGatewayToken500JSONResponse) VisitIssueGatewayTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type IssueGatewayToken503JSONResponse struct{ ServiceUnavailableJSONResponse }
+
+func (response IssueGatewayToken503JSONResponse) VisitIssueGatewayTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type HealthRequestObject struct {
 }
 
@@ -3911,6 +4072,9 @@ type StrictServerInterface interface {
 	// FinishWebauthnRegistration Register the passkey the device produced
 	// (POST /auth/mfa/webauthn/register/finish)
 	FinishWebauthnRegistration(ctx context.Context, request FinishWebauthnRegistrationRequestObject) (FinishWebauthnRegistrationResponseObject, error)
+	// IssueGatewayToken Issue a personal token for the Admin API
+	// (POST /gateway-token)
+	IssueGatewayToken(ctx context.Context, request IssueGatewayTokenRequestObject) (IssueGatewayTokenResponseObject, error)
 	// Health Liveness probe
 	// (GET /health)
 	Health(ctx context.Context, request HealthRequestObject) (HealthResponseObject, error)
@@ -4357,6 +4521,40 @@ func (sh *strictHandler) FinishWebauthnRegistration(w http.ResponseWriter, r *ht
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(FinishWebauthnRegistrationResponseObject); ok {
 		if err := validResponse.VisitFinishWebauthnRegistrationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// IssueGatewayToken operation middleware
+func (sh *strictHandler) IssueGatewayToken(w http.ResponseWriter, r *http.Request) {
+	var request IssueGatewayTokenRequestObject
+
+	var body IssueGatewayTokenJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.IssueGatewayToken(ctx, request.(IssueGatewayTokenRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "IssueGatewayToken")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(IssueGatewayTokenResponseObject); ok {
+		if err := validResponse.VisitIssueGatewayTokenResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
