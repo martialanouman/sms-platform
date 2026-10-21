@@ -39,8 +39,7 @@ test('the top bar names the operator, who reaches the account through it', async
   const { router } = renderAt('/')
   await userEvent.setup().click(await screen.findByRole('link', { name: 'Opérateur' }))
   await waitFor(() => expect(router.state.location.pathname).toBe('/account'))
-  expect(await screen.findByRole('heading', { level: 1, name: 'Mon compte' })).toBeDefined()
-  expect(within(screen.getByRole('banner')).getByRole('heading', { name: 'Mon compte' })).toBeDefined()
+  expect(await within(screen.getByRole('banner')).findByRole('heading', { level: 1, name: 'Mon compte' })).toBeDefined()
 })
 
 test('the skip link moves the focus to the content', async () => {
@@ -63,7 +62,9 @@ test('a session check that fails is told with a retry, without leaving', async (
     'GET /api/auth/me': () => (failing ? new Response(null, { status: 500 }) : json(200, me)),
   })
   const { router } = renderAt('/')
-  expect((await screen.findByRole('alert')).textContent).toContain('Le service ne répond pas')
+  const alert = await screen.findByRole('alert')
+  expect(within(alert).getByRole('heading', { level: 1, name: 'Impossible de vérifier la session' })).toBeDefined()
+  expect(alert.textContent).toContain('Le service ne répond pas')
   expect(router.state.location.pathname).toBe('/')
   expect(screen.queryByRole('main')?.textContent).not.toContain('cockpit')
   failing = false
@@ -75,10 +76,10 @@ test('the shell tells the session is loading', async () => {
   let answer: (r: Response) => void = () => {}
   stubFetch({ 'GET /api/auth/me': () => new Promise<Response>((resolve) => (answer = resolve)) })
   renderAt('/')
-  expect(await screen.findByText('Chargement de la session…')).toBeDefined()
+  expect(await screen.findByText('Ouverture de la session')).toBeDefined()
   await act(async () => answer(json(200, me)))
   expect(await screen.findByRole('heading', { name: "Le cockpit d'exploitation se construit" })).toBeDefined()
-  expect(screen.queryByText('Chargement de la session…')).toBeNull()
+  expect(screen.queryByText('Ouverture de la session')).toBeNull()
 })
 
 test('a session not elevated is sent back to the login from the home', async () => {

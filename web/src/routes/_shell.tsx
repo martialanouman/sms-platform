@@ -3,7 +3,7 @@ import { createFileRoute, Link, Outlet, useNavigate } from '@tanstack/react-rout
 import { useEffect, useState } from 'react'
 import { api, json, mfaRequired, send, unreachable } from '../api'
 import { Unauthenticated, useActivity, useMe, useSessionClosed } from '../session'
-import { Button, PageHeaderProvider, PageHeaderSlot } from '../ui'
+import { Button, ErrorState, LoadingState, PageHeaderProvider, PageHeaderSlot } from '../ui'
 
 export const Route = createFileRoute('/_shell')({ component: Shell })
 
@@ -111,16 +111,17 @@ function Shell() {
             </p>
           )}
           {me.error && !(me.error instanceof Unauthenticated) && (
-            <div className="shell__failure">
-              <p className="auth__refusal" role="alert">
-                {unreachable}
-              </p>
-              <Button size="sm" onClick={() => void me.refetch()}>
-                Réessayer
-              </Button>
+            <div className="page">
+              <ErrorState as="h1" title="Impossible de vérifier la session" onRetry={() => void me.refetch()}>
+                {unreachable} Aucun écran ne s’ouvre sans elle.
+              </ErrorState>
             </div>
           )}
-          {me.isPending && <p className="auth__intro">Chargement de la session…</p>}
+          {me.isPending && (
+            <div className="page">
+              <LoadingState label="Ouverture de la session" rows={2} line />
+            </div>
+          )}
           {me.data && <Outlet />}
         </main>
       </div>

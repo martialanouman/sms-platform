@@ -168,6 +168,7 @@ export function Button({
   blockedReason?: string
 } & Omit<ComponentProps<'button'>, 'className'>) {
   const reason = useId()
+  const [dismissed, setDismissed] = useState(false)
   const inert = loading || blockedReason !== undefined
   const button = (
     <button
@@ -176,9 +177,18 @@ export function Button({
       className={`ui-button ui-button--${variant}${size ? ` ui-button--${size}` : ''}`}
       aria-busy={loading || undefined}
       aria-disabled={inert || undefined}
-      aria-describedby={blockedReason === undefined ? rest['aria-describedby'] : reason}
+      aria-describedby={blockedReason === undefined ? undefined : reason}
       onClick={inert ? (event) => event.preventDefault() : onClick}
+      onKeyDown={(event) => {
+        if (blockedReason !== undefined && event.key === 'Escape' && !dismissed) {
+          event.preventDefault()
+          setDismissed(true)
+        }
+      }}
+      onBlur={() => setDismissed(false)}
+      onMouseLeave={() => setDismissed(false)}
     >
+      {loading && <span className="ui-button__spinner" aria-hidden="true" />}
       {children}
     </button>
   )
@@ -186,7 +196,7 @@ export function Button({
     return button
   }
   return (
-    <span className="ui-blocked">
+    <span className={`ui-blocked${dismissed ? ' ui-blocked--dismissed' : ''}`}>
       {button}
       <span className="ui-tooltip" id={reason}>
         {blockedReason}
@@ -195,13 +205,23 @@ export function Button({
   )
 }
 
-export function ErrorState({ title, children, onRetry }: { title: string; children: ReactNode; onRetry: () => void }) {
+export function ErrorState({
+  title,
+  as: Title = 'p',
+  children,
+  onRetry,
+}: {
+  title: string
+  as?: 'h1' | 'p'
+  children: ReactNode
+  onRetry: () => void
+}) {
   return (
     <div className="ui-error" role="alert">
       <span className="ui-error__icon">
         <Icon name="bang" />
       </span>
-      <p className="ui-error__title">{title}</p>
+      <Title className="ui-error__title">{title}</Title>
       <div className="ui-error__text">{children}</div>
       <Button size="sm" onClick={onRetry}>
         Réessayer
@@ -210,23 +230,19 @@ export function ErrorState({ title, children, onRetry }: { title: string; childr
   )
 }
 
-export function LoadingState({ label, rows }: { label: string; rows: number }) {
+export function LoadingState({ label, rows, line }: { label: string; rows: number; line?: boolean }) {
   return (
     <div className="ui-loading" aria-busy="true" aria-live="polite">
       <span className="ui-loading__label">{label}</span>
       {Array.from({ length: rows }, (_, i) => (
-        <span className="ui-skeleton" key={i} />
+        <span className={line ? 'ui-skeleton ui-skeleton--line' : 'ui-skeleton'} key={i} />
       ))}
     </div>
   )
 }
 
 export function Toolbar({ children }: { children: ReactNode }) {
-  return (
-    <div className="ui-toolbar">
-      <div className="ui-toolbar__end">{children}</div>
-    </div>
-  )
+  return <div className="ui-toolbar">{children}</div>
 }
 
 export function DataTable<Row>({
@@ -236,7 +252,7 @@ export function DataTable<Row>({
   rowKey,
 }: {
   caption: string
-  columns: { key: string; header: string; cell: (row: Row) => ReactNode }[]
+  columns: { header: string; cell: (row: Row) => ReactNode }[]
   rows: Row[]
   rowKey: (row: Row) => string
 }) {
@@ -246,7 +262,7 @@ export function DataTable<Row>({
       <thead>
         <tr>
           {columns.map((c) => (
-            <th className="ui-table__header" key={c.key} scope="col">
+            <th className="ui-table__header" key={c.header} scope="col">
               {c.header}
             </th>
           ))}
@@ -257,11 +273,11 @@ export function DataTable<Row>({
           <tr className="ui-table__row" key={rowKey(row)}>
             {columns.map((c, i) =>
               i === 0 ? (
-                <th className="ui-table__cell" key={c.key} scope="row">
+                <th className="ui-table__cell" key={c.header} scope="row">
                   {c.cell(row)}
                 </th>
               ) : (
-                <td className="ui-table__cell" key={c.key}>
+                <td className="ui-table__cell" key={c.header}>
                   {c.cell(row)}
                 </td>
               ),
@@ -286,19 +302,22 @@ export function Modal({
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const heading = useId()
-  const closed = useRef(onClose)
-  closed.current = onClose
 
   useEffect(() => {
-    const element = dialog.current
-    const close = () => closed.current()
-    element?.showModal()
-    element?.addEventListener('close', close)
-    return () => element?.removeEventListener('close', close)
+    const opener = document.activeElement as HTMLElement | null
+    dialog.current?.showModal()
+    return () => opener?.focus()
   }, [])
 
   return (
-    <dialog ref={dialog} className="ui-modal" aria-labelledby={heading}>
+    // biome-ignore lint/a11y/useKeyWithClickEvents: le clic ne vise que le voile ; au clavier, Échap ferme nativement.
+    <dialog
+      ref={dialog}
+      className="ui-modal"
+      aria-labelledby={heading}
+      onClose={onClose}
+      onClick={(event) => event.target === event.currentTarget && dialog.current?.close()}
+    >
       <header className="ui-modal__head">
         <h2 className="ui-modal__title" id={heading}>
           {title}

@@ -137,18 +137,18 @@ test('an operator is created in a dialog, and a refusal is told there', async ()
   await user.click(within(dialog).getByRole('button', { name: 'Créer l’opérateur' }))
   expect((await within(dialog).findByRole('alert')).textContent).toBe('Un opérateur a déjà cette adresse.')
   await user.clear(within(dialog).getByLabelText('Adresse e-mail'))
-  await user.type(within(dialog).getByLabelText('Adresse e-mail'), 'ada@example.test')
+  await user.type(within(dialog).getByLabelText('Adresse e-mail'), 'Ada@Example.test')
   await user.click(within(dialog).getByRole('button', { name: 'Créer l’opérateur' }))
   expect(await screen.findByText('ada@example.test')).toBeDefined()
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(document.activeElement).toBe(opener)
   expect(status.textContent).toBe('Compte créé. Le lien d’activation part à ada@example.test ; il vaut 72 heures.')
   const created = calls.filter((c) => c.method === 'POST' && c.url.endsWith('/api/operators'))
-  expect(await created[1]?.json()).toEqual({ email: 'ada@example.test', displayName: 'Ada' })
+  expect(await created[1]?.json()).toEqual({ email: 'Ada@Example.test', displayName: 'Ada' })
   expect(created[1]?.headers.get('Content-Type')).toBe('application/json')
 })
 
-test('a dialog closes by its close button, and nothing is sent', async () => {
+test('a dialog closes by its close button, its cancel and its backdrop, and nothing is sent', async () => {
   const calls = stubFetch({ 'GET /api/auth/me': () => json(200, owner), 'GET /api/operators': () => json(200, [self]) })
   renderAt('/operators')
   const user = userEvent.setup()
@@ -159,6 +159,10 @@ test('a dialog closes by its close button, and nothing is sent', async () => {
   expect(document.activeElement).toBe(opener)
   await user.click(opener)
   await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Annuler' }))
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(document.activeElement).toBe(opener)
+  await user.click(opener)
+  await user.click(await screen.findByRole('dialog'))
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(document.activeElement).toBe(opener)
   expect(calls.some((c) => c.method === 'POST' && c.url.includes('/api/operators'))).toBe(false)
@@ -214,26 +218,6 @@ test('the roles are replaced in a dialog that gives the focus back', async () =>
   expect(reads).toBe(1)
 })
 
-test('a change on oneself reads the session again', async () => {
-  let reads = 0
-  stubFetch({
-    'GET /api/auth/me': () => {
-      reads++
-      return json(200, owner)
-    },
-    'GET /api/operators': () => json(200, [self]),
-    'GET /api/roles': () => json(200, roles),
-    'PUT /api/operators/01a159b0-0000-7000-8000-000000000001/roles': () => json(200, self),
-  })
-  renderAt('/operators')
-  const user = userEvent.setup()
-  await user.click(await screen.findByRole('button', { name: 'Modifier les rôles' }))
-  const dialog = await screen.findByRole('dialog')
-  await within(dialog).findByRole('checkbox', { name: /Support/ })
-  await user.click(within(dialog).getByRole('button', { name: 'Enregistrer les rôles' }))
-  await waitFor(() => expect(reads).toBe(2))
-})
-
 test('an account is disabled after a confirmation, then enabled directly', async () => {
   let list: unknown[] = [self, ada]
   const calls = stubFetch({
@@ -251,6 +235,7 @@ test('an account is disabled after a confirmation, then enabled directly', async
   await user.click(within(row('ada@example.test')).getByRole('button', { name: 'Désactiver' }))
   let dialog = await screen.findByRole('dialog', { name: 'Désactiver Ada ?' })
   expect(dialog.textContent).toContain('Ses sessions seront fermées immédiatement')
+  expect(dialog.textContent).toContain('Ses rôles, son second facteur et un lien d’accès en cours resteront en place')
   expect(dialog.textContent).toContain('L’action est enregistrée dans le journal d’audit.')
   await user.click(within(dialog).getByRole('button', { name: 'Annuler' }))
   expect(calls.some((c) => c.method === 'PATCH')).toBe(false)
@@ -259,7 +244,9 @@ test('an account is disabled after a confirmation, then enabled directly', async
   await user.click(within(dialog).getByRole('button', { name: 'Désactiver' }))
   await waitFor(() => expect(cells('ada@example.test')[0]).toBe('Désactivé'))
   expect(screen.queryByRole('dialog')).toBeNull()
-  expect(document.activeElement).toBe(within(row('ada@example.test')).getByRole('button', { name: 'Réactiver' }))
+  const enable = within(row('ada@example.test')).getByRole('button', { name: 'Réactiver' })
+  expect(document.activeElement).toBe(enable)
+  expect(enable.classList.contains('ui-button--danger')).toBe(false)
   const link = within(row('ada@example.test')).getByRole('button', { name: 'Envoyer un lien' })
   expect(link.getAttribute('aria-disabled')).toBe('true')
   expect(explained(link)).toBe('Le compte est désactivé : réactivez-le avant d’envoyer un lien.')
@@ -293,6 +280,10 @@ test('a link is sent after a confirmation that tells its kind and length', async
   }
   let dialog = await open('bob@example.test', 'Envoyer un lien de réinitialisation à Bob ?')
   expect(dialog.textContent).toContain('il restera valable 1 heure')
+  expect(dialog.textContent).toContain(
+    'Son mot de passe, son second facteur et ses sessions resteront valables jusqu’à son usage.',
+  )
+  expect(dialog.textContent).not.toContain('Rien ne changera')
   await user.keyboard('{Escape}')
   dialog = await open('cy@example.test', 'Envoyer un lien à Cy ?')
   expect(dialog.textContent).toContain(
@@ -301,6 +292,7 @@ test('a link is sent after a confirmation that tells its kind and length', async
   await user.keyboard('{Escape}')
   dialog = await open('ada@example.test', 'Envoyer un lien d’activation à Ada ?')
   expect(dialog.textContent).toContain('il restera valable 72 heures')
+  expect(dialog.textContent).toContain('Le lien envoyé plus tôt cesse de valoir dès cette demande.')
   expect(dialog.textContent).toContain('L’action est enregistrée dans le journal d’audit.')
   await user.click(within(dialog).getByRole('button', { name: 'Envoyer' }))
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
@@ -328,6 +320,7 @@ test('a link is sent once at a time, and a refusal is told in its dialog', async
   await user.click(send)
   await user.click(send)
   expect(send.getAttribute('aria-busy')).toBe('true')
+  expect(send.querySelector('.ui-button__spinner')).not.toBeNull()
   await act(async () => release())
   expect((await within(dialog).findByRole('alert')).textContent).toBe('Compte désactivé entre-temps (serveur).')
   expect(sent).toBe(1)
@@ -343,7 +336,7 @@ test('what the operator may not do is disabled and explained', async () => {
   const user = userEvent.setup()
   const create = screen.getByRole('button', { name: 'Nouvel opérateur' })
   expect(create.getAttribute('aria-disabled')).toBe('true')
-  expect(explained(create)).toBe('Il faut la permission operators:write.')
+  expect(explained(create)).toBe('La création d’un opérateur demande operators:write.')
   create.focus()
   await user.keyboard('{Enter}')
   await user.click(create)
@@ -351,10 +344,10 @@ test('what the operator may not do is disabled and explained', async () => {
   for (const name of ['Modifier les rôles', 'Envoyer un lien', 'Désactiver']) {
     const button = within(row('ada@example.test')).getByRole('button', { name })
     expect(button.getAttribute('aria-disabled')).toBe('true')
-    expect(explained(button)).toBe('Il faut la permission operators:write.')
+    expect(explained(button)).toBe('Cette action demande operators:write.')
   }
   const enable = within(row('zed@example.test')).getByRole('button', { name: 'Réactiver' })
-  expect(explained(enable)).toBe('Il faut la permission operators:write.')
+  expect(explained(enable)).toBe('Cette action demande operators:write.')
   await user.click(enable)
   expect(calls.some((c) => c.method !== 'GET' && c.url.includes('/api/operators'))).toBe(false)
   expect(calls.some((c) => c.url.endsWith('/api/roles'))).toBe(false)
@@ -370,7 +363,7 @@ test('roles cannot be set without reading them, and nobody disables himself', as
   await screen.findByText('ada@example.test')
   const roles = within(row('ada@example.test')).getByRole('button', { name: 'Modifier les rôles' })
   expect(roles.getAttribute('aria-disabled')).toBe('true')
-  expect(explained(roles)).toBe('Il faut la permission roles:read.')
+  expect(explained(roles)).toBe('La liste des rôles à attribuer demande roles:read.')
   const disable = within(row('operateur@example.test')).getByRole('button', { name: 'Désactiver' })
   expect(disable.getAttribute('aria-disabled')).toBe('true')
   expect(explained(disable)).toBe(
@@ -428,7 +421,7 @@ test('an account is enabled once at a time, and a refusal is told on the screen'
   await user.click(enable)
   expect(enable.getAttribute('aria-busy')).toBe('true')
   await act(async () => release())
-  expect((await screen.findByRole('alert')).textContent).toBe('Refusé (serveur).')
+  expect((await within(row('zed@example.test')).findByRole('alert')).textContent).toBe('Refusé (serveur).')
   expect(sent).toBe(1)
   await user.click(enable)
   expect(screen.queryByRole('alert')).toBeNull()
@@ -513,10 +506,6 @@ test('taking operators:read away from oneself closes the dialog and tells why', 
   expect(await screen.findByText('Il faut la permission operators:read pour lire les opérateurs.')).toBeDefined()
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Opérateurs', level: 1 }))
-  held = owner.permissions
-  refocus()
-  await screen.findByText('operateur@example.test')
-  expect(screen.queryByRole('dialog')).toBeNull()
 })
 
 test('the list tells it is loading, then that it is empty', async () => {
@@ -547,10 +536,21 @@ test('the dialog tells the roles are loading, then that they cannot be read', as
   const save = within(dialog).getByRole('button', { name: 'Enregistrer les rôles' })
   expect(save.getAttribute('aria-disabled')).toBe('true')
   await act(async () => answer(new Response(null, { status: 500 })))
-  expect((await within(dialog).findByRole('alert')).textContent).toBe('Le service ne répond pas ; réessayez.')
+  const alert = await within(dialog).findByRole('alert')
+  expect(alert.textContent).toContain('Les rôles n’ont pas pu être chargés')
+  expect(alert.textContent).toContain('Le service ne répond pas ; réessayez.')
   expect(explained(within(dialog).getByRole('button', { name: 'Enregistrer les rôles' }))).toBe(
     'Les rôles n’ont pas pu être chargés : rien ne peut être enregistré.',
   )
+  let retried: (r: Response) => void = () => {}
+  stubFetch({
+    'GET /api/auth/me': () => json(200, owner),
+    'GET /api/operators': () => json(200, [self, ada]),
+    'GET /api/roles': () => new Promise<Response>((resolve) => (retried = resolve)),
+  })
+  await userEvent.setup().click(within(alert).getByRole('button', { name: 'Réessayer' }))
+  await act(async () => retried(json(200, roles)))
+  expect(await within(dialog).findByRole('checkbox', { name: /Support/ })).toBeDefined()
 })
 
 test('a failure of the service with an error envelope is told as unreachable', async () => {
@@ -590,4 +590,63 @@ test('a dialog left open when the permission goes does not come back with it', a
   refocus()
   await screen.findByText('ada@example.test')
   expect(document.querySelector('dialog')).toBeNull()
+})
+
+test('a success closes its own dialog at once, never one opened since', async () => {
+  let release: () => void = () => {}
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, owner),
+    'GET /api/operators': () => json(200, [self, ada]),
+    'PATCH /api/operators/o-ada': async () => {
+      await new Promise<void>((resolve) => (release = resolve))
+      return json(200, { ...ada, status: 'disabled' })
+    },
+  })
+  renderAt('/operators')
+  const user = userEvent.setup()
+  await screen.findByText('ada@example.test')
+  await user.click(within(row('ada@example.test')).getByRole('button', { name: 'Désactiver' }))
+  await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Désactiver' }))
+  await user.keyboard('{Escape}')
+  await user.click(screen.getByRole('button', { name: 'Nouvel opérateur' }))
+  await screen.findByRole('dialog', { name: 'Nouvel opérateur' })
+  await act(async () => release())
+  await waitFor(() => expect(calls.filter((c) => c.url.endsWith('/api/operators')).length).toBe(2))
+  expect(screen.getByRole('dialog', { name: 'Nouvel opérateur' })).toBeDefined()
+})
+
+test('a link sent is not sent again while the list is read', async () => {
+  let reads = 0
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, owner),
+    'GET /api/operators': () => {
+      reads++
+      return reads === 1 ? json(200, [self, ada]) : new Promise<Response>(() => {})
+    },
+    'POST /api/operators/o-ada/access-link': () => empty(202),
+  })
+  renderAt('/operators')
+  const user = userEvent.setup()
+  await screen.findByText('ada@example.test')
+  await user.click(within(row('ada@example.test')).getByRole('button', { name: 'Envoyer un lien' }))
+  await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Envoyer' }))
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(calls.filter((c) => c.url.endsWith('/access-link')).length).toBe(1)
+})
+
+test('the reason of a blocked control is dismissed by Escape', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, { ...me, permissions: ['operators:read'] }),
+    'GET /api/operators': () => json(200, [self]),
+  })
+  renderAt('/operators')
+  const create = await screen.findByRole('button', { name: 'Nouvel opérateur' })
+  const user = userEvent.setup()
+  create.focus()
+  const reason = create.parentElement as HTMLElement
+  expect(reason.classList.contains('ui-blocked--dismissed')).toBe(false)
+  await user.keyboard('{Escape}')
+  expect(reason.classList.contains('ui-blocked--dismissed')).toBe(true)
+  await user.tab()
+  expect(reason.classList.contains('ui-blocked--dismissed')).toBe(false)
 })

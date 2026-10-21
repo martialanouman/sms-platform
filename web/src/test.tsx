@@ -6,10 +6,20 @@ import { afterEach, vi } from 'vitest'
 import { routeTree } from './routeTree.gen'
 import { rememberChallenge } from './session'
 
+const modals = new Set<HTMLDialogElement>()
+const focus = HTMLElement.prototype.focus
+HTMLElement.prototype.focus = function (this: HTMLElement, options?: FocusOptions) {
+  const inert = [...modals].some((d) => d.isConnected && d.hasAttribute('open') && !d.contains(this))
+  if (!inert) {
+    focus.call(this, options)
+  }
+}
+
 HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
   if (this.hasAttribute('open')) {
     throw new DOMException('The dialog is already open.', 'InvalidStateError')
   }
+  modals.add(this)
   this.setAttribute('open', '')
   this.addEventListener('keydown', dismissOnEscape)
 }
@@ -29,6 +39,7 @@ HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
 
 afterEach(() => {
   cleanup()
+  modals.clear()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
   Reflect.deleteProperty(navigator, 'credentials')

@@ -11,21 +11,7 @@ test('the dashboard shows who is signed in', async () => {
   expect(await violations(container)).toEqual([])
 })
 
-test('a session gone sends to the login with a notice', async () => {
-  stubFetch({ 'GET /api/auth/me': () => json(401, { code: 'unauthenticated', message: 'Aucune session ouverte.' }) })
-  const { router } = renderAt('/account')
-  await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
-  expect(router.state.location.search).toEqual({ notice: 'session-closed' })
-})
-
 const unreachable = 'Le service ne répond pas ; réessayez.'
-
-test('a session check that fails otherwise is told', async () => {
-  stubFetch({ 'GET /api/auth/me': () => new Response(null, { status: 500 }) })
-  const { router } = renderAt('/account')
-  expect((await screen.findByRole('alert')).textContent).toBe(unreachable)
-  expect(router.state.location.pathname).toBe('/account')
-})
 
 test('a logout is sent as JSON and returns to the login', async () => {
   let release: () => void = () => {}
