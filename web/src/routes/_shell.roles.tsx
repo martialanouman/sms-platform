@@ -163,9 +163,10 @@ function Roles() {
 
 function View({ role, onClose }: { role: Role; onClose: () => void }) {
   return (
-    <Modal title={`Rôle ${role.name}`} onClose={onClose} footer={<Button onClick={onClose}>Fermer</Button>}>
+    <Modal title={`Rôle ${role.name}`} wide onClose={onClose} footer={<Button onClick={onClose}>Fermer</Button>}>
       <p>{role.description}</p>
-      <ul className="role-keys">
+      {/* biome-ignore lint/a11y/noNoninteractiveTabindex: la liste défile ; le clavier doit l’atteindre (WCAG 2.1.1) */}
+      <ul className="role-keys" aria-label={`Permissions du rôle ${role.name}`} tabIndex={0}>
         {role.permissions.map((key) => {
           const label = Object.values(permissionLabel(key)).filter(Boolean).join(' — ')
           return (

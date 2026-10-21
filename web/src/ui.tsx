@@ -198,6 +198,7 @@ export function Button({
   variant?: 'primary' | 'secondary' | 'danger'
   size?: 'sm'
   loading?: boolean
+  // debt: #160
   blockedReason?: string
 } & Omit<ComponentProps<'button'>, 'className'>) {
   const reason = useId()

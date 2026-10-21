@@ -73,6 +73,7 @@ test('the permissions of a role are told in French, each beside its key', async 
   const opener = within(row('Support')).getByRole('button', { name: 'Voir les permissions' })
   await user.click(opener)
   const dialog = await screen.findByRole('dialog', { name: 'Rôle Support' })
+  expect(within(dialog).getByRole('list', { name: 'Permissions du rôle Support' }).tabIndex).toBe(0)
   expect(
     within(dialog)
       .getAllByRole('listitem')
