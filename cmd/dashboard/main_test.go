@@ -342,6 +342,34 @@ func TestTheDashboardServesAnOperatorFromActivationToLogout(t *testing.T) {
 	if resp, err := internal("admin-api-svc"); err != nil || resp.StatusCode != 503 {
 		t.Fatalf("the JWKS to admin-api-svc, OpenBao unreachable: %v, %v", resp, err)
 	}
+	slow := func() {
+		files := d.ca.Issue(t, t.TempDir(), "admin-api-svc")
+		cert, err := tls.LoadX509KeyPair(files.Cert, files.Key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		roots := x509.NewCertPool()
+		roots.AppendCertsFromPEM(d.ca.PEM)
+		conn, err := tls.Dial("tcp", d.infra.InternalAddr, &tls.Config{MinVersion: tls.VersionTLS13, ServerName: "localhost", RootCAs: roots,
+			Certificates: []tls.Certificate{cert}, NextProtos: []string{"h2", "http/1.1"}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = conn.Close() }()
+		if p := conn.ConnectionState().NegotiatedProtocol; p != "http/1.1" {
+			t.Fatalf("the internal listener negotiated %q, want http/1.1 alone", p)
+		}
+		if _, err := conn.Write([]byte("GET /.well-known/jwks.json HTTP/1.1\r\n")); err != nil {
+			t.Fatal(err)
+		}
+		_ = conn.SetReadDeadline(time.Now().Add(15 * time.Second))
+		started := time.Now()
+		_, _ = io.ReadAll(conn)
+		if time.Since(started) > 10*time.Second {
+			t.Fatal("the internal listener held a half-sent request past its header timeout")
+		}
+	}
+	slow()
 	for _, names := range [][]string{{"router-svc"}, nil} {
 		if resp, err := internal(names...); err == nil {
 			_ = resp.Body.Close()
@@ -418,4 +446,40 @@ func TestAnUnrecordedDeliveryWaitsItsTickAndASlowBodyIsCut(t *testing.T) {
 		t.Fatalf("a body sent slowly: %v after %v, want a 422 once the read timeout has cut the body", err, held)
 	}
 	_ = resp.Body.Close()
+}
+
+func TestServeReturnsOnlyOnceTheRequestsInFlightAreAnswered(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	arrived, answered := make(chan struct{}), make(chan struct{})
+	srv := &http.Server{ReadHeaderTimeout: time.Second, Handler: http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		close(arrived)
+		time.Sleep(time.Second)
+		close(answered)
+	})}
+	ctx, cancel := context.WithCancel(context.Background())
+	returned := make(chan error, 1)
+	go func() { returned <- serve(srv, ln, 5*time.Second)(ctx) }()
+	go func() {
+		if resp, err := http.Get("http://" + ln.Addr().String()); err == nil {
+			_ = resp.Body.Close()
+		}
+	}()
+	<-arrived
+	cancel()
+	select {
+	case err := <-returned:
+		if err != nil {
+			t.Fatalf("serve = %v", err)
+		}
+		select {
+		case <-answered:
+		default:
+			t.Fatal("serve returned while a request was in flight")
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("serve never returned")
+	}
 }

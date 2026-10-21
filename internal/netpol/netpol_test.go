@@ -200,6 +200,8 @@ func TestAServerReachesOpenBaoAndAdmitsOnlyItsCallers(t *testing.T) {
 		"listener.yaml": {Data: []byte(job("listener", [2]string{"GRPC_ADDR", ":7003"}, [2]string{"TLS_ALLOWED_CLIENTS", "dashboard"}))},
 		"jwks.yaml": {Data: []byte(job("jwks", [2]string{"HTTP_ADDR", ":8080"}, [2]string{"INTERNAL_ADDR", ":8443"},
 			[2]string{"TLS_ALLOWED_CLIENTS", "admin-api-svc"}))},
+		"both.yaml": {Data: []byte(job("both", [2]string{"GRPC_ADDR", ":7004"}, [2]string{"INTERNAL_ADDR", ":8444"},
+			[2]string{"TLS_ALLOWED_CLIENTS", "admin-api-svc"}))},
 	})
 	if l := got["listener"]; len(l.Spec.Egress) != 0 || len(l.Spec.Ingress) != 1 || l.Spec.Ingress[0].Ports[0].Port != 7003 {
 		t.Errorf("listener without egress: %+v", l.Spec)
@@ -207,6 +209,9 @@ func TestAServerReachesOpenBaoAndAdmitsOnlyItsCallers(t *testing.T) {
 	if j := got["jwks"].Spec.Ingress; len(j) != 1 || len(j[0].Ports) != 1 || j[0].Ports[0].Port != 8443 || len(j[0].From) != 1 ||
 		j[0].From[0].PodSelector.MatchLabels["app.kubernetes.io/name"] != "admin-api-svc" {
 		t.Errorf("internal listener: %+v", j)
+	}
+	if b := got["both"].Spec.Ingress; len(b) != 1 || len(b[0].Ports) != 2 || b[0].Ports[0].Port != 7004 || b[0].Ports[1].Port != 8444 {
+		t.Errorf("both listeners: %+v", b)
 	}
 	p := got["content-key-svc"]
 	if !reflect.DeepEqual(p.Spec.PolicyTypes, []string{"Ingress", "Egress"}) {

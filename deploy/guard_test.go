@@ -443,8 +443,8 @@ func checkService(name string, w workload) []error {
 		if c.ReadinessProbe.HTTPGet.Path != "/readyz" {
 			errs = append(errs, fmt.Errorf("%s: container %s: readinessProbe on %q, want /readyz", name, c.Name, c.ReadinessProbe.HTTPGet.Path))
 		}
+		callers := map[string][]string{"content-key-svc": slices.Sorted(maps.Keys(contentkeygrpc.Callers)), "dashboard": dashboardhttp.JWKSCallers}
 		for _, e := range c.Env {
-			callers := map[string][]string{"content-key-svc": slices.Sorted(maps.Keys(contentkeygrpc.Callers)), "dashboard": dashboardhttp.JWKSCallers}
 			want, guarded := callers[name]
 			if e.Name != "TLS_ALLOWED_CLIENTS" || !guarded {
 				continue

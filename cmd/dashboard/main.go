@@ -244,7 +244,9 @@ func every(period time.Duration, do func(context.Context)) func(context.Context)
 
 func serve(s *http.Server, ln net.Listener, shutdown time.Duration) func(context.Context) error {
 	return func(ctx context.Context) error {
+		shut := make(chan struct{})
 		go func() {
+			defer close(shut)
 			<-ctx.Done()
 			stop, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdown)
 			defer cancel()
@@ -253,6 +255,7 @@ func serve(s *http.Server, ln net.Listener, shutdown time.Duration) func(context
 		if err := s.Serve(ln); !errors.Is(err, http.ErrServerClosed) {
 			return err
 		}
+		<-shut
 		return nil
 	}
 }

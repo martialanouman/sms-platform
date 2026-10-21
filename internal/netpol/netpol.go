@@ -108,8 +108,8 @@ func tcpPort(s string) int {
 
 // Render reads every manifest of fsys but File and renders the namespace's default deny, the DNS egress of every pod,
 // the egress of each workload to the stores its variables name (Postgres for POSTGRES_URL, each Strimzi cluster of
-// KAFKA_BROKERS, the OpenBao of OPENBAO_ADDR, the relay of SMTP_ADDR), and the ingress of each caller of TLS_ALLOWED_CLIENTS on the port of
-// GRPC_ADDR, and the ingress of Prometheus on the port each workload names ops.
+// KAFKA_BROKERS, the OpenBao of OPENBAO_ADDR, the relay of SMTP_ADDR), and the ingress of each caller of TLS_ALLOWED_CLIENTS on the ports of
+// GRPC_ADDR and INTERNAL_ADDR, and the ingress of Prometheus on the port each workload names ops.
 func Render(fsys fs.FS) ([]byte, error) {
 	dns := newPolicy("dns", nil, "Egress")
 	dns.Spec.Egress = []egress{to("kube-system", map[string]string{"k8s-app": "kube-dns"}, port{"UDP", 53}, port{"TCP", 53})}
