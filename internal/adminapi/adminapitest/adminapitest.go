@@ -73,3 +73,31 @@ func (k Keys) Token(t *testing.T, kid, scope string) string {
 	}
 	return unsigned + "." + base64.RawURLEncoding.EncodeToString(append(r.FillBytes(make([]byte, 32)), s.FillBytes(make([]byte, 32))...))
 }
+
+// JWKS is the key set of k as the dashboard serves it.
+func (k Keys) JWKS(t *testing.T) []byte {
+	t.Helper()
+	type jwk struct {
+		Kty string `json:"kty"`
+		Crv string `json:"crv"`
+		Kid string `json:"kid"`
+		X   string `json:"x"`
+		Y   string `json:"y"`
+	}
+	var set struct {
+		Keys []jwk `json:"keys"`
+	}
+	for kid, key := range k {
+		point, err := key.PublicKey.Bytes()
+		if err != nil {
+			t.Fatal(err)
+		}
+		set.Keys = append(set.Keys, jwk{Kty: "EC", Crv: "P-256", Kid: kid,
+			X: base64.RawURLEncoding.EncodeToString(point[1:33]), Y: base64.RawURLEncoding.EncodeToString(point[33:])})
+	}
+	raw, err := json.Marshal(set)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
+}

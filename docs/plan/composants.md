@@ -168,7 +168,7 @@ interne ; une session non élevée d'un rôle qui écrit n'atteint que `/auth/*`
 - **Écran Audit** : deux onglets, plan de contrôle et accès au dashboard, première tranche bout en bout.
 
 Coupée en quatre (Fable, 2026-10-21) : cœur et adaptateurs de la passerelle ; service et déploiement ; proxy ; écran
-Audit (`docs/steps/013a-coeur-de-la-passerelle.md`).
+Audit (`docs/steps/013a-coeur-de-la-passerelle.md`). `client auth` de `dashboard-tls` avancé en 013b (humain, 2026-10-21). Le choix des scopes du jeton personnel et la hauteur de « Copier le secret » vont en 013d (humain, 2026-10-21, #165).
 
 **Terminé quand** : chaque opération appelée avec tous les scopes sauf le sien rend 403 ; un chemin hors
 contrat est refusé par le proxy ; l'écran Audit lit les deux journaux sous `audit:read`.

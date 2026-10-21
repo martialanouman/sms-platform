@@ -20,6 +20,7 @@ import (
 	"go.yaml.in/yaml/v3"
 
 	"github.com/martialanouman/sms-platform/contracts"
+	adminapihuma "github.com/martialanouman/sms-platform/internal/adminapi/huma"
 	"github.com/martialanouman/sms-platform/internal/catalog"
 	contentkeygrpc "github.com/martialanouman/sms-platform/internal/contentkey/grpc"
 	dashboardhttp "github.com/martialanouman/sms-platform/internal/dashboard/http"
@@ -165,6 +166,7 @@ func check(root string) error {
 	}
 	var manifests []string
 	kinds := map[string]string{}
+	issuers := map[string]string{}
 	for _, f := range files {
 		name, ok := strings.CutSuffix(f.Name(), ".yaml")
 		if !ok {
@@ -176,6 +178,12 @@ func check(root string) error {
 			continue
 		}
 		manifests = append(manifests, name)
+		iss, err := issuerOf(filepath.Join(root, "deploy", "k8s", f.Name()), name)
+		if err != nil {
+			errs = append(errs, err)
+		} else if iss != "" {
+			issuers[name] = iss
+		}
 		kind, merrs := checkManifest(filepath.Join(root, "deploy", "k8s", f.Name()), name)
 		kinds[name] = kind
 		errs = append(errs, merrs...)
@@ -215,6 +223,9 @@ func check(root string) error {
 		if k := kinds[s]; k != "" && k != "Deployment" {
 			errs = append(errs, fmt.Errorf("deploy.sh: %s: a %s in the loop of the services", s, k))
 		}
+	}
+	if len(slices.Compact(slices.Sorted(maps.Values(issuers)))) > 1 {
+		errs = append(errs, fmt.Errorf("DASHBOARD_PUBLIC_URL differs between the manifests %v: the gateway refuses every token of another iss", issuers))
 	}
 	errs = append(errs, roleSecrets(root)...)
 	errs = append(errs, same("build", cmds, builds)...)
@@ -298,6 +309,40 @@ func checkPolicies(path string) []error {
 			errs = append(errs, fmt.Errorf("%s: kind %q, want NetworkPolicy", netpol.File, doc.Kind))
 		}
 	}
+}
+
+// issuerOf is the literal DASHBOARD_PUBLIC_URL of the manifest at path, which the dashboard and every reader of JWKS_URL
+// must carry: the gateway refuses every token whose iss is another.
+func issuerOf(path, name string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	var issuer string
+	var verifies bool
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	for {
+		var w workload
+		if err := dec.Decode(&w); errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			return "", fmt.Errorf("%s: %w", path, err)
+		}
+		for _, c := range w.Spec.Template.Spec.Containers {
+			for _, e := range c.Env {
+				switch e.Name {
+				case "DASHBOARD_PUBLIC_URL":
+					issuer = e.Value
+				case "JWKS_URL":
+					verifies = true
+				}
+			}
+		}
+	}
+	if (verifies || name == "dashboard") && issuer == "" {
+		return "", fmt.Errorf("%s: DASHBOARD_PUBLIC_URL is not a literal value", name)
+	}
+	return issuer, nil
 }
 
 func checkManifest(path, name string) (string, []error) {
@@ -443,7 +488,8 @@ func checkService(name string, w workload) []error {
 		if c.ReadinessProbe.HTTPGet.Path != "/readyz" {
 			errs = append(errs, fmt.Errorf("%s: container %s: readinessProbe on %q, want /readyz", name, c.Name, c.ReadinessProbe.HTTPGet.Path))
 		}
-		callers := map[string][]string{"content-key-svc": slices.Sorted(maps.Keys(contentkeygrpc.Callers)), "dashboard": dashboardhttp.JWKSCallers}
+		callers := map[string][]string{"content-key-svc": slices.Sorted(maps.Keys(contentkeygrpc.Callers)), "dashboard": dashboardhttp.JWKSCallers,
+			"admin-api-svc": adminapihuma.Callers}
 		for _, e := range c.Env {
 			want, guarded := callers[name]
 			if e.Name != "TLS_ALLOWED_CLIENTS" || !guarded {
@@ -524,9 +570,9 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 		{"manifest twice in deploy.sh", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for job in migrate catalog-apply migrate; do", "cmd/migrate: 2 deploy.sh job"},
 		{"HPA beyond its partitions", "deploy/k8s/migrate.yaml", "apiVersion: batch/v1\n", "apiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\nspec: {scaleTargetRef: {name: router-svc}, maxReplicas: 1000}\n---\napiVersion: batch/v1\n", "maxReplicas 1000 above the"},
 		{"envFrom", "deploy/k8s/migrate.yaml", "          env:\n", "          envFrom:\n            - configMapRef: {name: x}\n          env:\n", "envFrom"},
-		{"service missing from deploy.sh", "deploy/test-env/deploy.sh", "for service in content-key-svc dashboard; do", "for service in other; do", "cmd/content-key-svc: 0 deploy.sh"},
+		{"service missing from deploy.sh", "deploy/test-env/deploy.sh", "for service in content-key-svc dashboard admin-api-svc; do", "for service in other; do", "cmd/content-key-svc: 0 deploy.sh"},
 		{"Deployment among the Jobs", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for job in migrate catalog-apply content-key-svc; do", "content-key-svc: a Deployment in the loop of the Jobs"},
-		{"Job among the services", "deploy/test-env/deploy.sh", "for service in content-key-svc dashboard; do", "for service in content-key-svc dashboard migrate; do", "migrate: a Job in the loop of the services"},
+		{"Job among the services", "deploy/test-env/deploy.sh", "for service in content-key-svc dashboard admin-api-svc; do", "for service in content-key-svc dashboard admin-api-svc migrate; do", "migrate: a Job in the loop of the services"},
 		{"services before the Jobs", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for service in content-key-svc dashboard; do\ndone\nfor job in migrate catalog-apply; do", "the services before the Jobs"},
 		{"services without Jobs", "deploy/test-env/deploy.sh", "for job in migrate catalog-apply; do", "for jobs in migrate catalog-apply; do", "the services before the Jobs"},
 		{"rules not created", "deploy/test-env/deploy.sh", "kubectl -n monitoring create configmap alert-rules", "true", "alert-rules"},
@@ -557,6 +603,12 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 		{"JWKS allowlist beyond its callers", "deploy/k8s/dashboard.yaml", "value: admin-api-svc", "value: admin-api-svc, router-svc", "TLS_ALLOWED_CLIENTS"},
 		{"ServiceAccount of another name", "deploy/k8s/content-key-svc.yaml", "kind: ServiceAccount\nmetadata:\n  name: content-key-svc", "kind: ServiceAccount\nmetadata:\n  name: other", "ServiceAccount \"other\""},
 		{"allowlist beyond the method map", "deploy/k8s/content-key-svc.yaml", "value: admin-api-svc", "value: admin-api-svc, router-svc", "TLS_ALLOWED_CLIENTS"},
+		{"Admin API allowlist beyond its callers", "deploy/k8s/admin-api-svc.yaml", "value: dashboard\n", "value: dashboard, router-svc\n", "TLS_ALLOWED_CLIENTS"},
+		{"issuer apart from the dashboard", "deploy/k8s/admin-api-svc.yaml", "value: http://localhost:8080", "value: http://localhost:8081", "DASHBOARD_PUBLIC_URL"},
+		{"dashboard without its issuer", "deploy/k8s/dashboard.yaml", "            - name: DASHBOARD_PUBLIC_URL\n              value: http://localhost:8080\n", "", "DASHBOARD_PUBLIC_URL"},
+		{"issuer from elsewhere", "deploy/k8s/admin-api-svc.yaml", "value: http://localhost:8080", "valueFrom: {configMapKeyRef: {name: x, key: y}}", "DASHBOARD_PUBLIC_URL"},
+		{"issuer missing beside the JWKS", "deploy/k8s/admin-api-svc.yaml", "            - name: DASHBOARD_PUBLIC_URL\n              value: http://localhost:8080\n", "", "DASHBOARD_PUBLIC_URL"},
+		{"issuer apart in flow form", "deploy/k8s/admin-api-svc.yaml", "            - name: DASHBOARD_PUBLIC_URL\n              value: http://localhost:8080\n", "            - {name: DASHBOARD_PUBLIC_URL, value: http://localhost:8081}\n", "DASHBOARD_PUBLIC_URL"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()
@@ -572,7 +624,7 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 				t.Fatal(err)
 			}
 			files := []string{".goreleaser.yaml", "deploy/k8s/migrate.yaml", "cmd/migrate/main.go",
-				"deploy/k8s/catalog-apply.yaml", "cmd/catalog-apply/main.go", "deploy/k8s/content-key-svc.yaml", "cmd/content-key-svc/main.go", "deploy/k8s/dashboard.yaml", "cmd/dashboard/main.go", "contracts/grants/admin-api-svc.yaml", "deploy/k8s/networkpolicies.yaml", "deploy/test-env/deploy.sh"}
+				"deploy/k8s/catalog-apply.yaml", "cmd/catalog-apply/main.go", "deploy/k8s/content-key-svc.yaml", "cmd/content-key-svc/main.go", "deploy/k8s/dashboard.yaml", "cmd/dashboard/main.go", "deploy/k8s/admin-api-svc.yaml", "cmd/admin-api-svc/main.go", "contracts/grants/admin-api-svc.yaml", "deploy/k8s/networkpolicies.yaml", "deploy/test-env/deploy.sh"}
 			for _, f := range files {
 				data, err := os.ReadFile(filepath.Join("..", f))
 				if err != nil {

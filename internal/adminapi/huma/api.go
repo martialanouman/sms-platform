@@ -12,6 +12,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/martialanouman/sms-platform/internal/adminapi"
 	errs "github.com/martialanouman/sms-platform/internal/platform/errors"
@@ -21,8 +22,9 @@ const scheme = "OperatorBearer"
 
 // Config is what the Admin API serves with.
 type Config struct {
-	Store    adminapi.Store
-	Verifier adminapi.Verifier
+	Store       adminapi.Store
+	Verifier    adminapi.Verifier
+	Uncommitted prometheus.Counter
 }
 
 // New is the handler of the Admin API, and its huma API, whose OpenAPI document the contract guard reads.
@@ -35,7 +37,7 @@ func New(c Config) (http.Handler, huma.API) {
 	api := humago.New(mux, cfg)
 	api.UseMiddleware(authorize(api, c))
 	registerAudit(api)
-	return audit{mux: mux}, api
+	return audit{mux: mux, uncommitted: c.Uncommitted}, api
 }
 
 type state struct {
@@ -48,7 +50,8 @@ type stateKey struct{}
 
 // ponytail: every response is buffered until its audit line commits; a stream (026) needs to pass through.
 type audit struct {
-	mux http.Handler
+	mux         http.Handler
+	uncommitted prometheus.Counter
 }
 
 func (a audit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -58,6 +61,7 @@ func (a audit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a.mux.ServeHTTP(buf, r.WithContext(context.WithValue(r.Context(), stateKey{}, st)))
 	w.Header().Set("X-Request-Id", st.requestID)
 	if st.failed {
+		a.uncommitted.Inc()
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusServiceUnavailable)
 		_, _ = w.Write([]byte(`{"code":"service_unavailable","message":"service unavailable"}`))
@@ -138,3 +142,6 @@ func authorize(api huma.API, c Config) func(huma.Context, func(huma.Context)) {
 		}
 	}
 }
+
+// Callers are the only clients the Admin API admits (I14, design 06 §4).
+var Callers = []string{"dashboard"}

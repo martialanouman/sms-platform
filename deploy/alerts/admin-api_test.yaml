@@ -1,0 +1,41 @@
+rule_files:
+  - admin-api.yaml
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: admin_api_uncommitted_calls_total{pod="admin-api-svc-a"}
+        values: 0x10 1x20
+      - series: admin_api_jwks_reload_failures_total{pod="admin-api-svc-a"}
+        values: 0x10 2x30
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: AdminCallsUncommitted
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: AdminCallsUncommitted
+        exp_alerts:
+          - exp_annotations:
+              summary: Un appel de l'Admin API n'a pas été commis
+              description: Une mutation ou sa ligne d'audit a échoué (503) ; la base control_plane ou les droits d'admin_api_svc sont à vérifier.
+      - eval_time: 20m
+        alertname: AdminCallsUncommitted
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: JWKSReloadFailing
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: JWKSReloadFailing
+        exp_alerts:
+          - exp_annotations:
+              summary: La passerelle ne relit pas le JWKS du dashboard
+              description: Un kid inconnu n'a pas pu être résolu ; les jetons d'une clé neuve sont refusés (401). Vérifier l'écouteur interne du dashboard et le mTLS.
+      - eval_time: 19m
+        alertname: JWKSReloadFailing
+        exp_alerts:
+          - exp_annotations:
+              summary: La passerelle ne relit pas le JWKS du dashboard
+              description: Un kid inconnu n'a pas pu être résolu ; les jetons d'une clé neuve sont refusés (401). Vérifier l'écouteur interne du dashboard et le mTLS.
+      - eval_time: 25m
+        alertname: JWKSReloadFailing
+        exp_alerts: []
