@@ -5,5 +5,6 @@ generate:
   models: true
   embedded-spec: false
 output-options:
+  # debt: #149
   include-operation-ids: [health, login, setPasswordFromAccessLink, me, reportActivity, logout, enrollTotp, confirmTotp, verifyMfa, beginWebauthnRegistration, finishWebauthnRegistration, beginWebauthnAssertion, listWebauthnPasskeys, deleteWebauthnPasskey, listAccessLog]
 output: internal/dashboard/http/bff.gen.go
