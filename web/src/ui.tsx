@@ -132,13 +132,21 @@ export function PageHeader({ title, titleRef }: { title: string; titleRef?: Ref<
   )
 }
 
-export function EmptyState({ title, children }: { title: string; children?: ReactNode }) {
+export function EmptyState({
+  title,
+  as: Title = 'p',
+  children,
+}: {
+  title: string
+  as?: 'h1' | 'p'
+  children?: ReactNode
+}) {
   return (
     <div className="ui-empty">
       <span className="ui-empty__icon">
         <Icon name="diamond" />
       </span>
-      <h1 className="ui-empty__title">{title}</h1>
+      <Title className="ui-empty__title">{title}</Title>
       {children && <div className="ui-empty__text">{children}</div>}
     </div>
   )
@@ -184,5 +192,123 @@ export function Button({
         {blockedReason}
       </span>
     </span>
+  )
+}
+
+export function ErrorState({ title, children, onRetry }: { title: string; children: ReactNode; onRetry: () => void }) {
+  return (
+    <div className="ui-error" role="alert">
+      <span className="ui-error__icon">
+        <Icon name="bang" />
+      </span>
+      <p className="ui-error__title">{title}</p>
+      <div className="ui-error__text">{children}</div>
+      <Button size="sm" onClick={onRetry}>
+        Réessayer
+      </Button>
+    </div>
+  )
+}
+
+export function LoadingState({ label, rows }: { label: string; rows: number }) {
+  return (
+    <div className="ui-loading" aria-busy="true" aria-live="polite">
+      <span className="ui-loading__label">{label}</span>
+      {Array.from({ length: rows }, (_, i) => (
+        <span className="ui-skeleton" key={i} />
+      ))}
+    </div>
+  )
+}
+
+export function Toolbar({ children }: { children: ReactNode }) {
+  return (
+    <div className="ui-toolbar">
+      <div className="ui-toolbar__end">{children}</div>
+    </div>
+  )
+}
+
+export function DataTable<Row>({
+  caption,
+  columns,
+  rows,
+  rowKey,
+}: {
+  caption: string
+  columns: { key: string; header: string; cell: (row: Row) => ReactNode }[]
+  rows: Row[]
+  rowKey: (row: Row) => string
+}) {
+  return (
+    <table className="ui-table">
+      <caption className="ui-table__caption">{caption}</caption>
+      <thead>
+        <tr>
+          {columns.map((c) => (
+            <th className="ui-table__header" key={c.key} scope="col">
+              {c.header}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row) => (
+          <tr className="ui-table__row" key={rowKey(row)}>
+            {columns.map((c, i) =>
+              i === 0 ? (
+                <th className="ui-table__cell" key={c.key} scope="row">
+                  {c.cell(row)}
+                </th>
+              ) : (
+                <td className="ui-table__cell" key={c.key}>
+                  {c.cell(row)}
+                </td>
+              ),
+            )}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+export function Modal({
+  title,
+  onClose,
+  footer,
+  children,
+}: {
+  title: string
+  onClose: () => void
+  footer: ReactNode
+  children: ReactNode
+}) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  const heading = useId()
+  const closed = useRef(onClose)
+  closed.current = onClose
+
+  useEffect(() => {
+    const element = dialog.current
+    const close = () => closed.current()
+    element?.showModal()
+    element?.addEventListener('close', close)
+    return () => element?.removeEventListener('close', close)
+  }, [])
+
+  return (
+    <dialog ref={dialog} className="ui-modal" aria-labelledby={heading}>
+      <header className="ui-modal__head">
+        <h2 className="ui-modal__title" id={heading}>
+          {title}
+        </h2>
+        <button className="ui-modal__close" type="button" aria-label="Fermer" onClick={onClose}>
+          <Icon name="times" />
+        </button>
+      </header>
+      <div className="ui-modal__body">{children}</div>
+      <div className="ui-modal__foot">{footer}</div>
+    </dialog>
   )
 }

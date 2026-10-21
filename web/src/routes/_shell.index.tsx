@@ -21,7 +21,7 @@ function Home() {
 
   return (
     <div className="page">
-      <EmptyState title="Le cockpit d'exploitation se construit">
+      <EmptyState as="h1" title="Le cockpit d'exploitation se construit">
         <p>Les écrans arrivent step par step : chacun avec sa route, son état vide et la permission qui l'ouvre.</p>
       </EmptyState>
     </div>
