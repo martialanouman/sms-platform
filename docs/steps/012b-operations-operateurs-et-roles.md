@@ -73,3 +73,35 @@ Fable, 2026-10-21.
   journal, les gestes sans effet, les deux créations concurrentes, l'auteur seul sujet de `self_lockout`. Mutation
   manuelle, consignée.
 - **Preuve sur `contabo169`** : le parcours du « Terminé quand », par `curl`.
+
+## Écarts au design, constatés à l'implémentation
+
+- **`email_taken` et `role_name_taken` se lisent sur un `ON CONFLICT … DO NOTHING`**, sans ligne rendue, plutôt que sur
+  la violation d'unicité : même garantie sous création concurrente, sans classer d'erreur Postgres.
+- **La validation de l'adresse de bootstrap (163) reste au démarrage**, dans `cmd/dashboard`, qui l'appliquait déjà :
+  il appelle désormais `dashboard.ValidEmail`. `Bootstrap` ne la refait pas.
+- **`self_lockout` se juge sur l'union de l'auteur avant et après le geste**, relue dans la transaction : une seule garde
+  pour `setOperatorRoles` et `updateRole`.
+
+## Mutations
+
+Cent quatre, à la main, sur le SQL généré, l'adaptateur, le cœur, les handlers et le démarrage ; toutes tombent. Six
+avaient survécu à l'implémentation (ordre des rôles d'un opérateur, `roles:write` seul, description seule,
+`secondFactorEnrolled`, la permission revérifiée de chaque famille d'opérations) ; la revue des tests en a trouvé cinq
+autres. Chacune est tenue par un test ajouté.
+
+## Correctifs de revue, tour 1
+
+Trois revues (correction et sécurité ; tests creux ; code en trop). Deux importants, arbitrés par Fable (161 à 164).
+
+1. **Concurrence** (important) : deux gestes concurrents contournaient `self_lockout` ; deux détenteurs se retiraient
+   mutuellement ; une suppression concurrente d'une pose rendait 500. Verrou consultatif unique et auteur revérifié
+   (161, 162), prouvés par des tests à deux transactions, la seconde tenue jusqu'au commit de la première.
+2. **Validation** : adresse sans `@` ou vide (163) ; nom de rôle fait d'espaces ou à espaces de tête (164).
+3. **Tests** : clé d'accès seule comme second facteur ; type `reset` lu par la liste ; ordre des opérateurs et des
+   rôles ; barrière des créations concurrentes ; `accessLink` nul côté HTTP.
+4. **Code en trop retiré** : les constantes d'état du lien, un message à usage unique, le récepteur inutile de
+   `custom`, une requête de test redoublée, les `FOR UPDATE` que le verrou rend inutiles.
+5. **Gardé** : `role_held` nomme les emails des détenteurs à qui n'a que `roles:write` (contrat) ; un futur rôle par
+   défaut homonyme d'un rôle taillé l'écraserait au semis (latent) ; les deux sous-requêtes des rôles d'un opérateur
+   et le port `RolesOf` (gain faible).
