@@ -56,3 +56,48 @@ Fable, 2026-10-21.
   erreur, création, rôles, lien, statut, refus du serveur, actions désactivées et expliquées), dialogue (focus, Échap),
   `mfa_required`. Mutation manuelle, consignée.
 - **Preuve sur `contabo169`**, dans Chromium par `port-forward` : le parcours du « Terminé quand », captures, axe.
+
+## Écarts au design, constatés à l'implémentation
+
+- **La garde de la coquille est dans son composant, pas en `beforeLoad`** : `me` illisible ou absent y est déjà traité
+  (`Unauthenticated` mène à `/login?notice=session-closed`), et l'`Outlet` n'est rendu qu'avec `me`. Une `beforeLoad`
+  lisait `me` une fois de plus à chaque navigation.
+- **Les écrans de la coquille lisent `me` sans le relire** (`useShellMe`, `refetchOnMount: false`) : la coquille l'a lu ;
+  un second observateur relisait `me` à chaque écran. `/mfa`, qui compte sur la relecture, garde `useMe`.
+- **Sans `operators:read`, l'écran le dit et n'interroge pas** : trouvé dans le navigateur, où un 403 réessayé trois fois
+  finissait en « Le service ne répond pas ».
+- **Le dialogue s'ouvre sur « Annuler »** : les rôles arrivent après `showModal`, qui donne le focus au premier contrôle
+  présent ; il reste dans le dialogue et le clavier y circule.
+- **Le dialogue ne s'ouvre qu'une fois** : son effet dépendait de `onClose`, recréé à chaque rendu ; une relecture de la
+  liste pendant qu'il était ouvert rappelait `showModal` (« already open » dans Chromium) et perdait le focus du bouton
+  d'origine. Trouvé dans le navigateur ; le double de `showModal` des tests refuse désormais un dialogue déjà ouvert.
+
+## Mutations
+
+Trente-six, à la main, sur la coquille, l'écran, le dialogue et le client API ; toutes tombent. Cinq avaient survécu,
+chacune tenue désormais : `aria-current` (posé par TanStack Router lui-même, le code en trop est retiré), l'`Outlet` sans
+`me`, l'invalidation de `me` après une action de ligne sur soi (aucune n'y touche à `me` : retirée), « Oui » du second
+facteur, le refus d'une action de ligne.
+
+## Preuve sur `contabo169`
+
+Jouée le 2026-10-21 depuis la branche, sur le cluster en v0.21.0 : image `dashboard` en snapshot, importée sous
+`proof-012d` puis `proof-012d-2` ; timer suspendu, puis réarmé, et dashboard rendu à la v0.21.0. Dans Chromium
+(`agent-browser`), par tunnel SSH vers `port-forward`, sur `localhost:8080` :
+
+1. Compte de test réinitialisé (lien `reset`) ; connexion, application enrôlée, codes notés : la coquille s'ouvre sur
+   « Mon compte » ([capture](012d/mon-compte.png)).
+2. Au clavier seul : « Opérateurs » par le rail ; création d'« Ada » (Tab, Entrée) ; « Rôles » (Entrée), « Support »
+   coché à l'espace, « Enregistrer » ([capture](012d/roles.png)) : le focus revient au bouton « Rôles » de la ligne ;
+   « Envoyer un lien » : « Lien demandé. » ; « Désactiver » ([capture](012d/operateurs-desactive.png)), « Réactiver »
+   ([capture](012d/operateurs.png)). Sa propre ligne : « Désactiver » désactivé, « Vous ne pouvez pas vous désactiver. ».
+3. Le premier passage a perdu le focus après un changement de rôles (écart ci-dessus) ; corrigé, rejoué sur
+   `proof-012d-2` : le focus revient.
+4. Ada activée par son lien (Mailpit), connectée, application enrôlée : le rail montre « Opérateurs » désactivé, « Il
+   faut la permission operators:read. » ([capture](012d/support.png)).
+5. axe dans la page (WCAG 2.1 AA, `color-contrast` comprise) : aucune violation sur « Mon compte », l'écran, le dialogue
+   ouvert et la vue `Support`. Dans le dialogue, axe laisse à revoir le contraste des descriptions sous le voile :
+   `--text-muted` sur `--surface-card`, 5,98:1.
+
+Non rejoué dans le navigateur : l'accès direct d'Ada à `/operators`, corrigé après le passage (écart ci-dessus) ; le test
+le tient. Ada est laissée désactivée.
