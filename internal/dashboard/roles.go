@@ -20,14 +20,11 @@ type Role struct {
 	Permissions []string
 }
 
-var sensitive = []string{"content:read", "content:erase", "gdpr:erase", "msisdn:reveal", "cdr:export_bulk",
-	"audit:read", "routing-scripts:publish", "suppressions:delete", "billing:topup"}
-
 // RequiresMFA is whether held carries more than ordinary reads (spec 08 §8.3): a write, a sensitive scope of spec 07
 // §7.4 or a BFF permission.
 func RequiresMFA(held []string) bool {
 	return slices.ContainsFunc(held, func(p string) bool {
-		return strings.HasSuffix(p, ":write") || slices.Contains(sensitive, p) || slices.Contains(scopes.Permissions, p)
+		return strings.HasSuffix(p, ":write") || slices.Contains(scopes.Sensitive, p) || slices.Contains(scopes.Permissions, p)
 	})
 }
 
