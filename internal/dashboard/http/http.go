@@ -32,11 +32,13 @@ const (
 
 // Config is what the handler serves with.
 type Config struct {
-	Service        dashboard.Service
-	Origin         string
-	TrustedProxies []netip.Prefix
-	Log            *slog.Logger
-	Assets         fs.FS
+	Service          dashboard.Service
+	Origin           string
+	TrustedProxies   []netip.Prefix
+	Log              *slog.Logger
+	Assets           fs.FS
+	Gateway          *url.URL
+	GatewayTransport http.RoundTripper
 }
 
 // New serves the contract under /api and the SPA everywhere else.
@@ -71,8 +73,13 @@ func New(c Config) (http.Handler, error) {
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		write(w, http.StatusNotFound, ErrorCodeNotFound, "Aucune ressource à cette adresse.", nil)
 	})
+	gw, err := s.proxy()
+	if err != nil {
+		return nil, err
+	}
 	root := http.NewServeMux()
 	root.Handle("/api/", noStore(c.guard(validate(HandlerWithOptions(strict, StdHTTPServerOptions{BaseURL: "/api", BaseRouter: mux})))))
+	root.Handle("/api/gw/", noStore(gw))
 	root.Handle("/", spa(c.Assets))
 	return secured(root), nil
 }
@@ -138,7 +145,7 @@ func permissions(spec *openapi3.T) (required map[string][]string, auth map[strin
 
 func (c Config) guard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions {
+		if unsafe(r) {
 			if r.Header.Get("Origin") != c.Origin {
 				write(w, http.StatusForbidden, ErrorCodeForbiddenOrigin, "La requête ne vient pas du tableau de bord.", nil)
 				return
@@ -151,6 +158,10 @@ func (c Config) guard(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func unsafe(r *http.Request) bool {
+	return r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions
 }
 
 func refuse(_ context.Context, err error, w http.ResponseWriter, _ *http.Request, opts middleware.ErrorHandlerOpts) {
@@ -241,12 +252,7 @@ func (s server) session(next StrictHandlerFunc, operation string) StrictHandlerF
 		unauthenticated = factorRefused
 	}
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error) {
-		cookie, _ := r.Cookie(cookieName)
-		var value string
-		if cookie != nil {
-			value = cookie.Value
-		}
-		current, err := s.Service.Resolve(ctx, value)
+		current, err := s.current(ctx, r)
 		switch {
 		case errors.Is(err, dashboard.ErrUnauthenticated):
 			write(w, http.StatusUnauthorized, ErrorCodeUnauthenticated, unauthenticated, nil)
@@ -267,6 +273,15 @@ func (s server) session(next StrictHandlerFunc, operation string) StrictHandlerF
 		}
 		return next(context.WithValue(ctx, currentKey{}, current), w, r, request)
 	}
+}
+
+func (s server) current(ctx context.Context, r *http.Request) (dashboard.Current, error) {
+	cookie, _ := r.Cookie(cookieName)
+	var value string
+	if cookie != nil {
+		value = cookie.Value
+	}
+	return s.Service.Resolve(ctx, value)
 }
 
 func (c Config) source(r *http.Request) netip.Addr {

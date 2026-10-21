@@ -59,6 +59,7 @@ type api struct {
 	logs    *bytes.Buffer
 	owner   *pgx.Conn
 	signer  *keySigner
+	gateway *gateway
 }
 
 func newAPI(t *testing.T, trusted ...netip.Prefix) *api {
@@ -97,11 +98,13 @@ func newAPI(t *testing.T, trusted ...netip.Prefix) *api {
 	svc := dashboard.Service{Store: postgres.New(pool), Hasher: dashboard.NewHasher(), Keys: keys, Totp: totp, Passkeys: passkeys, Mailer: mail,
 		PublicURL: origin, Signer: signer}
 	logs := &bytes.Buffer{}
-	h, err := dashboardhttp.New(dashboardhttp.Config{Service: svc, Origin: origin, TrustedProxies: trusted, Log: slog.New(slog.NewJSONHandler(logs, nil)), Assets: spa})
+	gw := newGateway(t)
+	h, err := dashboardhttp.New(dashboardhttp.Config{Service: svc, Origin: origin, TrustedProxies: trusted, Log: slog.New(slog.NewJSONHandler(logs, nil)), Assets: spa,
+		Gateway: gw.url, GatewayTransport: gw.srv.Client().Transport})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &api{svc: svc, mail: mail, handler: h, logs: logs, owner: migrator, signer: signer}
+	return &api{svc: svc, mail: mail, handler: h, logs: logs, owner: migrator, signer: signer, gateway: gw}
 }
 
 type call struct {
