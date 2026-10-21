@@ -137,6 +137,12 @@ func TestAPersonalTokenCarriesTheScopesItMayAndVerifiesUnderTheJWKS(t *testing.T
 		t.Fatal(err)
 	}
 	header, c := verify(t, jwks, issued.Token)
+	former := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"ES256","kid":"test-v1","typ":"JWT"}`)) + "." + strings.Split(issued.Token, ".")[1]
+	sig, err := svc.Signer.Sign(ctx, "test-v1", []byte(former))
+	if err != nil {
+		t.Fatal(err)
+	}
+	verify(t, jwks, former+"."+base64.RawURLEncoding.EncodeToString(sig))
 	if header["alg"] != "ES256" || header["kid"] != "test-v2" || header["typ"] != "JWT" {
 		t.Fatalf("header %v", header)
 	}

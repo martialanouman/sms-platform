@@ -95,3 +95,12 @@ Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloq
 5. **Gardé** : le double signataire copié dans deux paquets de test (un paquet partagé pour 25 lignes) ; la garde de
    méthode et de chemin du JWKS, plutôt qu'un `ServeMux` qui rendrait 405 ; `{"scopes":[]}` est refusé par le
    contrat (`minItems: 1`) avant le cœur.
+
+## Correctifs de revue, tour 2
+
+Une revue des correctifs du tour 1. Aucun bloquant.
+
+1. **L'ancienne version de la clé n'était pas tenue dans le JWKS** : un JWKS réduit à la clé courante survivait. Le
+   cœur vérifie désormais aussi un jeton signé sous `test-v1`.
+2. **Le jeton HTTP n'était plus contrôlé** : trois segments et une signature de 64 octets sont vérifiés ; le test est
+   renommé, le cœur portant la vérification de la signature.

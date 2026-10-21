@@ -47,7 +47,7 @@ func (k *keySigner) Sign(_ context.Context, _ string, input []byte) ([]byte, err
 	return append(r.FillBytes(make([]byte, 32)), s.FillBytes(make([]byte, 32))...), err
 }
 
-func TestAnElevatedOwnerTakesAPersonalTokenThatTheJWKSVerifies(t *testing.T) {
+func TestAnElevatedOwnerTakesAPersonalTokenAndTheJWKSServesTheKeys(t *testing.T) {
 	a := newAPI(t, netip.MustParsePrefix("127.0.0.0/8"))
 	a.activate(t)
 	c := a.elevated(t)
@@ -67,6 +67,9 @@ func TestAnElevatedOwnerTakesAPersonalTokenThatTheJWKSVerifies(t *testing.T) {
 		t.Fatalf("jwks %s, want %s: %v", jwks.Body, want, err)
 	}
 	parts := strings.Split(token, ".")
+	if sig, err := base64.RawURLEncoding.DecodeString(parts[len(parts)-1]); len(parts) != 3 || err != nil || len(sig) != 64 {
+		t.Fatalf("token %q", token)
+	}
 	payload, _ := base64.RawURLEncoding.DecodeString(parts[1])
 	if !strings.Contains(string(payload), `"scope":"cdr:read routes:read"`) {
 		t.Fatalf("claims %s", payload)
