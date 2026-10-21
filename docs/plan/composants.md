@@ -30,7 +30,11 @@ une autre peut s'ajouter au démarrage d'une step, comme au socle.
 | 011b-2a | Dashboard : charte graphique | Fondations |
 | 011b-2b | Dashboard : écrans de vérification et d'enrôlement | Fondations |
 | 011b-3 | Dashboard : WebAuthn | Fondations |
-| 012 | Dashboard : opérateurs, rôles, jetons | Fondations |
+| 012a | Dashboard : rôles et autorisation | Fondations |
+| 012b | Dashboard : opérations opérateurs et rôles | Fondations |
+| 012c | Dashboard : jetons, JWKS, jeton personnel | Fondations |
+| 012d | Dashboard : coquille et écran Opérateurs | Fondations |
+| 012e | Dashboard : écrans Rôles et jeton personnel | Fondations |
 | 013 | `admin-api-svc` : autorisation, audit, proxy ; écran Audit | Fondations |
 | 014a | Clients, groupes, comptes | Tranche |
 | 014b | Identifiants, webhooks | Tranche |
@@ -144,6 +148,8 @@ l'inactivité ; chaque fait du §8.9 a sa ligne au journal.
 Opérateurs et rôles (scopes générés et permissions du BFF, rôles par défaut du §8.5, test des orphelins)
 et leurs écrans, MFA obligatoire selon la portée, émission des jetons signés par OpenBao Transit, JWKS
 sur l'écouteur interne, jeton personnel.
+Coupée en cinq (Fable, 2026-10-21) : rôles et autorisation ; opérations opérateurs et rôles ; jetons ; coquille et écran
+Opérateurs ; écrans Rôles et jeton personnel (`docs/steps/012a-roles-et-autorisation.md`).
 
 **Terminé quand** : un jeton porte l'union des scopes des rôles de l'opérateur et se vérifie par le JWKS
 interne ; une session non élevée d'un rôle qui écrit n'atteint que `/auth/*`.
