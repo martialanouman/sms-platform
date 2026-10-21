@@ -74,7 +74,7 @@ peut en détenir plusieurs. La SPA masque ce qui est interdit : confort, jamais 
 | `noc` | `stream:read` et lectures, aucune écriture |
 
 **Hors de tout rôle par défaut sauf `Propriétaire`** : `content:read` (accordé à un opérateur nommé par un
-rôle taillé), `content:write` (décider de conserver les corps et pour combien de temps), `operators:*` et `roles:*` (qui édite les rôles s'accorde tout), `gateway:personal_token`.
+rôle taillé), `content:write` (décider de conserver les corps et pour combien de temps), `operators:*` et `roles:*` (qui édite les rôles s'accorde tout), `sessions:*` (fermer la session d'un autre opérateur), `gateway:personal_token`.
 Un test bloquant signale tout autre scope ou permission orphelin. Toute portée qui lit le trafic comprend
 `stream:read` (sujets temps réel, §8.6).
 

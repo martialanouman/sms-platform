@@ -67,7 +67,7 @@ func DefaultRoles() []Role {
 			"plateforme ; lit le reste.", permissions(
 			readWrite("routes", "exact-routes", "connectors", "smpp-sessions", "antispam", "routing-scripts", "sender-rewrite",
 				"inbound-numbers", "suppressions", "opt-out-keywords", "dead-letters", "platform"),
-			[]string{"routing-scripts:publish", "msisdn:reveal", "cdr:export_bulk", "sessions:read", "sessions:write", "stream:read"},
+			[]string{"routing-scripts:publish", "msisdn:reveal", "cdr:export_bulk", "stream:read"},
 			suffixed(":read", slices.Concat(accounts, []string{"credentials", "billing", "cdr", "jobs", "traffic"})...))},
 		{"Scripts", "Écrit les scripts de routage sans les publier ; lit le trafic.",
 			permissions([]string{"routing-scripts:read", "routing-scripts:write", "traffic:read", "stream:read"})},
