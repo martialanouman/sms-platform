@@ -110,8 +110,8 @@ Fable, 2026-10-21. 012a est conduite sans arbitrage humain ; la coupe (138) est 
 
 ## Mutations
 
-Trente-sept, à la main, sur la table des rôles, `RequiresMFA`, le SQL généré, l'adaptateur, le bootstrap et la garde ;
-toutes tombent. Une copie inutile dans `me` a survécu (la base rend `{}`, jamais `NULL`) : retirée.
+Trente-deux, à la main, sur la table des rôles, `RequiresMFA`, le SQL généré, l'adaptateur, le bootstrap et la garde ;
+toutes tombent sauf une : la copie de l'union dans `me` (la base rend `{}`, jamais `NULL`), retirée.
 
 ## Correctifs de revue, tour 1
 
