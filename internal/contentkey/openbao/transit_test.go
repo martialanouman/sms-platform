@@ -25,25 +25,23 @@ import (
 
 const role = "content-key-svc"
 
-type bao struct{ *openbaotest.Bao }
-
-func start(t *testing.T, ttl string) *bao {
+func start(t *testing.T, ttl string) *openbaotest.Bao {
 	t.Helper()
-	return &bao{openbaotest.Start(t, role, ttl,
+	return openbaotest.Start(t, role, ttl,
 		openbaotest.Step{Path: "transit/keys/config-secrets", Body: map[string]any{}},
 		openbaotest.Step{Path: "transit/keys/other", Body: map[string]any{}},
 		openbaotest.Step{Path: "sys/policies/acl/content-key-svc", Body: map[string]any{"policy": `path "transit/encrypt/config-secrets" { capabilities = ["update"] }
 path "transit/decrypt/config-secrets" { capabilities = ["update"] }`}},
-	)}
+	)
 }
 
-func (b *bao) transit() *openbao.Transit {
+func transit(b *openbaotest.Bao) *openbao.Transit {
 	return openbao.New(b.Addr, &http.Client{Timeout: 10 * time.Second}, role, b.JWT)
 }
 
 func TestASealedSecretOpensUnderTheSameKey(t *testing.T) {
 	b := start(t, "1h")
-	tr := b.transit()
+	tr := transit(b)
 	secret := []byte("bind-pw-" + t.Name())
 	sealed, err := tr.Encrypt(t.Context(), "config-secrets", secret)
 	if err != nil {
@@ -76,7 +74,7 @@ func TestASealedSecretOpensUnderTheSameKey(t *testing.T) {
 
 func TestATamperedSealedSecretIsUndecryptable(t *testing.T) {
 	b := start(t, "1h")
-	tr := b.transit()
+	tr := transit(b)
 	sealed, err := tr.Encrypt(t.Context(), "config-secrets", []byte("bind-pw"))
 	if err != nil {
 		t.Fatal(err)
@@ -98,7 +96,7 @@ func TestATamperedSealedSecretIsUndecryptable(t *testing.T) {
 
 func TestARefusedLoginIsTransient(t *testing.T) {
 	b := start(t, "1h")
-	sealed, err := b.transit().Encrypt(t.Context(), "config-secrets", []byte("bind-pw"))
+	sealed, err := transit(b).Encrypt(t.Context(), "config-secrets", []byte("bind-pw"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +116,7 @@ func TestARefusedLoginIsTransient(t *testing.T) {
 
 func TestAKeyOutsideThePolicyIsRefusedAsTransient(t *testing.T) {
 	b := start(t, "1h")
-	tr := b.transit()
+	tr := transit(b)
 	if _, err := tr.Encrypt(t.Context(), "config-secrets", []byte("x")); err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +131,7 @@ func TestAKeyOutsideThePolicyIsRefusedAsTransient(t *testing.T) {
 
 func TestConcurrentFirstCallsLogInOnce(t *testing.T) {
 	b := start(t, "1h")
-	tr := b.transit()
+	tr := transit(b)
 	var wg sync.WaitGroup
 	gate := make(chan struct{})
 	errs := make(chan error, 20)
@@ -162,7 +160,7 @@ func TestConcurrentFirstCallsLogInOnce(t *testing.T) {
 
 func TestTheTokenIsRenewedPastHalfItsLease(t *testing.T) {
 	b := start(t, "6s")
-	tr := b.transit()
+	tr := transit(b)
 	call := func() {
 		t.Helper()
 		if _, err := tr.Encrypt(t.Context(), "config-secrets", []byte("x")); err != nil {
@@ -185,7 +183,7 @@ func TestTheTokenIsRenewedPastHalfItsLease(t *testing.T) {
 
 func TestARevokedTokenIsForgotten(t *testing.T) {
 	b := start(t, "1h")
-	tr := b.transit()
+	tr := transit(b)
 	if _, err := tr.Encrypt(t.Context(), "config-secrets", []byte("x")); err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +201,7 @@ func TestARevokedTokenIsForgotten(t *testing.T) {
 
 func TestEachLoginReadsTheRotatedToken(t *testing.T) {
 	b := start(t, "1h")
-	tr := b.transit()
+	tr := transit(b)
 	if _, err := tr.Encrypt(t.Context(), "config-secrets", []byte("x")); err != nil {
 		t.Fatal(err)
 	}

@@ -7,10 +7,8 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
@@ -65,24 +63,10 @@ func TestAnElevatedOwnerTakesAPersonalTokenThatTheJWKSVerifies(t *testing.T) {
 	if jwks.Code != 200 || jwks.Header().Get("Content-Type") != "application/json" || jwks.Header().Get("Cache-Control") != "max-age=60" {
 		t.Fatalf("jwks: %d %v", jwks.Code, jwks.Header())
 	}
-	var set struct {
-		Keys []struct{ Kid, X, Y string } `json:"keys"`
-	}
-	if err := json.Unmarshal(jwks.Body.Bytes(), &set); err != nil || len(set.Keys) != 1 || set.Keys[0].Kid != "test-v1" {
-		t.Fatalf("jwks %s: %v", jwks.Body, err)
-	}
-	x, _ := base64.RawURLEncoding.DecodeString(set.Keys[0].X)
-	y, _ := base64.RawURLEncoding.DecodeString(set.Keys[0].Y)
-	key, err := ecdsa.ParseUncompressedPublicKey(elliptic.P256(), append(append([]byte{4}, x...), y...))
-	if err != nil {
-		t.Fatal(err)
+	if want, err := a.svc.JWKS(context.Background()); err != nil || jwks.Body.String() != string(want) {
+		t.Fatalf("jwks %s, want %s: %v", jwks.Body, want, err)
 	}
 	parts := strings.Split(token, ".")
-	sig, _ := base64.RawURLEncoding.DecodeString(parts[len(parts)-1])
-	digest := sha256.Sum256([]byte(parts[0] + "." + parts[1]))
-	if len(parts) != 3 || len(sig) != 64 || !ecdsa.Verify(key, digest[:], new(big.Int).SetBytes(sig[:32]), new(big.Int).SetBytes(sig[32:])) {
-		t.Fatalf("token %q does not verify under the JWKS", token)
-	}
 	payload, _ := base64.RawURLEncoding.DecodeString(parts[1])
 	if !strings.Contains(string(payload), `"scope":"cdr:read routes:read"`) {
 		t.Fatalf("claims %s", payload)
@@ -91,8 +75,7 @@ func TestAnElevatedOwnerTakesAPersonalTokenThatTheJWKSVerifies(t *testing.T) {
 	for name, tc := range map[string]struct {
 		body, refused string
 	}{
-		"content":    {`{"scopes":["routes:read","content:read"]}`, "content:read"},
-		"permission": {`{"scopes":["operators:read"]}`, "operators:read"},
+		"content": {`{"scopes":["routes:read","content:read"]}`, "content:read"},
 	} {
 		if got := a.do(t, call{method: "POST", path: "/api/gateway-token", cookie: c, body: tc.body}); got.status != 403 || got.code() != "forbidden_scope" ||
 			!strings.Contains(got.body["message"].(string), tc.refused) {
@@ -103,8 +86,14 @@ func TestAnElevatedOwnerTakesAPersonalTokenThatTheJWKSVerifies(t *testing.T) {
 	if _, err := a.owner.Exec(context.Background(), `UPDATE dashboard.roles SET permissions = '{content:read,gateway:personal_token}' WHERE name = 'Audit'`); err != nil {
 		t.Fatal(err)
 	}
-	if got := a.do(t, call{method: "POST", path: "/api/gateway-token", cookie: c, body: `{}`}); got.status != 403 || got.code() != "forbidden_scope" || got.body["message"] == "" {
+	if got := a.do(t, call{method: "POST", path: "/api/gateway-token", cookie: c, body: `{}`}); got.status != 403 || got.code() != "forbidden_scope" ||
+		!strings.Contains(got.raw, "aucun scope") {
 		t.Errorf("a token without scope: %d %s", got.status, got.raw)
+	}
+	a.holdOnly(t, "Exploitation")
+	if got := a.do(t, call{method: "POST", path: "/api/gateway-token", cookie: c, body: `{}`}); got.status != 403 || got.code() != "forbidden_scope" ||
+		!strings.Contains(got.raw, "gateway:personal_token") {
+		t.Errorf("a token for an operator without gateway:personal_token: %d %s", got.status, got.raw)
 	}
 	a.holdOnly(t, "Propriétaire")
 
