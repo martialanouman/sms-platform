@@ -52,7 +52,8 @@ func New(c Config) (http.Handler, error) {
 		return nil, err
 	}
 	spec.Servers = nil
-	s := server{Config: c, permission: permissions(spec)}
+	required, auth := permissions(spec)
+	s := server{Config: c, permission: required, auth: auth}
 	strict := NewStrictHandlerWithOptions(s, []StrictMiddlewareFunc{s.session, exchange}, StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, _ error) {
 			write(w, http.StatusUnprocessableEntity, ErrorCodeValidationError, "La requête est mal formée.", nil)
@@ -117,21 +118,23 @@ func spa(assets fs.FS) http.Handler {
 	})
 }
 
-func permissions(spec *openapi3.T) map[string][]string {
-	required := map[string][]string{}
-	for _, item := range spec.Paths.Map() {
+func permissions(spec *openapi3.T) (required map[string][]string, auth map[string]bool) {
+	required, auth = map[string][]string{}, map[string]bool{}
+	for path, item := range spec.Paths.Map() {
 		for _, op := range item.Operations() {
+			name := strings.ToUpper(op.OperationID[:1]) + op.OperationID[1:]
+			auth[name] = strings.HasPrefix(path, "/auth/")
 			if op.Security == nil {
 				continue
 			}
 			for _, requirement := range *op.Security {
 				if scopes, ok := requirement["session"]; ok {
-					required[strings.ToUpper(op.OperationID[:1])+op.OperationID[1:]] = scopes
+					required[name] = scopes
 				}
 			}
 		}
 	}
-	return required
+	return required, auth
 }
 
 func (c Config) guard(next http.Handler) http.Handler {
@@ -229,8 +232,6 @@ func from(ctx context.Context) exchanged {
 
 type currentKey struct{}
 
-var held []string
-
 func (s server) session(next StrictHandlerFunc, operation string) StrictHandlerFunc {
 	required, protected := s.permission[operation]
 	if !protected {
@@ -254,8 +255,12 @@ func (s server) session(next StrictHandlerFunc, operation string) StrictHandlerF
 		case err != nil:
 			return nil, err
 		}
+		if !s.auth[operation] && !current.Elevated && dashboard.RequiresMFA(current.Permissions) {
+			write(w, http.StatusForbidden, ErrorCodeMfaRequired, "Vérifiez d'abord votre second facteur.", nil)
+			return nil, nil
+		}
 		for _, permission := range required {
-			if !slices.Contains(held, permission) {
+			if !slices.Contains(current.Permissions, permission) {
 				write(w, http.StatusForbidden, ErrorCodeForbiddenScope, fmt.Sprintf("Il faut la permission %s.", permission), nil)
 				return nil, nil
 			}

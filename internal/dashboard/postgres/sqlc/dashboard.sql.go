@@ -292,6 +292,28 @@ func (q *Queries) Elevate(ctx context.Context, db DBTX, arg ElevateParams) (int6
 	return result.RowsAffected(), nil
 }
 
+const ensureOwner = `-- name: EnsureOwner :one
+INSERT INTO dashboard.operator_roles (operator_id, role_id)
+SELECT o.id, r.id FROM dashboard.operators o, dashboard.roles r
+WHERE lower(o.email) = lower($1) AND r.name = $2
+  AND NOT EXISTS (SELECT 1 FROM dashboard.operator_roles x JOIN dashboard.operators a ON a.id = x.operator_id
+    WHERE x.role_id = r.id AND a.status = 'active')
+ON CONFLICT DO NOTHING
+RETURNING operator_id::text
+`
+
+type EnsureOwnerParams struct {
+	Email string
+	Role  string
+}
+
+func (q *Queries) EnsureOwner(ctx context.Context, db DBTX, arg EnsureOwnerParams) (string, error) {
+	row := db.QueryRow(ctx, ensureOwner, arg.Email, arg.Role)
+	var operator_id string
+	err := row.Scan(&operator_id)
+	return operator_id, err
+}
+
 const factors = `-- name: Factors :many
 SELECT id::text AS id, sealed, last_step, (confirmed_at IS NOT NULL)::bool AS confirmed
 FROM dashboard.totp_factors WHERE operator_id = $1::uuid
@@ -608,6 +630,22 @@ func (q *Queries) Reserve(ctx context.Context, db DBTX, arg ReserveParams) (bool
 	return column_1, err
 }
 
+const seedRole = `-- name: SeedRole :exec
+INSERT INTO dashboard.roles (name, description, permissions, is_default) VALUES ($1, $2, $3::text[], true)
+ON CONFLICT ((lower(name))) DO UPDATE SET description = excluded.description, permissions = excluded.permissions, is_default = true
+`
+
+type SeedRoleParams struct {
+	Name        string
+	Description string
+	Permissions []string
+}
+
+func (q *Queries) SeedRole(ctx context.Context, db DBTX, arg SeedRoleParams) error {
+	_, err := db.Exec(ctx, seedRole, arg.Name, arg.Description, arg.Permissions)
+	return err
+}
+
 const sessionOf = `-- name: SessionOf :one
 SELECT s.id::text AS id, s.operator_id::text AS operator_id, o.email, o.display_name, s.expires_at,
   (s.elevated_at IS NOT NULL)::bool AS elevated,
@@ -616,6 +654,8 @@ SELECT s.id::text AS id, s.operator_id::text AS operator_id, o.email, o.display_
   (SELECT count(*) FROM dashboard.recovery_codes c JOIN dashboard.totp_factors f ON f.id = c.factor_id
     WHERE f.operator_id = s.operator_id AND f.confirmed_at IS NOT NULL AND c.used_at IS NULL)::int AS recovery_codes_remaining,
   (SELECT count(*) FROM dashboard.webauthn_credentials w WHERE w.operator_id = s.operator_id)::int AS passkeys,
+  (SELECT coalesce(array_agg(DISTINCT p ORDER BY p), '{}') FROM dashboard.operator_roles x
+    JOIN dashboard.roles r ON r.id = x.role_id, unnest(r.permissions) p WHERE x.operator_id = s.operator_id)::text[] AS permissions,
   (now() < s.expires_at AND now() < s.last_seen_at + make_interval(secs => $2::float8) AND o.status = 'active')::bool AS live
 FROM dashboard.sessions s JOIN dashboard.operators o ON o.id = s.operator_id
 WHERE s.token_hash = $3
@@ -638,6 +678,7 @@ type SessionOfRow struct {
 	Totp                   bool
 	RecoveryCodesRemaining int32
 	Passkeys               int32
+	Permissions            []string
 	Live                   bool
 }
 
@@ -655,6 +696,7 @@ func (q *Queries) SessionOf(ctx context.Context, db DBTX, arg SessionOfParams) (
 		&i.Totp,
 		&i.RecoveryCodesRemaining,
 		&i.Passkeys,
+		&i.Permissions,
 		&i.Live,
 	)
 	return i, err

@@ -17,7 +17,7 @@ const (
 // Event is a fact of the access log, as the BFF contract enumerates them.
 type Event string
 
-// The events 011a writes.
+// The events the BFF writes.
 const (
 	EventLogin               Event = "login"
 	EventLogout              Event = "logout"
@@ -27,6 +27,7 @@ const (
 	EventMFA                 Event = "mfa"
 	EventFactorEnrolled      Event = "factor_enrolled"
 	EventFactorRemoved       Event = "factor_removed"
+	EventRolesChanged        Event = "roles_changed"
 )
 
 // TotpFactor is an authenticator app of an operator, its secret sealed.
@@ -84,6 +85,9 @@ type Tx interface {
 	CreateOperator(ctx context.Context, email string) (id string, created bool, err error)
 	OperatorByEmail(ctx context.Context, email string) (Operator, bool, error)
 	SetPassword(ctx context.Context, operatorID, phc string) error
+
+	SeedRole(ctx context.Context, r Role) error
+	EnsureOwner(ctx context.Context, email string) (operatorID string, granted bool, err error)
 
 	QueueLink(ctx context.Context, operatorID string, kind LinkKind) error
 	ConsumeLink(ctx context.Context, digest []byte) (operatorID string, ok bool, err error)

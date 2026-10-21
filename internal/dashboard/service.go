@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	// IdleTimeout ends a session no gesture extended (spec 08 §8.3).
+	// IdleTimeout ends a session no gesture extended (spec 08 §8.3), noc sessions included. debt: #148
 	IdleTimeout = 15 * time.Minute
 	// Lifetime ends every session after its login.
 	Lifetime       = 12 * time.Hour

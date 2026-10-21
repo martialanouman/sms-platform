@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"net/netip"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,6 +25,7 @@ import (
 	dashboardhttp "github.com/martialanouman/sms-platform/internal/dashboard/http"
 	"github.com/martialanouman/sms-platform/internal/dashboard/postgres"
 	"github.com/martialanouman/sms-platform/internal/platform/pgtest"
+	"github.com/martialanouman/sms-platform/internal/platform/scopes"
 	"github.com/martialanouman/sms-platform/migrations"
 )
 
@@ -55,6 +57,7 @@ type api struct {
 	handler http.Handler
 	logins  int
 	logs    *bytes.Buffer
+	owner   *pgx.Conn
 }
 
 func newAPI(t *testing.T, trusted ...netip.Prefix) *api {
@@ -96,7 +99,7 @@ func newAPI(t *testing.T, trusted ...netip.Prefix) *api {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &api{svc: svc, mail: mail, handler: h, logs: logs}
+	return &api{svc: svc, mail: mail, handler: h, logs: logs, owner: migrator}
 }
 
 type call struct {
@@ -254,17 +257,22 @@ func TestAnOperatorActivatesLogsInAndOut(t *testing.T) {
 
 	me := a.do(t, call{method: "GET", path: "/api/auth/me", cookie: c.Value})
 	operator, _ := me.body["operator"].(map[string]any)
-	permissions, _ := me.body["permissions"].([]any)
+	var permissions []string
+	for _, p := range me.body["permissions"].([]any) {
+		permissions = append(permissions, p.(string))
+	}
+	owner := slices.Concat(scopes.All, scopes.Permissions)
+	slices.Sort(owner)
 	if me.status != 200 || operator["email"] != "owner@example.test" || operator["displayName"] != "owner@example.test" || operator["id"] == "" ||
-		permissions == nil || len(permissions) != 0 || me.body["elevated"] != false || me.body["idleTimeoutSeconds"] != float64(900) ||
+		!slices.Equal(permissions, owner) || me.body["elevated"] != false || me.body["idleTimeoutSeconds"] != float64(900) ||
 		!within12h(me.body["absoluteExpiresAt"]) || me.body["secondFactors"] == nil {
 		t.Errorf("me: %d %s", me.status, me.raw)
 	}
 	if got := a.do(t, call{method: "POST", path: "/api/auth/activity", cookie: c.Value}); got.status != 204 {
 		t.Errorf("activity: %d %s", got.status, got.raw)
 	}
-	if got := a.do(t, call{method: "GET", path: "/api/access-log", cookie: c.Value}); got.status != 403 || got.code() != "forbidden_scope" || !strings.Contains(got.raw, "audit:read") {
-		t.Errorf("access log without audit:read: %d %s", got.status, got.raw)
+	if got := a.do(t, call{method: "GET", path: "/api/access-log", cookie: c.Value}); got.status != 403 || got.code() != "mfa_required" {
+		t.Errorf("access log before elevation: %d %s", got.status, got.raw)
 	}
 	out := a.do(t, call{method: "POST", path: "/api/auth/logout", cookie: c.Value})
 	if out.status != 204 || len(out.cookies) != 1 || out.cookies[0].MaxAge >= 0 || out.cookies[0].Name != "__Host-dashboard_session" {
