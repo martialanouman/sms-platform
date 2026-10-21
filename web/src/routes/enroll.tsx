@@ -9,7 +9,7 @@ import { AuthLayout, useSubmission } from '../ui'
 export const Route = createFileRoute('/enroll')({
   beforeLoad: () => {
     if (!pendingChallenge()) {
-      throw redirect({ to: '/login', search: { avis: 'verification-interrompue' } })
+      throw redirect({ to: '/login', search: { notice: 'verification-interrupted' } })
     }
   },
   component: Enrolment,

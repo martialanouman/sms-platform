@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
-import { challenge, empty, json, me, renderAt, stubFetch, stubPasskeys, violations } from '../test'
+import { challenge, empty, json, me, noSession, once, renderAt, stubFetch, stubPasskeys, violations } from '../test'
 
 test('the dashboard shows who is signed in', async () => {
   stubFetch({ 'GET /api/auth/me': () => json(200, me) })
@@ -15,7 +15,7 @@ test('a session gone sends to the login with a notice', async () => {
   stubFetch({ 'GET /api/auth/me': () => json(401, { code: 'unauthenticated', message: 'Aucune session ouverte.' }) })
   const { router } = renderAt('/')
   await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
-  expect(router.state.location.search).toEqual({ avis: 'session-fermee' })
+  expect(router.state.location.search).toEqual({ notice: 'session-closed' })
 })
 
 const unreachable = 'Le service ne répond pas ; réessayez.'
@@ -34,7 +34,7 @@ test('a logout is sent as JSON and returns to the login', async () => {
   })
   let served = false
   const calls = stubFetch({
-    'GET /api/auth/me': () => json(200, me),
+    'GET /api/auth/me': once(() => json(200, me)),
     'POST /api/auth/activity': async () => {
       await loggedOut
       served = true
@@ -73,10 +73,10 @@ test('gestures report activity at most once a minute', async () => {
   expect(calls.find((c) => c.url.endsWith('/api/auth/activity'))?.headers.get('Content-Type')).toBe('application/json')
 })
 
-test('without a gesture for the idle timeout, the dashboard returns to the login without a request', async () => {
+test('without a gesture for the idle timeout, the dashboard returns to the login without reporting activity', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   const calls = stubFetch({
-    'GET /api/auth/me': () => json(200, { ...me, idleTimeoutSeconds: 120 }),
+    'GET /api/auth/me': once(() => json(200, { ...me, idleTimeoutSeconds: 120 })),
     'POST /api/auth/activity': () => empty(204),
   })
   const { router } = renderAt('/')
@@ -85,16 +85,17 @@ test('without a gesture for the idle timeout, the dashboard returns to the login
   fireEvent.keyDown(document)
   await act(() => vi.advanceTimersByTimeAsync(90_000))
   expect(router.state.location.pathname).toBe('/')
-  const before = calls.length
+  const activity = () => calls.filter((c) => c.url.endsWith('/api/auth/activity')).length
+  const before = activity()
   await act(() => vi.advanceTimersByTimeAsync(40_000))
   await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
-  expect(router.state.location.search).toEqual({ avis: 'session-fermee' })
-  expect(calls.length).toBe(before)
+  expect(router.state.location.search).toEqual({ notice: 'session-closed' })
+  expect(activity()).toBe(before)
 })
 
 test('an activity refused by the server sends to the login', async () => {
   stubFetch({
-    'GET /api/auth/me': () => json(200, me),
+    'GET /api/auth/me': once(() => json(200, me)),
     'POST /api/auth/activity': () => json(401, { code: 'unauthenticated', message: 'Aucune session ouverte.' }),
   })
   const { router } = renderAt('/')
@@ -106,7 +107,7 @@ test('an activity refused by the server sends to the login', async () => {
 test('a logout that fails is told, and the session stays watched', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   stubFetch({
-    'GET /api/auth/me': () => json(200, { ...me, idleTimeoutSeconds: 120 }),
+    'GET /api/auth/me': once(() => json(200, { ...me, idleTimeoutSeconds: 120 })),
     'POST /api/auth/activity': () => empty(204),
     'POST /api/auth/logout': () => new Response(null, { status: 502 }),
   })
@@ -117,7 +118,7 @@ test('a logout that fails is told, and the session stays watched', async () => {
   expect((await screen.findByRole('alert')).textContent).toBe(unreachable)
   expect(router.state.location.pathname).toBe('/')
   await act(() => vi.advanceTimersByTimeAsync(130_000))
-  await waitFor(() => expect(router.state.location.search).toEqual({ avis: 'session-fermee' }))
+  await waitFor(() => expect(router.state.location.search).toEqual({ notice: 'session-closed' }))
 })
 
 test('without an idle timeout, no timer sends to the login', async () => {
@@ -131,11 +132,18 @@ test('without an idle timeout, no timer sends to the login', async () => {
 
 test('after a logout, the next login shows the new operator only', async () => {
   let current = me
+  let signedIn = true
   stubFetch({
-    'GET /api/auth/me': () => json(200, current),
+    'GET /api/auth/me': () => (signedIn ? json(200, current) : noSession()),
     'POST /api/auth/activity': () => empty(204),
-    'POST /api/auth/logout': () => empty(204),
-    'POST /api/auth/login': () => json(200, challenge),
+    'POST /api/auth/logout': () => {
+      signedIn = false
+      return empty(204)
+    },
+    'POST /api/auth/login': () => {
+      signedIn = true
+      return json(200, challenge)
+    },
     'POST /api/auth/mfa/verify': () => empty(204),
   })
   renderAt('/')
@@ -155,7 +163,7 @@ test('a session not elevated is sent back to the login', async () => {
   stubFetch({ 'GET /api/auth/me': () => json(200, { ...me, elevated: false }) })
   const { router } = renderAt('/')
   await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
-  expect(router.state.location.search).toEqual({ avis: 'verification-interrompue' })
+  expect(router.state.location.search).toEqual({ notice: 'verification-interrupted' })
 })
 
 const replacement = {
@@ -361,12 +369,13 @@ test('a list of passkeys that fails is told', async () => {
 
 test('the passkeys of the operator before are never shown to the next one', async () => {
   let current = keyed
+  let signedIn = true
   let open: () => void = () => {}
   const gate = new Promise<void>((resolve) => {
     open = resolve
   })
   stubFetch({
-    'GET /api/auth/me': () => json(200, current),
+    'GET /api/auth/me': () => (signedIn ? json(200, current) : noSession()),
     'POST /api/auth/activity': () => empty(204),
     'GET /api/auth/mfa/webauthn/passkeys': async () => {
       if (current !== keyed) {
@@ -375,8 +384,14 @@ test('the passkeys of the operator before are never shown to the next one', asyn
       }
       return json(200, keys)
     },
-    'POST /api/auth/logout': () => empty(204),
-    'POST /api/auth/login': () => json(200, challenge),
+    'POST /api/auth/logout': () => {
+      signedIn = false
+      return empty(204)
+    },
+    'POST /api/auth/login': () => {
+      signedIn = true
+      return json(200, challenge)
+    },
     'POST /api/auth/mfa/verify': () => empty(204),
   })
   renderAt('/')

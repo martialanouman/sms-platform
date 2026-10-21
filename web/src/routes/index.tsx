@@ -28,7 +28,7 @@ function Home() {
   }, [me.error, closed])
   useEffect(() => {
     if (me.data && !me.data.elevated) {
-      void navigate({ to: '/login', search: { avis: 'verification-interrompue' } })
+      void navigate({ to: '/login', search: { notice: 'verification-interrupted' } })
     }
   }, [me.data, navigate])
 

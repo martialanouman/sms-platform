@@ -1,27 +1,36 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { type FormEvent, useEffect, useRef } from 'react'
 import { api } from '../api'
 import { meQuery, rememberChallenge } from '../session'
 import { AuthLayout, Field, useSubmission } from '../ui'
 
 const notices = {
-  'session-fermee': 'Votre session est fermée. Reconnectez-vous.',
-  'mot-de-passe-enregistre': 'Mot de passe enregistré. Vous pouvez vous connecter.',
-  'verification-interrompue': 'La vérification a été interrompue. Reconnectez-vous.',
+  'session-closed': 'Votre session est fermée. Reconnectez-vous.',
+  'password-set': 'Mot de passe enregistré. Vous pouvez vous connecter.',
+  'verification-interrupted': 'La vérification a été interrompue. Reconnectez-vous.',
 } as const
 
 type Notice = keyof typeof notices
 
 export const Route = createFileRoute('/login')({
-  validateSearch: (search: Record<string, unknown>): { avis?: Notice } => ({
-    avis: typeof search.avis === 'string' && Object.hasOwn(notices, search.avis) ? (search.avis as Notice) : undefined,
+  validateSearch: (search: Record<string, unknown>): { notice?: Notice } => ({
+    notice:
+      typeof search.notice === 'string' && Object.hasOwn(notices, search.notice)
+        ? (search.notice as Notice)
+        : undefined,
   }),
+  beforeLoad: async () => {
+    const { data } = await api.GET('/auth/me').catch(() => ({ data: undefined }))
+    if (data?.elevated) {
+      throw redirect({ to: '/' })
+    }
+  },
   component: Login,
 })
 
 function Login() {
-  const { avis } = Route.useSearch()
+  const { notice } = Route.useSearch()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { submit, waiting, refusal, describedBy } = useSubmission()
@@ -53,9 +62,9 @@ function Login() {
 
   return (
     <AuthLayout title="Connexion">
-      {avis && (
+      {notice && (
         <p className="auth__notice" role="status">
-          {notices[avis]}
+          {notices[notice]}
         </p>
       )}
       <form className="auth__form" noValidate onSubmit={login}>

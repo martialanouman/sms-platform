@@ -22,7 +22,7 @@ test('without a challenge, the enrolment sends back to the login', async () => {
   stubFetch({})
   const { router } = renderAt('/enroll')
   await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
-  expect(router.state.location.search).toEqual({ avis: 'verification-interrompue' })
+  expect(router.state.location.search).toEqual({ notice: 'verification-interrupted' })
 })
 
 test('the app is configured, proved, and only then its codes are shown', async () => {

@@ -21,7 +21,8 @@ journal ; axe ne relève aucune violation.
 
 ## Arbitrages
 
-Fable, 2026-10-20, sauf AA (le design entier, tel que présenté) et AB (au tour de revue), tranchés par l'humain le même jour.
+Fable, 2026-10-20, sauf AA (le design entier, tel que présenté), AB (au tour de revue), AC et AD (au test de l'humain, le
+2026-10-21), tranchés par l'humain.
 
 119. **Une PR** (82, confirmé par l'humain, AA) : serveur et écrans ensemble, prouvés dans Chromium.
 120. **Bibliothèque** : `github.com/go-webauthn/webauthn` v0.18.2, celle de l'origine ; tests par
@@ -77,6 +78,10 @@ Fable, 2026-10-20, sauf AA (le design entier, tel que présenté) et AB (au tour
      retrait d'une clé exigent une élévation de moins de 5 minutes, sinon le même 409 `mfa_elevation_required`. La
      session reste élevée jusqu'à sa fin pour le reste (88). La fenêtre qui demeure, un cookie capturé dans ces
      5 minutes, est reportée : issue #146 (`debt`, `go-live`).
+136. **`/login` renvoie une session élevée au tableau de bord** (humain, AC) : la route lit `me` avant de se rendre
+     (`beforeLoad`) ; une session élevée va sur `/`, une session absente, non élevée ou illisible garde le formulaire.
+137. **Les adresses sont en anglais** (humain, AD) : les chemins l'étaient ; le paramètre `avis` devient `notice`, et
+     ses valeurs `session-closed`, `password-set`, `verification-interrupted`. Les textes affichés restent en français.
 
 ## Design arrêté
 
@@ -167,3 +172,13 @@ l'utilisateur) :
 Non prouvé dans le navigateur : une connexion élevée par la seconde clé. Le 429 de la connexion (plus de cinq
 connexions de la même source en 15 minutes, preuve comprise) l'a arrêtée, puis l'authentificateur est tombé avec son
 script ; le test Go `TestEachPasskeyKeepsItsOwnCounterInRegistrationOrder` couvre ce cas.
+
+## Retours de l'humain, au test
+
+1. **`/login` ne renvoyait pas une session déjà élevée vers `/`** : la route n'avait aucune garde. Arbitrage 136. Les
+   doubles des tests de déconnexion et de fermeture rendaient encore une session élevée après la fin de la session ;
+   ils rendent désormais le 401 du serveur (`once`, `noSession`). Le test de l'inactivité ne compte plus que l'activité
+   signalée : la relecture de `me` sur `/login` ne prolonge rien (`Resolve` ne prolonge jamais).
+2. **`?avis=session-fermee`** : arbitrage 137.
+
+Mutations : la garde retirée, la garde élargie à toute session, l'ancien nom du paramètre ; toutes tombent.

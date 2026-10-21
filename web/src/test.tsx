@@ -78,3 +78,16 @@ export function stubPasskeys() {
   Object.defineProperty(navigator, 'credentials', { configurable: true, value: device })
   return device
 }
+
+export const noSession = () => json(401, { code: 'unauthenticated', message: 'Aucune session ouverte.' })
+
+export function once(answer: () => Response) {
+  let served = false
+  return () => {
+    if (served) {
+      return noSession()
+    }
+    served = true
+    return answer()
+  }
+}

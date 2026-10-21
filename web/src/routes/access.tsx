@@ -25,7 +25,7 @@ function Access() {
     const body = { token, password: String(new FormData(event.currentTarget).get('password') ?? '') }
     const { failure } = await submit(() => api.POST('/auth/access-link', { body }))
     if (failure === undefined) {
-      await navigate({ to: '/login', search: { avis: 'mot-de-passe-enregistre' } })
+      await navigate({ to: '/login', search: { notice: 'password-set' } })
     }
   }
 

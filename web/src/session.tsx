@@ -29,7 +29,7 @@ export function useChallengeExpiry() {
     const expiry = setTimeout(() => {
       if (loginChallenge) {
         rememberChallenge(undefined)
-        void navigate({ to: '/login', search: { avis: 'verification-interrompue' } })
+        void navigate({ to: '/login', search: { notice: 'verification-interrupted' } })
       }
     }, Date.parse(loginChallenge.expiresAt) - Date.now())
     return () => clearTimeout(expiry)
@@ -67,7 +67,7 @@ export function useElevated() {
 export function useSessionClosed() {
   const navigate = useNavigate()
   return useCallback(() => {
-    void navigate({ to: '/login', search: { avis: 'session-fermee' } })
+    void navigate({ to: '/login', search: { notice: 'session-closed' } })
   }, [navigate])
 }
 

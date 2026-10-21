@@ -11,7 +11,7 @@ test('without a challenge, the verification sends back to the login', async () =
   stubFetch({})
   const { router } = renderAt('/mfa')
   await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
-  expect(router.state.location.search).toEqual({ avis: 'verification-interrompue' })
+  expect(router.state.location.search).toEqual({ notice: 'verification-interrupted' })
 })
 
 test('a code of the app elevates the session and opens the dashboard', async () => {
@@ -108,14 +108,14 @@ test('a login completed by its second factor shows the dashboard', async () => {
 test('an expired challenge sends back to the login', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   rememberChallenge({ challenge: challenge.challenge, expiresAt: new Date(Date.now() + 60_000).toISOString() })
-  stubFetch({ 'GET /api/auth/me': () => json(200, me) })
+  stubFetch({ 'GET /api/auth/me': () => json(200, { ...me, elevated: false }) })
   const { router } = renderAt('/mfa')
   await screen.findByLabelText('Code à six chiffres')
   await act(() => vi.advanceTimersByTimeAsync(59_000))
   expect(router.state.location.pathname).toBe('/mfa')
   await act(() => vi.advanceTimersByTimeAsync(2_000))
   await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
-  expect(router.state.location.search).toEqual({ avis: 'verification-interrompue' })
+  expect(router.state.location.search).toEqual({ notice: 'verification-interrupted' })
   expect(pendingChallenge()).toBeUndefined()
 })
 

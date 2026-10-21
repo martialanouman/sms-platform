@@ -2,7 +2,7 @@ import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import { pendingChallenge } from '../session'
-import { challenge, json, me, renderAt, stubFetch, violations } from '../test'
+import { challenge, json, me, noSession, renderAt, stubFetch, violations } from '../test'
 
 const unreachable = 'Le service ne répond pas ; réessayez.'
 
@@ -24,7 +24,7 @@ test('a login keeps the challenge and asks for the second factor', async () => {
   await fill('operateur@example.test', 'Correct-horse-9')
   await waitFor(() => expect(router.state.location.pathname).toBe('/mfa'))
   expect(pendingChallenge()).toBe(challenge.challenge)
-  const login = calls[0]
+  const login = calls.find((c) => c.url.endsWith('/api/auth/login'))
   expect(login?.headers.get('Content-Type')).toBe('application/json')
   expect(await login?.json()).toEqual({ email: 'operateur@example.test', password: 'Correct-horse-9' })
 })
@@ -120,17 +120,17 @@ test('a busy server is told as such', async () => {
 })
 
 test.each([
-  ['session-fermee', 'Votre session est fermée. Reconnectez-vous.'],
-  ['mot-de-passe-enregistre', 'Mot de passe enregistré. Vous pouvez vous connecter.'],
-])('the notice %s is shown', async (avis, text) => {
+  ['session-closed', 'Votre session est fermée. Reconnectez-vous.'],
+  ['password-set', 'Mot de passe enregistré. Vous pouvez vous connecter.'],
+])('the notice %s is shown', async (notice, text) => {
   stubFetch({})
-  renderAt(`/login?avis=${avis}`)
+  renderAt(`/login?notice=${notice}`)
   expect((await screen.findByRole('status')).textContent).toBe(text)
 })
 
 test('an unknown notice is not shown', async () => {
   stubFetch({})
-  renderAt('/login?avis=autre')
+  renderAt('/login?notice=autre')
   await screen.findByLabelText('Adresse e-mail')
   expect(screen.queryByRole('status')).toBeNull()
 })
@@ -139,7 +139,7 @@ test('the login screen has no accessibility violation', async () => {
   stubFetch({
     'POST /api/auth/login': () => json(401, { code: 'unauthenticated', message: 'Adresse ou mot de passe refusé.' }),
   })
-  const { container } = renderAt('/login?avis=session-fermee')
+  const { container } = renderAt('/login?notice=session-closed')
   await screen.findByLabelText('Adresse e-mail')
   expect(await violations(container)).toEqual([])
   await fill('operateur@example.test', 'wrong')
@@ -159,6 +159,7 @@ test('a login with a passkey only asks for the second factor', async () => {
 })
 
 test('the button stays disabled while the session is read', async () => {
+  let reads = 0
   let release: () => void = () => {}
   const held = new Promise<void>((resolve) => {
     release = resolve
@@ -166,6 +167,9 @@ test('the button stays disabled while the session is read', async () => {
   stubFetch({
     'POST /api/auth/login': () => json(200, challenge),
     'GET /api/auth/me': async () => {
+      if (++reads === 1) {
+        return noSession()
+      }
       await held
       return json(200, { ...me, elevated: false })
     },
@@ -176,4 +180,17 @@ test('the button stays disabled while the session is read', async () => {
   expect(screen.getByRole('button', { name: 'Se connecter' })).toHaveProperty('disabled', true)
   release()
   await waitFor(() => expect(router.state.location.pathname).toBe('/mfa'))
+})
+
+test('an elevated session is sent from the login to the dashboard', async () => {
+  stubFetch({ 'GET /api/auth/me': () => json(200, me), 'POST /api/auth/activity': () => json(200, {}) })
+  const { router } = renderAt('/login')
+  await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+})
+
+test('a session not elevated stays on the login', async () => {
+  stubFetch({ 'GET /api/auth/me': () => json(200, { ...me, elevated: false }) })
+  const { router } = renderAt('/login')
+  expect(await screen.findByLabelText('Adresse e-mail')).toBeDefined()
+  expect(router.state.location.pathname).toBe('/login')
 })

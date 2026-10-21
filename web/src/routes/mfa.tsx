@@ -8,7 +8,7 @@ import { AuthLayout } from '../ui'
 export const Route = createFileRoute('/mfa')({
   beforeLoad: () => {
     if (!pendingChallenge()) {
-      throw redirect({ to: '/login', search: { avis: 'verification-interrompue' } })
+      throw redirect({ to: '/login', search: { notice: 'verification-interrupted' } })
     }
   },
   component: Verification,
