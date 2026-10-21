@@ -73,3 +73,37 @@ Fable, 2026-10-21, sauf mention. 242 et 241 confirmés par l'humain le même jou
 - **Tests** : `cmd/` sur le câblage réel (chaque refus de démarrage ; `/readyz` 200 JWKS injoignable ; premier appel 401
   et ligne JSON « jwks not reloaded » ; appel signé d'un JWKS servi sous mTLS → 200 et ligne d'audit contre Postgres ;
   compteurs) ; `netpol` ; garde ; règles promtool.
+
+## Écarts au design, constatés à l'implémentation
+
+- **Pas d'`ErrorLog` sur le serveur** (243) : `slog.SetDefault` fait déjà passer le paquet `log` par le journal JSON ;
+  le refus de handshake y sort, le test le lit. Le mutant qui retirait `ErrorLog` survivait.
+- **Garde de `DASHBOARD_PUBLIC_URL`** : lue par une expression sur chaque manifest de `deploy/k8s`, toutes les valeurs
+  égales.
+- **Test du `cmd/`** : le JWKS de test est servi sous le SAN `localhost` (le nom `dashboard` ne se résout pas hors du
+  cluster) ; la vérification du nom reste celle de Go, depuis l'hôte de l'URL.
+
+## Mutations
+
+À la main, par le script de 013a. Configuration (`Origin`) 7/7 ; compteurs 4/4 ; `cmd/` 15/16, le survivant
+(`ErrorLog`) retiré ; `netpol` 4/4 après un port de test qui n'est plus le défaut ; garde 3/3 ; règles d'alerte 4/4.
+
+## Preuve sur `contabo169`
+
+Jouée le 2026-10-21 depuis la branche, sur le cluster en v0.26.0 : image `admin-api-svc` construite localement
+(même `Dockerfile` que GoReleaser), importée sous `proof-013b` ; timer suspendu, puis réarmé.
+
+1. `ca.yaml` : `admin-api-svc-tls` émis ; `dashboard-tls` porte `server auth` et `client auth`. `secrets.sh` pose
+   `admin-api-svc/postgres-url`. NetworkPolicy et manifest appliqués : `rollout status` réussi. Le premier `Ping` prend
+   « connection refused » (kube-router), `pgdial.Retry` le rejoue, le pod passe `Ready` par le Pooler.
+2. Depuis un pod étiqueté `dashboard` (jamais `Ready`, hors des endpoints du Service `dashboard`), certificat
+   `dashboard-tls`, sortie temporaire vers 8443 : sans jeton, 401 `unauthenticated`.
+3. Certificat `router-svc` depuis ce pod : connexion coupée au handshake ; ligne JSON « mtls: client [router-svc] is not
+   an allowed caller [dashboard] ». Pod `other` : `connection refused`.
+4. Jetons personnels émis par l'humain, session élevée, depuis la console (l'écran n'offre pas le choix des scopes,
+   #165) : `iss` `http://localhost:8080`, `aud` `gateway-admin`. `audit:read` : 200, page vide, `X-Request-Id` ; second
+   appel : la ligne du premier (`sub` de l'opérateur, `list-audit-log`, 200, même `request_id`). `routes:read` : 403
+   `forbidden_scope`, et sa ligne au journal (statut 403).
+
+Objets de preuve retirés (pods, certificat, Secret, NetworkPolicy, jetons) ; `admin-api-svc` reste déployé sous
+`proof-013b` jusqu'à la release. Après la release : rendre public le paquet GHCR `admin-api-svc` (humain).
