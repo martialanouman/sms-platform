@@ -307,11 +307,13 @@ export function DataTable<Row>({
 
 export function Modal({
   title,
+  wide,
   onClose,
   footer,
   children,
 }: {
   title: string
+  wide?: boolean
   onClose: () => void
   footer: ReactNode
   children: ReactNode
@@ -332,7 +334,7 @@ export function Modal({
     // biome-ignore lint/a11y/useKeyWithClickEvents: le clic ne vise que le voile ; au clavier, Échap ferme nativement.
     <dialog
       ref={dialog}
-      className="ui-modal"
+      className={wide ? 'ui-modal ui-modal--wide' : 'ui-modal'}
       aria-labelledby={heading}
       onClose={onClose}
       onMouseDown={(event) => {

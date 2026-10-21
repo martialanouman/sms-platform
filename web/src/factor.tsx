@@ -169,7 +169,7 @@ function RecoveryCodes({ codes, onDone, Heading }: { codes: string[]; onDone: ()
   )
 }
 
-function CopyButton({ label, value }: { label: string; value: string }) {
+export function CopyButton({ label, value }: { label: string; value: string }) {
   const [outcome, setOutcome] = useState('')
 
   function copy() {

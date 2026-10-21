@@ -8,7 +8,13 @@ import { Button, ErrorState, LoadingState, PageHeaderProvider, PageHeaderSlot } 
 export const Route = createFileRoute('/_shell')({ component: Shell })
 
 const groups = [
-  { label: 'Administration', entries: [{ to: '/operators', label: 'Opérateurs', permission: 'operators:read' }] },
+  {
+    label: 'Administration',
+    entries: [
+      { to: '/operators', label: 'Opérateurs', permission: 'operators:read' },
+      { to: '/roles', label: 'Rôles', permission: 'roles:read' },
+    ],
+  },
 ] as const
 
 function Rail({ held }: { held: string[] }) {

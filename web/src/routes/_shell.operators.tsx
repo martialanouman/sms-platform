@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { type FormEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import { api, json, type send, unreachable } from '../api'
 import type { components } from '../api.gen'
+import { operatorsQuery, rolesQuery } from '../queries'
 import { meQuery, Refused, Unauthenticated, useSessionClosed, useShellMe } from '../session'
 import {
   Button,
@@ -20,20 +21,6 @@ import {
 type Operator = components['schemas']['Operator']
 
 export const Route = createFileRoute('/_shell/operators')({ component: Operators })
-
-const operatorsQuery = {
-  queryKey: ['operators'],
-  queryFn: async () => {
-    const { data, error, response } = await api.GET('/operators')
-    if (response.status === 401) {
-      throw new Unauthenticated()
-    }
-    if (!data) {
-      throw response.status < 500 && error?.message ? new Refused(error.message) : new Error('operators')
-    }
-    return data
-  },
-}
 
 function status(o: Operator) {
   if (o.status === 'disabled') {
@@ -261,16 +248,7 @@ function Creation({ onClose, onCreated }: { onClose: () => void; onCreated: (ema
 
 function Roles({ operator, self, onClose }: { operator: Operator; self: boolean; onClose: () => void }) {
   const queryClient = useQueryClient()
-  const roles = useQuery({
-    queryKey: ['roles'],
-    queryFn: async () => {
-      const { data, error, response } = await api.GET('/roles')
-      if (!data) {
-        throw response.status < 500 && error?.message ? new Refused(error.message) : new Error('roles')
-      }
-      return data
-    },
-  })
+  const roles = useQuery(rolesQuery)
   const [chosen, setChosen] = useState(operator.roles.map((r) => r.id))
   const { submit, waiting, refusal } = useSubmission()
 

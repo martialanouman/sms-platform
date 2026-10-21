@@ -449,3 +449,68 @@ test('a session closed by the server forgets what it had read', async () => {
   })
   expect(screen.queryByText('ada@example.test')).toBeNull()
 })
+
+const token = {
+  token: 'eyJ.jeton-de-preuve.sig',
+  scopes: ['accounts:read', 'traffic:read'],
+  expiresAt: '2026-10-21T13:00:00Z',
+}
+
+test('a personal token is shown once, copied, and gone once closed', async () => {
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, { ...me, permissions: ['gateway:personal_token'] }),
+    'POST /api/gateway-token': () => json(200, token),
+  })
+  const { container } = renderAt('/account')
+  const user = userEvent.setup()
+  expect(await screen.findByRole('heading', { name: 'Jeton d’API personnel' })).toBeDefined()
+  const issue = screen.getByRole('button', { name: 'Délivrer' })
+  await user.click(issue)
+  const dialog = await screen.findByRole('dialog', { name: 'Jeton d’API personnel' })
+  expect(dialog.textContent).toContain('eyJ.jeton-de-preuve.sig')
+  expect(dialog.textContent).toContain('Ce jeton ne sera plus jamais affiché.')
+  expect(dialog.textContent).toContain('accounts:read, traffic:read')
+  expect(await violations(container)).toEqual([])
+  await user.click(within(dialog).getByRole('button', { name: 'Copier le jeton' }))
+  expect(await navigator.clipboard.readText()).toBe('eyJ.jeton-de-preuve.sig')
+  await user.click(within(dialog).getAllByRole('button', { name: 'Fermer' })[1] as HTMLElement)
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(document.body.textContent).not.toContain('eyJ.jeton-de-preuve.sig')
+  expect(document.activeElement).toBe(issue)
+  await user.click(issue)
+  await screen.findByRole('dialog')
+  await user.keyboard('{Escape}')
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(document.body.textContent).not.toContain('eyJ.jeton-de-preuve.sig')
+  const posted = calls.find((c) => c.url.endsWith('/api/gateway-token'))
+  expect(posted?.headers.get('Content-Type')).toBe('application/json')
+  expect(await posted?.text()).toBe('')
+})
+
+test('a personal token refused or unavailable is told, without retry', async () => {
+  let sent = 0
+  stubFetch({
+    'GET /api/auth/me': () => json(200, { ...me, permissions: ['gateway:personal_token'] }),
+    'POST /api/gateway-token': () => {
+      sent++
+      return json(503, { code: 'service_unavailable', message: 'Le signataire des jetons est indisponible (serveur).' })
+    },
+  })
+  renderAt('/account')
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Délivrer' }))
+  expect((await screen.findByRole('alert')).textContent).toBe('Le signataire des jetons est indisponible (serveur).')
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(sent).toBe(1)
+})
+
+test('without gateway:personal_token, the delivery is refused and explained', async () => {
+  const calls = stubFetch({ 'GET /api/auth/me': () => json(200, me) })
+  renderAt('/account')
+  const issue = await screen.findByRole('button', { name: 'Délivrer' })
+  expect(issue.getAttribute('aria-disabled')).toBe('true')
+  expect(document.getElementById(issue.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+    'La délivrance d’un jeton personnel demande gateway:personal_token.',
+  )
+  await userEvent.setup().click(issue)
+  expect(calls.some((c) => c.url.endsWith('/api/gateway-token'))).toBe(false)
+})
