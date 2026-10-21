@@ -54,10 +54,41 @@ Fable, 2026-10-21, sur la décision humaine.
      (012d). Permissions du contrat : `operators:read|write`, `roles:read`.
 187. **Une PR**, preuve Chromium sur `contabo169` comme 012d.
 
+## Arbitrages de revue
+
+Premier tour, 2026-10-21 : correction et accessibilité, code en trop, fidélité à l'origine.
+
+188. **La modale rend elle-même le focus** à l'élément qui l'a ouverte, à son démontage. Un `focus()` donné pendant
+     qu'elle est encore modale tombe sur un élément inerte et finit sur `body` (WCAG 2.4.3). Le double de `showModal` des
+     tests rend inerte ce qui est hors de la modale, comme le navigateur. Elle se ferme aussi par le voile (origine).
+     L'écran ne retient plus l'ouvreur.
+189. **Une modale se ferme dès que son action réussit**, sans attendre la relecture de la liste : sinon son bouton se
+     rouvre et un second clic renvoie la requête (second lien, qui invalide le premier). Un succès ne ferme que la modale
+     qui l'a demandé ; une autre, ouverte entre-temps, reste.
+190. **« Réactiver » a son état par ligne** (attente, refus près du bouton), par `useSubmission`.
+191. **Textes de conséquence vérifiés contre le serveur.** Désactiver : les rôles, le second facteur et un lien en cours
+     restent ; « Réactiver » les rend. Lien : celui envoyé plus tôt cesse de valoir dès la demande ; pour une
+     réinitialisation, mot de passe, facteur et sessions restent valables jusqu'à l'usage (origine).
+192. **Fidélité** : états de session de la coquille en `ErrorState` (« Impossible de vérifier la session ») et
+     `LoadingState` (« Ouverture de la session ») ; erreur de lecture des rôles en `ErrorState` avec « Réessayer » ; phrase
+     d'audit des rôles dans le paragraphe du choix ; indicateur d'attente du bouton (`ui-button__spinner`) ; lignes de
+     tableau denses ; squelettes de 20 px dans la modale ; libellés d'interdiction de l'origine, à nos permissions ;
+     courriel de la note de création pris dans la réponse du serveur ; CSS complété (survol du rail, titre, icône
+     d'erreur, fermeture de la modale, animations).
+193. **Écarts assumés à l'origine** : la phrase « Vos données locales restent affichées » et la ligne de requête de
+     l'`ErrorState` ne sont pas portées — aucun écran ne garde ses données affichées sous l'erreur, et la charte veut
+     l'honnêteté avant le réconfort ; la validation des champs reste celle du navigateur (pas de schéma côté SPA) ; la
+     première colonne du tableau est un en-tête de ligne ; « Aucun opérateur » est un état vide (§1.9) ; les actions de
+     ligne sont bloquées sans `operators:write` (contrat) ; la `Toolbar` n'a pas d'emplacement de gauche tant qu'aucun
+     filtre n'existe.
+194. **L'infobulle d'interdiction** se ferme par Échap, se survole sans trou, et n'est pas rognée dans une modale.
+195. **`/account` sans redirection d'une session non élevée** : Fable, 183 ; le serveur refuse les facteurs à une session
+     non élevée et `mfa_required` mène à la vérification.
+
 ## Design arrêté
 
-- **`web/src/ui.tsx`** : `Button`, `Icon`, `Modal`, `DataTable`, `Toolbar`, `EmptyState`, `ErrorState`, `LoadingState`,
-  `Skeleton`, `PageHeader` et son nœud.
+- **`web/src/ui.tsx`** : `Button`, `Icon`, `Modal`, `DataTable`, `Toolbar`, `EmptyState`, `ErrorState`, `LoadingState`
+  (et ses squelettes), `PageHeader` et son nœud.
 - **`web/src/routes/_shell.tsx`** : lien d'évitement, rail groupé et filtré, barre du haut (titre en portail, nom vers
   `/account`, déconnexion), contenu.
 - **`web/src/routes/_shell.index.tsx`** : accueil vide, redirection non élevée.
