@@ -124,8 +124,6 @@ type workload struct {
 	} `yaml:"spec"`
 }
 
-var issuer = regexp.MustCompile(`- name: DASHBOARD_PUBLIC_URL\n +value: (\S+)`)
-
 func check(root string) error {
 	var errs []error
 	entries, err := os.ReadDir(filepath.Join(root, "cmd"))
@@ -180,10 +178,11 @@ func check(root string) error {
 			continue
 		}
 		manifests = append(manifests, name)
-		if data, err := os.ReadFile(filepath.Join(root, "deploy", "k8s", f.Name())); err == nil {
-			if m := issuer.FindSubmatch(data); m != nil {
-				issuers[name] = string(m[1])
-			}
+		iss, err := issuerOf(filepath.Join(root, "deploy", "k8s", f.Name()), name)
+		if err != nil {
+			errs = append(errs, err)
+		} else if iss != "" {
+			issuers[name] = iss
 		}
 		kind, merrs := checkManifest(filepath.Join(root, "deploy", "k8s", f.Name()), name)
 		kinds[name] = kind
@@ -310,6 +309,40 @@ func checkPolicies(path string) []error {
 			errs = append(errs, fmt.Errorf("%s: kind %q, want NetworkPolicy", netpol.File, doc.Kind))
 		}
 	}
+}
+
+// issuerOf is the literal DASHBOARD_PUBLIC_URL of the manifest at path, which the dashboard and every reader of JWKS_URL
+// must carry: the gateway refuses every token whose iss is another.
+func issuerOf(path, name string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	var issuer string
+	var verifies bool
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	for {
+		var w workload
+		if err := dec.Decode(&w); errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			return "", fmt.Errorf("%s: %w", path, err)
+		}
+		for _, c := range w.Spec.Template.Spec.Containers {
+			for _, e := range c.Env {
+				switch e.Name {
+				case "DASHBOARD_PUBLIC_URL":
+					issuer = e.Value
+				case "JWKS_URL":
+					verifies = true
+				}
+			}
+		}
+	}
+	if (verifies || name == "dashboard") && issuer == "" {
+		return "", fmt.Errorf("%s: DASHBOARD_PUBLIC_URL is not a literal value", name)
+	}
+	return issuer, nil
 }
 
 func checkManifest(path, name string) (string, []error) {
@@ -572,6 +605,10 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 		{"allowlist beyond the method map", "deploy/k8s/content-key-svc.yaml", "value: admin-api-svc", "value: admin-api-svc, router-svc", "TLS_ALLOWED_CLIENTS"},
 		{"Admin API allowlist beyond its callers", "deploy/k8s/admin-api-svc.yaml", "value: dashboard\n", "value: dashboard, router-svc\n", "TLS_ALLOWED_CLIENTS"},
 		{"issuer apart from the dashboard", "deploy/k8s/admin-api-svc.yaml", "value: http://localhost:8080", "value: http://localhost:8081", "DASHBOARD_PUBLIC_URL"},
+		{"dashboard without its issuer", "deploy/k8s/dashboard.yaml", "            - name: DASHBOARD_PUBLIC_URL\n              value: http://localhost:8080\n", "", "DASHBOARD_PUBLIC_URL"},
+		{"issuer from elsewhere", "deploy/k8s/admin-api-svc.yaml", "value: http://localhost:8080", "valueFrom: {configMapKeyRef: {name: x, key: y}}", "DASHBOARD_PUBLIC_URL"},
+		{"issuer missing beside the JWKS", "deploy/k8s/admin-api-svc.yaml", "            - name: DASHBOARD_PUBLIC_URL\n              value: http://localhost:8080\n", "", "DASHBOARD_PUBLIC_URL"},
+		{"issuer apart in flow form", "deploy/k8s/admin-api-svc.yaml", "            - name: DASHBOARD_PUBLIC_URL\n              value: http://localhost:8080\n", "            - {name: DASHBOARD_PUBLIC_URL, value: http://localhost:8081}\n", "DASHBOARD_PUBLIC_URL"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()
