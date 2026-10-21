@@ -228,3 +228,19 @@ FROM dashboard.operators WHERE id::text = @id FOR UPDATE;
 
 -- name: SetOperatorStatus :exec
 UPDATE dashboard.operators SET status = @status WHERE id = @id::uuid;
+
+-- name: RolesOf :many
+SELECT role_id::text FROM dashboard.operator_roles WHERE operator_id = @operator_id::uuid ORDER BY 1;
+
+-- name: ExistingRoles :many
+SELECT id::text FROM dashboard.roles WHERE id::text = ANY(@ids::text[]);
+
+-- name: ClearRoles :exec
+DELETE FROM dashboard.operator_roles WHERE operator_id = @operator_id::uuid;
+
+-- name: AddRoles :exec
+INSERT INTO dashboard.operator_roles (operator_id, role_id) SELECT @operator_id::uuid, unnest(@role_ids::uuid[]);
+
+-- name: PermissionsOf :one
+SELECT coalesce(array_agg(DISTINCT p ORDER BY p), '{}')::text[] FROM dashboard.operator_roles x
+  JOIN dashboard.roles r ON r.id = x.role_id, unnest(r.permissions) p WHERE x.operator_id = @operator_id::uuid;

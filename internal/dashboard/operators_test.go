@@ -226,3 +226,108 @@ func TestTheListTellsTheStateOfTheAccessLinkAndOfTheSecondFactor(t *testing.T) {
 		t.Fatal("a pending authenticator app is a second factor a reset would remove")
 	}
 }
+
+func (h *harness) roleID(t *testing.T, name string) string {
+	t.Helper()
+	var id string
+	if err := h.owner.QueryRow(context.Background(), `SELECT id::text FROM dashboard.roles WHERE name = $1`, name).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+func names(roles []dashboard.RoleRef) []string {
+	out := make([]string, len(roles))
+	for i, r := range roles {
+		out[i] = r.Name
+	}
+	return out
+}
+
+func TestSetOperatorRolesReplacesThemAndLogsOnlyAChange(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	actor := h.actor(t)
+	h.activate(t, "ada@example.test")
+	ada := h.operatorID(t, "ada@example.test")
+	support, audit := h.roleID(t, "Support"), h.roleID(t, "Audit")
+	before := len(h.log(t))
+
+	got, err := h.svc.SetOperatorRoles(ctx, actor, ada, []string{support, audit, support})
+	if err != nil || !slices.Equal(names(got.Roles), []string{"Audit", "Support"}) {
+		t.Fatalf("set: %+v, %v", got, err)
+	}
+	if _, err := h.svc.SetOperatorRoles(ctx, actor, ada, []string{audit, support}); err != nil {
+		t.Fatal(err)
+	}
+	if got, err = h.svc.SetOperatorRoles(ctx, actor, ada, []string{}); err != nil || len(got.Roles) != 0 {
+		t.Fatalf("cleared: %+v, %v", got, err)
+	}
+	log := h.since(t, before)
+	if !slices.Equal(events(log), []dashboard.Event{dashboard.EventRolesChanged, dashboard.EventRolesChanged}) {
+		t.Fatalf("logged %v", events(log))
+	}
+	for _, e := range log {
+		if e.Actor != actor || e.Target != ada {
+			t.Errorf("logged %+v", e)
+		}
+	}
+
+	for _, tc := range []struct {
+		ids   []string
+		field string
+	}{
+		{[]string{support, "01a15c07-0000-7000-8000-000000000000"}, "roleIds[1]"},
+		{[]string{"x", support}, "roleIds[0]"},
+	} {
+		var invalid dashboard.InvalidField
+		if _, err := h.svc.SetOperatorRoles(ctx, actor, ada, tc.ids); !errors.As(err, &invalid) || invalid.Field != tc.field {
+			t.Errorf("%v: %v, want %s refused", tc.ids, err, tc.field)
+		}
+	}
+	if got := h.find(t, "ada@example.test"); len(got.Roles) != 0 {
+		t.Fatalf("a refused change left %v", names(got.Roles))
+	}
+	if _, err := h.svc.SetOperatorRoles(ctx, actor, "x", []string{support}); !errors.Is(err, dashboard.ErrNotFound) {
+		t.Fatalf("roles of nobody: %v", err)
+	}
+}
+
+func TestNobodyTakesFromHimselfTheRightToManageOperatorsOrRoles(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	actor := h.actor(t)
+	owner, support, audit := h.roleID(t, dashboard.Owner), h.roleID(t, "Support"), h.roleID(t, "Audit")
+	if _, err := h.svc.SetOperatorRoles(ctx, actor, actor, []string{support}); !errors.Is(err, dashboard.ErrSelfLockout) {
+		t.Fatalf("the owner drops his own role: %v", err)
+	}
+	if got := h.find(t, "owner@example.test"); !slices.Equal(names(got.Roles), []string{dashboard.Owner}) {
+		t.Fatalf("a refused lockout left %v", names(got.Roles))
+	}
+	if _, err := h.svc.SetOperatorRoles(ctx, actor, actor, []string{owner, support}); err != nil {
+		t.Fatalf("keeping the owner role: %v", err)
+	}
+
+	h.exec(t, `INSERT INTO dashboard.roles (name, description, permissions) VALUES ('Gestion', '', '{operators:read,operators:write}')`)
+	gestion := h.roleID(t, "Gestion")
+	h.activate(t, "ada@example.test")
+	ada := h.operatorID(t, "ada@example.test")
+	h.grant(t, "ada@example.test", "Gestion")
+	if _, err := h.svc.SetOperatorRoles(ctx, ada, ada, []string{gestion, audit}); err != nil {
+		t.Fatalf("roles:write was never held, so never lost: %v", err)
+	}
+	if _, err := h.svc.SetOperatorRoles(ctx, ada, ada, []string{audit}); !errors.Is(err, dashboard.ErrSelfLockout) {
+		t.Fatalf("ada drops operators:write: %v", err)
+	}
+	h.exec(t, `INSERT INTO dashboard.roles (name, description, permissions) VALUES ('Composition', '', '{roles:write}')`)
+	composition := h.roleID(t, "Composition")
+	if _, err := h.svc.SetOperatorRoles(ctx, ada, ada, []string{gestion, composition}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.svc.SetOperatorRoles(ctx, ada, ada, []string{gestion}); !errors.Is(err, dashboard.ErrSelfLockout) {
+		t.Fatalf("ada drops roles:write: %v", err)
+	}
+	if _, err := h.svc.SetOperatorRoles(ctx, ada, actor, []string{support}); err != nil {
+		t.Fatalf("taking from another is no lockout: %v", err)
+	}
+}

@@ -9,4 +9,4 @@ dashboard:
   webauthn_credentials: [select, insert, update, delete]
   webauthn_challenges: [select, insert, update, delete]
   roles: [select, insert, update]
-  operator_roles: [select, insert]
+  operator_roles: [select, insert, delete]

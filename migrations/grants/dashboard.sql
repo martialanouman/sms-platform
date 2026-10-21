@@ -45,7 +45,7 @@ GRANT USAGE ON SCHEMA dashboard TO dashboard;
 GRANT select, insert, update ON dashboard.access_links TO dashboard;
 GRANT select, insert ON dashboard.access_log TO dashboard;
 GRANT select, insert, update, delete ON dashboard.login_attempt_counters TO dashboard;
-GRANT select, insert ON dashboard.operator_roles TO dashboard;
+GRANT select, insert, delete ON dashboard.operator_roles TO dashboard;
 GRANT select, insert, update ON dashboard.operators TO dashboard;
 GRANT select, insert, update, delete ON dashboard.recovery_codes TO dashboard;
 GRANT select, insert, update ON dashboard.roles TO dashboard;

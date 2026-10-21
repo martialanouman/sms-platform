@@ -102,6 +102,25 @@ func (t tx) SetOperatorStatus(ctx context.Context, id string, active bool) error
 	return queries.SetOperatorStatus(ctx, t.db, sqlc.SetOperatorStatusParams{Status: status, ID: id})
 }
 
+func (t tx) RolesOf(ctx context.Context, operatorID string) ([]string, error) {
+	return queries.RolesOf(ctx, t.db, operatorID)
+}
+
+func (t tx) ExistingRoles(ctx context.Context, ids []string) ([]string, error) {
+	return queries.ExistingRoles(ctx, t.db, ids)
+}
+
+func (t tx) SetRoles(ctx context.Context, operatorID string, roleIDs []string) error {
+	if err := queries.ClearRoles(ctx, t.db, operatorID); err != nil {
+		return err
+	}
+	return queries.AddRoles(ctx, t.db, sqlc.AddRolesParams{OperatorID: operatorID, RoleIds: roleIDs})
+}
+
+func (t tx) PermissionsOf(ctx context.Context, operatorID string) ([]string, error) {
+	return queries.PermissionsOf(ctx, t.db, operatorID)
+}
+
 func (t tx) SeedRole(ctx context.Context, r dashboard.Role) error {
 	return queries.SeedRole(ctx, t.db, sqlc.SeedRoleParams{Name: r.Name, Description: r.Description, Permissions: r.Permissions})
 }

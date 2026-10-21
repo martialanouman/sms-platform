@@ -93,6 +93,10 @@ type Tx interface {
 	InsertOperator(ctx context.Context, email, displayName string) (id string, created bool, err error)
 	OperatorByID(ctx context.Context, id string) (Operator, bool, error)
 	SetOperatorStatus(ctx context.Context, id string, active bool) error
+	RolesOf(ctx context.Context, operatorID string) ([]string, error)
+	ExistingRoles(ctx context.Context, ids []string) ([]string, error)
+	SetRoles(ctx context.Context, operatorID string, roleIDs []string) error
+	PermissionsOf(ctx context.Context, operatorID string) ([]string, error)
 
 	SeedRole(ctx context.Context, r Role) error
 	EnsureOwner(ctx context.Context, email string) (operatorID string, granted bool, err error)
