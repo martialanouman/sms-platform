@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { type FormEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import { api, json, send, unreachable } from '../api'
 import type { components } from '../api.gen'
-import { meQuery, Refused, useShellMe } from '../session'
+import { meQuery, Refused, Unauthenticated, useSessionClosed, useShellMe } from '../session'
 import { Field, useSubmission } from '../ui'
 
 type Operator = components['schemas']['Operator']
@@ -14,10 +14,11 @@ const operatorsQuery = {
   queryKey: ['operators'],
   queryFn: async () => {
     const { data, error, response } = await api.GET('/operators')
+    if (response.status === 401) {
+      throw new Unauthenticated()
+    }
     if (!data) {
-      throw response.status >= 400 && response.status < 500 && error?.message
-        ? new Refused(error.message)
-        : new Error('operators')
+      throw response.status < 500 && error?.message ? new Refused(error.message) : new Error('operators')
     }
     return data
   },
@@ -46,6 +47,12 @@ function Operators() {
   const held = me.data?.permissions ?? []
   const readable = held.includes('operators:read')
   const operators = useQuery({ ...operatorsQuery, enabled: readable })
+  const closed = useSessionClosed()
+  useEffect(() => {
+    if (operators.error instanceof Unauthenticated) {
+      closed()
+    }
+  }, [operators.error, closed])
   const writable = held.includes('operators:write') ? '' : 'Il faut la permission operators:write.'
   const [editing, setEditing] = useState<{ operator: Operator; opener: HTMLButtonElement }>()
 
@@ -57,6 +64,7 @@ function Operators() {
   }, [])
   useEffect(() => {
     if (wasReadable.current && !readable) {
+      setEditing(undefined)
       title.current?.focus()
     }
     wasReadable.current = readable
@@ -200,6 +208,9 @@ function Row({
   const active = o.status === 'active'
 
   async function act(call: Parameters<typeof send>[0], note?: string) {
+    if (waiting) {
+      return
+    }
     setWaiting(true)
     const { failure } = await send(call)
     setWaiting(false)
@@ -239,7 +250,8 @@ function Row({
               <button
                 className="ui-button ui-button--secondary"
                 type="button"
-                disabled={!!hint || waiting}
+                disabled={!!hint}
+                aria-disabled={waiting || undefined}
                 aria-describedby={hint}
                 onClick={() =>
                   void act(
@@ -261,7 +273,8 @@ function Row({
               <button
                 className="ui-button ui-button--secondary"
                 type="button"
-                disabled={!!hint || waiting}
+                disabled={!!hint}
+                aria-disabled={waiting || undefined}
                 aria-describedby={hint}
                 onClick={() =>
                   void act(() =>
@@ -330,10 +343,10 @@ function RolesDialog({ operator, self, onClose }: { operator: Operator; self: bo
     )
     if (outcome.failure === undefined) {
       await queryClient.invalidateQueries({ queryKey: operatorsQuery.queryKey })
-      dialog.current?.close()
       if (self) {
         await queryClient.invalidateQueries({ queryKey: meQuery.queryKey })
       }
+      dialog.current?.close()
     }
   }
 

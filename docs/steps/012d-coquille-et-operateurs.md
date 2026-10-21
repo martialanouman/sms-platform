@@ -74,8 +74,8 @@ Fable, 2026-10-21.
 
 ## Mutations
 
-Cinquante-deux, à la main, sur la coquille, l'écran, le dialogue et le client API ; toutes tombent. Cinq avaient survécu,
-chacune tenue désormais : `aria-current` (posé par TanStack Router lui-même, le code en trop est retiré), l'`Outlet` sans
+Soixante-cinq, à la main, sur la coquille, l'écran, le dialogue et le client API ; toutes tombent après les correctifs.
+Cinq avaient survécu à l'implémentation, chacune tenue désormais : `aria-current` (posé par TanStack Router lui-même, le code en trop est retiré), l'`Outlet` sans
 `me`, l'invalidation de `me` après une action de ligne sur soi (aucune n'y touche à `me` : retirée), « Oui » du second
 facteur, le refus d'une action de ligne.
 
@@ -85,8 +85,9 @@ Deux revues (correction, sécurité et accessibilité ; tests et code en trop). 
 
 1. **Le cache survivait à la fin de session** (important) : après une déconnexion ou une session fermée, « Précédent »
    vers `/operators` remontrait la liste des opérateurs en cache. La déconnexion et la fermeture vident le cache.
-2. **Se retirer `operators:read` démontait le dialogue avant sa fermeture** (important) : le focus tombait sur `body`. Le
-   dialogue se ferme avant la relecture de `me` ; quand l'écran perd sa lecture, le focus va à son titre.
+2. **Se retirer `operators:read` démontait le dialogue avant sa fermeture** (important) : le focus tombait sur `body` et
+   le dialogue restait en mémoire. Quand l'écran perd sa lecture, il oublie le dialogue et le focus va à son titre
+   (corrigé au tour 2).
 3. **Un refus n'est plus relu** : un 4xx de la liste n'est ni réessayé trois fois ni dit « Le service ne répond pas » ;
    son message s'affiche. La règle de relecture (`retry`) est sous test.
 4. **Tests** : le double de `showModal` refuse un dialogue déjà ouvert et ferme sur Échap (`cancel`), comme Chromium ;
@@ -101,8 +102,21 @@ Deux revues (correction, sécurité et accessibilité ; tests et code en trop). 
 7. **Gardé** : l'entrée désactivée du rail reste un `span` à `aria-disabled` sans rôle (Biome refuse `role="link"` sur un
    `span` et un `<a>` sans `href`) ; son explication est du texte visible, lu par les lecteurs d'écran. Une explication
    par bouton désactivé, pas une seule au-dessus du tableau (§8.8 : chaque contrôle interdit est expliqué). Sur
-   `mfa_required`, `/mfa` n'aboutit qu'avec un défi de connexion en attente ; sinon sa garde mène à `/login`
-   (« vérification interrompue ») : un rechargement ou un onglet neuf y finissent toujours.
+   `mfa_required`, `/mfa` n'aboutit qu'avec un défi de connexion en attente, que l'élévation consomme ; hors du parcours
+   de connexion, sa garde mène à `/login` (« vérification interrompue »), ce qui est juste : il faut se reconnecter.
+
+## Correctifs de revue, tour 2
+
+Une revue des correctifs du tour 1. Aucun bloquant ; quatre défauts venus de ces correctifs.
+
+1. **Le dialogue oublié n'était pas prouvé** : l'ordre « fermer avant de relire `me` » survivait à sa mutation. L'écran
+   oublie désormais le dialogue quand il perd sa lecture ; un test fait tomber la permission dialogue ouvert, puis la
+   rend : le dialogue ne revient pas. L'ordre d'origine est rendu : deux gardes qui se recouvrent ne se prouvent pas.
+2. **Un 503 portant l'enveloppe d'erreur est dit « ne répond pas »**, pas pris pour un refus ; **un 401 sur la liste
+   ferme la session** et mène à `/login`, au lieu d'un « Réessayer » inutile.
+3. **Une action en cours ne désactive plus le bouton qui a le focus** (Chromium le lui retirait) : `aria-disabled` et une
+   garde dans l'action.
+4. **La région live est tenue par un test** (présente et vide avant l'action) ; vide, elle ne prend plus de place.
 
 ## Preuve sur `contabo169`
 

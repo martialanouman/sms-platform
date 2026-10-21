@@ -392,6 +392,10 @@ a.shell__link[aria-current="page"] {
   color: var(--text-success);
 }
 
+.table__note:empty {
+  margin: 0;
+}
+
 .dialog {
   width: min(40rem, calc(100% - var(--sp-10)));
   padding: var(--pad-panel);

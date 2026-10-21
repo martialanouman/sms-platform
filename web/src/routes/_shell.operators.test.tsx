@@ -3,7 +3,7 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
 import { rememberChallenge } from '../session'
-import { challenge, empty, json, me, renderAt, stubFetch, violations } from '../test'
+import { challenge, empty, json, me, once, renderAt, stubFetch, violations } from '../test'
 
 const owner = { ...me, permissions: ['operators:read', 'operators:write', 'roles:read'] }
 const support = { id: 'r-support', name: 'Support' }
@@ -367,7 +367,14 @@ test('taking operators:read away from oneself closes the dialog and tells why', 
   await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Enregistrer' }))
   expect(await screen.findByText('Il faut la permission operators:read pour lire les opérateurs.')).toBeDefined()
   expect(screen.queryByRole('dialog')).toBeNull()
-  expect(document.activeElement?.closest('main')).not.toBeNull()
+  expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Opérateurs', level: 1 }))
+  held = owner.permissions
+  act(() => {
+    focusManager.setFocused(false)
+    focusManager.setFocused(true)
+  })
+  await screen.findByRole('rowheader', { name: 'Opérateur' })
+  expect(screen.queryByRole('dialog')).toBeNull()
 })
 
 test('each kind and state of access link is told', async () => {
@@ -446,11 +453,71 @@ test('a row action runs once at a time, and a new one forgets the last outcome',
   const link = within(row('Ada')).getByRole('button', { name: 'Envoyer un lien' })
   await user.click(link)
   await user.click(link)
-  expect(link.hasAttribute('disabled')).toBe(true)
+  expect(link.getAttribute('aria-disabled')).toBe('true')
+  expect(document.activeElement).toBe(link)
   await act(async () => release())
   expect(await within(row('Ada')).findByText('Lien demandé.')).toBeDefined()
   expect(sent).toBe(1)
   await user.click(within(row('Ada')).getByRole('button', { name: 'Envoyer un lien' }))
   expect((await within(row('Ada')).findByRole('alert')).textContent).toBe('Refusé (serveur).')
   expect(within(row('Ada')).queryByText('Lien demandé.')).toBeNull()
+})
+
+test('a failure of the service with an error envelope is told as unreachable', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, owner),
+    'GET /api/operators': () => json(503, { code: 'service_unavailable', message: 'Message interne (serveur).' }),
+  })
+  renderAt('/operators')
+  expect((await screen.findByRole('alert')).textContent).toBe('Le service ne répond pas ; réessayez.')
+})
+
+test('a session gone while reading the list sends to the login', async () => {
+  stubFetch({
+    'GET /api/auth/me': once(() => json(200, owner)),
+    'GET /api/operators': () => json(401, { code: 'unauthenticated', message: 'Aucune session ouverte.' }),
+  })
+  const { router } = renderAt('/operators')
+  await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
+  expect(router.state.location.search).toEqual({ notice: 'session-closed' })
+})
+
+test('the outcome of a row action is told in a status region present before it', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, owner),
+    'GET /api/operators': () => json(200, [self, ada]),
+    'POST /api/operators/o-ada/access-link': () => empty(202),
+  })
+  renderAt('/operators')
+  await screen.findByRole('rowheader', { name: 'Ada' })
+  const status = within(row('Ada')).getByRole('status')
+  expect(status.textContent).toBe('')
+  await userEvent.setup().click(within(row('Ada')).getByRole('button', { name: 'Envoyer un lien' }))
+  await waitFor(() => expect(status.textContent).toBe('Lien demandé.'))
+  expect(within(row('Ada')).getByRole('status')).toBe(status)
+})
+
+test('a dialog left open when the permission goes does not come back with it', async () => {
+  let held = owner.permissions
+  stubFetch({
+    'GET /api/auth/me': () => json(200, { ...owner, permissions: held }),
+    'GET /api/operators': () => json(200, [self, ada]),
+    'GET /api/roles': () => json(200, roles),
+  })
+  renderAt('/operators')
+  await screen.findByRole('rowheader', { name: 'Ada' })
+  await userEvent.setup().click(within(row('Ada')).getByRole('button', { name: 'Rôles' }))
+  await screen.findByRole('dialog')
+  const refocus = () =>
+    act(() => {
+      focusManager.setFocused(false)
+      focusManager.setFocused(true)
+    })
+  held = []
+  refocus()
+  expect(await screen.findByText('Il faut la permission operators:read pour lire les opérateurs.')).toBeDefined()
+  held = owner.permissions
+  refocus()
+  await screen.findByRole('rowheader', { name: 'Ada' })
+  expect(document.querySelector('dialog')).toBeNull()
 })
