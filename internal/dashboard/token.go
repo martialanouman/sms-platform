@@ -40,7 +40,6 @@ type PublicKey struct {
 
 // Signer signs tokens with a key it never discloses (spec 08 §8.4).
 type Signer interface {
-	// Keys returns the kid that signs now and every public key a token may still name.
 	Keys(ctx context.Context) (latest string, keys []PublicKey, err error)
 	// Sign returns the ES256 signature, r and s on 32 bytes each, of input under the key kid.
 	Sign(ctx context.Context, kid string, input []byte) ([]byte, error)
@@ -79,6 +78,7 @@ func (s Service) IssuePersonalToken(ctx context.Context, c Current, requested []
 		return PersonalToken{}, err
 	}
 	now := time.Now()
+	exp := now.Add(personalLifetime).Unix()
 	token, err := s.sign(ctx, struct {
 		Iss   string `json:"iss"`
 		Aud   string `json:"aud"`
@@ -86,14 +86,16 @@ func (s Service) IssuePersonalToken(ctx context.Context, c Current, requested []
 		Scope string `json:"scope"`
 		Iat   int64  `json:"iat"`
 		Exp   int64  `json:"exp"`
-	}{s.PublicURL, audience, c.OperatorID, strings.Join(carried, " "), now.Unix(), now.Add(personalLifetime).Unix()})
+	}{s.PublicURL, audience, c.OperatorID, strings.Join(carried, " "), now.Unix(), exp})
 	if err != nil {
 		return PersonalToken{}, err
 	}
-	err = s.Store.Tx(ctx, func(tx Tx) error {
+	if err := s.Store.Tx(ctx, func(tx Tx) error {
 		return tx.Log(ctx, Entry{Actor: c.OperatorID, Event: EventPersonalTokenIssued, Success: true})
-	})
-	return PersonalToken{Token: token, Scopes: carried, ExpiresAt: time.Unix(now.Add(personalLifetime).Unix(), 0)}, err
+	}); err != nil {
+		return PersonalToken{}, err
+	}
+	return PersonalToken{Token: token, Scopes: carried, ExpiresAt: time.Unix(exp, 0)}, nil
 }
 
 func (s Service) keys(ctx context.Context) (string, []PublicKey, error) {

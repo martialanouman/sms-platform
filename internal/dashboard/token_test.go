@@ -20,30 +20,41 @@ import (
 )
 
 type keySigner struct {
-	key  *ecdsa.PrivateKey
+	keys map[string]*ecdsa.PrivateKey
 	fail error
 }
 
 func newKeySigner(t *testing.T) *keySigner {
 	t.Helper()
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		t.Fatal(err)
+	k := &keySigner{keys: map[string]*ecdsa.PrivateKey{}}
+	for _, kid := range []string{"test-v1", "test-v2"} {
+		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		k.keys[kid] = key
 	}
-	return &keySigner{key: key}
+	return k
 }
 
 func (k *keySigner) Keys(context.Context) (string, []dashboard.PublicKey, error) {
-	return "test-v1", []dashboard.PublicKey{{Kid: "test-v1", Key: &k.key.PublicKey}}, k.fail
+	return "test-v2", []dashboard.PublicKey{{Kid: "test-v1", Key: &k.keys["test-v1"].PublicKey}, {Kid: "test-v2", Key: &k.keys["test-v2"].PublicKey}}, k.fail
 }
 
 func (k *keySigner) Sign(_ context.Context, kid string, input []byte) ([]byte, error) {
-	if k.fail != nil || kid != "test-v1" {
+	key, ok := k.keys[kid]
+	if k.fail != nil || !ok {
 		return nil, errors.Join(k.fail, errors.New("unknown kid"))
 	}
 	digest := sha256.Sum256(input)
-	r, s, err := ecdsa.Sign(rand.Reader, k.key, digest[:])
+	r, s, err := ecdsa.Sign(rand.Reader, key, digest[:])
 	return append(r.FillBytes(make([]byte, 32)), s.FillBytes(make([]byte, 32))...), err
+}
+
+type brokenStore struct{}
+
+func (brokenStore) Tx(context.Context, func(dashboard.Tx) error) error {
+	return errors.New("postgres down")
 }
 
 type claims struct {
@@ -126,7 +137,7 @@ func TestAPersonalTokenCarriesTheScopesItMayAndVerifiesUnderTheJWKS(t *testing.T
 		t.Fatal(err)
 	}
 	header, c := verify(t, jwks, issued.Token)
-	if header["alg"] != "ES256" || header["kid"] != "test-v1" || header["typ"] != "JWT" {
+	if header["alg"] != "ES256" || header["kid"] != "test-v2" || header["typ"] != "JWT" {
 		t.Fatalf("header %v", header)
 	}
 	if c.Iss != publicURL || c.Aud != "gateway-admin" || c.Sub != actor || c.Scope != strings.Join(want, " ") || c.Exp-c.Iat != 3600 ||
@@ -164,6 +175,7 @@ func TestAPersonalTokenRefusesAScopeItMayNotCarry(t *testing.T) {
 		{owner, []string{"gdpr:erase"}, "gdpr:erase"},
 		{owner, []string{"operators:read"}, "operators:read"},
 		{owner, []string{"nope:read", "routes:read"}, "nope:read"},
+		{owner, []string{"content:read", "gdpr:erase"}, "content:read"},
 		{dashboard.Current{OperatorID: actor, Permissions: []string{"routes:read"}}, []string{"cdr:read"}, "cdr:read"},
 		{dashboard.Current{OperatorID: actor, Permissions: []string{"content:read", "gateway:personal_token"}}, nil, ""},
 	} {
@@ -172,7 +184,12 @@ func TestAPersonalTokenRefusesAScopeItMayNotCarry(t *testing.T) {
 			t.Errorf("%v asking %v: %v, want %q refused", tc.c.Permissions, tc.requested, err, tc.refused)
 		}
 	}
-	svc.Signer = &keySigner{key: svc.Signer.(*keySigner).key, fail: errors.New("openbao down")}
+	broken := svc
+	broken.Store = brokenStore{}
+	if issued, err := broken.IssuePersonalToken(ctx, owner, nil); err == nil || issued.Token != "" {
+		t.Fatalf("a token whose issuance could not be logged: %+v, %v", issued, err)
+	}
+	svc.Signer.(*keySigner).fail = errors.New("openbao down")
 	if _, err := svc.IssuePersonalToken(ctx, owner, nil); !errors.Is(err, dashboard.ErrSignerUnavailable) {
 		t.Fatalf("a signer down: %v", err)
 	}
