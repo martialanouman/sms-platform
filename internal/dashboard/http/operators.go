@@ -12,7 +12,6 @@ const (
 	unknownOperator = "Cet opérateur est inconnu."
 	unknownRole     = "Ce rôle est inconnu."
 	selfLockout     = "Ce changement vous retirerait la gestion des opérateurs ou des rôles."
-	defaultRole     = "Un rôle par défaut ne se modifie pas : il est rétabli à chaque déploiement."
 )
 
 func actor(ctx context.Context) string {
@@ -142,7 +141,7 @@ func (s server) UpdateRole(ctx context.Context, request UpdateRoleRequestObject)
 	case errors.Is(err, dashboard.ErrNotFound):
 		return UpdateRole404JSONResponse{NotFoundJSONResponse{Code: ErrorCodeNotFound, Message: unknownRole}}, nil
 	case errors.Is(err, dashboard.ErrRoleIsDefault):
-		return UpdateRole409JSONResponse{Code: ErrorCodeRoleIsDefault, Message: defaultRole}, nil
+		return UpdateRole409JSONResponse{Code: ErrorCodeRoleIsDefault, Message: "Un rôle par défaut ne se modifie pas : il est rétabli à chaque déploiement."}, nil
 	case errors.Is(err, dashboard.ErrSelfLockout):
 		return UpdateRole409JSONResponse{Code: ErrorCodeSelfLockout, Message: selfLockout}, nil
 	case err != nil:

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/martialanouman/sms-platform/internal/dashboard"
@@ -46,6 +47,12 @@ func TestACustomRoleIsComposedFromTheGeneratedPermissionsUnderAFreeName(t *testi
 	var invalid dashboard.InvalidField
 	if _, err := h.svc.CreateRole(ctx, actor, "Autre", "", []string{"cdr:read", "admin:write"}); !errors.As(err, &invalid) || invalid.Field != "permissions[1]" {
 		t.Fatalf("an unknown permission: %v", err)
+	}
+	all, err := h.svc.Roles(ctx)
+	if err != nil || len(all) != 11 || !slices.IsSortedFunc(all, func(a, b dashboard.RoleRecord) int {
+		return strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name))
+	}) {
+		t.Fatalf("%d roles, %v; want eleven, by name", len(all), err)
 	}
 	if owner := h.role(t, dashboard.Owner); !owner.Default || !slices.Equal(owner.Holders, []string{"owner@example.test"}) {
 		t.Fatalf("owner %+v", owner)

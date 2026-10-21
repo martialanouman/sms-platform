@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 
@@ -53,7 +54,7 @@ func TestCreateOperatorQueuesItsActivationAndRefusesATakenEmail(t *testing.T) {
 		t.Fatal(err)
 	}
 	if created.Email != "ada@example.test" || created.DisplayName != "Ada" || !created.Active || len(created.Roles) != 0 ||
-		created.SecondFactor || created.Link == nil || *created.Link != (dashboard.LinkState{Kind: dashboard.Activation, State: dashboard.LinkQueued}) {
+		created.SecondFactor || created.Link == nil || *created.Link != (dashboard.LinkState{Kind: dashboard.Activation, State: "queued"}) {
 		t.Fatalf("created %+v", created)
 	}
 	if got := h.find(t, "ada@example.test"); got.ID != created.ID {
@@ -73,13 +74,15 @@ func TestCreateOperatorQueuesItsActivationAndRefusesATakenEmail(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
-	results := make(chan error, 4)
+	results, start := make(chan error, 4), make(chan struct{})
 	for range 4 {
 		wg.Go(func() {
+			<-start
 			_, err := h.svc.CreateOperator(ctx, actor, "race@example.test", "Race")
 			results <- err
 		})
 	}
+	close(start)
 	wg.Wait()
 	close(results)
 	var ok, taken int
@@ -173,6 +176,9 @@ func TestAnAccessLinkActivatesANewAccountAndResetsAnActiveOne(t *testing.T) {
 			t.Fatalf("queued %q for %s, want %q: %v", kind, tc.id, tc.kind, err)
 		}
 	}
+	if got := h.find(t, "owner@example.test").Link; got == nil || *got != (dashboard.LinkState{Kind: dashboard.Reset, State: "queued"}) {
+		t.Fatalf("the reset link listed as %+v", got)
+	}
 	log := h.since(t, before)
 	if !slices.Equal(events(log), []dashboard.Event{dashboard.EventAccessLinkRequested, dashboard.EventAccessLinkRequested}) ||
 		log[1].Actor != actor || log[1].Target != created.ID {
@@ -201,10 +207,10 @@ func TestTheListTellsTheStateOfTheAccessLinkAndOfTheSecondFactor(t *testing.T) {
 		sql  string
 		want *dashboard.LinkState
 	}{
-		{`UPDATE dashboard.access_links SET attempts = 10`, &dashboard.LinkState{Kind: dashboard.Activation, State: dashboard.LinkFailed}},
-		{`UPDATE dashboard.access_links SET attempts = 9`, &dashboard.LinkState{Kind: dashboard.Activation, State: dashboard.LinkQueued}},
+		{`UPDATE dashboard.access_links SET attempts = 10`, &dashboard.LinkState{Kind: dashboard.Activation, State: "failed"}},
+		{`UPDATE dashboard.access_links SET attempts = 9`, &dashboard.LinkState{Kind: dashboard.Activation, State: "queued"}},
 		{`UPDATE dashboard.access_links SET sent_at = now(), token_hash = '\x01', expires_at = now() + interval '1 hour'`,
-			&dashboard.LinkState{Kind: dashboard.Activation, State: dashboard.LinkSent}},
+			&dashboard.LinkState{Kind: dashboard.Activation, State: "sent"}},
 		{`UPDATE dashboard.access_links SET expires_at = now() - interval '1 second'`, nil},
 		{`UPDATE dashboard.access_links SET token_hash = NULL, expires_at = now() + interval '1 hour'`, nil},
 	} {
@@ -217,6 +223,14 @@ func TestTheListTellsTheStateOfTheAccessLinkAndOfTheSecondFactor(t *testing.T) {
 	if owner := h.find(t, "owner@example.test"); owner.Link != nil || owner.SecondFactor ||
 		!slices.Equal(owner.Roles, []dashboard.RoleRef{{ID: owner.Roles[0].ID, Name: dashboard.Owner}}) {
 		t.Fatalf("owner %+v", owner)
+	}
+	h.exec(t, `INSERT INTO dashboard.webauthn_credentials (operator_id, credential_id, name, credential) VALUES ($1, '\x01', 'k', '{}')`, created.ID)
+	if !h.find(t, "ada@example.test").SecondFactor {
+		t.Fatal("a passkey alone is a second factor a reset would remove")
+	}
+	all, err := h.svc.Operators(ctx)
+	if err != nil || !slices.IsSortedFunc(all, func(a, b dashboard.OperatorRecord) int { return strings.Compare(a.Email, b.Email) }) || len(all) != 2 {
+		t.Fatalf("listed %+v, %v; want both, by email", all, err)
 	}
 	l := h.login(t, "owner@example.test")
 	if _, err := h.svc.EnrollTotp(ctx, l.Cookie, nil); err != nil {

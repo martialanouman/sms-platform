@@ -166,7 +166,7 @@ func (s Service) CreateRole(ctx context.Context, actor, name, description string
 	return created, err
 }
 
-func (s Service) custom(ctx context.Context, tx Tx, id string) error {
+func custom(ctx context.Context, tx Tx, id string) error {
 	isDefault, found, err := tx.LockRole(ctx, id)
 	switch {
 	case err != nil:
@@ -188,7 +188,7 @@ func (s Service) UpdateRole(ctx context.Context, actor, id, description string, 
 	}
 	var updated RoleRecord
 	err = s.Store.Tx(ctx, func(tx Tx) error {
-		if err := s.custom(ctx, tx, id); err != nil {
+		if err := custom(ctx, tx, id); err != nil {
 			return err
 		}
 		current, err := role(ctx, tx, id)
@@ -212,7 +212,7 @@ func (s Service) UpdateRole(ctx context.Context, actor, id, description string, 
 // DeleteRole deletes a custom role nobody holds.
 func (s Service) DeleteRole(ctx context.Context, actor, id string) error {
 	return s.Store.Tx(ctx, func(tx Tx) error {
-		if err := s.custom(ctx, tx, id); err != nil {
+		if err := custom(ctx, tx, id); err != nil {
 			return err
 		}
 		current, err := role(ctx, tx, id)

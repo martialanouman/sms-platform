@@ -7,13 +7,6 @@ import (
 	"slices"
 )
 
-// The states of an access link that is neither used nor expired.
-const (
-	LinkQueued = "queued"
-	LinkSent   = "sent"
-	LinkFailed = "failed"
-)
-
 var (
 	// ErrNotFound is an operator or a role unknown, or an identifier that names none.
 	ErrNotFound = errors.New("not found")

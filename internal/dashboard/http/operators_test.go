@@ -93,7 +93,7 @@ func TestAnElevatedOwnerManagesOperators(t *testing.T) {
 	}
 	list := a.do(t, call{method: "GET", path: "/api/operators", cookie: c})
 	if list.status != 200 || !strings.Contains(list.raw, `"email":"ada@example.test"`) || !strings.Contains(list.raw, `"email":"owner@example.test"`) ||
-		strings.Count(list.raw, `"secondFactorEnrolled":true`) != 1 {
+		strings.Count(list.raw, `"secondFactorEnrolled":true`) != 1 || !strings.Contains(list.raw, `"accessLink":null`) {
 		t.Fatalf("list: %d %s", list.status, list.raw)
 	}
 }
@@ -133,12 +133,13 @@ func TestAnElevatedOwnerComposesRoles(t *testing.T) {
 		"delete nobody":  {call{method: "DELETE", path: "/api/roles/x"}, 404, "not_found", ""},
 	} {
 		tc.c.cookie = c
-		if got := a.do(t, tc.c); got.status != tc.status || got.code() != tc.code || got.field() != tc.field || got.body["message"] == "" {
+		got := a.do(t, tc.c)
+		if got.status != tc.status || got.code() != tc.code || got.field() != tc.field || got.body["message"] == "" {
 			t.Errorf("%s: %d %s", name, got.status, got.raw)
 		}
-	}
-	if got := a.do(t, call{method: "DELETE", path: path, cookie: c}); !strings.Contains(got.raw, "owner@example.test") {
-		t.Errorf("role_held names no holder: %s", got.raw)
+		if tc.code == "role_held" && !strings.Contains(got.raw, "owner@example.test") {
+			t.Errorf("role_held names no holder: %s", got.raw)
+		}
 	}
 
 	updated := a.do(t, call{method: "PATCH", path: path, cookie: c, body: `{"description":"Lit le routage.","permissions":["routes:read"]}`})
