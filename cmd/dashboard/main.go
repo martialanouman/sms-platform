@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"slices"
@@ -95,6 +96,8 @@ func validate(infra config.Infra) error {
 		return errors.New("INTERNAL_ADDR is empty, and the JWKS is served there only")
 	case !strings.HasPrefix(infra.OpenBaoAddr, "https://"):
 		return fmt.Errorf("OPENBAO_ADDR %q is not https://", infra.OpenBaoAddr)
+	case !strings.HasPrefix(infra.AdminAPIURL, "https://"):
+		return fmt.Errorf("ADMIN_API_URL %q is not https://", infra.AdminAPIURL)
 	case infra.TLS.Cert == "":
 		return errors.New("TLS_CERT_FILE is empty")
 	case infra.TLS.Key == "":
@@ -168,7 +171,16 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger, registry pro
 	if err := pgdial.Retry(ctx, log, func(ctx context.Context) error { return svc.Bootstrap(ctx, infra.BootstrapEmail) }); err != nil {
 		return fmt.Errorf("bootstrap: %w", err)
 	}
-	handler, err := dashboardhttp.New(dashboardhttp.Config{Service: svc, Origin: expected, TrustedProxies: infra.TrustedProxies, Log: log, Assets: web.FS()})
+	gateway, err := url.Parse(infra.AdminAPIURL)
+	if err != nil {
+		return fmt.Errorf("ADMIN_API_URL: %w", err)
+	}
+	clientTLS, err := infra.TLS.Client()
+	if err != nil {
+		return err
+	}
+	handler, err := dashboardhttp.New(dashboardhttp.Config{Service: svc, Origin: expected, TrustedProxies: infra.TrustedProxies, Log: log, Assets: web.FS(),
+		Gateway: gateway, GatewayTransport: &http.Transport{TLSClientConfig: clientTLS, ResponseHeaderTimeout: 30 * time.Second}})
 	if err != nil {
 		return err
 	}

@@ -68,6 +68,7 @@ func valid(t *testing.T) config.Infra {
 		InternalAddr:      freeAddr(t),
 		OpenBaoAddr:       "https://127.0.0.1:1",
 		TLSAllowedClients: []string{"admin-api-svc"},
+		AdminAPIURL:       "https://admin-api-svc:8443",
 	}
 }
 
@@ -102,6 +103,8 @@ func TestRunRefusesEachFaultBeforeConnecting(t *testing.T) {
 		"relay without number":  {func(i *config.Infra) { i.SMTPAddr = "mailpit:" }, "SMTP_ADDR"},
 		"public URL by address": {func(i *config.Infra) { i.PublicURL = "http://127.0.0.1:8080" }, "RPID"},
 		"no internal listener":  {func(i *config.Infra) { i.InternalAddr = "" }, "INTERNAL_ADDR"},
+		"no Admin API":          {func(i *config.Infra) { i.AdminAPIURL = "" }, "ADMIN_API_URL"},
+		"Admin API in clear":    {func(i *config.Infra) { i.AdminAPIURL = "http://admin-api-svc:8443" }, "ADMIN_API_URL"},
 		"OpenBao in clear":      {func(i *config.Infra) { i.OpenBaoAddr = "http://openbao.openbao.svc:8200" }, "OPENBAO_ADDR"},
 		"no certificate":        {func(i *config.Infra) { i.TLS.Cert = "" }, "TLS_CERT_FILE"},
 		"no key":                {func(i *config.Infra) { i.TLS.Key = "" }, "TLS_KEY_FILE"},

@@ -45,6 +45,7 @@ type Infra struct {
 	CookieKeyFile          string
 	TotpKeyFile            string
 	JWKSURL                string
+	AdminAPIURL            string
 }
 
 var defaults = map[string]string{
@@ -75,6 +76,7 @@ var defaults = map[string]string{
 	"COOKIE_KEY_FILE":           "",
 	"TOTP_KEY_FILE":             "",
 	"JWKS_URL":                  "",
+	"ADMIN_API_URL":             "",
 }
 
 // Default is the value Load reads for name when the environment leaves it unset.
@@ -137,6 +139,7 @@ func Load() (Infra, error) {
 		CookieKeyFile:          value("COOKIE_KEY_FILE"),
 		TotpKeyFile:            value("TOTP_KEY_FILE"),
 		JWKSURL:                value("JWKS_URL"),
+		AdminAPIURL:            value("ADMIN_API_URL"),
 	}
 	for _, p := range list("TRUSTED_PROXIES") {
 		prefix, err := netip.ParsePrefix(p)

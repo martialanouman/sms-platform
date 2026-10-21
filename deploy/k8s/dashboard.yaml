@@ -64,6 +64,8 @@ spec:
               value: ":8443"
             - name: OPENBAO_ADDR
               value: https://openbao.openbao.svc:8200
+            - name: ADMIN_API_URL
+              value: https://admin-api-svc:8443
             - name: TLS_ALLOWED_CLIENTS
               value: admin-api-svc
             - name: TLS_CERT_FILE
