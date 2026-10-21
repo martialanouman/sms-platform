@@ -129,3 +129,21 @@ Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloq
    aller à l'opérateur du bootstrap désactivé, ce qui ne rend aucun propriétaire actif (142, à la lettre) ; un compte
    actif jamais activé compte comme propriétaire ; un futur rôle par défaut homonyme d'un rôle taillé l'écraserait,
    à trancher quand 012b ouvre `createRole`.
+
+## Preuve sur `contabo169`
+
+Jouée le 2026-10-21 depuis la branche, sur le cluster en v0.17.0 : images `migrate`, `catalog-apply` et `dashboard`
+construites par GoReleaser en snapshot, importées sous `proof-012a` ; timer suspendu, puis réarmé, et dashboard rendu à
+la v0.17.0, compatible avec le schéma 4 (tables seulement ajoutées).
+
+1. `migrate` a appliqué la migration 4, `catalog-apply` les GRANT de `roles` et `operator_roles`.
+2. Au démarrage : dix rôles, tous par défaut ; l'opérateur existant, sans rôle depuis 011, détient `Propriétaire` ; une
+   ligne `roles_changed` au journal.
+3. Compte réinitialisé par un lien `reset` (Mailpit), puis par `curl` sur `port-forward` : session non élevée, `me`
+   rend 57 permissions (les 50 scopes et les 7 permissions) et `GET /access-log` 403 `mfa_required` ; application
+   enrôlée, session élevée par son code : `GET /access-log` 200.
+4. Journal, du plus récent : `mfa`, `factor_enrolled`, `login`, `access_link_used`, `factor_removed`,
+   `roles_changed`.
+
+Non prouvé sur le cluster : une session `Reporting` libre, `Audit` confiné ; les tests HTTP contre Postgres réel les
+couvrent (`TestASessionNotElevatedReachesOnlyAuthWhenItsRolesRequireMFA`).
