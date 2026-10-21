@@ -60,6 +60,34 @@ func (q *Queries) AccessLog(ctx context.Context, db DBTX, arg AccessLogParams) (
 	return items, nil
 }
 
+const addPasskey = `-- name: AddPasskey :one
+INSERT INTO dashboard.webauthn_credentials (operator_id, credential_id, name, sign_count, credential)
+VALUES ($1::uuid, $2, $3, $4, $5)
+ON CONFLICT (credential_id) DO NOTHING
+RETURNING id::text
+`
+
+type AddPasskeyParams struct {
+	OperatorID   string
+	CredentialID []byte
+	Name         string
+	SignCount    int64
+	Credential   []byte
+}
+
+func (q *Queries) AddPasskey(ctx context.Context, db DBTX, arg AddPasskeyParams) (string, error) {
+	row := db.QueryRow(ctx, addPasskey,
+		arg.OperatorID,
+		arg.CredentialID,
+		arg.Name,
+		arg.SignCount,
+		arg.Credential,
+	)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
 const addPending = `-- name: AddPending :one
 INSERT INTO dashboard.totp_factors (operator_id, sealed) VALUES ($1::uuid, $2)
 ON CONFLICT (operator_id) WHERE confirmed_at IS NULL
@@ -82,6 +110,31 @@ func (q *Queries) AddPending(ctx context.Context, db DBTX, arg AddPendingParams)
 type AddRecoveryCodesParams struct {
 	FactorID string
 	Digest   []byte
+}
+
+const advancePasskey = `-- name: AdvancePasskey :execrows
+UPDATE dashboard.webauthn_credentials SET sign_count = $1, credential = $2
+WHERE credential_id = $3 AND operator_id = $4::uuid AND ($1 > sign_count OR ($1 = 0 AND sign_count = 0))
+`
+
+type AdvancePasskeyParams struct {
+	SignCount    int64
+	Credential   []byte
+	CredentialID []byte
+	OperatorID   string
+}
+
+func (q *Queries) AdvancePasskey(ctx context.Context, db DBTX, arg AdvancePasskeyParams) (int64, error) {
+	result, err := db.Exec(ctx, advancePasskey,
+		arg.SignCount,
+		arg.Credential,
+		arg.CredentialID,
+		arg.OperatorID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const closeSession = `-- name: CloseSession :one
@@ -183,6 +236,18 @@ DELETE FROM dashboard.totp_factors WHERE operator_id = $1::uuid
 
 func (q *Queries) DropFactors(ctx context.Context, db DBTX, operatorID string) (int64, error) {
 	result, err := db.Exec(ctx, dropFactors, operatorID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const dropPasskeys = `-- name: DropPasskeys :execrows
+DELETE FROM dashboard.webauthn_credentials WHERE operator_id = $1::uuid
+`
+
+func (q *Queries) DropPasskeys(ctx context.Context, db DBTX, operatorID string) (int64, error) {
+	result, err := db.Exec(ctx, dropPasskeys, operatorID)
 	if err != nil {
 		return 0, err
 	}
@@ -371,6 +436,22 @@ func (q *Queries) NextDue(ctx context.Context, db DBTX, maxAttempts int64) (Next
 	return i, err
 }
 
+const openCeremony = `-- name: OpenCeremony :exec
+INSERT INTO dashboard.webauthn_challenges (session_id, purpose, ceremony) VALUES ($1::uuid, $2, $3)
+ON CONFLICT (session_id, purpose) DO UPDATE SET ceremony = excluded.ceremony
+`
+
+type OpenCeremonyParams struct {
+	SessionID string
+	Purpose   string
+	Ceremony  []byte
+}
+
+func (q *Queries) OpenCeremony(ctx context.Context, db DBTX, arg OpenCeremonyParams) error {
+	_, err := db.Exec(ctx, openCeremony, arg.SessionID, arg.Purpose, arg.Ceremony)
+	return err
+}
+
 const openSession = `-- name: OpenSession :one
 INSERT INTO dashboard.sessions (operator_id, token_hash, expires_at, challenge_hash, challenge_expires_at)
 VALUES ($1::uuid, $2, now() + make_interval(secs => $3::float8), $4,
@@ -417,6 +498,44 @@ func (q *Queries) OperatorByEmail(ctx context.Context, db DBTX, email string) (O
 	return i, err
 }
 
+const passkeys = `-- name: Passkeys :many
+SELECT id::text AS id, name, created_at, credential FROM dashboard.webauthn_credentials
+WHERE operator_id = $1::uuid ORDER BY id
+FOR UPDATE
+`
+
+type PasskeysRow struct {
+	ID         string
+	Name       string
+	CreatedAt  time.Time
+	Credential []byte
+}
+
+func (q *Queries) Passkeys(ctx context.Context, db DBTX, operatorID string) ([]PasskeysRow, error) {
+	rows, err := db.Query(ctx, passkeys, operatorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PasskeysRow
+	for rows.Next() {
+		var i PasskeysRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.CreatedAt,
+			&i.Credential,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const purgeCounters = `-- name: PurgeCounters :exec
 DELETE FROM dashboard.login_attempt_counters
 WHERE last_failure_at + make_interval(secs => $1::float8) <= now()
@@ -453,6 +572,20 @@ func (q *Queries) QueueLink(ctx context.Context, db DBTX, arg QueueLinkParams) e
 	return err
 }
 
+const removePasskey = `-- name: RemovePasskey :exec
+DELETE FROM dashboard.webauthn_credentials WHERE id = $1::uuid AND operator_id = $2::uuid
+`
+
+type RemovePasskeyParams struct {
+	ID         string
+	OperatorID string
+}
+
+func (q *Queries) RemovePasskey(ctx context.Context, db DBTX, arg RemovePasskeyParams) error {
+	_, err := db.Exec(ctx, removePasskey, arg.ID, arg.OperatorID)
+	return err
+}
+
 const reserve = `-- name: Reserve :one
 INSERT INTO dashboard.login_attempt_counters AS c (subject, failures, last_failure_at) VALUES ($1, 1, now())
 ON CONFLICT (subject) DO UPDATE SET
@@ -478,17 +611,20 @@ func (q *Queries) Reserve(ctx context.Context, db DBTX, arg ReserveParams) (bool
 const sessionOf = `-- name: SessionOf :one
 SELECT s.id::text AS id, s.operator_id::text AS operator_id, o.email, o.display_name, s.expires_at,
   (s.elevated_at IS NOT NULL)::bool AS elevated,
+  coalesce(s.elevated_at > now() - make_interval(secs => $1::float8), false)::bool AS fresh,
   EXISTS (SELECT 1 FROM dashboard.totp_factors f WHERE f.operator_id = s.operator_id AND f.confirmed_at IS NOT NULL) AS totp,
   (SELECT count(*) FROM dashboard.recovery_codes c JOIN dashboard.totp_factors f ON f.id = c.factor_id
     WHERE f.operator_id = s.operator_id AND f.confirmed_at IS NOT NULL AND c.used_at IS NULL)::int AS recovery_codes_remaining,
-  (now() < s.expires_at AND now() < s.last_seen_at + make_interval(secs => $1::float8) AND o.status = 'active')::bool AS live
+  (SELECT count(*) FROM dashboard.webauthn_credentials w WHERE w.operator_id = s.operator_id)::int AS passkeys,
+  (now() < s.expires_at AND now() < s.last_seen_at + make_interval(secs => $2::float8) AND o.status = 'active')::bool AS live
 FROM dashboard.sessions s JOIN dashboard.operators o ON o.id = s.operator_id
-WHERE s.token_hash = $2
+WHERE s.token_hash = $3
 `
 
 type SessionOfParams struct {
-	IdleSeconds float64
-	Digest      []byte
+	FreshSeconds float64
+	IdleSeconds  float64
+	Digest       []byte
 }
 
 type SessionOfRow struct {
@@ -498,13 +634,15 @@ type SessionOfRow struct {
 	DisplayName            string
 	ExpiresAt              time.Time
 	Elevated               bool
+	Fresh                  bool
 	Totp                   bool
 	RecoveryCodesRemaining int32
+	Passkeys               int32
 	Live                   bool
 }
 
 func (q *Queries) SessionOf(ctx context.Context, db DBTX, arg SessionOfParams) (SessionOfRow, error) {
-	row := db.QueryRow(ctx, sessionOf, arg.IdleSeconds, arg.Digest)
+	row := db.QueryRow(ctx, sessionOf, arg.FreshSeconds, arg.IdleSeconds, arg.Digest)
 	var i SessionOfRow
 	err := row.Scan(
 		&i.ID,
@@ -513,8 +651,10 @@ func (q *Queries) SessionOf(ctx context.Context, db DBTX, arg SessionOfParams) (
 		&i.DisplayName,
 		&i.ExpiresAt,
 		&i.Elevated,
+		&i.Fresh,
 		&i.Totp,
 		&i.RecoveryCodesRemaining,
+		&i.Passkeys,
 		&i.Live,
 	)
 	return i, err
@@ -532,6 +672,23 @@ type SetPasswordParams struct {
 func (q *Queries) SetPassword(ctx context.Context, db DBTX, arg SetPasswordParams) error {
 	_, err := db.Exec(ctx, setPassword, arg.Phc, arg.ID)
 	return err
+}
+
+const takeCeremony = `-- name: TakeCeremony :one
+DELETE FROM dashboard.webauthn_challenges WHERE session_id = $1::uuid AND purpose = $2
+RETURNING ceremony
+`
+
+type TakeCeremonyParams struct {
+	SessionID string
+	Purpose   string
+}
+
+func (q *Queries) TakeCeremony(ctx context.Context, db DBTX, arg TakeCeremonyParams) ([]byte, error) {
+	row := db.QueryRow(ctx, takeCeremony, arg.SessionID, arg.Purpose)
+	var ceremony []byte
+	err := row.Scan(&ceremony)
+	return ceremony, err
 }
 
 const touch = `-- name: Touch :execrows

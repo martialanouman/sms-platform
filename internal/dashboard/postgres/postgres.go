@@ -113,12 +113,12 @@ func (t tx) OpenSession(ctx context.Context, operatorID string, digest, challeng
 		LifetimeSeconds: lifetime.Seconds(), Challenge: challenge, ChallengeSeconds: challengeTTL.Seconds()})
 }
 
-func (t tx) SessionOf(ctx context.Context, digest []byte, idle time.Duration) (dashboard.SessionView, bool, error) {
-	r, err := queries.SessionOf(ctx, t.db, sqlc.SessionOfParams{IdleSeconds: idle.Seconds(), Digest: digest})
+func (t tx) SessionOf(ctx context.Context, digest []byte, idle, fresh time.Duration) (dashboard.SessionView, bool, error) {
+	r, err := queries.SessionOf(ctx, t.db, sqlc.SessionOfParams{FreshSeconds: fresh.Seconds(), IdleSeconds: idle.Seconds(), Digest: digest})
 	ok, err := found(err)
 	return dashboard.SessionView{Current: dashboard.Current{SessionID: r.ID, OperatorID: r.OperatorID, Email: r.Email,
-		DisplayName: r.DisplayName, ExpiresAt: r.ExpiresAt, Elevated: r.Elevated, Totp: r.Totp,
-		RecoveryCodesRemaining: int(r.RecoveryCodesRemaining)}, Live: r.Live}, ok, err
+		DisplayName: r.DisplayName, ExpiresAt: r.ExpiresAt, Elevated: r.Elevated, Fresh: r.Fresh, Totp: r.Totp,
+		RecoveryCodesRemaining: int(r.RecoveryCodesRemaining), Passkeys: int(r.Passkeys)}, Live: r.Live}, ok, err
 }
 
 func (t tx) Touch(ctx context.Context, digest []byte, idle time.Duration) (bool, error) {
@@ -183,8 +183,48 @@ func (t tx) UseRecoveryCode(ctx context.Context, factorID string, digest []byte)
 }
 
 func (t tx) DropFactors(ctx context.Context, operatorID string) (bool, error) {
-	n, err := queries.DropFactors(ctx, t.db, operatorID)
-	return n > 0, err
+	apps, err := queries.DropFactors(ctx, t.db, operatorID)
+	if err != nil {
+		return false, err
+	}
+	keys, err := queries.DropPasskeys(ctx, t.db, operatorID)
+	return apps+keys > 0, err
+}
+
+func (t tx) OpenCeremony(ctx context.Context, sessionID string, purpose dashboard.Purpose, ceremony []byte) error {
+	return queries.OpenCeremony(ctx, t.db, sqlc.OpenCeremonyParams{SessionID: sessionID, Purpose: string(purpose), Ceremony: ceremony})
+}
+
+func (t tx) TakeCeremony(ctx context.Context, sessionID string, purpose dashboard.Purpose) ([]byte, bool, error) {
+	ceremony, err := queries.TakeCeremony(ctx, t.db, sqlc.TakeCeremonyParams{SessionID: sessionID, Purpose: string(purpose)})
+	ok, err := found(err)
+	return ceremony, ok, err
+}
+
+func (t tx) Passkeys(ctx context.Context, operatorID string) ([]dashboard.StoredPasskey, error) {
+	rows, err := queries.Passkeys(ctx, t.db, operatorID)
+	keys := make([]dashboard.StoredPasskey, 0, len(rows))
+	for _, r := range rows {
+		keys = append(keys, dashboard.StoredPasskey{Passkey: dashboard.Passkey{ID: r.ID, Name: r.Name, CreatedAt: r.CreatedAt}, Credential: r.Credential})
+	}
+	return keys, err
+}
+
+func (t tx) AddPasskey(ctx context.Context, operatorID string, credentialID []byte, name string, signCount uint32, credential []byte) (string, bool, error) {
+	id, err := queries.AddPasskey(ctx, t.db, sqlc.AddPasskeyParams{OperatorID: operatorID, CredentialID: credentialID, Name: name,
+		SignCount: int64(signCount), Credential: credential})
+	added, err := found(err)
+	return id, added, err
+}
+
+func (t tx) AdvancePasskey(ctx context.Context, operatorID string, credentialID []byte, signCount uint32, credential []byte) (bool, error) {
+	n, err := queries.AdvancePasskey(ctx, t.db, sqlc.AdvancePasskeyParams{OperatorID: operatorID, CredentialID: credentialID,
+		SignCount: int64(signCount), Credential: credential})
+	return n == 1, err
+}
+
+func (t tx) RemovePasskey(ctx context.Context, operatorID, id string) error {
+	return queries.RemovePasskey(ctx, t.db, sqlc.RemovePasskeyParams{ID: id, OperatorID: operatorID})
 }
 
 func (t tx) Elevate(ctx context.Context, digest, challenge, newDigest []byte, idle time.Duration) (bool, error) {

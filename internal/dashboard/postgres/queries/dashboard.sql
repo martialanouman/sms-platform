@@ -70,9 +70,11 @@ RETURNING challenge_expires_at::timestamptz;
 -- name: SessionOf :one
 SELECT s.id::text AS id, s.operator_id::text AS operator_id, o.email, o.display_name, s.expires_at,
   (s.elevated_at IS NOT NULL)::bool AS elevated,
+  coalesce(s.elevated_at > now() - make_interval(secs => @fresh_seconds::float8), false)::bool AS fresh,
   EXISTS (SELECT 1 FROM dashboard.totp_factors f WHERE f.operator_id = s.operator_id AND f.confirmed_at IS NOT NULL) AS totp,
   (SELECT count(*) FROM dashboard.recovery_codes c JOIN dashboard.totp_factors f ON f.id = c.factor_id
     WHERE f.operator_id = s.operator_id AND f.confirmed_at IS NOT NULL AND c.used_at IS NULL)::int AS recovery_codes_remaining,
+  (SELECT count(*) FROM dashboard.webauthn_credentials w WHERE w.operator_id = s.operator_id)::int AS passkeys,
   (now() < s.expires_at AND now() < s.last_seen_at + make_interval(secs => @idle_seconds::float8) AND o.status = 'active')::bool AS live
 FROM dashboard.sessions s JOIN dashboard.operators o ON o.id = s.operator_id
 WHERE s.token_hash = @digest;
@@ -151,3 +153,32 @@ FROM dashboard.operators o
 WHERE s.token_hash = @digest AND s.challenge_hash = @challenge AND s.challenge_expires_at > now()
   AND o.id = s.operator_id AND o.status = 'active'
   AND now() < s.expires_at AND now() < s.last_seen_at + make_interval(secs => @idle_seconds::float8);
+
+-- name: DropPasskeys :execrows
+DELETE FROM dashboard.webauthn_credentials WHERE operator_id = @operator_id::uuid;
+
+-- name: OpenCeremony :exec
+INSERT INTO dashboard.webauthn_challenges (session_id, purpose, ceremony) VALUES (@session_id::uuid, @purpose, @ceremony)
+ON CONFLICT (session_id, purpose) DO UPDATE SET ceremony = excluded.ceremony;
+
+-- name: TakeCeremony :one
+DELETE FROM dashboard.webauthn_challenges WHERE session_id = @session_id::uuid AND purpose = @purpose
+RETURNING ceremony;
+
+-- name: Passkeys :many
+SELECT id::text AS id, name, created_at, credential FROM dashboard.webauthn_credentials
+WHERE operator_id = @operator_id::uuid ORDER BY id
+FOR UPDATE;
+
+-- name: AddPasskey :one
+INSERT INTO dashboard.webauthn_credentials (operator_id, credential_id, name, sign_count, credential)
+VALUES (@operator_id::uuid, @credential_id, @name, @sign_count, @credential)
+ON CONFLICT (credential_id) DO NOTHING
+RETURNING id::text;
+
+-- name: AdvancePasskey :execrows
+UPDATE dashboard.webauthn_credentials SET sign_count = @sign_count, credential = @credential
+WHERE credential_id = @credential_id AND operator_id = @operator_id::uuid AND (@sign_count > sign_count OR (@sign_count = 0 AND sign_count = 0));
+
+-- name: RemovePasskey :exec
+DELETE FROM dashboard.webauthn_credentials WHERE id = @id::uuid AND operator_id = @operator_id::uuid;

@@ -1,7 +1,7 @@
-import { act, fireEvent, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
-import { challenge, empty, json, me, renderAt, stubFetch, violations } from '../test'
+import { challenge, empty, json, me, noSession, once, renderAt, stubFetch, stubPasskeys, violations } from '../test'
 
 test('the dashboard shows who is signed in', async () => {
   stubFetch({ 'GET /api/auth/me': () => json(200, me) })
@@ -15,7 +15,7 @@ test('a session gone sends to the login with a notice', async () => {
   stubFetch({ 'GET /api/auth/me': () => json(401, { code: 'unauthenticated', message: 'Aucune session ouverte.' }) })
   const { router } = renderAt('/')
   await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
-  expect(router.state.location.search).toEqual({ avis: 'session-fermee' })
+  expect(router.state.location.search).toEqual({ notice: 'session-closed' })
 })
 
 const unreachable = 'Le service ne répond pas ; réessayez.'
@@ -34,7 +34,7 @@ test('a logout is sent as JSON and returns to the login', async () => {
   })
   let served = false
   const calls = stubFetch({
-    'GET /api/auth/me': () => json(200, me),
+    'GET /api/auth/me': once(() => json(200, me)),
     'POST /api/auth/activity': async () => {
       await loggedOut
       served = true
@@ -73,10 +73,10 @@ test('gestures report activity at most once a minute', async () => {
   expect(calls.find((c) => c.url.endsWith('/api/auth/activity'))?.headers.get('Content-Type')).toBe('application/json')
 })
 
-test('without a gesture for the idle timeout, the dashboard returns to the login without a request', async () => {
+test('without a gesture for the idle timeout, the dashboard returns to the login without reporting activity', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   const calls = stubFetch({
-    'GET /api/auth/me': () => json(200, { ...me, idleTimeoutSeconds: 120 }),
+    'GET /api/auth/me': once(() => json(200, { ...me, idleTimeoutSeconds: 120 })),
     'POST /api/auth/activity': () => empty(204),
   })
   const { router } = renderAt('/')
@@ -85,16 +85,17 @@ test('without a gesture for the idle timeout, the dashboard returns to the login
   fireEvent.keyDown(document)
   await act(() => vi.advanceTimersByTimeAsync(90_000))
   expect(router.state.location.pathname).toBe('/')
-  const before = calls.length
+  const activity = () => calls.filter((c) => c.url.endsWith('/api/auth/activity')).length
+  const before = activity()
   await act(() => vi.advanceTimersByTimeAsync(40_000))
   await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
-  expect(router.state.location.search).toEqual({ avis: 'session-fermee' })
-  expect(calls.length).toBe(before)
+  expect(router.state.location.search).toEqual({ notice: 'session-closed' })
+  expect(activity()).toBe(before)
 })
 
 test('an activity refused by the server sends to the login', async () => {
   stubFetch({
-    'GET /api/auth/me': () => json(200, me),
+    'GET /api/auth/me': once(() => json(200, me)),
     'POST /api/auth/activity': () => json(401, { code: 'unauthenticated', message: 'Aucune session ouverte.' }),
   })
   const { router } = renderAt('/')
@@ -106,7 +107,7 @@ test('an activity refused by the server sends to the login', async () => {
 test('a logout that fails is told, and the session stays watched', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   stubFetch({
-    'GET /api/auth/me': () => json(200, { ...me, idleTimeoutSeconds: 120 }),
+    'GET /api/auth/me': once(() => json(200, { ...me, idleTimeoutSeconds: 120 })),
     'POST /api/auth/activity': () => empty(204),
     'POST /api/auth/logout': () => new Response(null, { status: 502 }),
   })
@@ -117,7 +118,7 @@ test('a logout that fails is told, and the session stays watched', async () => {
   expect((await screen.findByRole('alert')).textContent).toBe(unreachable)
   expect(router.state.location.pathname).toBe('/')
   await act(() => vi.advanceTimersByTimeAsync(130_000))
-  await waitFor(() => expect(router.state.location.search).toEqual({ avis: 'session-fermee' }))
+  await waitFor(() => expect(router.state.location.search).toEqual({ notice: 'session-closed' }))
 })
 
 test('without an idle timeout, no timer sends to the login', async () => {
@@ -131,11 +132,18 @@ test('without an idle timeout, no timer sends to the login', async () => {
 
 test('after a logout, the next login shows the new operator only', async () => {
   let current = me
+  let signedIn = true
   stubFetch({
-    'GET /api/auth/me': () => json(200, current),
+    'GET /api/auth/me': () => (signedIn ? json(200, current) : noSession()),
     'POST /api/auth/activity': () => empty(204),
-    'POST /api/auth/logout': () => empty(204),
-    'POST /api/auth/login': () => json(200, challenge),
+    'POST /api/auth/logout': () => {
+      signedIn = false
+      return empty(204)
+    },
+    'POST /api/auth/login': () => {
+      signedIn = true
+      return json(200, challenge)
+    },
     'POST /api/auth/mfa/verify': () => empty(204),
   })
   renderAt('/')
@@ -155,7 +163,7 @@ test('a session not elevated is sent back to the login', async () => {
   stubFetch({ 'GET /api/auth/me': () => json(200, { ...me, elevated: false }) })
   const { router } = renderAt('/')
   await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
-  expect(router.state.location.search).toEqual({ avis: 'verification-interrompue' })
+  expect(router.state.location.search).toEqual({ notice: 'verification-interrupted' })
 })
 
 const replacement = {
@@ -250,4 +258,154 @@ test('an account without an app is offered no replacement', async () => {
   renderAt('/')
   await screen.findByRole('button', { name: 'Se déconnecter' })
   expect(screen.queryByRole('button', { name: "Remplacer l'application" })).toBeNull()
+})
+
+const keyed = { ...me, secondFactors: { totp: true, recoveryCodesRemaining: 10, passkeys: 2 } }
+const keys = [
+  { id: 'k1', name: 'Clé USB', createdAt: '2026-10-20T10:00:00Z' },
+  { id: 'k2', name: 'Téléphone', createdAt: '2026-10-20T11:00:00Z' },
+]
+
+test('the passkeys are listed, added under a name and removed', async () => {
+  let held = keys
+  const device = stubPasskeys()
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, keyed),
+    'POST /api/auth/activity': () => empty(204),
+    'GET /api/auth/mfa/webauthn/passkeys': () => json(200, held),
+    'POST /api/auth/mfa/webauthn/register/begin': () => json(200, { publicKey: { challenge: 'Y2hhbGxlbmdl' } }),
+    'POST /api/auth/mfa/webauthn/register/finish': () => {
+      held = [...keys, { id: 'k3', name: 'Portable', createdAt: '2026-10-20T12:00:00Z' }]
+      return json(200, { id: 'k3' })
+    },
+    'DELETE /api/auth/mfa/webauthn/passkeys/k1': () => {
+      held = held.filter((k) => k.id !== 'k1')
+      return empty(204)
+    },
+  })
+  const { container } = renderAt('/')
+  const user = userEvent.setup()
+  await screen.findByRole('region', { name: "Clés d'accès" })
+  const list = within(screen.getByRole('region', { name: "Clés d'accès" })).getByRole('list')
+  expect((await within(list).findAllByRole('listitem')).map((i) => i.firstChild?.textContent)).toEqual([
+    'Clé USB',
+    'Téléphone',
+  ])
+  expect(await violations(container)).toEqual([])
+  await user.type(screen.getByLabelText('Nom de la clé'), 'Portable')
+  await user.click(screen.getByRole('button', { name: "Ajouter une clé d'accès" }))
+  expect(await screen.findByText('Portable')).toBeDefined()
+  expect(device.create).toHaveBeenCalledTimes(1)
+  expect(await calls.find((c) => c.url.endsWith('/register/finish'))?.json()).toEqual({
+    name: 'Portable',
+    attestation: { id: 'attested' },
+  })
+  await user.click(screen.getByRole('button', { name: 'Retirer Clé USB' }))
+  await waitFor(() => expect(screen.queryByText('Clé USB')).toBeNull())
+  expect(document.activeElement).toBe(screen.getByRole('heading', { name: "Clés d'accès" }))
+  expect(screen.getByLabelText('Nom de la clé')).toHaveProperty('value', '')
+})
+
+test('removing the last factor is refused and told', async () => {
+  stubFetch({
+    'GET /api/auth/me': () =>
+      json(200, { ...me, secondFactors: { totp: false, recoveryCodesRemaining: 0, passkeys: 1 } }),
+    'POST /api/auth/activity': () => empty(204),
+    'GET /api/auth/mfa/webauthn/passkeys': () => json(200, keys.slice(0, 1)),
+    'DELETE /api/auth/mfa/webauthn/passkeys/k1': () =>
+      json(409, {
+        code: 'mfa_last_factor',
+        message: "C'est votre dernier facteur : ajoutez-en un autre avant de le retirer.",
+      }),
+  })
+  renderAt('/')
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Retirer Clé USB' }))
+  expect((await screen.findByRole('alert')).textContent).toBe(
+    "C'est votre dernier facteur : ajoutez-en un autre avant de le retirer.",
+  )
+  expect(screen.getByText('Clé USB')).toBeDefined()
+})
+
+test('an account guarded by a passkey adds an app without proof', async () => {
+  let current = { ...me, secondFactors: { totp: false, recoveryCodesRemaining: 0, passkeys: 1 } }
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, current),
+    'POST /api/auth/activity': () => empty(204),
+    'GET /api/auth/mfa/webauthn/passkeys': () => json(200, keys.slice(0, 1)),
+    'POST /api/auth/mfa/totp/enroll': () => json(200, replacement),
+    'POST /api/auth/mfa/totp/confirm': () => {
+      current = { ...me, secondFactors: { totp: true, recoveryCodesRemaining: 10, passkeys: 1 } }
+      return empty(204)
+    },
+  })
+  renderAt('/')
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('button', { name: "Ajouter l'application" }))
+  await screen.findByRole('img', { name: "QR code de configuration de l'application" })
+  expect(await calls.find((c) => c.url.endsWith('/totp/enroll'))?.json()).toEqual({})
+  await user.type(screen.getByLabelText('Code à six chiffres'), '654321')
+  await user.click(screen.getByRole('button', { name: 'Vérifier' }))
+  await user.click(await screen.findByRole('button', { name: "J'ai enregistré ces codes" }))
+  expect(await screen.findByRole('button', { name: "Remplacer l'application" })).toBeDefined()
+})
+
+test('an account without passkey asks for none to be listed', async () => {
+  const calls = stubFetch({ 'GET /api/auth/me': () => json(200, me), 'POST /api/auth/activity': () => empty(204) })
+  renderAt('/')
+  await screen.findByRole('heading', { name: "Clés d'accès" })
+  expect(screen.getByText("Aucune clé d'accès sur ce compte.")).toBeDefined()
+  expect(calls.some((c) => c.url.endsWith('/passkeys'))).toBe(false)
+})
+
+test('a list of passkeys that fails is told', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, keyed),
+    'POST /api/auth/activity': () => empty(204),
+    'GET /api/auth/mfa/webauthn/passkeys': () => new Response(null, { status: 500 }),
+  })
+  renderAt('/')
+  expect((await screen.findByRole('alert')).textContent).toBe('Le service ne répond pas ; réessayez.')
+})
+
+test('the passkeys of the operator before are never shown to the next one', async () => {
+  let current = keyed
+  let signedIn = true
+  let open: () => void = () => {}
+  const gate = new Promise<void>((resolve) => {
+    open = resolve
+  })
+  stubFetch({
+    'GET /api/auth/me': () => (signedIn ? json(200, current) : noSession()),
+    'POST /api/auth/activity': () => empty(204),
+    'GET /api/auth/mfa/webauthn/passkeys': async () => {
+      if (current !== keyed) {
+        await gate
+        return json(200, [{ id: 'k9', name: 'Clé de Autre', createdAt: '2026-10-20T12:00:00Z' }])
+      }
+      return json(200, keys)
+    },
+    'POST /api/auth/logout': () => {
+      signedIn = false
+      return empty(204)
+    },
+    'POST /api/auth/login': () => {
+      signedIn = true
+      return json(200, challenge)
+    },
+    'POST /api/auth/mfa/verify': () => empty(204),
+  })
+  renderAt('/')
+  const user = userEvent.setup()
+  await screen.findByText('Clé USB')
+  await user.click(screen.getByRole('button', { name: 'Se déconnecter' }))
+  current = { ...keyed, operator: { ...keyed.operator, email: 'autre@example.test', displayName: 'Autre' } }
+  await user.type(await screen.findByLabelText('Adresse e-mail'), 'autre@example.test')
+  await user.type(screen.getByLabelText('Mot de passe'), 'Correct-horse-9')
+  await user.click(screen.getByRole('button', { name: 'Se connecter' }))
+  await user.type(await screen.findByLabelText('Code à six chiffres'), '123456')
+  await user.click(screen.getByRole('button', { name: 'Vérifier' }))
+  await screen.findByText('Connecté en tant que Autre (autre@example.test)')
+  expect(screen.queryByText('Clé USB')).toBeNull()
+  open()
+  expect(await screen.findByText('Clé de Autre')).toBeDefined()
 })

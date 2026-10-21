@@ -5,3 +5,5 @@ login_attempt_counters: {audit: exempt, reason: "état d'exécution de l'anti-br
 access_log: {audit: exempt, reason: le journal lui-même}
 totp_factors: {audit: exempt, reason: "secrets scellés ; enrôlements et retraits vont au journal d'accès"}
 recovery_codes: {audit: exempt, reason: "codes hachés ; leur usage va au journal d'accès"}
+webauthn_credentials: {audit: exempt, reason: "clés publiques ; enregistrements et retraits vont au journal d'accès"}
+webauthn_challenges: {audit: exempt, reason: "état d'exécution des cérémonies, mort avec sa session"}

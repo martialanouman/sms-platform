@@ -1,8 +1,10 @@
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { QRCodeSVG } from 'qrcode.react'
 import { type FormEvent, useEffect, useId, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { api, type send } from './api'
+import { api, json, type send, unreachable } from './api'
 import type { components } from './api.gen'
+import { assertPasskey, passkeysSupported, registerPasskey } from './passkey'
 import { Field, useSubmission } from './ui'
 
 type Method = 'totp' | 'recovery_code'
@@ -190,10 +192,26 @@ function CopyButton({ label, value }: { label: string; value: string }) {
   )
 }
 
-export function TotpReplacement({ remaining, onReplaced }: { remaining: number; onReplaced: () => void }) {
+export function TotpReplacement({
+  held,
+  remaining,
+  onReplaced,
+}: {
+  held: boolean
+  remaining: number
+  onReplaced: () => void
+}) {
   const id = useId()
+  const adding = useSubmission()
   const [step, setStep] = useState<'idle' | 'proof' | components['schemas']['TotpEnrollment']>('idle')
   const heading = useRef<HTMLHeadingElement>(null)
+
+  async function add() {
+    const outcome = await adding.submit(() => api.POST('/auth/mfa/totp/enroll', { body: {} }))
+    if (outcome.failure === undefined) {
+      setStep(outcome.data)
+    }
+  }
 
   function back() {
     flushSync(() => setStep('idle'))
@@ -205,7 +223,16 @@ export function TotpReplacement({ remaining, onReplaced }: { remaining: number; 
       <h2 ref={heading} className="auth__subtitle" id={id} tabIndex={-1}>
         Application d'authentification
       </h2>
-      {step === 'idle' && (
+      {step === 'idle' && !held && (
+        <>
+          <p className="auth__aside">Aucune application d'authentification.</p>
+          {adding.refusal}
+          <button className="ui-button ui-button--secondary" type="button" disabled={adding.waiting} onClick={add}>
+            Ajouter l'application
+          </button>
+        </>
+      )}
+      {step === 'idle' && held && (
         <>
           <p className="auth__aside">{remaining} codes de récupération restants.</p>
           <button className="ui-button ui-button--secondary" type="button" onClick={() => setStep('proof')}>
@@ -237,6 +264,129 @@ export function TotpReplacement({ remaining, onReplaced }: { remaining: number; 
           }}
         />
       )}
+    </section>
+  )
+}
+
+export function PasskeyRegistration({ action, onRegistered }: { action: string; onRegistered: () => void }) {
+  const { submit, waiting, refusal, fail, describedBy } = useSubmission()
+
+  async function register(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const form = event.currentTarget
+    const name = String(new FormData(form).get('name') ?? '').trim()
+    if (!name) {
+      fail('Nommez la clé : ce nom la distinguera des autres.')
+      return
+    }
+    const outcome = await submit(() => registerPasskey(name))
+    if (outcome.failure === undefined) {
+      form.reset()
+      onRegistered()
+    }
+  }
+
+  if (!passkeysSupported()) {
+    return <p className="auth__aside">Ce navigateur ne sait pas créer de clé d'accès.</p>
+  }
+  return (
+    <form className="auth__form" noValidate onSubmit={register}>
+      <Field label="Nom de la clé" name="name" maxLength={64} required aria-describedby={describedBy} />
+      {refusal}
+      <button className="ui-button ui-button--primary" type="submit" disabled={waiting}>
+        {action}
+      </button>
+    </form>
+  )
+}
+
+export function PasskeyAssertion({ challenge, onProved }: { challenge: string; onProved: () => void }) {
+  const { submit, waiting, refusal } = useSubmission()
+
+  async function present() {
+    const outcome = await submit(() => assertPasskey(challenge))
+    if (outcome.failure === undefined) {
+      onProved()
+    }
+  }
+
+  if (!passkeysSupported()) {
+    return <p className="auth__aside">Ce navigateur ne sait pas présenter de clé d'accès ; utilisez-en un à jour.</p>
+  }
+  return (
+    <>
+      {refusal}
+      <button className="ui-button ui-button--primary" type="button" disabled={waiting} onClick={present}>
+        Utiliser une clé d'accès
+      </button>
+    </>
+  )
+}
+
+export function PasskeySection({ count, onChange }: { count: number; onChange: () => void }) {
+  const id = useId()
+  const heading = useRef<HTMLHeadingElement>(null)
+  const queryClient = useQueryClient()
+  const removal = useSubmission()
+  const keys = useQuery({
+    queryKey: ['passkeys'],
+    enabled: count > 0,
+    queryFn: async () => {
+      const { data } = await api.GET('/auth/mfa/webauthn/passkeys')
+      if (!data) {
+        throw new Error('passkeys')
+      }
+      return data
+    },
+  })
+
+  function refresh() {
+    void queryClient.invalidateQueries({ queryKey: ['passkeys'] })
+    onChange()
+  }
+
+  async function remove(passkeyId: string) {
+    const outcome = await removal.submit(() =>
+      api.DELETE('/auth/mfa/webauthn/passkeys/{passkeyId}', { params: { path: { passkeyId } }, headers: json }),
+    )
+    if (outcome.failure === undefined) {
+      refresh()
+      heading.current?.focus()
+    }
+  }
+
+  return (
+    <section className="auth__form" aria-labelledby={id}>
+      <h2 ref={heading} className="auth__subtitle" id={id} tabIndex={-1}>
+        Clés d'accès
+      </h2>
+      {keys.error && (
+        <p className="auth__refusal" role="alert">
+          {unreachable}
+        </p>
+      )}
+      {count === 0 ? (
+        <p className="auth__aside">Aucune clé d'accès sur ce compte.</p>
+      ) : (
+        <ul className="auth__keys">
+          {keys.data?.map((key) => (
+            <li key={key.id}>
+              <span>{key.name}</span>
+              <button
+                className="ui-button ui-button--secondary"
+                type="button"
+                aria-label={`Retirer ${key.name}`}
+                disabled={removal.waiting}
+                onClick={() => remove(key.id)}
+              >
+                Retirer
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {removal.refusal}
+      <PasskeyRegistration action="Ajouter une clé d'accès" onRegistered={refresh} />
     </section>
   )
 }

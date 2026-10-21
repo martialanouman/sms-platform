@@ -1,15 +1,15 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { components } from '../api.gen'
-import { TotpEnrollment } from '../factor'
+import { PasskeyRegistration, TotpEnrollment } from '../factor'
 import { pendingChallenge, rememberChallenge, useChallengeExpiry, useElevated } from '../session'
 import { AuthLayout, useSubmission } from '../ui'
 
 export const Route = createFileRoute('/enroll')({
   beforeLoad: () => {
     if (!pendingChallenge()) {
-      throw redirect({ to: '/login', search: { avis: 'verification-interrompue' } })
+      throw redirect({ to: '/login', search: { notice: 'verification-interrupted' } })
     }
   },
   component: Enrolment,
@@ -17,6 +17,7 @@ export const Route = createFileRoute('/enroll')({
 
 function Enrolment() {
   const elevated = useElevated()
+  const navigate = useNavigate()
   useChallengeExpiry()
   const { submit, waiting, refusal } = useSubmission()
   const [enrollment, setEnrollment] = useState<components['schemas']['TotpEnrollment']>()
@@ -51,11 +52,14 @@ function Enrolment() {
       ) : (
         <>
           <p className="auth__intro">
-            Votre compte demande un second facteur. Installez une application d'authentification sur votre téléphone,
-            puis configurez-la.
+            Votre compte demande un second facteur : une clé d'accès, ou une application d'authentification.
+          </p>
+          <PasskeyRegistration action="Enregistrer une clé d'accès" onRegistered={() => navigate({ to: '/mfa' })} />
+          <p className="auth__aside">
+            Ou installez une application d'authentification sur votre téléphone, puis configurez-la.
           </p>
           {refusal}
-          <button className="ui-button ui-button--primary" type="button" disabled={waiting} onClick={configure}>
+          <button className="ui-button ui-button--secondary" type="button" disabled={waiting} onClick={configure}>
             Configurer l'application
           </button>
         </>

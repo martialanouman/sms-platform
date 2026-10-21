@@ -192,3 +192,18 @@
   border-radius: var(--radius-card);
   list-style: none;
 }
+
+.auth__keys {
+  display: grid;
+  gap: var(--sp-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.auth__keys li {
+  display: flex;
+  gap: var(--sp-5);
+  align-items: center;
+  justify-content: space-between;
+}

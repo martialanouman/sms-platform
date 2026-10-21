@@ -20,7 +20,7 @@ test('the token leaves the address, then sets the password and sends to the logi
   expect(document.activeElement).toBe(screen.getByLabelText('Nouveau mot de passe'))
   await submit('Correct-horse-9')
   await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
-  expect(router.state.location.search).toEqual({ avis: 'mot-de-passe-enregistre' })
+  expect(router.state.location.search).toEqual({ notice: 'password-set' })
   expect(await calls[0]?.json()).toEqual({ token, password: 'Correct-horse-9' })
 })
 

@@ -10,6 +10,7 @@ afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
+  Reflect.deleteProperty(navigator, 'credentials')
   vi.useRealTimers()
   rememberChallenge(undefined)
 })
@@ -64,3 +65,29 @@ export const me = {
 }
 
 export const challenge = { challenge: 'c'.repeat(43), expiresAt: new Date(Date.now() + 300_000).toISOString() }
+
+export function stubPasskeys() {
+  vi.stubGlobal('PublicKeyCredential', {
+    parseCreationOptionsFromJSON: (options: unknown) => ({ parsed: options }),
+    parseRequestOptionsFromJSON: (options: unknown) => ({ parsed: options }),
+  })
+  const device = {
+    create: vi.fn(async (_: unknown) => ({ toJSON: () => ({ id: 'attested' }) })),
+    get: vi.fn(async (_: unknown) => ({ toJSON: () => ({ id: 'asserted' }) })),
+  }
+  Object.defineProperty(navigator, 'credentials', { configurable: true, value: device })
+  return device
+}
+
+export const noSession = () => json(401, { code: 'unauthenticated', message: 'Aucune session ouverte.' })
+
+export function once(answer: () => Response) {
+  let served = false
+  return () => {
+    if (served) {
+      return noSession()
+    }
+    served = true
+    return answer()
+  }
+}

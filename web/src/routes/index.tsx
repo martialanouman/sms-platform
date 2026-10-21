@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { api, json, send, unreachable } from '../api'
-import { TotpReplacement } from '../factor'
+import { PasskeySection, TotpReplacement } from '../factor'
 import { meQuery, Unauthenticated, useActivity, useMe, useSessionClosed } from '../session'
 import { AuthLayout } from '../ui'
 
@@ -14,6 +14,7 @@ function Home() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [leaving, setLeaving] = useState(false)
+  const refreshMe = () => queryClient.invalidateQueries({ queryKey: meQuery.queryKey })
   const [failure, setFailure] = useState('')
   useActivity(leaving ? undefined : me.data?.idleTimeoutSeconds)
 
@@ -27,7 +28,7 @@ function Home() {
   }, [me.error, closed])
   useEffect(() => {
     if (me.data && !me.data.elevated) {
-      void navigate({ to: '/login', search: { avis: 'verification-interrompue' } })
+      void navigate({ to: '/login', search: { notice: 'verification-interrupted' } })
     }
   }, [me.data, navigate])
 
@@ -58,12 +59,12 @@ function Home() {
           <button className="ui-button ui-button--secondary" type="button" onClick={logout}>
             Se déconnecter
           </button>
-          {me.data.secondFactors.totp && (
-            <TotpReplacement
-              remaining={me.data.secondFactors.recoveryCodesRemaining}
-              onReplaced={() => queryClient.invalidateQueries({ queryKey: meQuery.queryKey })}
-            />
-          )}
+          <TotpReplacement
+            held={me.data.secondFactors.totp}
+            remaining={me.data.secondFactors.recoveryCodesRemaining}
+            onReplaced={refreshMe}
+          />
+          <PasskeySection count={me.data.secondFactors.passkeys} onChange={refreshMe} />
         </>
       )}
     </AuthLayout>
