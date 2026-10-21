@@ -470,7 +470,7 @@
 
 .ui-blocked:is(:hover, :focus-within):not(.ui-blocked--dismissed) .ui-tooltip {
   top: 100%;
-  left: 0;
+  right: 0;
   z-index: var(--z-nav);
   width: max-content;
   max-width: 320px;
