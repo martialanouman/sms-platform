@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -50,19 +52,22 @@ func valid(t *testing.T) config.Infra {
 	t.Helper()
 	httpAddr := freeAddr(t)
 	return config.Infra{
-		OpsAddr:         freeAddr(t),
-		DrainDelay:      0,
-		DrainBudget:     10 * time.Second,
-		ShutdownTimeout: 5 * time.Second,
-		HTTPAddr:        httpAddr,
-		PostgresURL:     "postgres://dashboard@127.0.0.1:1/dashboard",
-		PublicURL:       "http://" + strings.Replace(httpAddr, "127.0.0.1", "localhost", 1),
-		BootstrapEmail:  "owner@example.test",
-		SMTPAddr:        "localhost:1025",
-		SMTPFrom:        "dashboard@example.test",
-		CookieKeyFile:   file(t, strings.Repeat("k", 64)),
-		TotpKeyFile:     file(t, strings.Repeat("ab", 32)+"\n"),
-		TLS:             mtlstest.New(t).Issue(t, t.TempDir(), "localhost"),
+		OpsAddr:           freeAddr(t),
+		DrainDelay:        0,
+		DrainBudget:       10 * time.Second,
+		ShutdownTimeout:   5 * time.Second,
+		HTTPAddr:          httpAddr,
+		PostgresURL:       "postgres://dashboard@127.0.0.1:1/dashboard",
+		PublicURL:         "http://" + strings.Replace(httpAddr, "127.0.0.1", "localhost", 1),
+		BootstrapEmail:    "owner@example.test",
+		SMTPAddr:          "localhost:1025",
+		SMTPFrom:          "dashboard@example.test",
+		CookieKeyFile:     file(t, strings.Repeat("k", 64)),
+		TotpKeyFile:       file(t, strings.Repeat("ab", 32)+"\n"),
+		TLS:               mtlstest.New(t).Issue(t, t.TempDir(), "localhost"),
+		InternalAddr:      freeAddr(t),
+		OpenBaoAddr:       "https://127.0.0.1:1",
+		TLSAllowedClients: []string{"admin-api-svc"},
 	}
 }
 
@@ -96,6 +101,12 @@ func TestRunRefusesEachFaultBeforeConnecting(t *testing.T) {
 		"public URL ftp":        {func(i *config.Infra) { i.PublicURL = "ftp://localhost:8080" }, "DASHBOARD_PUBLIC_URL"},
 		"relay without number":  {func(i *config.Infra) { i.SMTPAddr = "mailpit:" }, "SMTP_ADDR"},
 		"public URL by address": {func(i *config.Infra) { i.PublicURL = "http://127.0.0.1:8080" }, "RPID"},
+		"no internal listener":  {func(i *config.Infra) { i.InternalAddr = "" }, "INTERNAL_ADDR"},
+		"OpenBao in clear":      {func(i *config.Infra) { i.OpenBaoAddr = "http://openbao.openbao.svc:8200" }, "OPENBAO_ADDR"},
+		"no certificate":        {func(i *config.Infra) { i.TLS.Cert = "" }, "TLS_CERT_FILE"},
+		"no key":                {func(i *config.Infra) { i.TLS.Key = "" }, "TLS_KEY_FILE"},
+		"other callers":         {func(i *config.Infra) { i.TLSAllowedClients = []string{"admin-api-svc", "router-svc"} }, "TLS_ALLOWED_CLIENTS"},
+		"no callers":            {func(i *config.Infra) { i.TLSAllowedClients = nil }, "TLS_ALLOWED_CLIENTS"},
 	} {
 		infra := valid(t)
 		tc.spoil(&infra)
@@ -106,11 +117,12 @@ func TestRunRefusesEachFaultBeforeConnecting(t *testing.T) {
 	}
 }
 
-func mailpit(t *testing.T) (smtpAddr, api string, files config.Infra) {
+func mailpit(t *testing.T) (smtpAddr, api string, files config.Infra, ca mtlstest.Authority) {
 	t.Helper()
 	testcontainers.SkipIfProviderIsNotHealthy(t)
 	ctx := context.Background()
-	tlsFiles := mtlstest.New(t).Issue(t, t.TempDir(), "localhost")
+	ca = mtlstest.New(t)
+	tlsFiles := ca.Issue(t, t.TempDir(), "localhost")
 	c, err := testcontainers.Run(ctx, "axllent/mailpit:v1.31.4",
 		testcontainers.WithExposedPorts("1025/tcp", "8025/tcp"),
 		testcontainers.WithEnv(map[string]string{"MP_SMTP_TLS_CERT": "/tls/cert.pem", "MP_SMTP_TLS_KEY": "/tls/key.pem", "MP_SMTP_REQUIRE_STARTTLS": "true",
@@ -133,7 +145,7 @@ func mailpit(t *testing.T) (smtpAddr, api string, files config.Infra) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return strings.Replace(smtpAddr, "127.0.0.1", "localhost", 1), api, config.Infra{TLS: tlsFiles}
+	return strings.Replace(smtpAddr, "127.0.0.1", "localhost", 1), api, config.Infra{TLS: tlsFiles}, ca
 }
 
 var linkToken = regexp.MustCompile(`/access#([A-Za-z0-9_-]{43})\b`)
@@ -155,6 +167,7 @@ func getJSON(t *testing.T, url string, into any) {
 }
 
 type deployment struct {
+	ca       mtlstest.Authority
 	infra    config.Infra
 	api      string
 	migrator *pgx.Conn
@@ -175,14 +188,14 @@ func prepare(t *testing.T, seeds ...string) deployment {
 			t.Fatal(err)
 		}
 	}
-	smtpAddr, api, relay := mailpit(t)
+	smtpAddr, api, relay, ca := mailpit(t)
 	infra := valid(t)
 	infra.PostgresURL, infra.SMTPAddr, infra.TLS = pg.As("dashboard"), smtpAddr, relay.TLS
 	infra.SMTPUsername, infra.SMTPPasswordFile = "relay", file(t, "relay-secret\n")
 	expected := infra.PublicURL
 	infra.PublicURL += "/"
 	infra.DrainDelay = time.Second
-	return deployment{infra: infra, api: api, migrator: migrator, expected: expected}
+	return deployment{ca: ca, infra: infra, api: api, migrator: migrator, expected: expected}
 }
 
 func (d deployment) start(t *testing.T, registry *prometheus.Registry) (stop func(), done chan error) {
@@ -302,6 +315,38 @@ func TestTheDashboardServesAnOperatorFromActivationToLogout(t *testing.T) {
 	_ = me.Body.Close()
 	if me.StatusCode != 200 {
 		t.Fatalf("me: %d", me.StatusCode)
+	}
+	jwks, err := http.Get("http://" + d.infra.HTTPAddr + "/.well-known/jwks.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	public, _ := io.ReadAll(jwks.Body)
+	_ = jwks.Body.Close()
+	if strings.Contains(string(public), `"keys"`) {
+		t.Fatalf("the public listener serves the JWKS: %s", public)
+	}
+	internal := func(names ...string) (*http.Response, error) {
+		cfg := &tls.Config{MinVersion: tls.VersionTLS13, ServerName: "localhost", RootCAs: x509.NewCertPool()}
+		cfg.RootCAs.AppendCertsFromPEM(d.ca.PEM)
+		if len(names) > 0 {
+			files := d.ca.Issue(t, t.TempDir(), names...)
+			cert, err := tls.LoadX509KeyPair(files.Cert, files.Key)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg.Certificates = []tls.Certificate{cert}
+		}
+		client := &http.Client{Timeout: 5 * time.Second, Transport: &http.Transport{TLSClientConfig: cfg}}
+		return client.Get("https://" + d.infra.InternalAddr + "/.well-known/jwks.json")
+	}
+	if resp, err := internal("admin-api-svc"); err != nil || resp.StatusCode != 503 {
+		t.Fatalf("the JWKS to admin-api-svc, OpenBao unreachable: %v, %v", resp, err)
+	}
+	for _, names := range [][]string{{"router-svc"}, nil} {
+		if resp, err := internal(names...); err == nil {
+			_ = resp.Body.Close()
+			t.Fatalf("the internal listener answered %v: %d", names, resp.StatusCode)
+		}
 	}
 	if resp, _ := post("/auth/logout", "", cookie); resp.StatusCode != 204 {
 		t.Fatalf("logout: %d", resp.StatusCode)

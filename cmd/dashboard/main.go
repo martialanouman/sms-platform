@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -22,11 +24,13 @@ import (
 
 	"github.com/martialanouman/sms-platform/internal/dashboard"
 	dashboardhttp "github.com/martialanouman/sms-platform/internal/dashboard/http"
+	dashboardopenbao "github.com/martialanouman/sms-platform/internal/dashboard/openbao"
 	"github.com/martialanouman/sms-platform/internal/dashboard/postgres"
 	"github.com/martialanouman/sms-platform/internal/dashboard/smtp"
 	"github.com/martialanouman/sms-platform/internal/platform/config"
 	"github.com/martialanouman/sms-platform/internal/platform/metrics"
 	"github.com/martialanouman/sms-platform/internal/platform/observability"
+	platformopenbao "github.com/martialanouman/sms-platform/internal/platform/openbao"
 	"github.com/martialanouman/sms-platform/internal/platform/ops"
 	"github.com/martialanouman/sms-platform/internal/platform/pgdial"
 	"github.com/martialanouman/sms-platform/internal/platform/supervisor"
@@ -35,6 +39,7 @@ import (
 
 const (
 	service       = "dashboard"
+	projectedJWT  = "/var/run/secrets/openbao/token"
 	deliveryEvery = 5 * time.Second
 	purgeEvery    = time.Minute
 )
@@ -96,6 +101,16 @@ func validate(infra config.Infra) error {
 		return errors.New("TOTP_KEY_FILE is empty")
 	case infra.TLS.CA == "":
 		return errors.New("TLS_CA_FILE is empty, and the relay is verified by it")
+	case infra.InternalAddr == "":
+		return errors.New("INTERNAL_ADDR is empty, and the JWKS is served there only")
+	case !strings.HasPrefix(infra.OpenBaoAddr, "https://"):
+		return fmt.Errorf("OPENBAO_ADDR %q is not https://", infra.OpenBaoAddr)
+	case infra.TLS.Cert == "":
+		return errors.New("TLS_CERT_FILE is empty")
+	case infra.TLS.Key == "":
+		return errors.New("TLS_KEY_FILE is empty")
+	case !slices.Equal(slices.Sorted(slices.Values(infra.TLSAllowedClients)), dashboardhttp.JWKSCallers):
+		return fmt.Errorf("TLS_ALLOWED_CLIENTS %v is not the callers of the JWKS %v", infra.TLSAllowedClients, dashboardhttp.JWKSCallers)
 	}
 	return nil
 }
@@ -139,6 +154,14 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger, registry pro
 	if !mailer.Roots.AppendCertsFromPEM(ca) {
 		return errors.New("the internal CA holds no certificate")
 	}
+	internalTLS, err := infra.TLS.Server(infra.TLSAllowedClients, []string{"http/1.1"})
+	if err != nil {
+		return err
+	}
+	baoClient, err := platformopenbao.HTTPClient(ca)
+	if err != nil {
+		return err
+	}
 	undeliverable := prometheus.NewGauge(prometheus.GaugeOpts{Name: "dashboard_access_links_undeliverable",
 		Help: "Access links of active accounts that ran out of attempts without being sent."})
 	if err := metrics.Guard(registry).Register(undeliverable); err != nil {
@@ -150,7 +173,8 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger, registry pro
 		return errors.New("POSTGRES_URL is unreadable")
 	}
 	defer pool.Close()
-	svc := dashboard.Service{Store: postgres.New(pool), Hasher: dashboard.NewHasher(), Keys: keys, Totp: totp, Passkeys: passkeys, Mailer: mailer, PublicURL: expected}
+	svc := dashboard.Service{Store: postgres.New(pool), Hasher: dashboard.NewHasher(), Keys: keys, Totp: totp, Passkeys: passkeys, Mailer: mailer, PublicURL: expected,
+		Signer: dashboardopenbao.New(infra.OpenBaoAddr, baoClient, service, projectedJWT)}
 	if err := pgdial.Retry(ctx, log, func(ctx context.Context) error { return svc.Bootstrap(ctx, infra.BootstrapEmail) }); err != nil {
 		return fmt.Errorf("bootstrap: %w", err)
 	}
@@ -164,6 +188,11 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger, registry pro
 	}
 	ln, err := net.Listen("tcp", infra.HTTPAddr)
 	if err != nil {
+		return err
+	}
+	internalLn, err := net.Listen("tcp", infra.InternalAddr)
+	if err != nil {
+		_ = ln.Close()
 		return err
 	}
 	sup := supervisor.Ordered{DrainDelay: infra.DrainDelay, DrainBudget: infra.DrainBudget}
@@ -192,6 +221,8 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger, registry pro
 	}))
 	sup.Add("http", serve(&http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second,
 		ErrorLog: slog.NewLogLogger(log.Handler(), slog.LevelWarn)}, ln, infra.ShutdownTimeout))
+	sup.Add("internal", serve(&http.Server{Handler: dashboardhttp.JWKS(svc), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second,
+		IdleTimeout: 60 * time.Second, ErrorLog: slog.NewLogLogger(log.Handler(), slog.LevelWarn)}, tls.NewListener(internalLn, internalTLS), infra.ShutdownTimeout))
 	sup.OnDrain(opsServer.Drain)
 	return sup.Run(ctx, log)
 }
