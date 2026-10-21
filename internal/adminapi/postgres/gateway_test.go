@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5"
@@ -122,12 +123,14 @@ func (g gateway) count(t *testing.T, query string) int {
 
 type page struct {
 	Data []struct {
-		ID          string  `json:"id"`
-		Operator    string  `json:"operator"`
-		OperationID string  `json:"operation_id"`
-		Target      string  `json:"target"`
-		RequestID   *string `json:"request_id"`
-		Status      int     `json:"status"`
+		ID          string     `json:"id"`
+		Operator    string     `json:"operator"`
+		OperationID string     `json:"operation_id"`
+		Target      string     `json:"target"`
+		RequestID   *string    `json:"request_id"`
+		Status      int        `json:"status"`
+		Outcome     *string    `json:"outcome"`
+		At          *time.Time `json:"at"`
 	} `json:"data"`
 	NextCursor *string `json:"next_cursor"`
 }
@@ -158,9 +161,18 @@ func TestReadingTheAuditLogLeavesOneLineWrittenAfterTheRead(t *testing.T) {
 		t.Fatalf("lines = %+v, want %+v", got, want)
 	}
 
-	second := decode(t, g.call(t, http.MethodGet, "/admin/audit-log?limit=1", "audit:read"))
-	if len(second.Data) != 1 || second.Data[0].Status != 200 || *second.Data[0].RequestID != id || second.NextCursor != nil {
-		t.Fatalf("second read: %+v", second)
+	second := g.call(t, http.MethodGet, "/admin/audit-log?limit=1", "audit:read")
+	p := decode(t, second)
+	if len(p.Data) != 1 || p.NextCursor != nil {
+		t.Fatalf("second read: %s", second.Body)
+	}
+	e := p.Data[0]
+	if e.Operator != operator || e.OperationID != "list-audit-log" || e.Target != "/admin/audit-log" || e.Status != 200 ||
+		*e.RequestID != id || e.Outcome != nil || e.At == nil || !strings.Contains(second.Body.String(), `"outcome":null`) {
+		t.Fatalf("second read: %s", second.Body)
+	}
+	if got := g.lines(t); len(got) != 2 || got[1].Target != "/admin/audit-log" {
+		t.Fatalf("the line of a query keeps it: %+v", got)
 	}
 }
 
@@ -282,6 +294,7 @@ func TestTheChangesOfAnUnknownRequestAreNotFoundAndTheRefusalIsAudited(t *testin
 			Op     string          `json:"op"`
 			Before json.RawMessage `json:"before"`
 			After  json.RawMessage `json:"after"`
+			At     *time.Time      `json:"at"`
 		} `json:"data"`
 		NextCursor *string `json:"next_cursor"`
 	}
@@ -290,7 +303,7 @@ func TestTheChangesOfAnUnknownRequestAreNotFoundAndTheRefusalIsAudited(t *testin
 	}
 	c := changes.Data
 	if len(c) != 1 || c[0].Actor != operator || c[0].Table != "probe" || c[0].PK != `{"id": 7}` || c[0].Op != "insert" ||
-		string(c[0].Before) != "null" || string(c[0].After) != `{"id":7}` || changes.NextCursor != nil {
+		string(c[0].Before) != "null" || string(c[0].After) != `{"id":7}` || c[0].At == nil || changes.NextCursor != nil {
 		t.Fatalf("changes = %s", rec.Body)
 	}
 }
