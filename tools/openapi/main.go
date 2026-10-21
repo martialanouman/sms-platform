@@ -18,9 +18,10 @@ const (
 )
 
 func main() {
-	gen := flag.String("gen", "", "write the scope and permission lists to this file")
+	gen := flag.String("gen", "", "write the scope and permission lists to this Go file")
+	ts := flag.String("ts", "", "write the scope and permission lists to this TypeScript file")
 	flag.Parse()
-	errs := run(".", *gen)
+	errs := run(".", *gen, *ts)
 	for _, err := range errs {
 		fmt.Fprintln(os.Stderr, err)
 	}
@@ -29,7 +30,7 @@ func main() {
 	}
 }
 
-func run(root, gen string) []error {
+func run(root, gen, ts string) []error {
 	admin, err := load(filepath.Join(root, adminPath))
 	if err != nil {
 		return []error{err}
@@ -43,12 +44,17 @@ func run(root, gen string) []error {
 	permissions, permErrs := bff.Permissions(scopes)
 	errs = append(errs, prefix(bffPath, permErrs)...)
 
-	if gen != "" {
+	if gen != "" || ts != "" {
 		if errs != nil {
 			return errs
 		}
-		if err := os.WriteFile(gen, openapi.Go(scopes, permissions), 0o600); err != nil {
-			return []error{err}
+		for path, data := range map[string][]byte{gen: openapi.Go(scopes, permissions), ts: openapi.TS(scopes, permissions)} {
+			if path == "" {
+				continue
+			}
+			if err := os.WriteFile(path, data, 0o600); err != nil {
+				return []error{err}
+			}
 		}
 		return nil
 	}
