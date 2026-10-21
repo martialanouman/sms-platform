@@ -61,7 +61,7 @@ export function FactorProof<T>({
   }
 
   return (
-    <form className="auth__form" noValidate onSubmit={verify}>
+    <form className="auth__form" onSubmit={verify}>
       <Field key={method} label={label} ref={field} name="code" required aria-describedby={describedBy} {...input} />
       {refusal}
       <button className="ui-button ui-button--primary" type="submit" disabled={waiting}>
@@ -121,7 +121,7 @@ export function TotpEnrollment({
       <p className="auth__aside">Sans caméra, saisissez cette clé dans l'application :</p>
       <p className="auth__secret">{enrollment.secret}</p>
       <CopyButton label="Copier la clé" value={enrollment.secret} />
-      <form className="auth__form" noValidate onSubmit={verify}>
+      <form className="auth__form" onSubmit={verify}>
         <Field
           label="Code à six chiffres"
           name="code"
@@ -290,7 +290,7 @@ export function PasskeyRegistration({ action, onRegistered }: { action: string; 
     return <p className="auth__aside">Ce navigateur ne sait pas créer de clé d'accès.</p>
   }
   return (
-    <form className="auth__form" noValidate onSubmit={register}>
+    <form className="auth__form" onSubmit={register}>
       <Field label="Nom de la clé" name="name" maxLength={64} required aria-describedby={describedBy} />
       {refusal}
       <button className="ui-button ui-button--primary" type="submit" disabled={waiting}>

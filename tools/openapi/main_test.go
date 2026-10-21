@@ -32,7 +32,7 @@ func tree(t *testing.T, path, old, new string) string {
 }
 
 func TestRunPassesOnTheRealContracts(t *testing.T) {
-	if errs := run(tree(t, "", "", ""), ""); errs != nil {
+	if errs := run(tree(t, "", "", ""), "", ""); errs != nil {
 		t.Fatal(errs)
 	}
 }
@@ -49,7 +49,7 @@ func TestRunFailsOnAFaultyContract(t *testing.T) {
 		"bff code":        {bffPath, "            - unauthenticated\n", "            - unauthenticated\n            - made_up\n"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			errs := run(tree(t, c.path, c.old, c.new), "")
+			errs := run(tree(t, c.path, c.old, c.new), "", "")
 			if len(errs) == 0 || !strings.HasPrefix(errs[0].Error(), strings.Replace(c.path, specPath, adminPath, 1)) {
 				t.Fatalf("errs = %v, want an error on %s", errs, c.path)
 			}
@@ -58,7 +58,7 @@ func TestRunFailsOnAFaultyContract(t *testing.T) {
 }
 
 func TestRunFailsOnAMalformedSpecRow(t *testing.T) {
-	errs := run(tree(t, specPath, "| 404, 409, 403 |", "| 404, 409 |"), "")
+	errs := run(tree(t, specPath, "| 404, 409, 403 |", "| 404, 409 |"), "", "")
 	if len(errs) != 1 || !strings.HasPrefix(errs[0].Error(), specPath) {
 		t.Fatalf("errs = %v, want one error on %s", errs, specPath)
 	}
@@ -70,13 +70,32 @@ func TestRunDoesNotGenerateFromAFaultyContract(t *testing.T) {
 		"bff":   {bffPath, "session: ['operators:read']", "session: ['operators:admin']"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			out := filepath.Join(t.TempDir(), "scopes.gen.go")
-			if errs := run(tree(t, c.path, c.old, c.new), out); len(errs) == 0 {
+			dir := t.TempDir()
+			out, ts := filepath.Join(dir, "scopes.gen.go"), filepath.Join(dir, "scopes.gen.ts")
+			if errs := run(tree(t, c.path, c.old, c.new), out, ts); len(errs) == 0 {
 				t.Fatal("run accepted a faulty contract")
 			}
-			if _, err := os.Stat(out); !os.IsNotExist(err) {
-				t.Errorf("scope list written despite the fault: %v", err)
+			for _, f := range []string{out, ts} {
+				if _, err := os.Stat(f); !os.IsNotExist(err) {
+					t.Errorf("%s written despite the fault: %v", f, err)
+				}
 			}
 		})
+	}
+}
+
+func TestRunWritesTheTypeScriptList(t *testing.T) {
+	ts := filepath.Join(t.TempDir(), "scopes.gen.ts")
+	if errs := run(tree(t, "", "", ""), "", ts); errs != nil {
+		t.Fatal(errs)
+	}
+	data, err := os.ReadFile(ts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, scope := range []string{"'audit:read'", "'gateway:personal_token'"} {
+		if !strings.Contains(string(data), scope) {
+			t.Errorf("scopes.gen.ts lacks %s", scope)
+		}
 	}
 }

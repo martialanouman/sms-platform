@@ -37,6 +37,7 @@ une autre peut s'ajouter au démarrage d'une step, comme au socle.
 | 012d | Dashboard : coquille et écran Opérateurs | Fondations |
 | 012d-2 | Dashboard : coquille et écran Opérateurs de l'origine | Fondations |
 | 012e | Dashboard : écrans Rôles et jeton personnel | Fondations |
+| 012f | Dashboard : retours de l'essai humain | Fondations |
 | 013 | `admin-api-svc` : autorisation, audit, proxy ; écran Audit | Fondations |
 | 014a | Clients, groupes, comptes | Tranche |
 | 014b | Identifiants, webhooks | Tranche |

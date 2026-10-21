@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { type FormEvent, useEffect, useId, useRef, useState } from 'react'
 import { api, json, unreachable } from '../api'
 import type { components } from '../api.gen'
+import { permissionLabel } from '../permissions'
 import { rolesQuery } from '../queries'
 import { meQuery, Refused, Unauthenticated, useSessionClosed, useShellMe } from '../session'
 import {
@@ -162,12 +163,19 @@ function Roles() {
 
 function View({ role, onClose }: { role: Role; onClose: () => void }) {
   return (
-    <Modal title={`Rôle ${role.name}`} onClose={onClose} footer={<Button onClick={onClose}>Fermer</Button>}>
+    <Modal title={`Rôle ${role.name}`} wide onClose={onClose} footer={<Button onClick={onClose}>Fermer</Button>}>
       <p>{role.description}</p>
-      <ul className="role-keys">
-        {role.permissions.map((key) => (
-          <li key={key}>{key}</li>
-        ))}
+      {/* biome-ignore lint/a11y/noNoninteractiveTabindex: la liste défile ; le clavier doit l’atteindre (WCAG 2.1.1) */}
+      <ul className="role-keys" aria-label={`Permissions du rôle ${role.name}`} tabIndex={0}>
+        {role.permissions.map((key) => {
+          const label = Object.values(permissionLabel(key)).filter(Boolean).join(' — ')
+          return (
+            <li key={key}>
+              {label && `${label} `}
+              <span className="role-keys__key">{key}</span>
+            </li>
+          )
+        })}
       </ul>
     </Modal>
   )
@@ -246,7 +254,7 @@ function Editor({ role, catalog, onClose }: { role?: Role; catalog: string[]; on
         <div className="permission-picker">
           {resources.map((resource) => (
             <fieldset className="role-choice" key={resource}>
-              <legend>{resource}</legend>
+              <legend>{permissionLabel(`${resource}:`).resource ?? resource}</legend>
               {keys
                 .filter((key) => key.startsWith(`${resource}:`))
                 .map((key) => (
@@ -258,7 +266,7 @@ function Editor({ role, catalog, onClose }: { role?: Role; catalog: string[]; on
                         setPermissions(e.target.checked ? [...permissions, key] : permissions.filter((p) => p !== key))
                       }
                     />
-                    <span className="role-keys__key">{key}</span>
+                    {permissionLabel(key).action} <span className="role-keys__key">{key}</span>
                   </label>
                 ))}
             </fieldset>

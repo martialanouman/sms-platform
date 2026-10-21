@@ -67,7 +67,7 @@ function Login() {
           {notices[notice]}
         </p>
       )}
-      <form className="auth__form" noValidate onSubmit={login}>
+      <form className="auth__form" onSubmit={login}>
         <Field
           label="Adresse e-mail"
           ref={email}

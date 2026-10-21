@@ -25,14 +25,46 @@ export function AuthLayout({ title, children }: { title: string; children: React
   )
 }
 
+function invalidity(validity: ValidityState) {
+  if (validity.valueMissing) {
+    return 'Ce champ est obligatoire.'
+  }
+  return validity.typeMismatch ? 'Adresse e-mail invalide.' : 'Valeur invalide.'
+}
+
 export function Field({ label, ...input }: { label: string } & ComponentProps<'input'>) {
   const id = useId()
+  const [error, setError] = useState('')
   return (
     <div className="ui-field">
       <label className="ui-field__label" htmlFor={id}>
         {label}
       </label>
-      <input id={id} className="ui-input" {...input} />
+      <input
+        id={id}
+        className="ui-input"
+        {...input}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={[error && `${id}-error`, input['aria-describedby']].filter(Boolean).join(' ') || undefined}
+        onInvalid={(e) => {
+          e.preventDefault()
+          setError(invalidity(e.currentTarget.validity))
+          if (e.currentTarget.form?.querySelector(':is(input, select, textarea):invalid') === e.currentTarget) {
+            e.currentTarget.focus()
+          }
+        }}
+        onInput={(e) => {
+          if (error) {
+            setError(e.currentTarget.validity.valid ? '' : invalidity(e.currentTarget.validity))
+          }
+        }}
+      />
+      {error && (
+        <p className="ui-field__error" id={`${id}-error`} role="alert">
+          <Icon name="bang" />
+          {error}
+        </p>
+      )}
     </div>
   )
 }
@@ -166,6 +198,7 @@ export function Button({
   variant?: 'primary' | 'secondary' | 'danger'
   size?: 'sm'
   loading?: boolean
+  // debt: #160
   blockedReason?: string
 } & Omit<ComponentProps<'button'>, 'className'>) {
   const reason = useId()

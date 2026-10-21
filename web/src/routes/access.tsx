@@ -40,7 +40,7 @@ function Access() {
   }
   return (
     <AuthLayout title="Définir un mot de passe">
-      <form className="auth__form" noValidate onSubmit={save}>
+      <form className="auth__form" onSubmit={save}>
         <Field
           label="Nouveau mot de passe"
           ref={password}
