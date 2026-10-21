@@ -454,17 +454,6 @@ func (q *Queries) InsertRole(ctx context.Context, db DBTX, arg InsertRoleParams)
 	return id, err
 }
 
-const lockRole = `-- name: LockRole :one
-SELECT is_default FROM dashboard.roles WHERE id::text = $1 FOR UPDATE
-`
-
-func (q *Queries) LockRole(ctx context.Context, db DBTX, id string) (bool, error) {
-	row := db.QueryRow(ctx, lockRole, id)
-	var is_default bool
-	err := row.Scan(&is_default)
-	return is_default, err
-}
-
 const lockedFor = `-- name: LockedFor :one
 SELECT extract(epoch FROM last_failure_at + make_interval(secs => $1::float8) - now())::float8
 FROM dashboard.login_attempt_counters WHERE subject = $2
@@ -626,7 +615,7 @@ func (q *Queries) OperatorByEmail(ctx context.Context, db DBTX, email string) (O
 
 const operatorByID = `-- name: OperatorByID :one
 SELECT id::text, coalesce(password_hash, '')::text AS password_hash, status = 'active' AS active
-FROM dashboard.operators WHERE id::text = $1 FOR UPDATE
+FROM dashboard.operators WHERE id::text = $1
 `
 
 type OperatorByIDRow struct {
@@ -831,6 +820,17 @@ func (q *Queries) Reserve(ctx context.Context, db DBTX, arg ReserveParams) (bool
 	return column_1, err
 }
 
+const roleDefault = `-- name: RoleDefault :one
+SELECT is_default FROM dashboard.roles WHERE id::text = $1
+`
+
+func (q *Queries) RoleDefault(ctx context.Context, db DBTX, id string) (bool, error) {
+	row := db.QueryRow(ctx, roleDefault, id)
+	var is_default bool
+	err := row.Scan(&is_default)
+	return is_default, err
+}
+
 const roles = `-- name: Roles :many
 SELECT r.id::text AS id, r.name, r.description, r.permissions, r.is_default,
   coalesce((SELECT array_agg(o.email ORDER BY o.email) FROM dashboard.operator_roles x
@@ -913,6 +913,15 @@ type SeedRoleParams struct {
 
 func (q *Queries) SeedRole(ctx context.Context, db DBTX, arg SeedRoleParams) error {
 	_, err := db.Exec(ctx, seedRole, arg.Name, arg.Description, arg.Permissions)
+	return err
+}
+
+const serialize = `-- name: Serialize :exec
+SELECT pg_advisory_xact_lock(hashtext('dashboard.roles'))
+`
+
+func (q *Queries) Serialize(ctx context.Context, db DBTX) error {
+	_, err := db.Exec(ctx, serialize)
 	return err
 }
 

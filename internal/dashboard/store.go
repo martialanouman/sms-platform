@@ -92,6 +92,7 @@ type Tx interface {
 	OperatorByEmail(ctx context.Context, email string) (Operator, bool, error)
 	SetPassword(ctx context.Context, operatorID, phc string) error
 
+	Serialize(ctx context.Context) error
 	Operators(ctx context.Context, id string, maxAttempts int) ([]OperatorRecord, error)
 	InsertOperator(ctx context.Context, email, displayName string) (id string, created bool, err error)
 	OperatorByID(ctx context.Context, id string) (Operator, bool, error)
@@ -101,7 +102,7 @@ type Tx interface {
 	SetRoles(ctx context.Context, operatorID string, roleIDs []string) error
 	PermissionsOf(ctx context.Context, operatorID string) ([]string, error)
 	Roles(ctx context.Context, id string) ([]RoleRecord, error)
-	LockRole(ctx context.Context, id string) (isDefault, found bool, err error)
+	RoleDefault(ctx context.Context, id string) (isDefault, found bool, err error)
 	InsertRole(ctx context.Context, r Role) (id string, created bool, err error)
 	UpdateRole(ctx context.Context, id string, description string, permissions []string) error
 	DeleteRole(ctx context.Context, id string) error

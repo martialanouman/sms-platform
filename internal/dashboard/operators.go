@@ -14,6 +14,8 @@ var (
 	ErrEmailTaken = errors.New("email taken")
 	// ErrSelfLockout is a change that would lock its author out.
 	ErrSelfLockout = errors.New("self lockout")
+	// ErrForbidden is an author who no longer holds the permission of the operation, or no longer active.
+	ErrForbidden = errors.New("forbidden")
 	// ErrOperatorDisabled is an access link asked for a disabled account.
 	ErrOperatorDisabled = errors.New("operator disabled")
 )
@@ -103,6 +105,9 @@ func (s Service) SetOperatorStatus(ctx context.Context, actor, id string, active
 	}
 	var updated OperatorRecord
 	err := s.Store.Tx(ctx, func(tx Tx) error {
+		if err := authorize(ctx, tx, actor, "operators:write"); err != nil {
+			return err
+		}
 		o, found, err := tx.OperatorByID(ctx, id)
 		switch {
 		case err != nil:
@@ -158,6 +163,9 @@ func (s Service) RequestAccessLink(ctx context.Context, actor, id string) error 
 func (s Service) SetOperatorRoles(ctx context.Context, actor, id string, roleIDs []string) (OperatorRecord, error) {
 	var updated OperatorRecord
 	err := s.Store.Tx(ctx, func(tx Tx) error {
+		if err := authorize(ctx, tx, actor, "operators:write"); err != nil {
+			return err
+		}
 		_, found, err := tx.OperatorByID(ctx, id)
 		switch {
 		case err != nil:
@@ -209,6 +217,24 @@ func guard(ctx context.Context, tx Tx, actor string, change func() error) error 
 		if slices.Contains(before, p) && !slices.Contains(after, p) {
 			return ErrSelfLockout
 		}
+	}
+	return nil
+}
+
+func authorize(ctx context.Context, tx Tx, actor, permission string) error {
+	if err := tx.Serialize(ctx); err != nil {
+		return err
+	}
+	author, found, err := tx.OperatorByID(ctx, actor)
+	if err != nil {
+		return err
+	}
+	held, err := tx.PermissionsOf(ctx, actor)
+	if err != nil {
+		return err
+	}
+	if !found || !author.Active || !slices.Contains(held, permission) {
+		return ErrForbidden
 	}
 	return nil
 }

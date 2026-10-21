@@ -224,7 +224,7 @@ RETURNING id::text AS id;
 
 -- name: OperatorByID :one
 SELECT id::text, coalesce(password_hash, '')::text AS password_hash, status = 'active' AS active
-FROM dashboard.operators WHERE id::text = @id FOR UPDATE;
+FROM dashboard.operators WHERE id::text = @id;
 
 -- name: SetOperatorStatus :exec
 UPDATE dashboard.operators SET status = @status WHERE id = @id::uuid;
@@ -253,8 +253,8 @@ FROM dashboard.roles r
 WHERE sqlc.narg(id)::text IS NULL OR r.id::text = sqlc.narg(id)::text
 ORDER BY lower(r.name);
 
--- name: LockRole :one
-SELECT is_default FROM dashboard.roles WHERE id::text = @id FOR UPDATE;
+-- name: RoleDefault :one
+SELECT is_default FROM dashboard.roles WHERE id::text = @id;
 
 -- name: InsertRole :one
 INSERT INTO dashboard.roles (name, description, permissions) VALUES (@name, @description, @permissions::text[])
@@ -266,3 +266,6 @@ UPDATE dashboard.roles SET description = @description, permissions = @permission
 
 -- name: DeleteRole :exec
 DELETE FROM dashboard.roles WHERE id = @id::uuid;
+
+-- name: Serialize :exec
+SELECT pg_advisory_xact_lock(hashtext('dashboard.roles'));

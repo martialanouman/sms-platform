@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/martialanouman/sms-platform/internal/dashboard"
 )
@@ -346,5 +347,126 @@ func TestNobodyTakesFromHimselfTheRightToManageOperatorsOrRoles(t *testing.T) {
 	}
 	if _, err := h.svc.SetOperatorRoles(ctx, ada, actor, []string{support}); err != nil {
 		t.Fatalf("taking from another is no lockout: %v", err)
+	}
+}
+
+func (h *harness) concurrent(t *testing.T, sql string, call func() error) error {
+	t.Helper()
+	ctx := context.Background()
+	other, err := h.owner.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = other.Rollback(ctx) }()
+	if _, err := other.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('dashboard.roles'))`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := other.Exec(ctx, sql); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- call() }()
+	select {
+	case err := <-done:
+		t.Fatalf("the write did not wait for the concurrent one: %v", err)
+	case <-time.After(300 * time.Millisecond):
+	}
+	if err := other.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	return <-done
+}
+
+func TestEveryWriteOfRolesWaitsForTheConcurrentOneAndSeesIt(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	actor := h.actor(t)
+	g1, err := h.svc.CreateRole(ctx, actor, "G1", "", []string{"operators:write", "roles:write"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	g2, err := h.svc.CreateRole(ctx, actor, "G2", "", []string{"operators:write", "roles:write"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.activate(t, "ada@example.test")
+	ada := h.operatorID(t, "ada@example.test")
+	h.grant(t, "ada@example.test", "G1", "G2")
+
+	err = h.concurrent(t, `UPDATE dashboard.roles SET permissions = '{cdr:read}' WHERE name = 'G1'`, func() error {
+		_, err := h.svc.UpdateRole(ctx, ada, g2.ID, "", []string{"cdr:read"})
+		return err
+	})
+	if !errors.Is(err, dashboard.ErrSelfLockout) {
+		t.Fatalf("ada empties G2 while G1 is emptied: %v", err)
+	}
+
+	err = h.concurrent(t, `DELETE FROM dashboard.operator_roles WHERE operator_id = '`+ada+`'`, func() error {
+		_, err := h.svc.SetOperatorRoles(ctx, ada, actor, []string{})
+		return err
+	})
+	if !errors.Is(err, dashboard.ErrForbidden) {
+		t.Fatalf("ada, stripped meanwhile, strips the owner: %v", err)
+	}
+	if got := h.find(t, "owner@example.test"); len(got.Roles) != 1 {
+		t.Fatalf("the owner holds %v", names(got.Roles))
+	}
+
+	err = h.concurrent(t, `DELETE FROM dashboard.roles WHERE name = 'G1'`, func() error {
+		_, err := h.svc.SetOperatorRoles(ctx, actor, ada, []string{g1.ID})
+		return err
+	})
+	var invalid dashboard.InvalidField
+	if !errors.As(err, &invalid) || invalid.Field != "roleIds[0]" {
+		t.Fatalf("a role deleted meanwhile: %v", err)
+	}
+
+	for name, call := range map[string]func() error{
+		"status":      func() error { _, err := h.svc.SetOperatorStatus(ctx, actor, ada, false); return err },
+		"create role": func() error { _, err := h.svc.CreateRole(ctx, actor, "G3", "", nil); return err },
+		"delete role": func() error { return h.svc.DeleteRole(ctx, actor, g2.ID) },
+		"bootstrap":   func() error { return h.svc.Bootstrap(ctx, "owner@example.test") },
+	} {
+		h.exec(t, `DELETE FROM dashboard.operator_roles WHERE role_id = $1`, g2.ID)
+		if err := h.concurrent(t, `SELECT 1`, call); err != nil {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+}
+
+func TestAnAuthorWhoLostThePermissionOrHisAccountWritesNothing(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	actor := h.actor(t)
+	h.activate(t, "ada@example.test")
+	ada := h.operatorID(t, "ada@example.test")
+	support := h.roleID(t, "Support")
+	for _, side := range []struct {
+		other string
+		calls map[string]func(string) error
+	}{
+		{"roles:write", map[string]func(string) error{
+			"status": func(by string) error { _, err := h.svc.SetOperatorStatus(ctx, by, actor, true); return err },
+			"roles":  func(by string) error { _, err := h.svc.SetOperatorRoles(ctx, by, actor, []string{support}); return err },
+		}},
+		{"operators:write", map[string]func(string) error{
+			"create role": func(by string) error { _, err := h.svc.CreateRole(ctx, by, "X", "", nil); return err },
+			"update role": func(by string) error { _, err := h.svc.UpdateRole(ctx, by, support, "", nil); return err },
+			"delete role": func(by string) error { return h.svc.DeleteRole(ctx, by, support) },
+		}},
+	} {
+		h.exec(t, `DELETE FROM dashboard.operator_roles WHERE operator_id = $1`, ada)
+		h.exec(t, `INSERT INTO dashboard.roles (name, description, permissions) VALUES ($1, '', ARRAY[$1])`, side.other)
+		h.grant(t, "ada@example.test", side.other)
+		for name, call := range side.calls {
+			if err := call(ada); !errors.Is(err, dashboard.ErrForbidden) {
+				t.Errorf("%s by an author holding %s only: %v", name, side.other, err)
+			}
+		}
+	}
+	h.grant(t, "ada@example.test", dashboard.Owner)
+	h.exec(t, `UPDATE dashboard.operators SET status = 'disabled' WHERE id = $1`, ada)
+	if _, err := h.svc.SetOperatorRoles(ctx, ada, actor, []string{support}); !errors.Is(err, dashboard.ErrForbidden) {
+		t.Fatalf("a disabled author: %v", err)
 	}
 }

@@ -150,6 +150,9 @@ func (s Service) CreateRole(ctx context.Context, actor, name, description string
 	}
 	var created RoleRecord
 	err = s.Store.Tx(ctx, func(tx Tx) error {
+		if err := authorize(ctx, tx, actor, "roles:write"); err != nil {
+			return err
+		}
 		id, ok, err := tx.InsertRole(ctx, Role{Name: name, Description: description, Permissions: held})
 		switch {
 		case err != nil:
@@ -167,7 +170,7 @@ func (s Service) CreateRole(ctx context.Context, actor, name, description string
 }
 
 func custom(ctx context.Context, tx Tx, id string) error {
-	isDefault, found, err := tx.LockRole(ctx, id)
+	isDefault, found, err := tx.RoleDefault(ctx, id)
 	switch {
 	case err != nil:
 		return err
@@ -188,6 +191,9 @@ func (s Service) UpdateRole(ctx context.Context, actor, id, description string, 
 	}
 	var updated RoleRecord
 	err = s.Store.Tx(ctx, func(tx Tx) error {
+		if err := authorize(ctx, tx, actor, "roles:write"); err != nil {
+			return err
+		}
 		if err := custom(ctx, tx, id); err != nil {
 			return err
 		}
@@ -212,6 +218,9 @@ func (s Service) UpdateRole(ctx context.Context, actor, id, description string, 
 // DeleteRole deletes a custom role nobody holds.
 func (s Service) DeleteRole(ctx context.Context, actor, id string) error {
 	return s.Store.Tx(ctx, func(tx Tx) error {
+		if err := authorize(ctx, tx, actor, "roles:write"); err != nil {
+			return err
+		}
 		if err := custom(ctx, tx, id); err != nil {
 			return err
 		}

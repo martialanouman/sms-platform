@@ -6,6 +6,7 @@ import (
 	"net/netip"
 	"strings"
 	"testing"
+	"time"
 )
 
 func (a *api) elevated(t *testing.T) string {
@@ -158,5 +159,44 @@ func TestAnElevatedOwnerComposesRoles(t *testing.T) {
 	a.holdOnly(t, "Propriétaire")
 	if got := a.do(t, call{method: "DELETE", path: path, cookie: c}); got.status != 204 {
 		t.Fatalf("delete: %d %s", got.status, got.raw)
+	}
+}
+
+func TestAnAuthorStrippedWhileHisRequestWaitsIsRefused(t *testing.T) {
+	a := newAPI(t, netip.MustParsePrefix("127.0.0.0/8"))
+	a.activate(t)
+	c := a.elevated(t)
+	ctx := context.Background()
+	created := a.do(t, call{method: "POST", path: "/api/roles", cookie: c, body: `{"name":"Lecture","description":"","permissions":[]}`})
+	role := "/api/roles/" + created.body["id"].(string)
+	operator := "/api/operators/" + a.do(t, call{method: "POST", path: "/api/operators", cookie: c, body: `{"email":"ada@example.test","displayName":"Ada"}`}).body["id"].(string)
+	for name, req := range map[string]call{
+		"status":      {method: "PATCH", path: operator, body: `{"status":"disabled"}`},
+		"roles":       {method: "PUT", path: operator + "/roles", body: `{"roleIds":[]}`},
+		"create role": {method: "POST", path: "/api/roles", body: `{"name":"X","description":"","permissions":[]}`},
+		"update role": {method: "PATCH", path: role, body: `{"description":"x","permissions":[]}`},
+		"delete role": {method: "DELETE", path: role},
+	} {
+		req.cookie = c
+		a.holdOnly(t, "Propriétaire")
+		other, err := a.owner.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, sql := range []string{`SELECT pg_advisory_xact_lock(hashtext('dashboard.roles'))`,
+			`DELETE FROM dashboard.operator_roles WHERE operator_id IN (SELECT id FROM dashboard.operators WHERE email = 'owner@example.test')`} {
+			if _, err := other.Exec(ctx, sql); err != nil {
+				t.Fatal(err)
+			}
+		}
+		done := make(chan answer, 1)
+		go func() { done <- a.do(t, req) }()
+		time.Sleep(300 * time.Millisecond)
+		if err := other.Commit(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if got := <-done; got.status != 403 || got.code() != "forbidden_scope" || got.body["message"] == "" {
+			t.Errorf("%s by an author stripped meanwhile: %d %s", name, got.status, got.raw)
+		}
 	}
 }

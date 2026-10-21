@@ -8,6 +8,9 @@ import "context"
 func (s Service) Bootstrap(ctx context.Context, email string) error {
 	email = normalize(email)
 	return s.Store.Tx(ctx, func(tx Tx) error {
+		if err := tx.Serialize(ctx); err != nil {
+			return err
+		}
 		for _, r := range DefaultRoles() {
 			if err := tx.SeedRole(ctx, r); err != nil {
 				return err

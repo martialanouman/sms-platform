@@ -66,6 +66,10 @@ func (t tx) SetPassword(ctx context.Context, operatorID, phc string) error {
 	return queries.SetPassword(ctx, t.db, sqlc.SetPasswordParams{Phc: &phc, ID: operatorID})
 }
 
+func (t tx) Serialize(ctx context.Context) error {
+	return queries.Serialize(ctx, t.db)
+}
+
 func (t tx) Operators(ctx context.Context, id string, maxAttempts int) ([]dashboard.OperatorRecord, error) {
 	rows, err := queries.Operators(ctx, t.db, sqlc.OperatorsParams{MaxAttempts: int64(maxAttempts), ID: optional(id)})
 	out := make([]dashboard.OperatorRecord, len(rows))
@@ -131,8 +135,8 @@ func (t tx) Roles(ctx context.Context, id string) ([]dashboard.RoleRecord, error
 	return out, err
 }
 
-func (t tx) LockRole(ctx context.Context, id string) (bool, bool, error) {
-	isDefault, err := queries.LockRole(ctx, t.db, id)
+func (t tx) RoleDefault(ctx context.Context, id string) (bool, bool, error) {
+	isDefault, err := queries.RoleDefault(ctx, t.db, id)
 	ok, err := found(err)
 	return isDefault, ok, err
 }

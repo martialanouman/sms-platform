@@ -38,6 +38,10 @@ func roleDTO(r dashboard.RoleRecord) Role {
 	return Role{Id: r.ID, Name: r.Name, Description: r.Description, IsDefault: r.Default, Permissions: r.Permissions, Holders: r.Holders}
 }
 
+func forbidden(permission string) ForbiddenJSONResponse {
+	return ForbiddenJSONResponse{Code: ErrorCodeForbiddenScope, Message: "Il faut la permission " + permission + "."}
+}
+
 func invalid(err error) (ValidationErrorJSONResponse, bool) {
 	var field dashboard.InvalidField
 	if !errors.As(err, &field) {
@@ -70,6 +74,8 @@ func (s server) CreateOperator(ctx context.Context, request CreateOperatorReques
 func (s server) UpdateOperator(ctx context.Context, request UpdateOperatorRequestObject) (UpdateOperatorResponseObject, error) {
 	updated, err := s.Service.SetOperatorStatus(ctx, actor(ctx), request.OperatorId, request.Body.Status == OperatorUpdateStatusActive)
 	switch {
+	case errors.Is(err, dashboard.ErrForbidden):
+		return UpdateOperator403JSONResponse{forbidden("operators:write")}, nil
 	case errors.Is(err, dashboard.ErrNotFound):
 		return UpdateOperator404JSONResponse{NotFoundJSONResponse{Code: ErrorCodeNotFound, Message: unknownOperator}}, nil
 	case errors.Is(err, dashboard.ErrSelfLockout):
@@ -86,6 +92,8 @@ func (s server) SetOperatorRoles(ctx context.Context, request SetOperatorRolesRe
 		return SetOperatorRoles422JSONResponse{refused}, nil
 	}
 	switch {
+	case errors.Is(err, dashboard.ErrForbidden):
+		return SetOperatorRoles403JSONResponse{forbidden("operators:write")}, nil
 	case errors.Is(err, dashboard.ErrNotFound):
 		return SetOperatorRoles404JSONResponse{NotFoundJSONResponse{Code: ErrorCodeNotFound, Message: unknownOperator}}, nil
 	case errors.Is(err, dashboard.ErrSelfLockout):
@@ -124,6 +132,8 @@ func (s server) CreateRole(ctx context.Context, request CreateRoleRequestObject)
 		return CreateRole422JSONResponse{refused}, nil
 	}
 	switch {
+	case errors.Is(err, dashboard.ErrForbidden):
+		return CreateRole403JSONResponse{forbidden("roles:write")}, nil
 	case errors.Is(err, dashboard.ErrRoleNameTaken):
 		return CreateRole409JSONResponse{Code: ErrorCodeRoleNameTaken, Message: "Un rôle porte déjà ce nom."}, nil
 	case err != nil:
@@ -138,6 +148,8 @@ func (s server) UpdateRole(ctx context.Context, request UpdateRoleRequestObject)
 		return UpdateRole422JSONResponse{refused}, nil
 	}
 	switch {
+	case errors.Is(err, dashboard.ErrForbidden):
+		return UpdateRole403JSONResponse{forbidden("roles:write")}, nil
 	case errors.Is(err, dashboard.ErrNotFound):
 		return UpdateRole404JSONResponse{NotFoundJSONResponse{Code: ErrorCodeNotFound, Message: unknownRole}}, nil
 	case errors.Is(err, dashboard.ErrRoleIsDefault):
@@ -156,6 +168,8 @@ func (s server) DeleteRole(ctx context.Context, request DeleteRoleRequestObject)
 	switch {
 	case errors.As(err, &held):
 		return DeleteRole409JSONResponse{Code: ErrorCodeRoleHeld, Message: "Ce rôle est détenu par " + strings.Join(held.Holders, ", ") + "."}, nil
+	case errors.Is(err, dashboard.ErrForbidden):
+		return DeleteRole403JSONResponse{forbidden("roles:write")}, nil
 	case errors.Is(err, dashboard.ErrNotFound):
 		return DeleteRole404JSONResponse{NotFoundJSONResponse{Code: ErrorCodeNotFound, Message: unknownRole}}, nil
 	case errors.Is(err, dashboard.ErrRoleIsDefault):
