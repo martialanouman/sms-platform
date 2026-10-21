@@ -74,10 +74,35 @@ Fable, 2026-10-21.
 
 ## Mutations
 
-Trente-six, à la main, sur la coquille, l'écran, le dialogue et le client API ; toutes tombent. Cinq avaient survécu,
+Cinquante-deux, à la main, sur la coquille, l'écran, le dialogue et le client API ; toutes tombent. Cinq avaient survécu,
 chacune tenue désormais : `aria-current` (posé par TanStack Router lui-même, le code en trop est retiré), l'`Outlet` sans
 `me`, l'invalidation de `me` après une action de ligne sur soi (aucune n'y touche à `me` : retirée), « Oui » du second
 facteur, le refus d'une action de ligne.
+
+## Correctifs de revue, tour 1
+
+Deux revues (correction, sécurité et accessibilité ; tests et code en trop). Deux importants, aucun bloquant.
+
+1. **Le cache survivait à la fin de session** (important) : après une déconnexion ou une session fermée, « Précédent »
+   vers `/operators` remontrait la liste des opérateurs en cache. La déconnexion et la fermeture vident le cache.
+2. **Se retirer `operators:read` démontait le dialogue avant sa fermeture** (important) : le focus tombait sur `body`. Le
+   dialogue se ferme avant la relecture de `me` ; quand l'écran perd sa lecture, le focus va à son titre.
+3. **Un refus n'est plus relu** : un 4xx de la liste n'est ni réessayé trois fois ni dit « Le service ne répond pas » ;
+   son message s'affiche. La règle de relecture (`retry`) est sous test.
+4. **Tests** : le double de `showModal` refuse un dialogue déjà ouvert et ferme sur Échap (`cancel`), comme Chromium ;
+   les tests ferment par Échap et « Annuler », plus par `close()` ; un 403 ordinaire reste sur place avec son message ;
+   un compte gardé par une clé seule va à `/mfa` ; les états chargement et vide, de l'écran comme du dialogue ; tous les
+   libellés de lien ; « Nom » vidé après une création ; un message de refus distinct du texte local ; `aria-current`
+   sur « Opérateurs » seul.
+5. **Accessibilité** : une action de ligne à la fois ; la note « Lien demandé. » dans une région live montée en
+   permanence ; « Chargement de la session… » et « Chargement des rôles… ».
+6. **Code en trop retiré** : `activeOptions` (TanStack Router ne marque pas `/` sur `/operators`) ; `&& active` de la
+   garde de sa propre ligne (une session désactivée ne s'ouvre pas) ; l'attente sur « Rôles », qui n'appelle rien.
+7. **Gardé** : l'entrée désactivée du rail reste un `span` à `aria-disabled` sans rôle (Biome refuse `role="link"` sur un
+   `span` et un `<a>` sans `href`) ; son explication est du texte visible, lu par les lecteurs d'écran. Une explication
+   par bouton désactivé, pas une seule au-dessus du tableau (§8.8 : chaque contrôle interdit est expliqué). Sur
+   `mfa_required`, `/mfa` n'aboutit qu'avec un défi de connexion en attente ; sinon sa garde mène à `/login`
+   (« vérification interrompue ») : un rechargement ou un onglet neuf y finissent toujours.
 
 ## Preuve sur `contabo169`
 
