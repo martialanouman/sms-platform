@@ -632,7 +632,7 @@ func (q *Queries) Reserve(ctx context.Context, db DBTX, arg ReserveParams) (bool
 
 const seedRole = `-- name: SeedRole :exec
 INSERT INTO dashboard.roles (name, description, permissions, is_default) VALUES ($1, $2, $3::text[], true)
-ON CONFLICT (name) DO UPDATE SET description = excluded.description, permissions = excluded.permissions, is_default = true
+ON CONFLICT ((lower(name))) DO UPDATE SET description = excluded.description, permissions = excluded.permissions, is_default = true
 `
 
 type SeedRoleParams struct {

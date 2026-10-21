@@ -1,11 +1,12 @@
 -- +goose Up
 CREATE TABLE dashboard.roles (
   id          uuid PRIMARY KEY DEFAULT uuidv7(),
-  name        text NOT NULL UNIQUE CHECK (char_length(name) BETWEEN 1 AND 100),
+  name        text NOT NULL CHECK (char_length(name) BETWEEN 1 AND 100),
   description text NOT NULL,
   permissions text[] NOT NULL,
   is_default  boolean NOT NULL DEFAULT false
 );
+CREATE UNIQUE INDEX roles_name ON dashboard.roles (lower(name));
 
 CREATE TABLE dashboard.operator_roles (
   operator_id uuid NOT NULL REFERENCES dashboard.operators (id),

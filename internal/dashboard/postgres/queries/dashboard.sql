@@ -187,7 +187,7 @@ DELETE FROM dashboard.webauthn_credentials WHERE id = @id::uuid AND operator_id 
 
 -- name: SeedRole :exec
 INSERT INTO dashboard.roles (name, description, permissions, is_default) VALUES (@name, @description, @permissions::text[], true)
-ON CONFLICT (name) DO UPDATE SET description = excluded.description, permissions = excluded.permissions, is_default = true;
+ON CONFLICT ((lower(name))) DO UPDATE SET description = excluded.description, permissions = excluded.permissions, is_default = true;
 
 -- name: EnsureOwner :one
 INSERT INTO dashboard.operator_roles (operator_id, role_id)

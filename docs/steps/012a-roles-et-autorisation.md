@@ -43,7 +43,8 @@ Fable, 2026-10-21. 012a est conduite sans arbitrage humain ; la coupe (138) est 
      description, permissions et `is_default` ; l'`id` survit, les détentions aussi. Le contrat dit « re-seeded on
      every deployment » ; une migration ne s'applique qu'une fois. `Propriétaire` est dérivé (`scopes.All` ∪
      `scopes.Permissions`), jamais listé.
-141. **Stockage** : `roles (id uuidv7, name unique, description, permissions text[], is_default)`,
+141. **Stockage** : `roles (id uuidv7, name, description, permissions text[], is_default)`, nom unique sans égard à la
+     casse (Fable, à la revue des arbitrages de 012b : « NOC » à côté de `noc` défait les noms du §8.5),
      `operator_roles (operator_id, role_id)`. L'union est calculée par `SessionOf` à chaque requête, jamais stockée en
      session : un changement de rôles vaut au prochain appel. La validation d'une permission écrite vient en 012b.
 142. **Bootstrap** : si aucun opérateur **actif** ne détient `Propriétaire`, le rôle est posé à l'opérateur de
@@ -137,6 +138,8 @@ Une revue des correctifs du tour 1. Aucun bloquant.
 1. **`me` d'un opérateur non propriétaire** (moyenne) : le retrait du test HTTP d'union laissait survivre un `me` qui
    rend une autre liste que l'union ; le cas `Reporting` compare désormais le contenu. La mutation tombe.
 2. **Code en trop** : le `ON CONFLICT` du helper `grant`, ajouté pour un octroi que le bootstrap fait déjà.
+3. **Nom de rôle unique sans égard à la casse** (Fable, 141) : index `lower(name)`, semis en conflit sur lui.
+4. **Go 1.26.10** : govulncheck refusait GO-2026-6809 (`crypto/x509`), corrigé dans la bibliothèque standard.
 
 ## Preuve sur `contabo169`
 

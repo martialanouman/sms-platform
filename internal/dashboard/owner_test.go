@@ -73,6 +73,9 @@ func TestBootstrapSeedsTheDefaultRolesAndRestoresThemOnEveryStart(t *testing.T) 
 			t.Errorf("%s stored as %+v, want %+v, default", w.Name, r, w)
 		}
 	}
+	if _, err := h.owner.Exec(ctx, `INSERT INTO dashboard.roles (name, description, permissions) VALUES ('NOC', '', '{}')`); err == nil {
+		t.Fatal("a role named NOC beside noc")
+	}
 	var still string
 	if err := h.owner.QueryRow(ctx, `SELECT id::text FROM dashboard.roles WHERE name = 'Support'`).Scan(&still); err != nil || still != support {
 		t.Fatalf("Support is %s after the reseed, was %s: %v", still, support, err)
