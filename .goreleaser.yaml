@@ -20,6 +20,13 @@ builds:
     flags: [-trimpath]
     goos: [linux]
     goarch: [amd64]
+  - id: admin-api-svc
+    main: ./cmd/admin-api-svc
+    binary: admin-api-svc
+    env: [CGO_ENABLED=0]
+    flags: [-trimpath]
+    goos: [linux]
+    goarch: [amd64]
   - id: content-key-svc
     main: ./cmd/content-key-svc
     binary: content-key-svc
@@ -50,6 +57,13 @@ dockers_v2:
     platforms: [linux/amd64]
     build_args:
       BINARY: catalog-apply
+  - id: admin-api-svc
+    ids: [admin-api-svc]
+    images: [ghcr.io/martialanouman/sms-platform/admin-api-svc]
+    tags: ["{{ .Tag }}"]
+    platforms: [linux/amd64]
+    build_args:
+      BINARY: admin-api-svc
   - id: content-key-svc
     ids: [content-key-svc]
     images: [ghcr.io/martialanouman/sms-platform/content-key-svc]

@@ -104,6 +104,22 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
+  name: admin-api-svc-tls
+  namespace: sms
+spec:
+  secretName: admin-api-svc-tls
+  dnsNames:
+    - admin-api-svc
+  usages:
+    - server auth
+    - client auth
+  issuerRef:
+    name: internal-ca
+    kind: ClusterIssuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
   name: dashboard-tls
   namespace: sms
 spec:
@@ -112,6 +128,7 @@ spec:
     - dashboard
   usages:
     - server auth
+    - client auth
   issuerRef:
     name: internal-ca
     kind: ClusterIssuer

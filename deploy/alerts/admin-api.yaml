@@ -1,0 +1,13 @@
+groups:
+  - name: admin-api
+    rules:
+      - alert: AdminCallsUncommitted
+        expr: sum(increase(admin_api_uncommitted_calls_total[5m])) > 0
+        annotations:
+          summary: Un appel de l'Admin API n'a pas été commis
+          description: Une mutation ou sa ligne d'audit a échoué (503) ; la base control_plane ou les droits d'admin_api_svc sont à vérifier.
+      - alert: JWKSReloadFailing
+        expr: sum(increase(admin_api_jwks_reload_failures_total[10m])) > 0
+        annotations:
+          summary: La passerelle ne relit pas le JWKS du dashboard
+          description: Un kid inconnu n'a pas pu être résolu ; les jetons d'une clé neuve sont refusés (401). Vérifier l'écouteur interne du dashboard et le mTLS.

@@ -46,6 +46,9 @@ ensure_key sms dashboard totp-key "$(openssl rand -hex 32)"
 password=$(read_secret sms dashboard postgres-password)
 nonempty sms/dashboard "$password"
 ensure_key sms dashboard postgres-url "postgres://dashboard:$password@postgres-pooler-rw.postgres.svc:5432/dashboard?sslmode=verify-full&sslrootcert=/ca/ca.crt"
+password=$(read_secret sms admin-api-svc postgres-password)
+nonempty sms/admin-api-svc "$password"
+ensure_key sms admin-api-svc postgres-url "postgres://admin_api_svc:$password@postgres-pooler-rw.postgres.svc:5432/control_plane?sslmode=verify-full&sslrootcert=/tls/ca.crt"
 
 ca=$(read_secret cert-manager internal-ca 'tls\.crt')
 nonempty cert-manager/internal-ca "$ca"
