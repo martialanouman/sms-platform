@@ -43,3 +43,36 @@ sans certificat admis, la poignée de main échoue ; le JWKS est absent de l'éc
   d'autre servi ; générateur et gardes sur leurs cas refusés. Mutation manuelle, consignée.
 - **Preuve sur `contabo169`** : l'humain rejoue `openbao.sh` ; un pod porteur d'un certificat `admin-api-svc` (émis pour
   la preuve, retiré ensuite) lit le JWKS et vérifie un jeton personnel.
+
+## Écarts au design, constatés à l'implémentation
+
+- **Le câblage du signataire n'est tenu par aucun test** : le jeton projeté n'existe qu'au cluster, et le test de
+  démarrage n'atteint qu'un OpenBao injoignable (le JWKS y rend 503). La preuve sur `contabo169` le tient : le jeton
+  personnel y est signé par Transit.
+- **La preuve demande une NetworkPolicy de sortie temporaire** pour le pod porteur du certificat `admin-api-svc` :
+  `sms` refuse toute sortie par défaut, et `admin-api-svc` n'aura la sienne qu'en 013. Rien de cela n'entre au dépôt.
+
+## Mutations
+
+Vingt, à la main, sur la validation et le câblage du démarrage, le générateur de NetworkPolicy, les gardes des
+manifestes et le client HTTP déplacé ; toutes tombent, sauf le retrait du signataire, qui ne tombe que par la
+compilation (voir les écarts).
+
+## Preuve sur `contabo169`
+
+Jouée le 2026-10-21 depuis la branche, sur le cluster en v0.20.0 : image `dashboard` construite par GoReleaser en
+snapshot, importée sous `proof-012c2` ; timer suspendu, puis réarmé, et dashboard rendu à la v0.20.0.
+
+1. `ca.yaml`, `openbao.yaml` et `networkpolicies.yaml` appliqués : Certificate `sms/dashboard-tls` émis ; OpenBao
+   admet `dashboard` ; le dashboard admet `admin-api-svc` sur 8443.
+2. `openbao.sh` de la branche joué par l'humain sous le jeton racine : clé `dashboard-token`, politique et rôle
+   `dashboard`.
+3. Compte de test réinitialisé (Mailpit), session élevée ; `POST /api/gateway-token` (`routes:read`, `cdr:read`) : 200,
+   scopes `cdr:read routes:read`, expiration à une heure ; `personal_token_issued` au journal.
+4. Depuis un pod étiqueté `admin-api-svc`, certificat `admin-api-svc` : JWKS 200, une clé `dashboard-token-v1`, P-256 ;
+   certificat `router-svc` ou aucun : connexion coupée par TLS ; autre chemin : 404.
+5. Le jeton du point 3 vérifié par ce JWKS (ES256, `kid` `dashboard-token-v1`, `iss`, `aud` `gateway-admin`, `scope`) :
+   signature valide.
+6. L'écouteur public rend la SPA sur `/.well-known/jwks.json`, jamais le JWKS.
+
+Objets de preuve retirés : pod, certificats, Secrets, NetworkPolicy, jeton copié sur le VPS.
