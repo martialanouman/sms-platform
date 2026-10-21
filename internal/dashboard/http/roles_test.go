@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"strings"
 	"testing"
 )
 
@@ -35,7 +36,8 @@ func TestASessionNotElevatedReachesOnlyAuthWhenItsRolesRequireMFA(t *testing.T) 
 		{nil, 403, "forbidden_scope", "no role"},
 	} {
 		a.holdOnly(t, tc.roles...)
-		if got := a.do(t, call{method: "GET", path: "/api/access-log", cookie: s.cookie}); got.status != tc.status || got.code() != tc.code {
+		got := a.do(t, call{method: "GET", path: "/api/access-log", cookie: s.cookie})
+		if got.status != tc.status || got.code() != tc.code || tc.code == "forbidden_scope" && !strings.Contains(got.raw, "audit:read") {
 			t.Errorf("%v (%s): access log %d %s", tc.roles, tc.reason, got.status, got.raw)
 		}
 		if got := a.do(t, call{method: "GET", path: "/api/auth/me", cookie: s.cookie}); got.status != 200 || got.body["permissions"] == nil {

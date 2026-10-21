@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 	"time"
+	"unicode"
 )
 
 const (
@@ -59,6 +60,15 @@ type RateLimited struct {
 
 func (e RateLimited) Error() string {
 	return "too many attempts"
+}
+
+// ValidEmail is whether email, once normalized, has exactly one @ between two non-empty sides, and no space nor control
+// character.
+func ValidEmail(email string) bool {
+	email = normalize(email)
+	local, domain, ok := strings.Cut(email, "@")
+	return ok && local != "" && domain != "" && !strings.Contains(domain, "@") &&
+		!strings.ContainsFunc(email, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) })
 }
 
 func normalize(email string) string {

@@ -1,6 +1,9 @@
 package dashboard
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"slices"
 	"strings"
 
@@ -83,4 +86,159 @@ func DefaultRoles() []Role {
 		{"Audit", "Lit le journal d'audit, seul.", []string{"audit:read"}},
 		{"noc", "Lit tout, temps réel compris, sans rien écrire.", permissions(noc, []string{"stream:read"})},
 	}
+}
+
+var (
+	// ErrRoleNameTaken is a name a role already has, case-insensitively.
+	ErrRoleNameTaken = errors.New("role name taken")
+	// ErrRoleIsDefault is a change to a default role, which every start reseeds.
+	ErrRoleIsDefault = errors.New("role is default")
+)
+
+// RoleHeld refuses to delete a role its Holders still hold.
+type RoleHeld struct {
+	Holders []string
+}
+
+func (e RoleHeld) Error() string {
+	return "role held by " + strings.Join(e.Holders, ", ")
+}
+
+// RoleRecord is a role as the BFF lists it, with the emails of its holders.
+type RoleRecord struct {
+	Role
+	ID      string
+	Default bool
+	Holders []string
+}
+
+// Roles lists every role, default and custom, by name.
+func (s Service) Roles(ctx context.Context) ([]RoleRecord, error) {
+	var all []RoleRecord
+	err := s.Store.Tx(ctx, func(tx Tx) (err error) {
+		all, err = tx.Roles(ctx, "")
+		return err
+	})
+	return all, err
+}
+
+func role(ctx context.Context, tx Tx, id string) (RoleRecord, error) {
+	all, err := tx.Roles(ctx, id)
+	switch {
+	case err != nil:
+		return RoleRecord{}, err
+	case len(all) == 0:
+		return RoleRecord{}, ErrNotFound
+	}
+	return all[0], nil
+}
+
+func generated(held []string) ([]string, error) {
+	for i, p := range held {
+		if !slices.Contains(scopes.All, p) && !slices.Contains(scopes.Permissions, p) {
+			return nil, InvalidField{Field: fmt.Sprintf("permissions[%d]", i)}
+		}
+	}
+	return append([]string{}, permissions(held)...), nil
+}
+
+// CreateRole composes a custom role from the generated permissions.
+func (s Service) CreateRole(ctx context.Context, actor, name, description string, held []string) (RoleRecord, error) {
+	name, description = strings.TrimSpace(name), strings.TrimSpace(description)
+	if name == "" {
+		return RoleRecord{}, InvalidField{Field: "name"}
+	}
+	held, err := generated(held)
+	if err != nil {
+		return RoleRecord{}, err
+	}
+	var created RoleRecord
+	err = s.Store.Tx(ctx, func(tx Tx) error {
+		if err := authorize(ctx, tx, actor, "roles:write"); err != nil {
+			return err
+		}
+		id, ok, err := tx.InsertRole(ctx, Role{Name: name, Description: description, Permissions: held})
+		switch {
+		case err != nil:
+			return err
+		case !ok:
+			return ErrRoleNameTaken
+		}
+		if err := tx.Log(ctx, Entry{Actor: actor, Event: EventRoleCreated, Target: id, Success: true}); err != nil {
+			return err
+		}
+		created, err = role(ctx, tx, id)
+		return err
+	})
+	return created, err
+}
+
+func custom(ctx context.Context, tx Tx, id string) error {
+	isDefault, found, err := tx.RoleDefault(ctx, id)
+	switch {
+	case err != nil:
+		return err
+	case !found:
+		return ErrNotFound
+	case isDefault:
+		return ErrRoleIsDefault
+	}
+	return nil
+}
+
+// UpdateRole replaces the description and the permissions of a custom role; nobody loses operators:write or
+// roles:write by his own hand.
+func (s Service) UpdateRole(ctx context.Context, actor, id, description string, held []string) (RoleRecord, error) {
+	description = strings.TrimSpace(description)
+	held, err := generated(held)
+	if err != nil {
+		return RoleRecord{}, err
+	}
+	var updated RoleRecord
+	err = s.Store.Tx(ctx, func(tx Tx) error {
+		if err := authorize(ctx, tx, actor, "roles:write"); err != nil {
+			return err
+		}
+		if err := custom(ctx, tx, id); err != nil {
+			return err
+		}
+		current, err := role(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		if current.Description != description || !slices.Equal(current.Permissions, held) {
+			if err := guard(ctx, tx, actor, func() error { return tx.UpdateRole(ctx, id, description, held) }); err != nil {
+				return err
+			}
+			if err := tx.Log(ctx, Entry{Actor: actor, Event: EventRoleUpdated, Target: id, Success: true}); err != nil {
+				return err
+			}
+		}
+		updated, err = role(ctx, tx, id)
+		return err
+	})
+	return updated, err
+}
+
+// DeleteRole deletes a custom role nobody holds.
+func (s Service) DeleteRole(ctx context.Context, actor, id string) error {
+	return s.Store.Tx(ctx, func(tx Tx) error {
+		if err := authorize(ctx, tx, actor, "roles:write"); err != nil {
+			return err
+		}
+		if err := custom(ctx, tx, id); err != nil {
+			return err
+		}
+		current, err := role(ctx, tx, id)
+		switch {
+		case err != nil:
+			return err
+		case len(current.Holders) > 0:
+			return RoleHeld{Holders: current.Holders}
+		}
+		if err := tx.DeleteRole(ctx, id); err != nil {
+			return err
+		}
+		return tx.Log(ctx, Entry{Actor: actor, Event: EventRoleDeleted, Target: id, Success: true})
+	})
 }

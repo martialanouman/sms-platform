@@ -8,5 +8,5 @@ dashboard:
   recovery_codes: [select, insert, update, delete]
   webauthn_credentials: [select, insert, update, delete]
   webauthn_challenges: [select, insert, update, delete]
-  roles: [select, insert, update]
-  operator_roles: [select, insert]
+  roles: [select, insert, update, delete]
+  operator_roles: [select, insert, delete]

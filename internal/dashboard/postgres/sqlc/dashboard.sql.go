@@ -112,6 +112,20 @@ type AddRecoveryCodesParams struct {
 	Digest   []byte
 }
 
+const addRoles = `-- name: AddRoles :exec
+INSERT INTO dashboard.operator_roles (operator_id, role_id) SELECT $1::uuid, unnest($2::uuid[])
+`
+
+type AddRolesParams struct {
+	OperatorID string
+	RoleIds    []string
+}
+
+func (q *Queries) AddRoles(ctx context.Context, db DBTX, arg AddRolesParams) error {
+	_, err := db.Exec(ctx, addRoles, arg.OperatorID, arg.RoleIds)
+	return err
+}
+
 const advancePasskey = `-- name: AdvancePasskey :execrows
 UPDATE dashboard.webauthn_credentials SET sign_count = $1, credential = $2
 WHERE credential_id = $3 AND operator_id = $4::uuid AND ($1 > sign_count OR ($1 = 0 AND sign_count = 0))
@@ -135,6 +149,15 @@ func (q *Queries) AdvancePasskey(ctx context.Context, db DBTX, arg AdvancePasske
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const clearRoles = `-- name: ClearRoles :exec
+DELETE FROM dashboard.operator_roles WHERE operator_id = $1::uuid
+`
+
+func (q *Queries) ClearRoles(ctx context.Context, db DBTX, operatorID string) error {
+	_, err := db.Exec(ctx, clearRoles, operatorID)
+	return err
 }
 
 const closeSession = `-- name: CloseSession :one
@@ -216,6 +239,15 @@ func (q *Queries) CurrentStep(ctx context.Context, db DBTX) (int64, error) {
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const deleteRole = `-- name: DeleteRole :exec
+DELETE FROM dashboard.roles WHERE id = $1::uuid
+`
+
+func (q *Queries) DeleteRole(ctx context.Context, db DBTX, id string) error {
+	_, err := db.Exec(ctx, deleteRole, id)
+	return err
 }
 
 const dropConfirmed = `-- name: DropConfirmed :execrows
@@ -314,6 +346,30 @@ func (q *Queries) EnsureOwner(ctx context.Context, db DBTX, arg EnsureOwnerParam
 	return operator_id, err
 }
 
+const existingRoles = `-- name: ExistingRoles :many
+SELECT id::text FROM dashboard.roles WHERE id::text = ANY($1::text[])
+`
+
+func (q *Queries) ExistingRoles(ctx context.Context, db DBTX, ids []string) ([]string, error) {
+	rows, err := db.Query(ctx, existingRoles, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const factors = `-- name: Factors :many
 SELECT id::text AS id, sealed, last_step, (confirmed_at IS NOT NULL)::bool AS confirmed
 FROM dashboard.totp_factors WHERE operator_id = $1::uuid
@@ -359,6 +415,43 @@ DELETE FROM dashboard.login_attempt_counters WHERE subject = $1
 func (q *Queries) Forget(ctx context.Context, db DBTX, subject []byte) error {
 	_, err := db.Exec(ctx, forget, subject)
 	return err
+}
+
+const insertOperator = `-- name: InsertOperator :one
+INSERT INTO dashboard.operators (email, display_name) VALUES ($1, $2)
+ON CONFLICT ((lower(email))) DO NOTHING
+RETURNING id::text AS id
+`
+
+type InsertOperatorParams struct {
+	Email       string
+	DisplayName string
+}
+
+func (q *Queries) InsertOperator(ctx context.Context, db DBTX, arg InsertOperatorParams) (string, error) {
+	row := db.QueryRow(ctx, insertOperator, arg.Email, arg.DisplayName)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
+const insertRole = `-- name: InsertRole :one
+INSERT INTO dashboard.roles (name, description, permissions) VALUES ($1, $2, $3::text[])
+ON CONFLICT ((lower(name))) DO NOTHING
+RETURNING id::text AS id
+`
+
+type InsertRoleParams struct {
+	Name        string
+	Description string
+	Permissions []string
+}
+
+func (q *Queries) InsertRole(ctx context.Context, db DBTX, arg InsertRoleParams) (string, error) {
+	row := db.QueryRow(ctx, insertRole, arg.Name, arg.Description, arg.Permissions)
+	var id string
+	err := row.Scan(&id)
+	return id, err
 }
 
 const lockedFor = `-- name: LockedFor :one
@@ -520,6 +613,91 @@ func (q *Queries) OperatorByEmail(ctx context.Context, db DBTX, email string) (O
 	return i, err
 }
 
+const operatorByID = `-- name: OperatorByID :one
+SELECT id::text, coalesce(password_hash, '')::text AS password_hash, status = 'active' AS active
+FROM dashboard.operators WHERE id::text = $1
+`
+
+type OperatorByIDRow struct {
+	ID           string
+	PasswordHash string
+	Active       bool
+}
+
+func (q *Queries) OperatorByID(ctx context.Context, db DBTX, id string) (OperatorByIDRow, error) {
+	row := db.QueryRow(ctx, operatorByID, id)
+	var i OperatorByIDRow
+	err := row.Scan(&i.ID, &i.PasswordHash, &i.Active)
+	return i, err
+}
+
+const operators = `-- name: Operators :many
+SELECT o.id::text AS id, o.email, o.display_name, o.status = 'active' AS active,
+  coalesce((SELECT array_agg(r.id::text ORDER BY r.name) FROM dashboard.operator_roles x JOIN dashboard.roles r ON r.id = x.role_id
+    WHERE x.operator_id = o.id), '{}')::text[] AS role_ids,
+  coalesce((SELECT array_agg(r.name ORDER BY r.name) FROM dashboard.operator_roles x JOIN dashboard.roles r ON r.id = x.role_id
+    WHERE x.operator_id = o.id), '{}')::text[] AS role_names,
+  (EXISTS (SELECT 1 FROM dashboard.totp_factors f WHERE f.operator_id = o.id)
+    OR EXISTS (SELECT 1 FROM dashboard.webauthn_credentials w WHERE w.operator_id = o.id))::bool AS second_factor,
+  coalesce(l.kind, '')::text AS link_kind,
+  (CASE
+    WHEN l.operator_id IS NULL THEN ''
+    WHEN l.sent_at IS NULL AND l.attempts >= $1::bigint THEN 'failed'
+    WHEN l.sent_at IS NULL THEN 'queued'
+    WHEN l.token_hash IS NOT NULL AND now() < l.expires_at THEN 'sent'
+    ELSE '' END)::text AS link_state
+FROM dashboard.operators o LEFT JOIN dashboard.access_links l ON l.operator_id = o.id
+WHERE $2::text IS NULL OR o.id::text = $2::text
+ORDER BY o.email
+`
+
+type OperatorsParams struct {
+	MaxAttempts int64
+	ID          *string
+}
+
+type OperatorsRow struct {
+	ID           string
+	Email        string
+	DisplayName  string
+	Active       bool
+	RoleIds      []string
+	RoleNames    []string
+	SecondFactor bool
+	LinkKind     string
+	LinkState    string
+}
+
+func (q *Queries) Operators(ctx context.Context, db DBTX, arg OperatorsParams) ([]OperatorsRow, error) {
+	rows, err := db.Query(ctx, operators, arg.MaxAttempts, arg.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OperatorsRow
+	for rows.Next() {
+		var i OperatorsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.DisplayName,
+			&i.Active,
+			&i.RoleIds,
+			&i.RoleNames,
+			&i.SecondFactor,
+			&i.LinkKind,
+			&i.LinkState,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const passkeys = `-- name: Passkeys :many
 SELECT id::text AS id, name, created_at, credential FROM dashboard.webauthn_credentials
 WHERE operator_id = $1::uuid ORDER BY id
@@ -556,6 +734,18 @@ func (q *Queries) Passkeys(ctx context.Context, db DBTX, operatorID string) ([]P
 		return nil, err
 	}
 	return items, nil
+}
+
+const permissionsOf = `-- name: PermissionsOf :one
+SELECT coalesce(array_agg(DISTINCT p ORDER BY p), '{}')::text[] FROM dashboard.operator_roles x
+  JOIN dashboard.roles r ON r.id = x.role_id, unnest(r.permissions) p WHERE x.operator_id = $1::uuid
+`
+
+func (q *Queries) PermissionsOf(ctx context.Context, db DBTX, operatorID string) ([]string, error) {
+	row := db.QueryRow(ctx, permissionsOf, operatorID)
+	var column_1 []string
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const purgeCounters = `-- name: PurgeCounters :exec
@@ -630,6 +820,86 @@ func (q *Queries) Reserve(ctx context.Context, db DBTX, arg ReserveParams) (bool
 	return column_1, err
 }
 
+const roleDefault = `-- name: RoleDefault :one
+SELECT is_default FROM dashboard.roles WHERE id::text = $1
+`
+
+func (q *Queries) RoleDefault(ctx context.Context, db DBTX, id string) (bool, error) {
+	row := db.QueryRow(ctx, roleDefault, id)
+	var is_default bool
+	err := row.Scan(&is_default)
+	return is_default, err
+}
+
+const roles = `-- name: Roles :many
+SELECT r.id::text AS id, r.name, r.description, r.permissions, r.is_default,
+  coalesce((SELECT array_agg(o.email ORDER BY o.email) FROM dashboard.operator_roles x
+    JOIN dashboard.operators o ON o.id = x.operator_id WHERE x.role_id = r.id), '{}')::text[] AS holders
+FROM dashboard.roles r
+WHERE $1::text IS NULL OR r.id::text = $1::text
+ORDER BY lower(r.name)
+`
+
+type RolesRow struct {
+	ID          string
+	Name        string
+	Description string
+	Permissions []string
+	IsDefault   bool
+	Holders     []string
+}
+
+func (q *Queries) Roles(ctx context.Context, db DBTX, id *string) ([]RolesRow, error) {
+	rows, err := db.Query(ctx, roles, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RolesRow
+	for rows.Next() {
+		var i RolesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Permissions,
+			&i.IsDefault,
+			&i.Holders,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const rolesOf = `-- name: RolesOf :many
+SELECT role_id::text FROM dashboard.operator_roles WHERE operator_id = $1::uuid ORDER BY 1
+`
+
+func (q *Queries) RolesOf(ctx context.Context, db DBTX, operatorID string) ([]string, error) {
+	rows, err := db.Query(ctx, rolesOf, operatorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var role_id string
+		if err := rows.Scan(&role_id); err != nil {
+			return nil, err
+		}
+		items = append(items, role_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const seedRole = `-- name: SeedRole :exec
 INSERT INTO dashboard.roles (name, description, permissions, is_default) VALUES ($1, $2, $3::text[], true)
 ON CONFLICT ((lower(name))) DO UPDATE SET description = excluded.description, permissions = excluded.permissions, is_default = true
@@ -643,6 +913,15 @@ type SeedRoleParams struct {
 
 func (q *Queries) SeedRole(ctx context.Context, db DBTX, arg SeedRoleParams) error {
 	_, err := db.Exec(ctx, seedRole, arg.Name, arg.Description, arg.Permissions)
+	return err
+}
+
+const serialize = `-- name: Serialize :exec
+SELECT pg_advisory_xact_lock(hashtext('dashboard.roles'))
+`
+
+func (q *Queries) Serialize(ctx context.Context, db DBTX) error {
+	_, err := db.Exec(ctx, serialize)
 	return err
 }
 
@@ -700,6 +979,20 @@ func (q *Queries) SessionOf(ctx context.Context, db DBTX, arg SessionOfParams) (
 		&i.Live,
 	)
 	return i, err
+}
+
+const setOperatorStatus = `-- name: SetOperatorStatus :exec
+UPDATE dashboard.operators SET status = $1 WHERE id = $2::uuid
+`
+
+type SetOperatorStatusParams struct {
+	Status string
+	ID     string
+}
+
+func (q *Queries) SetOperatorStatus(ctx context.Context, db DBTX, arg SetOperatorStatusParams) error {
+	_, err := db.Exec(ctx, setOperatorStatus, arg.Status, arg.ID)
+	return err
 }
 
 const setPassword = `-- name: SetPassword :exec
@@ -764,6 +1057,21 @@ func (q *Queries) Undeliverable(ctx context.Context, db DBTX, maxAttempts int64)
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const updateRole = `-- name: UpdateRole :exec
+UPDATE dashboard.roles SET description = $1, permissions = $2::text[] WHERE id = $3::uuid
+`
+
+type UpdateRoleParams struct {
+	Description string
+	Permissions []string
+	ID          string
+}
+
+func (q *Queries) UpdateRole(ctx context.Context, db DBTX, arg UpdateRoleParams) error {
+	_, err := db.Exec(ctx, updateRole, arg.Description, arg.Permissions, arg.ID)
+	return err
 }
 
 const useRecoveryCode = `-- name: UseRecoveryCode :execrows

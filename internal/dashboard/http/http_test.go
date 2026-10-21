@@ -194,7 +194,7 @@ func TestEveryUnsafeRequestIsCheckedBeforeTheOperation(t *testing.T) {
 		"missing password":   {call{method: "POST", path: "/api/auth/login", body: `{"email":"owner@example.test"}`}, 422, "validation_error"},
 		"unknown field":      {call{method: "POST", path: "/api/auth/login", body: `{"email":"o@example.test","password":"x","extra":1}`}, 422, "validation_error"},
 		"json with charset":  {call{method: "POST", path: "/api/auth/login", body: login, contentType: "application/json; charset=utf-8"}, 401, "unauthenticated"},
-		"not served":         {call{method: "GET", path: "/api/operators"}, 404, "not_found"},
+		"not served":         {call{method: "GET", path: "/api/sessions"}, 404, "not_found"},
 		"wrong method":       {call{method: "GET", path: "/api/auth/login"}, 404, "not_found"},
 		"me without session": {call{method: "GET", path: "/api/auth/me"}, 401, "unauthenticated"},
 		"me with a forgery":  {call{method: "GET", path: "/api/auth/me", cookie: "x.y"}, 401, "unauthenticated"},

@@ -66,6 +66,95 @@ func (t tx) SetPassword(ctx context.Context, operatorID, phc string) error {
 	return queries.SetPassword(ctx, t.db, sqlc.SetPasswordParams{Phc: &phc, ID: operatorID})
 }
 
+func (t tx) Serialize(ctx context.Context) error {
+	return queries.Serialize(ctx, t.db)
+}
+
+func (t tx) Operators(ctx context.Context, id string, maxAttempts int) ([]dashboard.OperatorRecord, error) {
+	rows, err := queries.Operators(ctx, t.db, sqlc.OperatorsParams{MaxAttempts: int64(maxAttempts), ID: optional(id)})
+	out := make([]dashboard.OperatorRecord, len(rows))
+	for i, r := range rows {
+		out[i] = dashboard.OperatorRecord{ID: r.ID, Email: r.Email, DisplayName: r.DisplayName, Active: r.Active,
+			Roles: make([]dashboard.RoleRef, len(r.RoleIds)), SecondFactor: r.SecondFactor}
+		for j := range r.RoleIds {
+			out[i].Roles[j] = dashboard.RoleRef{ID: r.RoleIds[j], Name: r.RoleNames[j]}
+		}
+		if r.LinkState != "" {
+			out[i].Link = &dashboard.LinkState{Kind: dashboard.LinkKind(r.LinkKind), State: r.LinkState}
+		}
+	}
+	return out, err
+}
+
+func (t tx) InsertOperator(ctx context.Context, email, displayName string) (string, bool, error) {
+	id, err := queries.InsertOperator(ctx, t.db, sqlc.InsertOperatorParams{Email: email, DisplayName: displayName})
+	created, err := found(err)
+	return id, created, err
+}
+
+func (t tx) OperatorByID(ctx context.Context, id string) (dashboard.Operator, bool, error) {
+	r, err := queries.OperatorByID(ctx, t.db, id)
+	ok, err := found(err)
+	return dashboard.Operator{ID: r.ID, PasswordHash: r.PasswordHash, Active: r.Active}, ok, err
+}
+
+func (t tx) SetOperatorStatus(ctx context.Context, id string, active bool) error {
+	status := "disabled"
+	if active {
+		status = "active"
+	}
+	return queries.SetOperatorStatus(ctx, t.db, sqlc.SetOperatorStatusParams{Status: status, ID: id})
+}
+
+func (t tx) RolesOf(ctx context.Context, operatorID string) ([]string, error) {
+	return queries.RolesOf(ctx, t.db, operatorID)
+}
+
+func (t tx) ExistingRoles(ctx context.Context, ids []string) ([]string, error) {
+	return queries.ExistingRoles(ctx, t.db, ids)
+}
+
+func (t tx) SetRoles(ctx context.Context, operatorID string, roleIDs []string) error {
+	if err := queries.ClearRoles(ctx, t.db, operatorID); err != nil {
+		return err
+	}
+	return queries.AddRoles(ctx, t.db, sqlc.AddRolesParams{OperatorID: operatorID, RoleIds: roleIDs})
+}
+
+func (t tx) PermissionsOf(ctx context.Context, operatorID string) ([]string, error) {
+	return queries.PermissionsOf(ctx, t.db, operatorID)
+}
+
+func (t tx) Roles(ctx context.Context, id string) ([]dashboard.RoleRecord, error) {
+	rows, err := queries.Roles(ctx, t.db, optional(id))
+	out := make([]dashboard.RoleRecord, len(rows))
+	for i, r := range rows {
+		out[i] = dashboard.RoleRecord{Role: dashboard.Role{Name: r.Name, Description: r.Description, Permissions: r.Permissions},
+			ID: r.ID, Default: r.IsDefault, Holders: r.Holders}
+	}
+	return out, err
+}
+
+func (t tx) RoleDefault(ctx context.Context, id string) (bool, bool, error) {
+	isDefault, err := queries.RoleDefault(ctx, t.db, id)
+	ok, err := found(err)
+	return isDefault, ok, err
+}
+
+func (t tx) InsertRole(ctx context.Context, r dashboard.Role) (string, bool, error) {
+	id, err := queries.InsertRole(ctx, t.db, sqlc.InsertRoleParams{Name: r.Name, Description: r.Description, Permissions: r.Permissions})
+	created, err := found(err)
+	return id, created, err
+}
+
+func (t tx) UpdateRole(ctx context.Context, id, description string, permissions []string) error {
+	return queries.UpdateRole(ctx, t.db, sqlc.UpdateRoleParams{Description: description, Permissions: permissions, ID: id})
+}
+
+func (t tx) DeleteRole(ctx context.Context, id string) error {
+	return queries.DeleteRole(ctx, t.db, id)
+}
+
 func (t tx) SeedRole(ctx context.Context, r dashboard.Role) error {
 	return queries.SeedRole(ctx, t.db, sqlc.SeedRoleParams{Name: r.Name, Description: r.Description, Permissions: r.Permissions})
 }

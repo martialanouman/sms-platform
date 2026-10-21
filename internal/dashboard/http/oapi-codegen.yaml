@@ -6,5 +6,5 @@ generate:
   embedded-spec: false
 output-options:
   # debt: #149
-  include-operation-ids: [health, login, setPasswordFromAccessLink, me, reportActivity, logout, enrollTotp, confirmTotp, verifyMfa, beginWebauthnRegistration, finishWebauthnRegistration, beginWebauthnAssertion, listWebauthnPasskeys, deleteWebauthnPasskey, listAccessLog]
+  include-operation-ids: [health, login, setPasswordFromAccessLink, me, reportActivity, logout, enrollTotp, confirmTotp, verifyMfa, beginWebauthnRegistration, finishWebauthnRegistration, beginWebauthnAssertion, listWebauthnPasskeys, deleteWebauthnPasskey, listAccessLog, listOperators, createOperator, updateOperator, setOperatorRoles, requestOperatorAccessLink, listRoles, createRole, updateRole, deleteRole]
 output: internal/dashboard/http/bff.gen.go

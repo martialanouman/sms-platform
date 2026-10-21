@@ -28,6 +28,12 @@ const (
 	EventFactorEnrolled      Event = "factor_enrolled"
 	EventFactorRemoved       Event = "factor_removed"
 	EventRolesChanged        Event = "roles_changed"
+	EventOperatorCreated     Event = "operator_created"
+	EventOperatorDisabled    Event = "operator_disabled"
+	EventOperatorEnabled     Event = "operator_enabled"
+	EventRoleCreated         Event = "role_created"
+	EventRoleUpdated         Event = "role_updated"
+	EventRoleDeleted         Event = "role_deleted"
 )
 
 // TotpFactor is an authenticator app of an operator, its secret sealed.
@@ -85,6 +91,21 @@ type Tx interface {
 	CreateOperator(ctx context.Context, email string) (id string, created bool, err error)
 	OperatorByEmail(ctx context.Context, email string) (Operator, bool, error)
 	SetPassword(ctx context.Context, operatorID, phc string) error
+
+	Serialize(ctx context.Context) error
+	Operators(ctx context.Context, id string, maxAttempts int) ([]OperatorRecord, error)
+	InsertOperator(ctx context.Context, email, displayName string) (id string, created bool, err error)
+	OperatorByID(ctx context.Context, id string) (Operator, bool, error)
+	SetOperatorStatus(ctx context.Context, id string, active bool) error
+	RolesOf(ctx context.Context, operatorID string) ([]string, error)
+	ExistingRoles(ctx context.Context, ids []string) ([]string, error)
+	SetRoles(ctx context.Context, operatorID string, roleIDs []string) error
+	PermissionsOf(ctx context.Context, operatorID string) ([]string, error)
+	Roles(ctx context.Context, id string) ([]RoleRecord, error)
+	RoleDefault(ctx context.Context, id string) (isDefault, found bool, err error)
+	InsertRole(ctx context.Context, r Role) (id string, created bool, err error)
+	UpdateRole(ctx context.Context, id string, description string, permissions []string) error
+	DeleteRole(ctx context.Context, id string) error
 
 	SeedRole(ctx context.Context, r Role) error
 	EnsureOwner(ctx context.Context, email string) (operatorID string, granted bool, err error)

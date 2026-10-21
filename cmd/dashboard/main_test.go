@@ -74,6 +74,8 @@ func TestRunRefusesEachFaultBeforeConnecting(t *testing.T) {
 		"no listener":           {func(i *config.Infra) { i.HTTPAddr = "" }, "HTTP_ADDR"},
 		"no database":           {func(i *config.Infra) { i.PostgresURL = "" }, "POSTGRES_URL"},
 		"no bootstrap":          {func(i *config.Infra) { i.BootstrapEmail = "owner" }, "DASHBOARD_BOOTSTRAP_EMAIL"},
+		"bootstrap two ats":     {func(i *config.Infra) { i.BootstrapEmail = "a@b@example.test" }, "DASHBOARD_BOOTSTRAP_EMAIL"},
+		"bootstrap no local":    {func(i *config.Infra) { i.BootstrapEmail = " @example.test" }, "DASHBOARD_BOOTSTRAP_EMAIL"},
 		"relay without port":    {func(i *config.Infra) { i.SMTPAddr = "mailpit" }, "SMTP_ADDR"},
 		"no sender":             {func(i *config.Infra) { i.SMTPFrom = "" }, "SMTP_FROM"},
 		"user without secret":   {func(i *config.Infra) { i.SMTPUsername = "relay" }, "SMTP_PASSWORD_FILE"},
