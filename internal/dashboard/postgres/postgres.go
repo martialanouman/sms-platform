@@ -66,6 +66,42 @@ func (t tx) SetPassword(ctx context.Context, operatorID, phc string) error {
 	return queries.SetPassword(ctx, t.db, sqlc.SetPasswordParams{Phc: &phc, ID: operatorID})
 }
 
+func (t tx) Operators(ctx context.Context, id string, maxAttempts int) ([]dashboard.OperatorRecord, error) {
+	rows, err := queries.Operators(ctx, t.db, sqlc.OperatorsParams{MaxAttempts: int64(maxAttempts), ID: optional(id)})
+	out := make([]dashboard.OperatorRecord, len(rows))
+	for i, r := range rows {
+		out[i] = dashboard.OperatorRecord{ID: r.ID, Email: r.Email, DisplayName: r.DisplayName, Active: r.Active,
+			Roles: make([]dashboard.RoleRef, len(r.RoleIds)), SecondFactor: r.SecondFactor}
+		for j := range r.RoleIds {
+			out[i].Roles[j] = dashboard.RoleRef{ID: r.RoleIds[j], Name: r.RoleNames[j]}
+		}
+		if r.LinkState != "" {
+			out[i].Link = &dashboard.LinkState{Kind: dashboard.LinkKind(r.LinkKind), State: r.LinkState}
+		}
+	}
+	return out, err
+}
+
+func (t tx) InsertOperator(ctx context.Context, email, displayName string) (string, bool, error) {
+	id, err := queries.InsertOperator(ctx, t.db, sqlc.InsertOperatorParams{Email: email, DisplayName: displayName})
+	created, err := found(err)
+	return id, created, err
+}
+
+func (t tx) OperatorByID(ctx context.Context, id string) (dashboard.Operator, bool, error) {
+	r, err := queries.OperatorByID(ctx, t.db, id)
+	ok, err := found(err)
+	return dashboard.Operator{ID: r.ID, PasswordHash: r.PasswordHash, Active: r.Active}, ok, err
+}
+
+func (t tx) SetOperatorStatus(ctx context.Context, id string, active bool) error {
+	status := "disabled"
+	if active {
+		status = "active"
+	}
+	return queries.SetOperatorStatus(ctx, t.db, sqlc.SetOperatorStatusParams{Status: status, ID: id})
+}
+
 func (t tx) SeedRole(ctx context.Context, r dashboard.Role) error {
 	return queries.SeedRole(ctx, t.db, sqlc.SeedRoleParams{Name: r.Name, Description: r.Description, Permissions: r.Permissions})
 }

@@ -361,6 +361,24 @@ func (q *Queries) Forget(ctx context.Context, db DBTX, subject []byte) error {
 	return err
 }
 
+const insertOperator = `-- name: InsertOperator :one
+INSERT INTO dashboard.operators (email, display_name) VALUES ($1, $2)
+ON CONFLICT ((lower(email))) DO NOTHING
+RETURNING id::text AS id
+`
+
+type InsertOperatorParams struct {
+	Email       string
+	DisplayName string
+}
+
+func (q *Queries) InsertOperator(ctx context.Context, db DBTX, arg InsertOperatorParams) (string, error) {
+	row := db.QueryRow(ctx, insertOperator, arg.Email, arg.DisplayName)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
 const lockedFor = `-- name: LockedFor :one
 SELECT extract(epoch FROM last_failure_at + make_interval(secs => $1::float8) - now())::float8
 FROM dashboard.login_attempt_counters WHERE subject = $2
@@ -518,6 +536,91 @@ func (q *Queries) OperatorByEmail(ctx context.Context, db DBTX, email string) (O
 	var i OperatorByEmailRow
 	err := row.Scan(&i.ID, &i.PasswordHash, &i.Active)
 	return i, err
+}
+
+const operatorByID = `-- name: OperatorByID :one
+SELECT id::text, coalesce(password_hash, '')::text AS password_hash, status = 'active' AS active
+FROM dashboard.operators WHERE id::text = $1 FOR UPDATE
+`
+
+type OperatorByIDRow struct {
+	ID           string
+	PasswordHash string
+	Active       bool
+}
+
+func (q *Queries) OperatorByID(ctx context.Context, db DBTX, id string) (OperatorByIDRow, error) {
+	row := db.QueryRow(ctx, operatorByID, id)
+	var i OperatorByIDRow
+	err := row.Scan(&i.ID, &i.PasswordHash, &i.Active)
+	return i, err
+}
+
+const operators = `-- name: Operators :many
+SELECT o.id::text AS id, o.email, o.display_name, o.status = 'active' AS active,
+  coalesce((SELECT array_agg(r.id::text ORDER BY r.name) FROM dashboard.operator_roles x JOIN dashboard.roles r ON r.id = x.role_id
+    WHERE x.operator_id = o.id), '{}')::text[] AS role_ids,
+  coalesce((SELECT array_agg(r.name ORDER BY r.name) FROM dashboard.operator_roles x JOIN dashboard.roles r ON r.id = x.role_id
+    WHERE x.operator_id = o.id), '{}')::text[] AS role_names,
+  (EXISTS (SELECT 1 FROM dashboard.totp_factors f WHERE f.operator_id = o.id)
+    OR EXISTS (SELECT 1 FROM dashboard.webauthn_credentials w WHERE w.operator_id = o.id))::bool AS second_factor,
+  coalesce(l.kind, '')::text AS link_kind,
+  (CASE
+    WHEN l.operator_id IS NULL THEN ''
+    WHEN l.sent_at IS NULL AND l.attempts >= $1::bigint THEN 'failed'
+    WHEN l.sent_at IS NULL THEN 'queued'
+    WHEN l.token_hash IS NOT NULL AND now() < l.expires_at THEN 'sent'
+    ELSE '' END)::text AS link_state
+FROM dashboard.operators o LEFT JOIN dashboard.access_links l ON l.operator_id = o.id
+WHERE $2::text IS NULL OR o.id::text = $2::text
+ORDER BY o.email
+`
+
+type OperatorsParams struct {
+	MaxAttempts int64
+	ID          *string
+}
+
+type OperatorsRow struct {
+	ID           string
+	Email        string
+	DisplayName  string
+	Active       bool
+	RoleIds      []string
+	RoleNames    []string
+	SecondFactor bool
+	LinkKind     string
+	LinkState    string
+}
+
+func (q *Queries) Operators(ctx context.Context, db DBTX, arg OperatorsParams) ([]OperatorsRow, error) {
+	rows, err := db.Query(ctx, operators, arg.MaxAttempts, arg.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OperatorsRow
+	for rows.Next() {
+		var i OperatorsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.DisplayName,
+			&i.Active,
+			&i.RoleIds,
+			&i.RoleNames,
+			&i.SecondFactor,
+			&i.LinkKind,
+			&i.LinkState,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const passkeys = `-- name: Passkeys :many
@@ -700,6 +803,20 @@ func (q *Queries) SessionOf(ctx context.Context, db DBTX, arg SessionOfParams) (
 		&i.Live,
 	)
 	return i, err
+}
+
+const setOperatorStatus = `-- name: SetOperatorStatus :exec
+UPDATE dashboard.operators SET status = $1 WHERE id = $2::uuid
+`
+
+type SetOperatorStatusParams struct {
+	Status string
+	ID     string
+}
+
+func (q *Queries) SetOperatorStatus(ctx context.Context, db DBTX, arg SetOperatorStatusParams) error {
+	_, err := db.Exec(ctx, setOperatorStatus, arg.Status, arg.ID)
+	return err
 }
 
 const setPassword = `-- name: SetPassword :exec

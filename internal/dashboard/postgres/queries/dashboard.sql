@@ -197,3 +197,34 @@ WHERE lower(o.email) = lower(@email) AND r.name = @role
     WHERE x.role_id = r.id AND a.status = 'active')
 ON CONFLICT DO NOTHING
 RETURNING operator_id::text;
+
+-- name: Operators :many
+SELECT o.id::text AS id, o.email, o.display_name, o.status = 'active' AS active,
+  coalesce((SELECT array_agg(r.id::text ORDER BY r.name) FROM dashboard.operator_roles x JOIN dashboard.roles r ON r.id = x.role_id
+    WHERE x.operator_id = o.id), '{}')::text[] AS role_ids,
+  coalesce((SELECT array_agg(r.name ORDER BY r.name) FROM dashboard.operator_roles x JOIN dashboard.roles r ON r.id = x.role_id
+    WHERE x.operator_id = o.id), '{}')::text[] AS role_names,
+  (EXISTS (SELECT 1 FROM dashboard.totp_factors f WHERE f.operator_id = o.id)
+    OR EXISTS (SELECT 1 FROM dashboard.webauthn_credentials w WHERE w.operator_id = o.id))::bool AS second_factor,
+  coalesce(l.kind, '')::text AS link_kind,
+  (CASE
+    WHEN l.operator_id IS NULL THEN ''
+    WHEN l.sent_at IS NULL AND l.attempts >= @max_attempts::bigint THEN 'failed'
+    WHEN l.sent_at IS NULL THEN 'queued'
+    WHEN l.token_hash IS NOT NULL AND now() < l.expires_at THEN 'sent'
+    ELSE '' END)::text AS link_state
+FROM dashboard.operators o LEFT JOIN dashboard.access_links l ON l.operator_id = o.id
+WHERE sqlc.narg(id)::text IS NULL OR o.id::text = sqlc.narg(id)::text
+ORDER BY o.email;
+
+-- name: InsertOperator :one
+INSERT INTO dashboard.operators (email, display_name) VALUES (@email, @display_name)
+ON CONFLICT ((lower(email))) DO NOTHING
+RETURNING id::text AS id;
+
+-- name: OperatorByID :one
+SELECT id::text, coalesce(password_hash, '')::text AS password_hash, status = 'active' AS active
+FROM dashboard.operators WHERE id::text = @id FOR UPDATE;
+
+-- name: SetOperatorStatus :exec
+UPDATE dashboard.operators SET status = @status WHERE id = @id::uuid;
