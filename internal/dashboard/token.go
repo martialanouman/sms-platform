@@ -96,10 +96,21 @@ func (s Service) IssuePersonalToken(ctx context.Context, c Current, requested []
 	return PersonalToken{Token: token, Scopes: carried, ExpiresAt: time.Unix(now.Add(personalLifetime).Unix(), 0)}, err
 }
 
-func (s Service) sign(ctx context.Context, claims any) (string, error) {
-	kid, _, err := s.Signer.Keys(ctx)
+func (s Service) keys(ctx context.Context) (string, []PublicKey, error) {
+	if s.Signer == nil {
+		return "", nil, ErrSignerUnavailable
+	}
+	latest, keys, err := s.Signer.Keys(ctx)
 	if err != nil {
-		return "", errors.Join(ErrSignerUnavailable, err)
+		return "", nil, errors.Join(ErrSignerUnavailable, err)
+	}
+	return latest, keys, nil
+}
+
+func (s Service) sign(ctx context.Context, claims any) (string, error) {
+	kid, _, err := s.keys(ctx)
+	if err != nil {
+		return "", err
 	}
 	header, err := json.Marshal(map[string]string{"alg": "ES256", "kid": kid, "typ": "JWT"})
 	if err != nil {
@@ -119,9 +130,9 @@ func (s Service) sign(ctx context.Context, claims any) (string, error) {
 
 // JWKS renders every public key of the signer as a JSON Web Key Set.
 func (s Service) JWKS(ctx context.Context) ([]byte, error) {
-	_, keys, err := s.Signer.Keys(ctx)
+	_, keys, err := s.keys(ctx)
 	if err != nil {
-		return nil, errors.Join(ErrSignerUnavailable, err)
+		return nil, err
 	}
 	type jwk struct {
 		Kty string `json:"kty"`

@@ -179,6 +179,13 @@ func TestAPersonalTokenRefusesAScopeItMayNotCarry(t *testing.T) {
 	if _, err := svc.JWKS(ctx); !errors.Is(err, dashboard.ErrSignerUnavailable) {
 		t.Fatalf("the JWKS with a signer down: %v", err)
 	}
+	svc.Signer = nil
+	if _, err := svc.IssuePersonalToken(ctx, owner, nil); !errors.Is(err, dashboard.ErrSignerUnavailable) {
+		t.Fatalf("no signer: %v", err)
+	}
+	if _, err := svc.JWKS(ctx); !errors.Is(err, dashboard.ErrSignerUnavailable) {
+		t.Fatalf("the JWKS without signer: %v", err)
+	}
 	if log := h.since(t, before); len(log) != 0 {
 		t.Fatalf("a refused token was logged: %+v", log)
 	}
