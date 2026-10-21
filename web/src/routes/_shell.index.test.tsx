@@ -7,7 +7,7 @@ test('the dashboard shows who is signed in', async () => {
   stubFetch({ 'GET /api/auth/me': () => json(200, me) })
   const { container } = renderAt('/')
   expect(await screen.findByText('Connecté en tant que Opérateur (operateur@example.test)')).toBeDefined()
-  expect(document.title).toBe('Tableau de bord')
+  expect(document.title).toBe('Mon compte — Tableau de bord')
   expect(await violations(container)).toEqual([])
 })
 
@@ -156,7 +156,7 @@ test('after a logout, the next login shows the new operator only', async () => {
   await user.type(await screen.findByLabelText('Code à six chiffres'), '123456')
   await user.click(screen.getByRole('button', { name: 'Vérifier' }))
   expect(await screen.findByText('Connecté en tant que Autre (autre@example.test)')).toBeDefined()
-  expect(screen.queryByText(/Opérateur/)).toBeNull()
+  expect(screen.queryByText(/operateur@example\.test/)).toBeNull()
 })
 
 test('a session not elevated is sent back to the login', async () => {

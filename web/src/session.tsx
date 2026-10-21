@@ -54,6 +54,10 @@ export function useMe() {
   return useQuery(meQuery)
 }
 
+export function useShellMe() {
+  return useQuery({ ...meQuery, refetchOnMount: false })
+}
+
 export function useElevated() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
