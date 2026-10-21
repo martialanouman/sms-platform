@@ -229,3 +229,21 @@ func TestACallerThatHasGoneDoesNotSpoilTheReload(t *testing.T) {
 		t.Fatalf("reload under a cancelled caller: %v", err)
 	}
 }
+
+func TestAnErrorStatusIsRefusedWhateverItsBody(t *testing.T) {
+	iss, c, k := setup(t)
+	iss.add(t, "v1")
+	if _, err := k.Key(context.Background(), "v1"); err != nil {
+		t.Fatal(err)
+	}
+	stale := &issuer{keys: map[string]*ecdsa.PrivateKey{}}
+	stale.add(t, "v2")
+	rec := httptest.NewRecorder()
+	stale.ServeHTTP(rec, nil)
+	iss.status, iss.body = http.StatusBadGateway, rec.Body.String()
+	c.advance(time.Minute)
+
+	if _, err := k.Key(context.Background(), "v2"); err == nil {
+		t.Fatal("a key set served under 502 was taken")
+	}
+}

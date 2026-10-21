@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -41,6 +42,7 @@ func (k *Keys) Key(ctx context.Context, kid string) (*ecdsa.PublicKey, error) {
 	// ponytail: a cached lookup waits behind an in-flight reload (5 s at most); split the locks if that shows.
 	k.mu.Lock()
 	defer k.mu.Unlock()
+	// debt: #163
 	if key, ok := k.keys[kid]; ok {
 		return key, nil
 	}
@@ -72,6 +74,9 @@ func (k *Keys) fetch(ctx context.Context) (map[string]*ecdsa.PublicKey, error) {
 		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("jwks: status %d", resp.StatusCode)
+	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))
 	if err != nil {
 		return nil, err

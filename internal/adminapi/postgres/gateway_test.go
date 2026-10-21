@@ -147,6 +147,7 @@ func decode(t *testing.T, rec *httptest.ResponseRecorder) page {
 func TestReadingTheAuditLogLeavesOneLineWrittenAfterTheRead(t *testing.T) {
 	g := newGateway(t)
 
+	start := time.Now()
 	first := g.call(t, http.MethodGet, "/admin/audit-log", "audit:read")
 	if first.Code != http.StatusOK || len(decode(t, first).Data) != 0 || strings.Contains(first.Body.String(), "$schema") ||
 		first.Header().Get("Link") != "" {
@@ -168,11 +169,11 @@ func TestReadingTheAuditLogLeavesOneLineWrittenAfterTheRead(t *testing.T) {
 	}
 	e := p.Data[0]
 	if e.Operator != operator || e.OperationID != "list-audit-log" || e.Target != "/admin/audit-log" || e.Status != 200 ||
-		*e.RequestID != id || e.Outcome != nil || e.At == nil || !strings.Contains(second.Body.String(), `"outcome":null`) {
+		*e.RequestID != id || e.Outcome != nil || e.At == nil || e.At.Before(start.Add(-time.Second)) || e.At.After(time.Now()) || !strings.Contains(second.Body.String(), `"outcome":null`) {
 		t.Fatalf("second read: %s", second.Body)
 	}
 	if got := g.lines(t); len(got) != 2 || got[1].Target != "/admin/audit-log" {
-		t.Fatalf("the line of a query keeps it: %+v", got)
+		t.Fatalf("the line of a query carries it: %+v", got)
 	}
 }
 
@@ -303,7 +304,7 @@ func TestTheChangesOfAnUnknownRequestAreNotFoundAndTheRefusalIsAudited(t *testin
 	}
 	c := changes.Data
 	if len(c) != 1 || c[0].Actor != operator || c[0].Table != "probe" || c[0].PK != `{"id": 7}` || c[0].Op != "insert" ||
-		string(c[0].Before) != "null" || string(c[0].After) != `{"id":7}` || c[0].At == nil || changes.NextCursor != nil {
+		string(c[0].Before) != "null" || string(c[0].After) != `{"id":7}` || c[0].At == nil || c[0].At.Year() < 2026 || changes.NextCursor != nil {
 		t.Fatalf("changes = %s", rec.Body)
 	}
 }

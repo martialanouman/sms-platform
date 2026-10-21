@@ -114,12 +114,13 @@ complétée de zéros, un jeton à quatre segments, un jeton brut sans `Bearer`,
 Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloquant.
 
 1. **JWKS vidé par un corps d'erreur** (haute, sécurité ; mon retrait du contrôle de statut) : un `502` ou un `200` sans
-   clé remplaçait le cache par un jeu vide, 401 pour tous une minute. Un jeu sans clé est désormais un échec ; le statut
-   n'ajoute rien de plus (mutant équivalent, retiré).
+   clé remplaçait le cache par un jeu vide, 401 pour tous une minute. Un jeu sans clé est désormais un échec (le
+   contrôle de statut, retiré à tort, revient au tour 2).
 2. **Rechargement sous le contexte de l'appelant** (moyenne) : un appelant parti faisait échouer le rechargement et
    bloquait la minute. Il tourne sous `WithoutCancel`, borné par son propre délai.
 3. **Tests creux** : la cible d'un appel avec requête, et chaque champ des pages, sont désormais affirmés ; les mutations
-   (`RequestURI`, tags JSON) tombent.
+   (`RequestURI`, tags JSON) tombent. `outcome` n'est vu que nul : aucune ligne servie n'en porte avant
+   `get-message-content`.
 4. **Code en trop retiré** : les helpers de `verify_test` recopiés d'`adminapitest`, la constante `operator` redéclarée,
    `Config.Log`, la branche d'erreur de `uuid.NewV7`, un commentaire.
 5. **Gardés, avec raison** :
@@ -130,3 +131,16 @@ Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloq
    - la regexp d'UUID reste écrite deux fois (vérification d'un `sub`, d'un curseur) : la partager lierait le cœur de
      l'autorisation au paquet de pagination ;
    - un 503 après un `COMMIT` dont l'accusé se perd peut cacher une mutation faite : inhérent.
+
+## Correctifs de revue, tour 2
+
+Une revue des correctifs du tour 1. Aucun bloquant.
+
+1. **Statut du JWKS** (basse) : « le statut n'ajoute rien » ne valait que face à la fixture ; un `502` portant un jeu
+   valide (cache périmé d'un proxy) remplaçait les clés. Le contrôle revient, tué par ce cas.
+2. **`at` affirmé présent, jamais juste** (moyenne) : la valeur zéro sortait sans faire échouer le test. Elle est bornée ;
+   le retrait de la projection tombe, sur les deux pages.
+3. **Clé retirée gardée en cache** (moyenne, préexistante, aggravée par le refus d'un jeu vide) : une clé révoquée reste
+   acceptée jusqu'au redémarrage, aucun `kid` connu ne rechargeant le jeu. Issue #163 (`debt`), soumise à l'humain avec
+   la PR : la clé privée ne quitte pas OpenBao et une rotation ordinaire attend l'expiration des jetons.
+4. **Message de test** qui disait l'inverse de son assertion, corrigé.
