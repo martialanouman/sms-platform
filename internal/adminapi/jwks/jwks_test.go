@@ -16,6 +16,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
+
 	"github.com/martialanouman/sms-platform/internal/adminapi/jwks"
 )
 
@@ -91,7 +94,8 @@ func setup(t *testing.T) (*issuer, *clock, *jwks.Keys) {
 	srv := httptest.NewServer(iss)
 	t.Cleanup(srv.Close)
 	c := &clock{now: time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)}
-	return iss, c, &jwks.Keys{URL: srv.URL, Client: srv.Client(), Now: c.Now, Log: slog.New(slog.DiscardHandler)}
+	return iss, c, &jwks.Keys{URL: srv.URL, Client: srv.Client(), Now: c.Now, Log: slog.New(slog.DiscardHandler),
+		Failures: prometheus.NewCounter(prometheus.CounterOpts{Name: "failures"})}
 }
 
 func TestAKidIsLoadedOnFirstUseAndServedFromCacheAfter(t *testing.T) {
@@ -123,6 +127,9 @@ func TestAnUnknownKidReloadsAtMostOncePerMinute(t *testing.T) {
 	}
 	if n := iss.fetches.Load(); n != 1 {
 		t.Fatalf("fetches = %d, want 1", n)
+	}
+	if n := testutil.ToFloat64(k.Failures); n != 0 {
+		t.Fatalf("an unknown kid in a fetched set counted %v failures", n)
 	}
 	iss.add(t, "v2")
 	c.advance(59 * time.Second)
@@ -166,6 +173,9 @@ func TestAnUnreachableIssuerKeepsTheCachedKeys(t *testing.T) {
 	}
 	if _, err := k.Key(context.Background(), "v1"); err != nil {
 		t.Fatalf("cached key lost: %v", err)
+	}
+	if n := testutil.ToFloat64(k.Failures); n != 1 {
+		t.Fatalf("failures = %v, want 1", n)
 	}
 }
 

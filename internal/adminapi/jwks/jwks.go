@@ -15,6 +15,8 @@ import (
 	"slices"
 	"sync"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -27,10 +29,11 @@ var errUnknownKid = errors.New("jwks: unknown kid")
 
 // Keys is the key set at URL, fetched by Client.
 type Keys struct {
-	URL    string
-	Client *http.Client
-	Now    func() time.Time
-	Log    *slog.Logger
+	URL      string
+	Client   *http.Client
+	Now      func() time.Time
+	Log      *slog.Logger
+	Failures prometheus.Counter
 
 	mu     sync.Mutex
 	keys   map[string]*ecdsa.PublicKey
@@ -52,6 +55,7 @@ func (k *Keys) Key(ctx context.Context, kid string) (*ecdsa.PublicKey, error) {
 	k.loaded = k.Now()
 	keys, err := k.fetch(ctx)
 	if err != nil {
+		k.Failures.Inc()
 		k.Log.WarnContext(ctx, "jwks not reloaded", "err", err)
 		return nil, err
 	}

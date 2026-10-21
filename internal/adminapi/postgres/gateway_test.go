@@ -12,6 +12,8 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 
 	"github.com/martialanouman/sms-platform/internal/adminapi"
 	"github.com/martialanouman/sms-platform/internal/adminapi/adminapitest"
@@ -23,9 +25,10 @@ import (
 )
 
 type gateway struct {
-	h        http.Handler
-	k        adminapitest.Keys
-	migrator *pgx.Conn
+	h           http.Handler
+	k           adminapitest.Keys
+	uncommitted prometheus.Counter
+	migrator    *pgx.Conn
 }
 
 type line struct {
@@ -57,7 +60,8 @@ func newGateway(t *testing.T) gateway {
 	}
 	t.Cleanup(pool.Close)
 	k := adminapitest.NewKeys(t, "v1")
-	h, api := adminhuma.New(adminhuma.Config{Store: postgres.New(pool), Verifier: k.Verifier()})
+	uncommitted := prometheus.NewCounter(prometheus.CounterOpts{Name: "uncommitted"})
+	h, api := adminhuma.New(adminhuma.Config{Store: postgres.New(pool), Verifier: k.Verifier(), Uncommitted: uncommitted})
 	huma.Register(api, huma.Operation{OperationID: "create-probe", Method: http.MethodPost, Path: "/admin/probes/{id}",
 		Security: []map[string][]string{{"OperatorBearer": {"routes:write"}}}},
 		func(ctx context.Context, in *struct {
@@ -80,7 +84,7 @@ func newGateway(t *testing.T) gateway {
 		}) (*struct{}, error) {
 			return nil, nil
 		})
-	return gateway{h: h, k: k, migrator: migrator}
+	return gateway{h: h, k: k, migrator: migrator, uncommitted: uncommitted}
 }
 
 func (g gateway) call(t *testing.T, method, path, scope string) *httptest.ResponseRecorder {
@@ -257,6 +261,9 @@ func TestAMutationCommitsWithItsLineUnderTheOperator(t *testing.T) {
 	if n := g.count(t, `SELECT count(*) FROM control_plane.audit_changes WHERE actor = '`+operator+`' AND request_id = '`+got[0].RequestID+`'`); n != 1 {
 		t.Fatalf("%d captured changes under the operator and the request", n)
 	}
+	if n := testutil.ToFloat64(g.uncommitted); n != 0 {
+		t.Fatalf("a committed call counted %v uncommitted", n)
+	}
 }
 
 func TestARefusedMutationRollsBackAndLeavesItsRefusal(t *testing.T) {
@@ -328,6 +335,9 @@ func TestAnAuditLineThatCannotBeWrittenFailsTheCall(t *testing.T) {
 	}
 	if n := g.count(t, `SELECT count(*) FROM control_plane.probe`); n != 0 {
 		t.Fatalf("%d probes written without their line", n)
+	}
+	if n := testutil.ToFloat64(g.uncommitted); n != 4 {
+		t.Fatalf("uncommitted = %v, want 4", n)
 	}
 }
 
