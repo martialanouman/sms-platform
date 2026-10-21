@@ -11,7 +11,6 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"slices"
@@ -56,15 +55,6 @@ func main() {
 		log.Error("dashboard failed", "error", err)
 		os.Exit(1)
 	}
-}
-
-func origin(raw string) (string, error) {
-	u, err := url.Parse(raw)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || strings.Trim(u.Path, "/") != "" ||
-		u.RawQuery != "" || u.Fragment != "" || u.User != nil {
-		return "", fmt.Errorf("DASHBOARD_PUBLIC_URL %q is not an absolute http(s) URL without path", raw)
-	}
-	return u.Scheme + "://" + u.Host, nil
 }
 
 // debt: #141
@@ -119,7 +109,7 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger, registry pro
 	if err := validate(infra); err != nil {
 		return err
 	}
-	expected, err := origin(infra.PublicURL)
+	expected, err := config.Origin(infra.PublicURL)
 	if err != nil {
 		return err
 	}

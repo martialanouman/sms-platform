@@ -69,6 +69,7 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 		"TRUSTED_PROXIES":           "10.42.0.0/16, fd00::/8",
 		"COOKIE_KEY_FILE":           "/secrets/cookie-key",
 		"TOTP_KEY_FILE":             "/secrets/totp-key",
+		"JWKS_URL":                  "https://dashboard:8443/.well-known/jwks.json",
 	})
 	got, err := config.Load()
 	if err != nil {
@@ -98,6 +99,7 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 		TrustedProxies:         []netip.Prefix{netip.MustParsePrefix("10.42.0.0/16"), netip.MustParsePrefix("fd00::/8")},
 		CookieKeyFile:          "/secrets/cookie-key",
 		TotpKeyFile:            "/secrets/totp-key",
+		JWKSURL:                "https://dashboard:8443/.well-known/jwks.json",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Load() = %+v, want %+v", got, want)
@@ -107,7 +109,7 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 func TestVariablesIsTheClosedListLoadReads(t *testing.T) {
 	want := []string{
 		"COOKIE_KEY_FILE", "DASHBOARD_BOOTSTRAP_EMAIL", "DASHBOARD_PUBLIC_URL", "DRAIN_BUDGET", "DRAIN_DELAY", "GRPC_ADDR",
-		"HTTP_ADDR", "INTERNAL_ADDR", "KAFKA_BROKERS", "LOG_LEVEL", "OPENBAO_ADDR", "OPS_ADDR", "POSTGRES_ROLE_SECRETS_DIR", "POSTGRES_URL",
+		"HTTP_ADDR", "INTERNAL_ADDR", "JWKS_URL", "KAFKA_BROKERS", "LOG_LEVEL", "OPENBAO_ADDR", "OPS_ADDR", "POSTGRES_ROLE_SECRETS_DIR", "POSTGRES_URL",
 		"SHUTDOWN_TIMEOUT", "SMTP_ADDR", "SMTP_FROM", "SMTP_PASSWORD_FILE", "SMTP_USERNAME", "TLS_ALLOWED_CLIENTS",
 		"TLS_CA_FILE", "TLS_CERT_FILE", "TLS_KEY_FILE", "TOTP_KEY_FILE", "TRACE_SAMPLE_RATIO", "TRUSTED_PROXIES",
 	}
@@ -181,6 +183,21 @@ func TestLoadAcceptsTheRatioBounds(t *testing.T) {
 		env(t, map[string]string{"TRACE_SAMPLE_RATIO": ratio})
 		if _, err := config.Load(); err != nil {
 			t.Errorf("TRACE_SAMPLE_RATIO=%s: %v", ratio, err)
+		}
+	}
+}
+
+func TestOriginIsTheSchemeAndHostOfAnAbsoluteURLWithoutPath(t *testing.T) {
+	for raw, want := range map[string]string{"http://localhost:8080": "http://localhost:8080",
+		"https://dashboard.example.test/": "https://dashboard.example.test"} {
+		if got, err := config.Origin(raw); err != nil || got != want {
+			t.Errorf("Origin(%q) = %q, %v", raw, got, err)
+		}
+	}
+	for _, raw := range []string{"", "localhost:8080", "ftp://host", "https://", "https://host/path", "https://host?q=1",
+		"https://host#f", "https://user@host"} {
+		if _, err := config.Origin(raw); err == nil {
+			t.Errorf("Origin(%q) accepted", raw)
 		}
 	}
 }

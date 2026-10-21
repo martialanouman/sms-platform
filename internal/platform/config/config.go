@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"maps"
 	"net/netip"
+	"net/url"
 	"os"
 	"slices"
 	"strconv"
@@ -43,6 +44,7 @@ type Infra struct {
 	TrustedProxies         []netip.Prefix
 	CookieKeyFile          string
 	TotpKeyFile            string
+	JWKSURL                string
 }
 
 var defaults = map[string]string{
@@ -72,6 +74,7 @@ var defaults = map[string]string{
 	"TRUSTED_PROXIES":           "",
 	"COOKIE_KEY_FILE":           "",
 	"TOTP_KEY_FILE":             "",
+	"JWKS_URL":                  "",
 }
 
 // Default is the value Load reads for name when the environment leaves it unset.
@@ -133,6 +136,7 @@ func Load() (Infra, error) {
 		SMTPPasswordFile:       value("SMTP_PASSWORD_FILE"),
 		CookieKeyFile:          value("COOKIE_KEY_FILE"),
 		TotpKeyFile:            value("TOTP_KEY_FILE"),
+		JWKSURL:                value("JWKS_URL"),
 	}
 	for _, p := range list("TRUSTED_PROXIES") {
 		prefix, err := netip.ParsePrefix(p)
@@ -163,4 +167,14 @@ func Load() (Infra, error) {
 		errs = append(errs, fmt.Errorf("DRAIN_BUDGET: %s does not exceed SHUTDOWN_TIMEOUT %s", c.DrainBudget, c.ShutdownTimeout))
 	}
 	return c, errors.Join(errs...)
+}
+
+// Origin is the scheme and host of DASHBOARD_PUBLIC_URL raw, the iss of the tokens the dashboard issues.
+func Origin(raw string) (string, error) {
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || strings.Trim(u.Path, "/") != "" ||
+		u.RawQuery != "" || u.Fragment != "" || u.User != nil {
+		return "", fmt.Errorf("DASHBOARD_PUBLIC_URL %q is not an absolute http(s) URL without path", raw)
+	}
+	return u.Scheme + "://" + u.Host, nil
 }
