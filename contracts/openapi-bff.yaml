@@ -26,7 +26,8 @@ info:
     anywhere else, the proxy included, the answer is 403 `mfa_required`.
 
     **Cross-site requests.** Every unsafe method checks `Origin` (403 `forbidden_origin`) and requires an
-    `application/json` content type (415 `unsupported_media_type`), the proxy included. The body of every operation
+    `application/json` content type (415 `unsupported_media_type`); through the proxy, one of the media types the
+    relayed Admin operation declares. The body of every operation
     that declares one is capped before decoding (413 `payload_too_large`); the cap does not apply to `/api/gw/*`, the Admin API
     bounding its own imports.
 
