@@ -114,3 +114,46 @@ Second tour, 2026-10-21 : aucun bloquant.
   (création par modale, statuts, confirmations, phrase générique du lien, actions bloquées et expliquées, refus du
   serveur). Mutation manuelle, consignée.
 - **Issue `debt` #155** : la redirection de `/` renvoie un rôle sans MFA ; `debt: #155` sur la redirection.
+
+## Écarts au design, constatés à l'implémentation
+
+- **« Désactiver » et « Réactiver » sont un seul bouton** (`Status`) : deux composants à la même place faisaient perdre le
+  focus après une désactivation, le nœud du bouton étant remplacé.
+- **Les tests rendent en `StrictMode`**, comme `main.tsx` : il a révélé que l'effet rejoué rappelait `showModal` sur une
+  modale ouverte, ce que Chromium refuse. Le double de `showModal` ferme sur Échap après la propagation, comme le
+  navigateur, pour qu'un `preventDefault` le retienne.
+- **L'infobulle est ancrée au bord droit de son bouton** : ancrée à gauche, elle sortait de l'écran sous les actions de
+  ligne. Trouvé dans Chromium.
+
+## Mutations
+
+Une cinquantaine, à la main, sur la coquille, le kit, l'écran et ses modales ; toutes tombent. Survivants corrigés en
+route : le repli du focus sur le titre (jamais atteint, retiré), l'attente de « Réactiver », la fermeture par « Fermer »
+(simplifiée), la condition de statut sur sa propre ligne (impossible, retirée), « Réessayer » des rôles, l'indicateur
+d'attente, la variante de « Réactiver », le second Échap dans une modale.
+
+## Preuve sur `contabo169`
+
+Jouée le 2026-10-21 depuis la branche, sur le cluster en v0.22.0 : image `dashboard` en snapshot, importée sous
+`proof-012d2` puis `proof-012d2-b` (correctif de l'infobulle) ; timer suspendu. Dans Chromium (`agent-browser`), par
+tunnel SSH vers `port-forward`, sur `localhost:8080`, au clavier :
+
+1. Connexion du `Propriétaire` (TOTP) : accueil vide, rail « Administration » → « Opérateurs »
+   ([capture](012d-2/accueil.png)) ; le nom dans la barre du haut mène à « Mon compte », titre dans la barre
+   ([capture](012d-2/mon-compte.png)).
+2. « Opérateurs » par le rail ([capture](012d-2/operateurs.png)). « Nouvel opérateur » (Entrée) : la modale
+   ([capture](012d-2/creation.png)) ; adresse en casse mixte, nom, Entrée dans le champ : la modale se ferme, la note dit
+   l'adresse normalisée par le serveur, le focus revient à « Nouvel opérateur » ([capture](012d-2/cree.png)).
+3. « Modifier les rôles » de Grace : « Support » coché à l'espace ([capture](012d-2/roles.png)), « Enregistrer les
+   rôles » : focus rendu au bouton de la ligne. « Envoyer un lien » : confirmation d'activation, 72 heures
+   ([capture](012d-2/lien.png)) ; « Envoyer » : focus rendu. « Désactiver » : confirmation
+   ([capture](012d-2/desactiver.png)), puis le même bouton devient « Réactiver », focus conservé
+   ([capture](012d-2/desactive.png)) ; Entrée le réactive.
+4. Sa propre ligne : « Désactiver » bloqué, infobulle au focus ([capture](012d-2/infobulle.png)), fermée par Échap.
+5. Grace activée par son lien (Mailpit), application enrôlée : le rail ne montre que la marque, sans groupe ; `/operators`
+   tapé à la main dit « Il faut la permission operators:read pour lire les opérateurs. » ([capture](012d-2/support.png)).
+6. axe (WCAG 2.1 AA, `color-contrast` comprise) : aucune violation sur l'accueil, « Mon compte », l'écran, la modale de
+   création et la vue `Support`. Modale des rôles ouverte : une, le contraste d'un bouton « Désactiver » **sous le
+   voile**, inerte pendant la modale (même constat qu'en 012d).
+
+Le cluster reste sur `proof-012d2-b`, timer suspendu, pour l'essai humain ; le timer se réarme au merge.
