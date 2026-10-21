@@ -54,13 +54,13 @@ export function Field({ label, ...input }: { label: string } & ComponentProps<'i
           }
         }}
         onInput={(e) => {
-          if (e.currentTarget.validity.valid) {
-            setError('')
+          if (error) {
+            setError(e.currentTarget.validity.valid ? '' : invalidity(e.currentTarget.validity))
           }
         }}
       />
       {error && (
-        <p className="ui-field__error" id={`${id}-error`}>
+        <p className="ui-field__error" id={`${id}-error`} role="alert">
           <Icon name="bang" />
           {error}
         </p>

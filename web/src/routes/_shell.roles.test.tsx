@@ -65,7 +65,7 @@ test('the roles are listed with their permissions and holders counted', async ()
 })
 
 test('the permissions of a role are told in French, each beside its key', async () => {
-  const future = { ...support, permissions: [...support.permissions, 'future:thing'] }
+  const future = { ...support, permissions: [...support.permissions, 'accounts:export', 'future:thing'] }
   stubFetch({ 'GET /api/auth/me': () => json(200, writer), 'GET /api/roles': () => json(200, [owner, future]) })
   renderAt('/roles')
   await screen.findByRole('rowheader', { name: 'Support' })
@@ -77,7 +77,7 @@ test('the permissions of a role are told in French, each beside its key', async 
     within(dialog)
       .getAllByRole('listitem')
       .map((i) => i.textContent),
-  ).toEqual(['Comptes — Lire accounts:read', 'Trafic — Lire traffic:read', 'future:thing'])
+  ).toEqual(['Comptes — Lire accounts:read', 'Trafic — Lire traffic:read', 'Comptes accounts:export', 'future:thing'])
   await user.click(within(dialog).getAllByRole('button', { name: 'Fermer' })[1] as HTMLElement)
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(document.activeElement).toBe(opener)

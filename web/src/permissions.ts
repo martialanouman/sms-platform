@@ -14,22 +14,22 @@ const resources: Record<Resource, string> = {
   credentials: 'Identifiants',
   'customer-groups': 'Groupes de clients',
   customers: 'Clients',
-  'dead-letters': 'Lettres mortes',
+  'dead-letters': 'Dead-letters',
   'exact-routes': 'Routes par numéro exact',
-  gateway: 'Passerelle',
+  gateway: 'Jeton personnel',
   gdpr: 'RGPD',
   'inbound-numbers': 'Numéros entrants',
-  jobs: 'Tâches',
-  msisdn: 'Numéros d’abonnés',
+  jobs: 'Jobs',
+  msisdn: 'MSISDN',
   'opt-out-keywords': 'Mots-clés d’opt-out',
   operators: 'Opérateurs',
   platform: 'Plateforme',
   roles: 'Rôles',
   routes: 'Routes',
   'routing-scripts': 'Scripts de routage',
-  'sender-ids': 'Sender ID',
+  'sender-ids': 'Sender IDs',
   'sender-rewrite': 'Réécriture du sender ID',
-  sessions: 'Sessions du tableau de bord',
+  sessions: 'Sessions des opérateurs',
   'smpp-sessions': 'Sessions SMPP',
   stream: 'Flux temps réel',
   suppressions: 'Opt-out',
@@ -37,11 +37,11 @@ const resources: Record<Resource, string> = {
 }
 
 const actions: Record<Special, string> & Partial<Record<Scope, string>> = {
-  'billing:topup': 'Recharger et fixer le crédit',
+  'billing:topup': 'Recharger, ajuster et fixer les conditions de crédit',
   'cdr:export_bulk': 'Exporter en masse',
   'content:erase': 'Effacer',
   'content:write': 'Régler le stockage et la rétention',
-  'gateway:personal_token': 'Se délivrer un jeton personnel',
+  'gateway:personal_token': 'Se délivrer',
   'gdpr:erase': 'Effacer les données d’un abonné',
   'msisdn:reveal': 'Démasquer',
   'routing-scripts:publish': 'Publier',
@@ -50,14 +50,11 @@ const actions: Record<Special, string> & Partial<Record<Scope, string>> = {
   'suppressions:delete': 'Lever un opt-out',
 }
 
-export function resourceLabel(resource: string) {
-  return (resources as Record<string, string | undefined>)[resource] ?? resource
-}
+const own = (labels: object, key: string) =>
+  Object.hasOwn(labels, key) ? (labels as Record<string, string>)[key] : undefined
 
-export function actionLabel(key: string) {
-  const known = (actions as Record<string, string | undefined>)[key]
-  if (known) {
-    return known
-  }
-  return { read: 'Lire', write: 'Modifier' }[key.split(':')[1] ?? '']
+export function permissionLabel(key: string) {
+  const [resource = '', action = ''] = key.split(':')
+  const verb = own(actions, key) ?? own({ read: 'Lire', write: 'Modifier' }, action)
+  return { resource: own(resources, resource), action: verb }
 }

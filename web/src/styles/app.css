@@ -779,17 +779,27 @@
   font: var(--text-body);
 }
 
-.role-keys__key,
 .ui-input--mono {
   font: var(--text-data);
 }
 
 .role-keys__key {
   color: var(--text-muted);
+  font: var(--text-data);
 }
 
 .role-choice__option .role-keys__key {
   grid-column: 2;
+}
+
+.role-keys li .role-keys__key {
+  display: block;
+}
+
+.ui-field__error .ui-icon {
+  flex: none;
+  width: 12px;
+  height: 12px;
 }
 
 .role-choice {

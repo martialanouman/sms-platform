@@ -64,6 +64,7 @@ test.each([
   ['--action-secondary-fg', '--surface-hover'],
   ['--text-faint', '--surface-disabled'],
   ['--text-danger-on-tint', '--tint-red', '--surface-card'],
+  ['--text-danger', '--surface-card'],
   ['--text-success', '--tint-green', '--surface-card'],
 ])('%s on %s reaches WCAG AA', (text, ...layers) => {
   expect(ratio(text, ...layers)).toBeGreaterThanOrEqual(4.5)
@@ -74,6 +75,7 @@ test.each([
   ['--border-field', '--surface-card'],
   ['--border-field-hover', '--surface-sunken'],
   ['--border-field-hover', '--surface-card'],
+  ['--red-500', '--surface-sunken'],
 ])('the boundary %s against %s reaches 3:1 (WCAG 1.4.11)', (border, ground) => {
   expect(ratio(border, ground)).toBeGreaterThanOrEqual(3)
 })

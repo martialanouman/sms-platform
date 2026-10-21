@@ -48,11 +48,13 @@ func run(root, gen, ts string) []error {
 		if errs != nil {
 			return errs
 		}
-		for path, data := range map[string][]byte{gen: openapi.Go(scopes, permissions), ts: openapi.TS(scopes, permissions)} {
-			if path == "" {
-				continue
+		if gen != "" {
+			if err := os.WriteFile(gen, openapi.Go(scopes, permissions), 0o600); err != nil {
+				return []error{err}
 			}
-			if err := os.WriteFile(path, data, 0o600); err != nil {
+		}
+		if ts != "" {
+			if err := os.WriteFile(ts, openapi.TS(scopes, permissions), 0o600); err != nil {
 				return []error{err}
 			}
 		}
