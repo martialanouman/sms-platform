@@ -74,6 +74,16 @@ Deux revues (correction et sécurité ; tests et code en trop). Un important, au
    appelant ; les deux validations des fichiers TLS, qui donnent à l'exploitant un message plus net que celui du
    chargeur.
 
+## Correctifs de revue, tour 2
+
+Une revue des correctifs du tour 1. Aucun bloquant.
+
+1. **Le seuil du test de requête lente égalait le `ReadTimeout`** : sans `ReadHeaderTimeout`, la mutation ne tombait
+   qu'à 3 ms près. Le seuil passe à 7,5 s, entre les deux délais.
+2. **Gardé** : le superviseur draine les écouteurs en série ; attendre `Shutdown` coûte jusqu'à `ShutdownTimeout` par
+   écouteur, trois au pire, soit le budget par défaut entier. Ce pire suppose des requêtes en vol qui pendent toutes ;
+   un dépassement rend `ErrDrainBudgetExceeded`, toujours sous le délai de grâce du pod (125 s).
+
 ## Preuve sur `contabo169`
 
 Jouée le 2026-10-21 depuis la branche, sur le cluster en v0.20.0 : image `dashboard` construite par GoReleaser en

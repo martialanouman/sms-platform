@@ -365,7 +365,7 @@ func TestTheDashboardServesAnOperatorFromActivationToLogout(t *testing.T) {
 		_ = conn.SetReadDeadline(time.Now().Add(15 * time.Second))
 		started := time.Now()
 		_, _ = io.ReadAll(conn)
-		if time.Since(started) > 10*time.Second {
+		if time.Since(started) > 7500*time.Millisecond {
 			t.Fatal("the internal listener held a half-sent request past its header timeout")
 		}
 	}
