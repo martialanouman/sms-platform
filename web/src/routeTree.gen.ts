@@ -17,6 +17,7 @@ import { Route as MfaRouteImport } from './routes/mfa'
 import { Route as ShellIndexRouteImport } from './routes/_shell.index'
 import { Route as ShellAccountRouteImport } from './routes/_shell.account'
 import { Route as ShellOperatorsRouteImport } from './routes/_shell.operators'
+import { Route as ShellRolesRouteImport } from './routes/_shell.roles'
 
 const ShellRoute = ShellRouteImport.update({
   id: '/_shell',
@@ -57,6 +58,11 @@ const ShellOperatorsRoute = ShellOperatorsRouteImport.update({
   path: '/operators',
   getParentRoute: () => ShellRoute,
 } as any)
+const ShellRolesRoute = ShellRolesRouteImport.update({
+  id: '/roles',
+  path: '/roles',
+  getParentRoute: () => ShellRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof ShellIndexRoute
@@ -66,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/mfa': typeof MfaRoute
   '/account': typeof ShellAccountRoute
   '/operators': typeof ShellOperatorsRoute
+  '/roles': typeof ShellRolesRoute
 }
 export interface FileRoutesByTo {
   '/access': typeof AccessRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/mfa': typeof MfaRoute
   '/account': typeof ShellAccountRoute
   '/operators': typeof ShellOperatorsRoute
+  '/roles': typeof ShellRolesRoute
   '/': typeof ShellIndexRoute
 }
 export interface FileRoutesById {
@@ -85,15 +93,30 @@ export interface FileRoutesById {
   '/mfa': typeof MfaRoute
   '/_shell/account': typeof ShellAccountRoute
   '/_shell/operators': typeof ShellOperatorsRoute
+  '/_shell/roles': typeof ShellRolesRoute
   '/_shell/': typeof ShellIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/access' | '/enroll' | '/login' | '/mfa' | '/account' | '/operators'
+    | '/'
+    | '/access'
+    | '/enroll'
+    | '/login'
+    | '/mfa'
+    | '/account'
+    | '/operators'
+    | '/roles'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/access' | '/enroll' | '/login' | '/mfa' | '/account' | '/operators' | '/'
+    | '/access'
+    | '/enroll'
+    | '/login'
+    | '/mfa'
+    | '/account'
+    | '/operators'
+    | '/roles'
+    | '/'
   id:
     | '__root__'
     | '/_shell'
@@ -103,6 +126,7 @@ export interface FileRouteTypes {
     | '/mfa'
     | '/_shell/account'
     | '/_shell/operators'
+    | '/_shell/roles'
     | '/_shell/'
   fileRoutesById: FileRoutesById
 }
@@ -172,18 +196,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShellOperatorsRouteImport
       parentRoute: typeof ShellRoute
     }
+    '/_shell/roles': {
+      id: '/_shell/roles'
+      path: '/roles'
+      fullPath: '/roles'
+      preLoaderRoute: typeof ShellRolesRouteImport
+      parentRoute: typeof ShellRoute
+    }
   }
 }
 
 interface ShellRouteChildren {
   ShellAccountRoute: typeof ShellAccountRoute
   ShellOperatorsRoute: typeof ShellOperatorsRoute
+  ShellRolesRoute: typeof ShellRolesRoute
   ShellIndexRoute: typeof ShellIndexRoute
 }
 
 const ShellRouteChildren: ShellRouteChildren = {
   ShellAccountRoute: ShellAccountRoute,
   ShellOperatorsRoute: ShellOperatorsRoute,
+  ShellRolesRoute: ShellRolesRoute,
   ShellIndexRoute: ShellIndexRoute,
 }
 

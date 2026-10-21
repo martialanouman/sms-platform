@@ -1,11 +1,13 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { type FormEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react'
-import { api, json, type send, unreachable } from '../api'
+import { type FormEvent, useEffect, useId, useRef, useState } from 'react'
+import { api, json, unreachable } from '../api'
 import type { components } from '../api.gen'
+import { operatorsQuery, rolesQuery } from '../queries'
 import { meQuery, Refused, Unauthenticated, useSessionClosed, useShellMe } from '../session'
 import {
   Button,
+  Confirmation,
   DataTable,
   EmptyState,
   ErrorState,
@@ -20,20 +22,6 @@ import {
 type Operator = components['schemas']['Operator']
 
 export const Route = createFileRoute('/_shell/operators')({ component: Operators })
-
-const operatorsQuery = {
-  queryKey: ['operators'],
-  queryFn: async () => {
-    const { data, error, response } = await api.GET('/operators')
-    if (response.status === 401) {
-      throw new Unauthenticated()
-    }
-    if (!data) {
-      throw response.status < 500 && error?.message ? new Refused(error.message) : new Error('operators')
-    }
-    return data
-  },
-}
 
 function status(o: Operator) {
   if (o.status === 'disabled') {
@@ -106,7 +94,11 @@ function Operators() {
             {operators.isPending ? (
               <LoadingState label="Chargement des opérateurs…" rows={3} />
             ) : operators.error ? (
-              <ErrorState title="Les opérateurs n’ont pas pu être chargés" onRetry={() => void operators.refetch()}>
+              <ErrorState
+                as="h2"
+                title="Les opérateurs n’ont pas pu être chargés"
+                onRetry={() => void operators.refetch()}
+              >
                 {operators.error instanceof Refused ? operators.error.message : unreachable}
               </ErrorState>
             ) : operators.data.length === 0 ? (
@@ -261,16 +253,7 @@ function Creation({ onClose, onCreated }: { onClose: () => void; onCreated: (ema
 
 function Roles({ operator, self, onClose }: { operator: Operator; self: boolean; onClose: () => void }) {
   const queryClient = useQueryClient()
-  const roles = useQuery({
-    queryKey: ['roles'],
-    queryFn: async () => {
-      const { data, error, response } = await api.GET('/roles')
-      if (!data) {
-        throw response.status < 500 && error?.message ? new Refused(error.message) : new Error('roles')
-      }
-      return data
-    },
-  })
+  const roles = useQuery(rolesQuery)
   const [chosen, setChosen] = useState(operator.roles.map((r) => r.id))
   const { submit, waiting, refusal } = useSubmission()
 
@@ -344,55 +327,10 @@ function Roles({ operator, self, onClose }: { operator: Operator; self: boolean;
   )
 }
 
-function Confirmation({
-  title,
-  action,
-  danger,
-  call,
-  onClose,
-  children,
-}: {
-  title: string
-  action: string
-  danger?: boolean
-  call: Parameters<typeof send>[0]
-  onClose: () => void
-  children: ReactNode
-}) {
-  const queryClient = useQueryClient()
-  const { submit, waiting, refusal } = useSubmission()
-
-  async function confirm() {
-    const outcome = await submit(call)
-    if (outcome.failure === undefined) {
-      void queryClient.invalidateQueries({ queryKey: operatorsQuery.queryKey })
-      onClose()
-    }
-  }
-
-  return (
-    <Modal
-      title={title}
-      onClose={onClose}
-      footer={
-        <>
-          <Button onClick={onClose}>Annuler</Button>
-          <Button variant={danger ? 'danger' : 'primary'} loading={waiting} onClick={() => void confirm()}>
-            {action}
-          </Button>
-        </>
-      }
-    >
-      {refusal}
-      {children}
-      <p>L’action est enregistrée dans le journal d’audit.</p>
-    </Modal>
-  )
-}
-
 function Disable({ operator, onClose }: { operator: Operator; onClose: () => void }) {
   return (
     <Confirmation
+      invalidate={operatorsQuery.queryKey}
       title={`Désactiver ${operator.displayName} ?`}
       action="Désactiver"
       danger
@@ -428,6 +366,7 @@ function AccessLink({ operator, onClose }: { operator: Operator; onClose: () => 
 
   return (
     <Confirmation
+      invalidate={operatorsQuery.queryKey}
       title={title}
       action="Envoyer"
       onClose={onClose}

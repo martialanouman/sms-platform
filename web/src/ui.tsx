@@ -1,3 +1,4 @@
+import { type QueryKey, useQueryClient } from '@tanstack/react-query'
 import {
   type ComponentProps,
   createContext,
@@ -228,7 +229,7 @@ export function ErrorState({
   onRetry,
 }: {
   title: string
-  as?: 'h1' | 'p'
+  as?: 'h1' | 'h2' | 'p'
   children: ReactNode
   onRetry: () => void
 }) {
@@ -268,7 +269,7 @@ export function DataTable<Row>({
   rowKey,
 }: {
   caption: string
-  columns: { header: string; cell: (row: Row) => ReactNode }[]
+  columns: { header: string; cell: (row: Row) => ReactNode; end?: boolean }[]
   rows: Row[]
   rowKey: (row: Row) => string
 }) {
@@ -278,7 +279,11 @@ export function DataTable<Row>({
       <thead>
         <tr>
           {columns.map((c) => (
-            <th className="ui-table__header" key={c.header} scope="col">
+            <th
+              className={c.end ? 'ui-table__header ui-table__cell--end' : 'ui-table__header'}
+              key={c.header}
+              scope="col"
+            >
               {c.header}
             </th>
           ))}
@@ -293,7 +298,7 @@ export function DataTable<Row>({
                   {c.cell(row)}
                 </th>
               ) : (
-                <td className="ui-table__cell" key={c.header}>
+                <td className={c.end ? 'ui-table__cell ui-table__cell--end' : 'ui-table__cell'} key={c.header}>
                   {c.cell(row)}
                 </td>
               ),
@@ -307,11 +312,13 @@ export function DataTable<Row>({
 
 export function Modal({
   title,
+  wide,
   onClose,
   footer,
   children,
 }: {
   title: string
+  wide?: boolean
   onClose: () => void
   footer: ReactNode
   children: ReactNode
@@ -332,7 +339,7 @@ export function Modal({
     // biome-ignore lint/a11y/useKeyWithClickEvents: le clic ne vise que le voile ; au clavier, Échap ferme nativement.
     <dialog
       ref={dialog}
-      className="ui-modal"
+      className={wide ? 'ui-modal ui-modal--wide' : 'ui-modal'}
       aria-labelledby={heading}
       onClose={onClose}
       onMouseDown={(event) => {
@@ -353,3 +360,57 @@ export function Modal({
     </dialog>
   )
 }
+
+export function Confirmation({
+  title,
+  action,
+  danger,
+  call,
+  invalidate,
+  onClose,
+  onDone = onClose,
+  children,
+}: {
+  title: string
+  action: string
+  danger?: boolean
+  call: Parameters<typeof send>[0]
+  invalidate: QueryKey
+  onClose: () => void
+  onDone?: () => void
+  children: ReactNode
+}) {
+  const queryClient = useQueryClient()
+  const { submit, waiting, refusal } = useSubmission()
+
+  async function confirm() {
+    const outcome = await submit(call)
+    if (answered(outcome.response)) {
+      void queryClient.invalidateQueries({ queryKey: invalidate })
+    }
+    if (outcome.failure === undefined) {
+      onDone()
+    }
+  }
+
+  return (
+    <Modal
+      title={title}
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose}>Annuler</Button>
+          <Button variant={danger ? 'danger' : 'primary'} loading={waiting} onClick={() => void confirm()}>
+            {action}
+          </Button>
+        </>
+      }
+    >
+      {refusal}
+      {children}
+      <p>L’action est enregistrée dans le journal d’audit.</p>
+    </Modal>
+  )
+}
+
+export const answered = (response?: Response) => !!response && response.status < 500 && response.status !== 429

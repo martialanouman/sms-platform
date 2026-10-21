@@ -62,16 +62,16 @@ func DefaultRoles() []Role {
 	}
 	return []Role{
 		{Owner, "Tout, la gestion des opérateurs et des rôles comprise.", permissions(scopes.All, scopes.Permissions)},
-		{"Exploitation", "Écrit le routage, les numéros exacts, les connecteurs, les sessions, l'anti-spam, les scripts et " +
+		{"Exploitation", "Écrit le routage, les numéros exacts, les connecteurs, les sessions SMPP, l'anti-spam, les scripts et " +
 			"leur publication, la réécriture, les numéros entrants, l'opt-out sans le lever, les dead-letters et la " +
 			"plateforme ; lit le reste.", permissions(
 			readWrite("routes", "exact-routes", "connectors", "smpp-sessions", "antispam", "routing-scripts", "sender-rewrite",
 				"inbound-numbers", "suppressions", "opt-out-keywords", "dead-letters", "platform"),
-			[]string{"routing-scripts:publish", "msisdn:reveal", "cdr:export_bulk", "sessions:read", "sessions:write", "stream:read"},
+			[]string{"routing-scripts:publish", "msisdn:reveal", "cdr:export_bulk", "stream:read"},
 			suffixed(":read", slices.Concat(accounts, []string{"credentials", "billing", "cdr", "jobs", "traffic"})...))},
 		{"Scripts", "Écrit les scripts de routage sans les publier ; lit le trafic.",
 			permissions([]string{"routing-scripts:read", "routing-scripts:write", "traffic:read", "stream:read"})},
-		{"Support", "Lit les comptes, le routage, les connecteurs, les sessions, les CDR, la trace et la facturation, " +
+		{"Support", "Lit les comptes, le routage, les connecteurs, les sessions SMPP, les CDR, la trace et la facturation, " +
 			"MSISDN en clair ; jamais le corps, ni les scripts, ni la réécriture.",
 			permissions(support, []string{"msisdn:reveal", "stream:read"})},
 		{"Finance", "Tient la facturation ; lit ailleurs comme Support, sans MSISDN en clair.",

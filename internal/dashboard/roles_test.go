@@ -38,7 +38,7 @@ func spec85() map[string][]string {
 		"Propriétaire": set(scopes.All, scopes.Permissions),
 		"Exploitation": set(rw("routes", "exact-routes", "connectors", "smpp-sessions", "antispam", "routing-scripts",
 			"sender-rewrite", "inbound-numbers", "suppressions", "opt-out-keywords", "dead-letters", "platform"),
-			[]string{"routing-scripts:publish", "msisdn:reveal", "cdr:export_bulk", "sessions:read", "sessions:write", "stream:read"},
+			[]string{"routing-scripts:publish", "msisdn:reveal", "cdr:export_bulk", "stream:read"},
 			read("accounts", "customers", "customer-groups", "sender-ids", "credentials", "billing", "cdr", "jobs", "traffic")),
 		"Scripts":   set([]string{"routing-scripts:read", "routing-scripts:write", "traffic:read", "stream:read"}),
 		"Support":   set(supportReads, []string{"msisdn:reveal", "stream:read"}),
@@ -73,7 +73,7 @@ func TestDefaultRolesAreTheTableOfSpec85(t *testing.T) {
 
 func TestOnlyTheOwnerHoldsWhatSpec85KeepsOutOfEveryRole(t *testing.T) {
 	ownerOnly := []string{"content:read", "content:write", "operators:read", "operators:write", "roles:read", "roles:write",
-		"gateway:personal_token"}
+		"sessions:read", "sessions:write", "gateway:personal_token"}
 	held := map[string]bool{}
 	for _, r := range dashboard.DefaultRoles() {
 		if r.Name == dashboard.Owner {

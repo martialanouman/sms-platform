@@ -3,7 +3,7 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
 import { rememberChallenge } from '../session'
-import { challenge, empty, json, me, once, renderAt, stubFetch, violations } from '../test'
+import { challenge, empty, explained, json, me, once, renderAt, stubFetch, violations } from '../test'
 
 const owner = { ...me, permissions: ['operators:read', 'operators:write', 'roles:read'] }
 const support = { id: 'r-support', name: 'Support' }
@@ -55,9 +55,6 @@ const cells = (email: string) =>
   within(row(email))
     .getAllByRole('cell')
     .map((c) => c.textContent)
-
-const explained = (button: HTMLElement) =>
-  document.getElementById(button.getAttribute('aria-describedby') ?? '')?.textContent
 
 const refocus = () =>
   act(() => {

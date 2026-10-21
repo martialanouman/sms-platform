@@ -22,24 +22,25 @@ HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
   }
   modals.add(this)
   this.setAttribute('open', '')
-  this.addEventListener('keydown', dismissOnEscape)
+  this.querySelector<HTMLElement>('button, input, a[href], [tabindex]')?.focus()
 }
 
-function dismissOnEscape(this: HTMLDialogElement, event: KeyboardEvent) {
+document.addEventListener('keydown', (event) => {
+  const top = [...modals].filter((d) => d.isConnected && d.hasAttribute('open')).at(-1)
   queueMicrotask(() => {
     if (
       event.key === 'Escape' &&
       !event.defaultPrevented &&
-      this.dispatchEvent(new Event('cancel', { cancelable: true }))
+      top?.dispatchEvent(new Event('cancel', { cancelable: true }))
     ) {
-      this.close()
+      top.close()
     }
   })
-}
+})
+
 HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
   if (this.hasAttribute('open')) {
     this.removeAttribute('open')
-    this.removeEventListener('keydown', dismissOnEscape)
     this.dispatchEvent(new Event('close'))
   }
 }
@@ -119,6 +120,9 @@ export function stubPasskeys() {
   Object.defineProperty(navigator, 'credentials', { configurable: true, value: device })
   return device
 }
+
+export const explained = (button: HTMLElement) =>
+  document.getElementById(button.getAttribute('aria-describedby') ?? '')?.textContent
 
 export const noSession = () => json(401, { code: 'unauthenticated', message: 'Aucune session ouverte.' })
 
