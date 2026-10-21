@@ -60,6 +60,7 @@ test('the roles are listed with their permissions and holders counted', async ()
     .map((c) => c.textContent)
   expect(cells).toEqual(['Lit les comptes.', '2', '2'])
   expect(within(row('Support')).getAllByRole('cell')[1]?.classList.contains('ui-table__cell--end')).toBe(true)
+  expect(screen.getByRole('columnheader', { name: 'Permissions' }).classList.contains('ui-table__cell--end')).toBe(true)
   expect(await violations(container)).toEqual([])
 })
 
@@ -285,13 +286,15 @@ test('a session gone while reading the roles sends to the login', async () => {
   expect(router.state.location.search).toEqual({ notice: 'session-closed' })
 })
 
-test('a deletion that succeeds after its dialog was closed leaves another dialog open', async () => {
+test('a deletion that succeeds after its dialog was closed moves nothing', async () => {
   let release: () => void = () => {}
+  let list = [owner, readers]
   stubFetch({
     'GET /api/auth/me': () => json(200, writer),
-    'GET /api/roles': () => json(200, [owner, readers]),
+    'GET /api/roles': () => json(200, list),
     'DELETE /api/roles/r-readers': async () => {
       await new Promise<void>((resolve) => (release = resolve))
+      list = [owner]
       return new Response(null, { status: 204 })
     },
   })
@@ -301,8 +304,35 @@ test('a deletion that succeeds after its dialog was closed leaves another dialog
   await user.click(within(row('Lecteurs')).getByRole('button', { name: 'Supprimer' }))
   await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Supprimer' }))
   await user.keyboard('{Escape}')
-  await user.click(within(row('Propriétaire')).getByRole('button', { name: 'Voir les permissions' }))
-  await screen.findByRole('dialog', { name: 'Rôle Propriétaire' })
+  const view = within(row('Propriétaire')).getByRole('button', { name: 'Voir les permissions' })
+  view.focus()
   await act(async () => release())
-  expect(screen.getByRole('dialog', { name: 'Rôle Propriétaire' })).toBeDefined()
+  await waitFor(() => expect(screen.queryByRole('rowheader', { name: 'Lecteurs' })).toBeNull())
+  expect(document.activeElement).toBe(view)
+  await user.click(view)
+  await screen.findByRole('dialog', { name: 'Rôle Propriétaire' })
+})
+
+test.each([
+  [502, 'Le service ne répond pas ; réessayez.'],
+  [429, 'Trop de requêtes (serveur).'],
+])('a refusal %i of the service is not followed by a new read', async (status, message) => {
+  let reads = 0
+  stubFetch({
+    'GET /api/auth/me': () => json(200, writer),
+    'GET /api/roles': () => {
+      reads++
+      return json(200, [owner, readers])
+    },
+    'DELETE /api/roles/r-readers': () =>
+      status === 429 ? json(429, { code: 'rate_limited', message }) : new Response(null, { status }),
+  })
+  renderAt('/roles')
+  const user = userEvent.setup()
+  await screen.findByRole('rowheader', { name: 'Lecteurs' })
+  await user.click(within(row('Lecteurs')).getByRole('button', { name: 'Supprimer' }))
+  const dialog = await screen.findByRole('dialog')
+  await user.click(within(dialog).getByRole('button', { name: 'Supprimer' }))
+  expect((await within(dialog).findByRole('alert')).textContent).toBe(message)
+  expect(reads).toBe(1)
 })

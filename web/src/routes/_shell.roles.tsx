@@ -6,6 +6,7 @@ import type { components } from '../api.gen'
 import { rolesQuery } from '../queries'
 import { meQuery, Refused, Unauthenticated, useSessionClosed, useShellMe } from '../session'
 import {
+  answered,
   Button,
   Confirmation,
   DataTable,
@@ -40,6 +41,8 @@ function Roles() {
   const writes = held.includes('roles:write')
   const writable = writes ? undefined : 'Cette action demande roles:write.'
   const [pending, setPending] = useState<Pending>()
+  const current = useRef(pending)
+  current.current = pending
   const [deleted, setDeleted] = useState(0)
   const title = useRef<HTMLHeadingElement>(null)
 
@@ -134,8 +137,10 @@ function Roles() {
                 }
                 onClose={dismiss(pending)}
                 onDone={() => {
-                  dismiss(pending)()
-                  setDeleted((n) => n + 1)
+                  if (current.current === pending) {
+                    setPending(undefined)
+                    setDeleted((n) => n + 1)
+                  }
                 }}
               >
                 <p>
@@ -189,8 +194,10 @@ function Editor({ role, catalog, onClose }: { role?: Role; catalog: string[]; on
           })
         : api.POST('/roles', { body: { name, description, permissions }, headers: json }),
     )
-    for (const query of [rolesQuery, meQuery]) {
-      void queryClient.invalidateQueries({ queryKey: query.queryKey })
+    if (answered(outcome.response)) {
+      for (const query of [rolesQuery, meQuery]) {
+        void queryClient.invalidateQueries({ queryKey: query.queryKey })
+      }
     }
     if (outcome.failure === undefined) {
       onClose()

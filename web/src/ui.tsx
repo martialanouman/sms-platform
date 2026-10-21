@@ -279,7 +279,11 @@ export function DataTable<Row>({
       <thead>
         <tr>
           {columns.map((c) => (
-            <th className="ui-table__header" key={c.header} scope="col">
+            <th
+              className={c.end ? 'ui-table__header ui-table__cell--end' : 'ui-table__header'}
+              key={c.header}
+              scope="col"
+            >
               {c.header}
             </th>
           ))}
@@ -381,7 +385,9 @@ export function Confirmation({
 
   async function confirm() {
     const outcome = await submit(call)
-    void queryClient.invalidateQueries({ queryKey: invalidate })
+    if (answered(outcome.response)) {
+      void queryClient.invalidateQueries({ queryKey: invalidate })
+    }
     if (outcome.failure === undefined) {
       onDone()
     }
@@ -406,3 +412,5 @@ export function Confirmation({
     </Modal>
   )
 }
+
+export const answered = (response?: Response) => !!response && response.status < 500 && response.status !== 429
