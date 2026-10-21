@@ -59,3 +59,20 @@ Fable, 2026-10-21.
   vérifiée par `ecdsa.Verify` avec la clé du JWKS, rotation : deux versions, deux `kid`) ; HTTP (403, 503, JWKS absent
   de l'écouteur public) ; `contentkey` inchangé et vert. Mutation manuelle, consignée.
 - **Preuve** : en test seulement ; la preuve sur le cluster vient en 012c-2.
+
+## Écarts au design, constatés à l'implémentation
+
+- **Les tests du client OpenBao restent sous `internal/contentkey/openbao`**, qui l'exerce par son adaptateur : les y
+  laisser ne retire aucune protection, les déplacer réécrivait 300 lignes. Seul l'outillage de conteneur part, dans
+  `internal/platform/openbao/openbaotest`, partagé avec le signataire du dashboard.
+- **Le port `Signer` rend aussi le `kid` courant** (`Keys`) : l'en-tête du JWT nomme le `kid` avant la signature, et
+  `Sign` épingle la version par `key_version`. Une rotation entre les deux appels ne mélange pas les versions.
+- **Un signataire absent est indisponible (503)** : `cmd/dashboard` ne câble OpenBao qu'en 012c-2 ; la release qui
+  sépare les deux PR sert un 503 sur `issueGatewayToken`, jamais une panique.
+- **Le JWKS ne trie pas ses clés** : rien ne l'exige, aucun test ne le tenait.
+
+## Mutations
+
+Quarante-trois, à la main, sur le client déplacé, le cœur, l'adaptateur et les handlers ; toutes tombent. Trois avaient
+survécu : deux gardes redondantes de l'adaptateur (`kid` déjà refusé par `Atoi`, préfixe de version déjà épinglé),
+retirées ; `expiresAt` vérifié seulement non nul, désormais comparé.
