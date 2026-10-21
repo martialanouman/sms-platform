@@ -1,5 +1,6 @@
 import { waitFor } from '@testing-library/react'
 import { expect, test } from 'vitest'
+import { Refused, retry, Unauthenticated } from './session'
 import { json, stubFetch } from './test'
 
 test('the mounted dashboard sends a closed session to the login at once', async () => {
@@ -11,4 +12,11 @@ test('the mounted dashboard sends a closed session to the login at once', async 
   const styles = [...document.querySelectorAll('style')].map((s) => s.textContent).join('')
   expect(styles).toContain('.auth__card')
   expect(styles).toContain('--surface-page')
+})
+
+test('a refusal or a session gone is never retried, a failure up to three times', () => {
+  expect(retry(0, new Refused('Il faut la permission.'))).toBe(false)
+  expect(retry(0, new Unauthenticated())).toBe(false)
+  expect(retry(2, new Error('down'))).toBe(true)
+  expect(retry(3, new Error('down'))).toBe(false)
 })

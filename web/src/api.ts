@@ -6,6 +6,22 @@ export const api = createClient<paths>({
   fetch: (request) => globalThis.fetch(request),
 })
 
+export const mfaRequired = 'dashboard:mfa-required'
+
+api.use({
+  async onResponse({ response }) {
+    if (response.status === 403) {
+      const body = await response
+        .clone()
+        .json()
+        .catch(() => undefined)
+      if (body?.code === 'mfa_required') {
+        window.dispatchEvent(new Event(mfaRequired))
+      }
+    }
+  },
+})
+
 export const json = { 'Content-Type': 'application/json' }
 
 export const unreachable = 'Le service ne répond pas ; réessayez.'

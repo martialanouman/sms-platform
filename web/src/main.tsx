@@ -4,7 +4,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { newRouter } from './router'
 import './styles/app.css'
-import { Unauthenticated } from './session'
+import { retry } from './session'
 
 const root = document.getElementById('root')
 if (root) {
@@ -14,7 +14,7 @@ if (root) {
         client={
           new QueryClient({
             defaultOptions: {
-              queries: { retry: (count, error) => !(error instanceof Unauthenticated) && count < 3 },
+              queries: { retry },
             },
           })
         }

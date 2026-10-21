@@ -8,6 +8,12 @@ const activityEvery = 60_000
 
 export class Unauthenticated extends Error {}
 
+export class Refused extends Error {}
+
+export function retry(count: number, error: Error) {
+  return !(error instanceof Unauthenticated) && !(error instanceof Refused) && count < 3
+}
+
 type Challenge = components['schemas']['MfaChallenge']
 
 let loginChallenge: Challenge | undefined
@@ -54,6 +60,10 @@ export function useMe() {
   return useQuery(meQuery)
 }
 
+export function useShellMe() {
+  return useQuery({ ...meQuery, refetchOnMount: false })
+}
+
 export function useElevated() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -66,9 +76,11 @@ export function useElevated() {
 
 export function useSessionClosed() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   return useCallback(() => {
+    queryClient.clear()
     void navigate({ to: '/login', search: { notice: 'session-closed' } })
-  }, [navigate])
+  }, [navigate, queryClient])
 }
 
 export function useActivity(idleTimeoutSeconds: number | null | undefined) {
