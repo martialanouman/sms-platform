@@ -762,7 +762,7 @@
   font: var(--text-data);
 }
 
-.permission-picker legend {
+.permission-picker .role-choice legend {
   font: var(--text-data);
   letter-spacing: normal;
   text-transform: none;
