@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/fs"
 	"log/slog"
 	"mime"
@@ -261,7 +260,8 @@ func (s server) session(next StrictHandlerFunc, operation string) StrictHandlerF
 		}
 		for _, permission := range required {
 			if !slices.Contains(current.Permissions, permission) {
-				write(w, http.StatusForbidden, ErrorCodeForbiddenScope, fmt.Sprintf("Il faut la permission %s.", permission), nil)
+				f := forbidden(permission)
+				write(w, http.StatusForbidden, f.Code, f.Message, nil)
 				return nil, nil
 			}
 		}

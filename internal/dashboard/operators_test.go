@@ -70,7 +70,7 @@ func TestCreateOperatorQueuesItsActivationAndRefusesATakenEmail(t *testing.T) {
 			t.Errorf("logged %+v", e)
 		}
 	}
-	for _, email := range []string{"   ", "ada", "a@b@example.test", " @example.test", "ada@ "} {
+	for _, email := range []string{"   ", "ada", "a@b@example.test", " @example.test", "ada@ ", "a da@example.test", "ada@example.test\r\nBcc: x@example.test"} {
 		var invalid dashboard.InvalidField
 		if _, err := h.svc.CreateOperator(ctx, actor, email, "X"); !errors.As(err, &invalid) || invalid.Field != "email" {
 			t.Errorf("%q: %v", email, err)
@@ -418,6 +418,14 @@ func TestEveryWriteOfRolesWaitsForTheConcurrentOneAndSeesIt(t *testing.T) {
 		t.Fatalf("the owner holds %v", names(got.Roles))
 	}
 
+	err = h.concurrent(t, `UPDATE dashboard.operators SET status = 'disabled' WHERE id = '`+ada+`'`, func() error {
+		return h.svc.RequestAccessLink(ctx, actor, ada)
+	})
+	if !errors.Is(err, dashboard.ErrOperatorDisabled) {
+		t.Fatalf("a link to an account disabled meanwhile: %v", err)
+	}
+	h.exec(t, `UPDATE dashboard.operators SET status = 'active' WHERE id = $1`, ada)
+
 	err = h.concurrent(t, `DELETE FROM dashboard.roles WHERE name = 'G1'`, func() error {
 		_, err := h.svc.SetOperatorRoles(ctx, actor, ada, []string{g1.ID})
 		return err
@@ -454,6 +462,7 @@ func TestAnAuthorWhoLostThePermissionOrHisAccountWritesNothing(t *testing.T) {
 		{"roles:write", map[string]func(string) error{
 			"status": func(by string) error { _, err := h.svc.SetOperatorStatus(ctx, by, actor, true); return err },
 			"roles":  func(by string) error { _, err := h.svc.SetOperatorRoles(ctx, by, actor, []string{support}); return err },
+			"link":   func(by string) error { return h.svc.RequestAccessLink(ctx, by, actor) },
 		}},
 		{"operators:write", map[string]func(string) error{
 			"create role": func(by string) error { _, err := h.svc.CreateRole(ctx, by, "X", "", nil); return err },

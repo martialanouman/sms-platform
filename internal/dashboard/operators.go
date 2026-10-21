@@ -142,6 +142,9 @@ func (s Service) SetOperatorStatus(ctx context.Context, actor, id string, active
 // RequestAccessLink queues an activation link for an account without password, a reset link otherwise.
 func (s Service) RequestAccessLink(ctx context.Context, actor, id string) error {
 	return s.Store.Tx(ctx, func(tx Tx) error {
+		if err := authorize(ctx, tx, actor, "operators:write"); err != nil {
+			return err
+		}
 		o, found, err := tx.OperatorByID(ctx, id)
 		switch {
 		case err != nil:

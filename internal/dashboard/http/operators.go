@@ -110,6 +110,8 @@ func (s server) SetOperatorRoles(ctx context.Context, request SetOperatorRolesRe
 func (s server) RequestOperatorAccessLink(ctx context.Context, request RequestOperatorAccessLinkRequestObject) (RequestOperatorAccessLinkResponseObject, error) {
 	err := s.Service.RequestAccessLink(ctx, actor(ctx), request.OperatorId)
 	switch {
+	case errors.Is(err, dashboard.ErrForbidden):
+		return RequestOperatorAccessLink403JSONResponse{forbidden("operators:write")}, nil
 	case errors.Is(err, dashboard.ErrNotFound):
 		return RequestOperatorAccessLink404JSONResponse{NotFoundJSONResponse{Code: ErrorCodeNotFound, Message: unknownOperator}}, nil
 	case errors.Is(err, dashboard.ErrOperatorDisabled):

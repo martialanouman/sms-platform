@@ -178,6 +178,7 @@ func TestAnAuthorStrippedWhileHisRequestWaitsIsRefused(t *testing.T) {
 		"create role": {method: "POST", path: "/api/roles", body: `{"name":"X","description":"","permissions":[]}`},
 		"update role": {method: "PATCH", path: role, body: `{"description":"x","permissions":[]}`},
 		"delete role": {method: "DELETE", path: role},
+		"access link": {method: "POST", path: operator + "/access-link"},
 	} {
 		req.cookie = c
 		a.holdOnly(t, "Propriétaire")
@@ -193,7 +194,11 @@ func TestAnAuthorStrippedWhileHisRequestWaitsIsRefused(t *testing.T) {
 		}
 		done := make(chan answer, 1)
 		go func() { done <- a.do(t, req) }()
-		time.Sleep(300 * time.Millisecond)
+		select {
+		case got := <-done:
+			t.Fatalf("%s did not wait for the concurrent write: %d %s", name, got.status, got.raw)
+		case <-time.After(300 * time.Millisecond):
+		}
 		if err := other.Commit(ctx); err != nil {
 			t.Fatal(err)
 		}

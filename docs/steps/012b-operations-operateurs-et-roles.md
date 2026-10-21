@@ -54,10 +54,12 @@ Fable, 2026-10-21.
      rôles vidés à la fois), deux détenteurs se retiraient l'un l'autre `operators:write`, une suppression de rôle
      concurrente de sa pose rendait 500. Un verrou consultatif transactionnel unique,
      `pg_advisory_xact_lock(hashtext('dashboard.roles'))`, est le premier ordre de `updateOperator`,
-     `setOperatorRoles`, `createRole`, `updateRole`, `deleteRole` et du bootstrap ; les `FOR UPDATE` partent.
+     `setOperatorRoles`, `requestOperatorAccessLink`, `createRole`, `updateRole`, `deleteRole` et du bootstrap ; les
+     `FOR UPDATE` partent.
 162. **L'auteur revérifié sous le verrou** (Fable) : actif et détenteur de la permission de l'opération, sinon 403
-     `forbidden_scope`. Il reste un détenteur actif parce que chaque écriture est sérialisée et revérifie son auteur
-     (150 corrigé).
+     `forbidden_scope`. Il reste un détenteur actif parce que chaque écriture des rôles, des détentions, d'un statut
+     ou d'un lien est sérialisée et revérifie son auteur (150 corrigé). `createOperator` n'y passe pas : elle ne touche
+     à aucune permission.
 163. **Email** (Fable) : après normalisation, exactement un `@`, les deux côtés non vides, sinon 422 `email` ; la même
      fonction refuse au démarrage une `DASHBOARD_BOOTSTRAP_EMAIL` invalide.
 164. **Nom de rôle** (Fable) : espaces retirées ; vide ensuite → 422 `name`. La description est retaillée de même.
@@ -105,3 +107,18 @@ Trois revues (correction et sécurité ; tests creux ; code en trop). Deux impor
 5. **Gardé** : `role_held` nomme les emails des détenteurs à qui n'a que `roles:write` (contrat) ; un futur rôle par
    défaut homonyme d'un rôle taillé l'écraserait au semis (latent) ; les deux sous-requêtes des rôles d'un opérateur
    et le port `RolesOf` (gain faible).
+
+## Correctifs de revue, tour 2
+
+Une revue des correctifs du tour 1. Aucun bloquant.
+
+1. **`requestOperatorAccessLink` passe par le verrou et la revérification** : le `FOR UPDATE` retiré la protégeait d'une
+   désactivation concurrente ; un lien partait en file pour un compte désactivé.
+2. **Le test HTTP de la revérification échoue si la requête n'attend pas le verrou**, comme celui du cœur ; il ne
+   prouvait rien quand la requête arrivait après le commit.
+3. **Adresse avec espace ou caractère de contrôle refusée** (163 étendu) : elle se créait, puis son lien échouait sans
+   fin au relais SMTP, qui refuse CR et LF.
+4. **Un seul message de permission refusée**, partagé par la garde et les handlers ; son nom de permission est lu par un
+   test.
+5. **Gardé** : `self_lockout` (409) et les 422 de validation passent avant la revérification (403) ; sans effet, la
+   garde HTTP ayant déjà vérifié la permission.
