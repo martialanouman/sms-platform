@@ -73,7 +73,9 @@ func (k *Keys) fetch(ctx context.Context) (map[string]*ecdsa.PublicKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := k.Client.Do(req)
+	client := *k.Client
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}

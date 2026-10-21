@@ -257,3 +257,21 @@ func TestAnErrorStatusIsRefusedWhateverItsBody(t *testing.T) {
 		t.Fatal("a key set served under 502 was taken")
 	}
 }
+
+func TestARedirectIsNeverFollowed(t *testing.T) {
+	elsewhere := &issuer{keys: map[string]*ecdsa.PrivateKey{}}
+	elsewhere.add(t, "v1")
+	target := httptest.NewServer(elsewhere)
+	t.Cleanup(target.Close)
+	redirect := httptest.NewServer(http.RedirectHandler(target.URL, http.StatusFound))
+	t.Cleanup(redirect.Close)
+	k := &jwks.Keys{URL: redirect.URL, Client: redirect.Client(), Now: time.Now, Log: slog.New(slog.DiscardHandler),
+		Failures: prometheus.NewCounter(prometheus.CounterOpts{Name: "failures"})}
+
+	if _, err := k.Key(context.Background(), "v1"); err == nil {
+		t.Fatal("a key set behind a redirect was taken")
+	}
+	if n := elsewhere.fetches.Load(); n != 0 {
+		t.Fatalf("the redirect was followed %d times", n)
+	}
+}
