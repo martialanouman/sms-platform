@@ -65,8 +65,10 @@ Fable, 2026-10-21, sauf mention. 252 et 254 tranchés par l'humain le même jour
   (`server.current`) ; le proxy et cette garde l'appellent tous deux. `unsafe` est partagé de même.
 - **Opération sans corps** : le proxy exige `application/json` sur une méthode non sûre dont l'opération Admin ne
   déclare aucun corps, comme le BFF pour ses propres opérations.
-- **Relais du `cmd/` non prouvé en test** : le test de bout en bout du dashboard n'a pas d'OpenBao, le jeton ne s'y
-  signe pas ; le transport mTLS du relais est prouvé sur `contabo169`.
+- **Transport construit par `dashboardhttp.GatewayTransport`** (délais de connexion, de poignée TLS et d'en-têtes) : les
+  tests du proxy relaient par lui, sous mTLS, vers une passerelle de test au certificat client exigé. Le `cmd/` ne
+  fait que l'appeler ; son test de bout en bout n'a pas d'OpenBao, le relais y rend 503 avant le transport, et
+  `Gateway` n'y est donc pas exercé : la preuve sur `contabo169` le couvre.
 
 ## Mutations
 
@@ -92,3 +94,24 @@ public) : image `dashboard` construite localement, importée sous `proof-013c` ;
    - réplique rendue : 200.
 
 Rôles et élévation de l'opérateur rétablis ; `dashboard` reste sous `proof-013c` jusqu'à la release.
+
+## Correctifs de revue, tour 1
+
+Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloquant.
+
+1. **Transport sans délai de connexion ni de poignée** (moyenne) : une passerelle muette retenait chaque requête sans
+   rendre le 503 promis ; `GatewayTransport` borne chaque étape, un test le prouve contre un écouteur muet.
+2. **Segments `.` et `..` relayés** (basse) : `/admin/customers/%2e%2e` atteignait la passerelle ; le proxy refuse tout
+   chemin que `path.Clean` change.
+3. **Client parti journalisé comme passerelle injoignable** (basse) : rien n'est journalisé quand le contexte de la
+   requête est déjà fini.
+4. **Tests creux** : l'ordre « contrat, origine, média avant la session » est prouvé sans cookie ; le signataire en
+   panne est joué passerelle vivante, sans appel amont ; un `Authorization` forgé est écrasé ; aucun jeton n'est signé
+   pour un refus ; le 200 relayé est comparé octet pour octet, `Content-Type` compris ; la passerelle de test exige
+   le mTLS.
+5. **Code en trop retiré** : la signature des claims partagée entre jeton personnel et jeton de l'opérateur, la branche
+   `RequestBody.Value == nil`, la constante `relayPrefix`.
+6. **Dette #167** : le `ReadTimeout` de 10 s borne un import relayé (servi en 017).
+7. **Gardés, avec raison** : les en-têtes de réponse de la passerelle ne sont pas filtrés (elle n'en pose aucun qui
+   gêne) ; les en-têtes de requête du navigateur sont relayés sauf ceux retirés (liste de refus : la passerelle ne lit
+   aucun des autres) ; l'origine reste contrôlée en double dans la garde du BFF et le proxy (quatre lignes).
