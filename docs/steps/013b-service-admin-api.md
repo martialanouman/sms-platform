@@ -76,10 +76,11 @@ Fable, 2026-10-21, sauf mention. 242 et 241 confirmés par l'humain le même jou
 
 ## Écarts au design, constatés à l'implémentation
 
-- **Pas d'`ErrorLog` sur le serveur** (243) : `slog.SetDefault` fait déjà passer le paquet `log` par le journal JSON ;
-  le refus de handshake y sort, le test le lit. Le mutant qui retirait `ErrorLog` survivait.
-- **Garde de `DASHBOARD_PUBLIC_URL`** : lue par une expression sur chaque manifest de `deploy/k8s`, toutes les valeurs
-  égales.
+- **Pas d'`ErrorLog` sur le serveur** (243) : `slog.SetDefault`, posé en tête de `run`, fait passer le paquet `log` par
+  le journal JSON, en Warn (`slog.SetLogLoggerLevel`) ; le refus de handshake y sort.
+- **Pas de garde des fichiers TLS** dans `validate` : `mtls.Files.Server` refuse un chemin vide avant toute écoute.
+- **Garde de `DASHBOARD_PUBLIC_URL`** : lue par le YAML de chaque manifest ; valeur littérale exigée du dashboard et de
+  tout lecteur de `JWKS_URL`, toutes égales.
 - **Test du `cmd/`** : le JWKS de test est servi sous le SAN `localhost` (le nom `dashboard` ne se résout pas hors du
   cluster) ; la vérification du nom reste celle de Go, depuis l'hôte de l'URL.
 
@@ -107,3 +108,23 @@ Jouée le 2026-10-21 depuis la branche, sur le cluster en v0.26.0 : image `admin
 
 Objets de preuve retirés (pods, certificat, Secret, NetworkPolicy, jetons) ; `admin-api-svc` reste déployé sous
 `proof-013b` jusqu'à la release. Après la release : rendre public le paquet GHCR `admin-api-svc` (humain).
+
+## Correctifs de revue, tour 1
+
+Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloquant.
+
+1. **Garde de l'émetteur contournable** (moyenne) : une expression ne voyait ni `valueFrom`, ni la forme en flux, ni
+   l'absence ; la garde lit le YAML et exige une valeur littérale. Quatre cas neufs.
+2. **Redirection suivie par le client du JWKS** (basse) : l'adaptateur refuse toute redirection, comme celui d'OpenBao
+   (010b-2, arbitrage 9).
+3. **Refus de handshake perdu au-dessus d'Info** (basse) : le paquet `log` écrit en Warn ; `SetDefault` en tête de
+   `run`, avant `pgdial.Retry`, dont les lignes sortaient en texte.
+4. **Tests creux** : « rien n'est lu au démarrage » compte les lectures du JWKS ; un JWKS servi sous un autre SAN est
+   refusé (le mutant `InsecureSkipVerify` tombe) ; l'émetteur du test porte un `/` final (`Origin` exercé) ; le boot à
+   mauvais mot de passe est borné et rend 28P01 ; les compteurs sont lus ligne entière.
+5. **Code en trop retiré** : les trois gardes des fichiers TLS, le champ `Service` du test, la lecture d'une ligne JSON
+   écrite deux fois.
+6. **Gardés, avec raison** : `serve` et les aides de test (`freeAddr`, `lockedBuffer`) restent copiés jusqu'au
+   troisième serveur HTTP (021) ; pas de `WriteTimeout` (seul `dashboard` passe le mTLS, l'arrêt est borné, un flux de
+   026 le contredirait) ; l'hôte de `JWKS_URL` n'est pas épinglé (une autre cible échoue fermée par `iss` et `aud`) ;
+   le `Now` du vérificateur n'est pas exercé au câblage (couvert par `verify_test`).
