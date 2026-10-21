@@ -22,8 +22,7 @@ func (h *harness) holds(t *testing.T, email string) []string {
 func (h *harness) grant(t *testing.T, email string, roles ...string) {
 	t.Helper()
 	h.exec(t, `INSERT INTO dashboard.operator_roles (operator_id, role_id)
-		SELECT o.id, r.id FROM dashboard.operators o, dashboard.roles r WHERE lower(o.email) = lower($1) AND r.name = ANY($2)
-		ON CONFLICT DO NOTHING`, email, roles)
+		SELECT o.id, r.id FROM dashboard.operators o, dashboard.roles r WHERE lower(o.email) = lower($1) AND r.name = ANY($2)`, email, roles)
 }
 
 func rolesChanged(log []dashboard.Entry) []dashboard.Entry {
@@ -131,7 +130,7 @@ func TestASessionCarriesTheUnionOfTheRolesOfItsOperator(t *testing.T) {
 	if err := h.svc.Bootstrap(context.Background(), "other@example.test"); err != nil {
 		t.Fatal(err)
 	}
-	h.grant(t, "other@example.test", dashboard.Owner, "Clientèle")
+	h.grant(t, "other@example.test", "Clientèle")
 	l := h.login(t, "owner@example.test")
 	c, err := h.svc.Resolve(context.Background(), l.Cookie)
 	if err != nil {

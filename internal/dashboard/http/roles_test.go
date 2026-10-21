@@ -2,6 +2,7 @@ package http_test
 
 import (
 	"context"
+	"fmt"
 	"net/netip"
 	"testing"
 )
@@ -40,6 +41,12 @@ func TestASessionNotElevatedReachesOnlyAuthWhenItsRolesRequireMFA(t *testing.T) 
 		if got := a.do(t, call{method: "GET", path: "/api/auth/me", cookie: s.cookie}); got.status != 200 || got.body["permissions"] == nil {
 			t.Errorf("%v: me %d %s", tc.roles, got.status, got.raw)
 		}
+	}
+
+	a.holdOnly(t, "Reporting")
+	me := a.do(t, call{method: "GET", path: "/api/auth/me", cookie: s.cookie})
+	if got, _ := me.body["permissions"].([]any); fmt.Sprint(got) != "[billing:read stream:read traffic:read]" {
+		t.Errorf("me of a Reporting session: %s", me.raw)
 	}
 
 	a.holdOnly(t, "Audit")

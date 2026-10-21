@@ -120,7 +120,7 @@ Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloq
 1. **Union non filtrée par opérateur** (haute, tests) : chaque test n'avait qu'un opérateur ; `WHERE true` survivait.
    Un second opérateur, `Propriétaire`, tient désormais le test d'union.
 2. **Code en trop retiré** : la cascade de `operator_roles` (un rôle détenu ne se supprime pas, 012b) ; `content:write`
-   des sensibles ; le test HTTP d'union, redondant avec le cœur et `me`.
+   des sensibles ; le test HTTP d'union (à tort : voir le tour 2).
 3. **Tests** : `noc` attendu en liste littérale, plus recalculé comme le code ; `me` comparé au contenu, plus compté ;
    `me` sans rôle rend `[]`.
 4. **Gardé, soumis à l'humain** : `sessions:read` et `sessions:write` à `Exploitation` (145, lecture de Fable : la ligne
@@ -129,6 +129,14 @@ Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloq
    aller à l'opérateur du bootstrap désactivé, ce qui ne rend aucun propriétaire actif (142, à la lettre) ; un compte
    actif jamais activé compte comme propriétaire ; un futur rôle par défaut homonyme d'un rôle taillé l'écraserait,
    à trancher quand 012b ouvre `createRole`.
+
+## Correctifs de revue, tour 2
+
+Une revue des correctifs du tour 1. Aucun bloquant.
+
+1. **`me` d'un opérateur non propriétaire** (moyenne) : le retrait du test HTTP d'union laissait survivre un `me` qui
+   rend une autre liste que l'union ; le cas `Reporting` compare désormais le contenu. La mutation tombe.
+2. **Code en trop** : le `ON CONFLICT` du helper `grant`, ajouté pour un octroi que le bootstrap fait déjà.
 
 ## Preuve sur `contabo169`
 
