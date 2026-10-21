@@ -32,7 +32,8 @@ une autre peut s'ajouter au démarrage d'une step, comme au socle.
 | 011b-3 | Dashboard : WebAuthn | Fondations |
 | 012a | Dashboard : rôles et autorisation | Fondations |
 | 012b | Dashboard : opérations opérateurs et rôles | Fondations |
-| 012c | Dashboard : jetons, JWKS, jeton personnel | Fondations |
+| 012c-1 | Dashboard : émetteur, Transit, jeton personnel | Fondations |
+| 012c-2 | Dashboard : écouteur interne du JWKS et déploiement | Fondations |
 | 012d | Dashboard : coquille et écran Opérateurs | Fondations |
 | 012e | Dashboard : écrans Rôles et jeton personnel | Fondations |
 | 013 | `admin-api-svc` : autorisation, audit, proxy ; écran Audit | Fondations |
@@ -150,6 +151,8 @@ et leurs écrans, MFA obligatoire selon la portée, émission des jetons signés
 sur l'écouteur interne, jeton personnel.
 Coupée en cinq (Fable, 2026-10-21) : rôles et autorisation ; opérations opérateurs et rôles ; jetons ; coquille et écran
 Opérateurs ; écrans Rôles et jeton personnel (`docs/steps/012a-roles-et-autorisation.md`).
+012c coupée en deux (Fable, 2026-10-21) : cœur et adaptateurs ; écouteur interne et déploiement
+(`docs/steps/012c-1-emetteur-et-transit.md`).
 
 **Terminé quand** : un jeton porte l'union des scopes des rôles de l'opérateur et se vérifie par le JWKS
 interne ; une session non élevée d'un rôle qui écrit n'atteint que `/auth/*`.
