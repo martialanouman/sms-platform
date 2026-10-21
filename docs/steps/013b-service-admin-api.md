@@ -117,8 +117,8 @@ Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloq
    l'absence ; la garde lit le YAML et exige une valeur littérale. Quatre cas neufs.
 2. **Redirection suivie par le client du JWKS** (basse) : l'adaptateur refuse toute redirection, comme celui d'OpenBao
    (010b-2, arbitrage 9).
-3. **Refus de handshake perdu au-dessus d'Info** (basse) : le paquet `log` écrit en Warn ; `SetDefault` en tête de
-   `run`, avant `pgdial.Retry`, dont les lignes sortaient en texte.
+3. **Refus de handshake perdu au-dessus d'Info** (basse) : le paquet `log` écrit en Warn ; `SetDefault` posé en tête de
+   `run`, avant toute ligne du paquet `log`.
 4. **Tests creux** : « rien n'est lu au démarrage » compte les lectures du JWKS ; un JWKS servi sous un autre SAN est
    refusé (le mutant `InsecureSkipVerify` tombe) ; l'émetteur du test porte un `/` final (`Origin` exercé) ; le boot à
    mauvais mot de passe est borné et rend 28P01 ; les compteurs sont lus ligne entière.
@@ -128,3 +128,16 @@ Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloq
    troisième serveur HTTP (021) ; pas de `WriteTimeout` (seul `dashboard` passe le mTLS, l'arrêt est borné, un flux de
    026 le contredirait) ; l'hôte de `JWKS_URL` n'est pas épinglé (une autre cible échoue fermée par `iss` et `aud`) ;
    le `Now` du vérificateur n'est pas exercé au câblage (couvert par `verify_test`).
+
+## Correctifs de revue, tour 2
+
+Une revue des correctifs du tour 1. Aucun bloquant.
+
+1. **Prose fausse** : `pgdial.Retry` écrit par le journal qu'on lui passe, déjà en JSON ; la justification du
+   déplacement de `SetDefault` est corrigée (le déplacement reste, sans effet observable).
+2. **Refus d'un fichier TLS vide sans test** depuis le retrait des gardes : un cas le rétablit (refus avant toute écoute,
+   message de `mtls`).
+3. **Gardés** : `issuerOf` ne lit que les conteneurs et garde la dernière valeur (aucun sidecar ni second document
+   aujourd'hui) ; la comparaison est littérale, un `/` final d'un seul côté échoue en CI alors que `Origin` l'accepterait
+   (faux positif, du côté sûr) ; `issuerOf` relit le YAML que `checkManifest` décode aussi ; le test du SAN échoue sur
+   tout refus TLS, ce qui suffit à tuer `InsecureSkipVerify`.

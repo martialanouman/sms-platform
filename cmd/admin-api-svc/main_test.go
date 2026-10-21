@@ -70,6 +70,7 @@ func TestRunRefusesEachFaultBeforeListening(t *testing.T) {
 		"issuer with a path":      {func(i *config.Infra) { i.PublicURL = "https://dashboard.test/app" }, "DASHBOARD_PUBLIC_URL"},
 		"no Postgres":             {func(i *config.Infra) { i.PostgresURL = "" }, "POSTGRES_URL"},
 		"unreadable Postgres URL": {func(i *config.Infra) { i.PostgresURL = "postgres://[" }, "POSTGRES_URL"},
+		"no certificate":          {func(i *config.Infra) { i.TLS.Cert = "" }, "mtls"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			infra := valid(t, mtlstest.New(t))
