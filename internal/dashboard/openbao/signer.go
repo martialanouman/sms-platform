@@ -4,6 +4,7 @@ package openbao
 import (
 	"context"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
@@ -19,8 +20,7 @@ import (
 
 const key = "dashboard-token"
 
-// ErrUnknownKid is a kid that names no version of the signing key.
-var ErrUnknownKid = errors.New("openbao: unknown kid")
+var errUnknownKid = errors.New("openbao: unknown kid")
 
 // Signer signs under the Transit key dashboard-token; each version of the key is a kid.
 type Signer struct {
@@ -60,9 +60,12 @@ func (s *Signer) Keys(ctx context.Context) (string, []dashboard.PublicKey, error
 			return "", nil, fmt.Errorf("openbao: version %d: no PEM public key", version)
 		}
 		parsed, err := x509.ParsePKIXPublicKey(block.Bytes)
+		if err != nil {
+			return "", nil, fmt.Errorf("openbao: version %d: %w", version, err)
+		}
 		public, ok := parsed.(*ecdsa.PublicKey)
-		if err != nil || !ok {
-			return "", nil, fmt.Errorf("openbao: version %d: not an ECDSA public key: %w", version, err)
+		if !ok || public.Curve != elliptic.P256() {
+			return "", nil, fmt.Errorf("openbao: version %d: not a P-256 public key", version)
 		}
 		keys = append(keys, dashboard.PublicKey{Kid: kid(version), Key: public})
 	}
@@ -76,7 +79,7 @@ func (s *Signer) Keys(ctx context.Context) (string, []dashboard.PublicKey, error
 func (s *Signer) Sign(ctx context.Context, k string, input []byte) ([]byte, error) {
 	version, err := strconv.Atoi(strings.TrimPrefix(k, key+"-v"))
 	if err != nil {
-		return nil, ErrUnknownKid
+		return nil, errUnknownKid
 	}
 	var out struct {
 		Data struct {

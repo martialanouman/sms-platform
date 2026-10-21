@@ -2,8 +2,12 @@ package openbao_test
 
 import (
 	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/sha256"
-	"errors"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -11,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -97,12 +102,22 @@ func TestASignerOutsideItsPolicyOrUnreachableFails(t *testing.T) {
 			t.Errorf("%s: signed", name)
 		}
 	}
-	if _, err := openbao.New(b.Addr, &http.Client{}, "dashboard", b.JWT).Sign(t.Context(), "dashboard-token", []byte("x")); !errors.Is(err, openbao.ErrUnknownKid) {
+	if _, err := openbao.New(b.Addr, &http.Client{}, "dashboard", b.JWT).Sign(t.Context(), "dashboard-token", []byte("x")); err == nil {
 		t.Fatalf("a kid without version: %v", err)
 	}
 }
 
-func TestAnAnswerWithoutSignatureOrKeyIsAnError(t *testing.T) {
+func publicPEM(t *testing.T, key any) string {
+	t.Helper()
+	der, err := x509.MarshalPKIXPublicKey(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.ReplaceAll(string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: der})), "\n", `\n`)
+}
+
+func answering(t *testing.T, transit string) *openbao.Signer {
+	t.Helper()
 	jwt := filepath.Join(t.TempDir(), "token")
 	if err := os.WriteFile(jwt, []byte("jwt"), 0o600); err != nil {
 		t.Fatal(err)
@@ -112,14 +127,43 @@ func TestAnAnswerWithoutSignatureOrKeyIsAnError(t *testing.T) {
 			_, _ = fmt.Fprint(w, `{"auth":{"client_token":"t","lease_duration":3600}}`)
 			return
 		}
-		_, _ = fmt.Fprint(w, `{"data":{"signature":"vault:v1:","latest_version":0,"keys":{}}}`)
+		_, _ = fmt.Fprint(w, transit)
 	}))
 	t.Cleanup(srv.Close)
-	s := openbao.New(srv.URL, &http.Client{Timeout: 5 * time.Second}, "dashboard", jwt)
-	if sig, err := s.Sign(t.Context(), "dashboard-token-v1", []byte("x")); err == nil {
+	return openbao.New(srv.URL, &http.Client{Timeout: 5 * time.Second}, "dashboard", jwt)
+}
+
+func TestAnAnswerWithoutAnES256SignatureOrAP256KeyIsAnError(t *testing.T) {
+	if sig, err := answering(t, `{"data":{"signature":"vault:v1:"}}`).Sign(t.Context(), "dashboard-token-v1", []byte("x")); err == nil {
 		t.Fatalf("signed %x without a signature", sig)
 	}
-	if _, _, err := s.Keys(t.Context()); err == nil {
-		t.Fatal("keys without a key")
+	p256, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p384, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	edwards, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys := func(latest int, pem string) string {
+		return fmt.Sprintf(`{"data":{"latest_version":%d,"keys":{"1":{"public_key":"%s"}}}}`, latest, pem)
+	}
+	if _, _, err := answering(t, keys(1, publicPEM(t, &p256.PublicKey))).Keys(t.Context()); err != nil {
+		t.Fatalf("a P-256 key: %v", err)
+	}
+	for name, transit := range map[string]string{
+		"no latest version": keys(0, publicPEM(t, &p256.PublicKey)),
+		"no key":            `{"data":{"latest_version":1,"keys":{}}}`,
+		"not PEM":           keys(1, "x"),
+		"P-384":             keys(1, publicPEM(t, &p384.PublicKey)),
+		"Ed25519":           keys(1, publicPEM(t, edwards)),
+	} {
+		if _, keys, err := answering(t, transit).Keys(t.Context()); err == nil || strings.Contains(err.Error(), "%!") {
+			t.Errorf("%s: %v, %v", name, keys, err)
+		}
 	}
 }
