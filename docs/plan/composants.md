@@ -35,6 +35,7 @@ une autre peut s'ajouter au démarrage d'une step, comme au socle.
 | 012c-1 | Dashboard : émetteur, Transit, jeton personnel | Fondations |
 | 012c-2 | Dashboard : écouteur interne du JWKS et déploiement | Fondations |
 | 012d | Dashboard : coquille et écran Opérateurs | Fondations |
+| 012d-2 | Dashboard : coquille et écran Opérateurs de l'origine | Fondations |
 | 012e | Dashboard : écrans Rôles et jeton personnel | Fondations |
 | 013 | `admin-api-svc` : autorisation, audit, proxy ; écran Audit | Fondations |
 | 014a | Clients, groupes, comptes | Tranche |
