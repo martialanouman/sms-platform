@@ -180,7 +180,7 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger, registry pro
 		return err
 	}
 	handler, err := dashboardhttp.New(dashboardhttp.Config{Service: svc, Origin: expected, TrustedProxies: infra.TrustedProxies, Log: log, Assets: web.FS(),
-		Gateway: gateway, GatewayTransport: &http.Transport{TLSClientConfig: clientTLS, ResponseHeaderTimeout: 30 * time.Second}})
+		Gateway: gateway, GatewayTransport: dashboardhttp.GatewayTransport(clientTLS)})
 	if err != nil {
 		return err
 	}
@@ -221,6 +221,7 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger, registry pro
 			log.WarnContext(ctx, "purge failed", "error", err)
 		}
 	}))
+	// debt: #167
 	sup.Add("http", serve(&http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second,
 		ErrorLog: slog.NewLogLogger(log.Handler(), slog.LevelWarn)}, ln, infra.ShutdownTimeout))
 	sup.Add("internal", serve(&http.Server{Handler: dashboardhttp.JWKS(svc), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second,

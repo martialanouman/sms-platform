@@ -1,15 +1,19 @@
 package http
 
 import (
+	"crypto/tls"
 	"errors"
 	"io/fs"
 	"log/slog"
 	"maps"
 	"mime"
+	"net"
 	"net/http"
 	"net/http/httputil"
+	"path"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/routers/gorillamux"
@@ -17,8 +21,6 @@ import (
 	"github.com/martialanouman/sms-platform/contracts"
 	"github.com/martialanouman/sms-platform/internal/dashboard"
 )
-
-const relayPrefix = "/api/gw"
 
 // proxy relays the operations of the Admin API contract to the gateway under the operator's token, deciding nothing
 // the gateway decides (spec 08 §8.2, I12, I14).
@@ -41,15 +43,17 @@ func (s server) proxy() (http.Handler, error) {
 		Transport: s.GatewayTransport,
 		ErrorLog:  slog.NewLogLogger(s.Log.Handler(), slog.LevelWarn),
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
-			s.Log.WarnContext(r.Context(), "admin api unreachable", "operation", r.URL.Path, "error", err)
+			if r.Context().Err() == nil {
+				s.Log.WarnContext(r.Context(), "admin api unreachable", "operation", r.URL.Path, "error", err)
+			}
 			unavailable(w)
 		},
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		out := r.Clone(r.Context())
-		out.URL.Path = strings.TrimPrefix(r.URL.Path, relayPrefix)
+		out.URL.Path = strings.TrimPrefix(r.URL.Path, "/api/gw")
 		route, _, err := router.FindRoute(out)
-		if err != nil || route.Operation.Extensions["x-websocket-message"] != nil {
+		if err != nil || path.Clean(out.URL.Path) != out.URL.Path || route.Operation.Extensions["x-websocket-message"] != nil {
 			write(w, http.StatusNotFound, ErrorCodeNotFound, "Aucune ressource à cette adresse.", nil)
 			return
 		}
@@ -91,7 +95,7 @@ func (s server) proxy() (http.Handler, error) {
 }
 
 func accepted(op *openapi3.Operation) []string {
-	if op.RequestBody == nil || op.RequestBody.Value == nil {
+	if op.RequestBody == nil {
 		return []string{"application/json"}
 	}
 	return slices.Collect(maps.Keys(op.RequestBody.Value.Content))
@@ -99,4 +103,15 @@ func accepted(op *openapi3.Operation) []string {
 
 func unavailable(w http.ResponseWriter) {
 	write(w, http.StatusServiceUnavailable, ErrorCodeServiceUnavailable, "La passerelle ne répond pas.", nil)
+}
+
+// GatewayTransport is the mTLS transport of the proxy, bounded at each step so an unreachable gateway answers 503.
+func GatewayTransport(tlsConfig *tls.Config) *http.Transport {
+	return &http.Transport{
+		TLSClientConfig:       tlsConfig,
+		DialContext:           (&net.Dialer{Timeout: 5 * time.Second}).DialContext,
+		TLSHandshakeTimeout:   5 * time.Second,
+		ResponseHeaderTimeout: 30 * time.Second,
+		IdleConnTimeout:       90 * time.Second,
+	}
 }

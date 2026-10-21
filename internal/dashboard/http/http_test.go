@@ -100,7 +100,7 @@ func newAPI(t *testing.T, trusted ...netip.Prefix) *api {
 	logs := &bytes.Buffer{}
 	gw := newGateway(t)
 	h, err := dashboardhttp.New(dashboardhttp.Config{Service: svc, Origin: origin, TrustedProxies: trusted, Log: slog.New(slog.NewJSONHandler(logs, nil)), Assets: spa,
-		Gateway: gw.url, GatewayTransport: gw.srv.Client().Transport})
+		Gateway: gw.url, GatewayTransport: gw.transport})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,8 +108,8 @@ func newAPI(t *testing.T, trusted ...netip.Prefix) *api {
 }
 
 type call struct {
-	method, path, body, contentType, origin, cookie, forwarded string
-	size                                                       int
+	method, path, body, contentType, origin, cookie, forwarded, authorization string
+	size                                                                      int
 }
 
 type answer struct {
@@ -147,6 +147,9 @@ func (a *api) do(t *testing.T, c call) answer {
 	}
 	if c.forwarded != "" {
 		r.Header.Set("X-Forwarded-For", c.forwarded)
+	}
+	if c.authorization != "" {
+		r.Header.Set("Authorization", c.authorization)
 	}
 	w := httptest.NewRecorder()
 	a.handler.ServeHTTP(w, r)

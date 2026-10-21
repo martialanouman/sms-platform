@@ -111,6 +111,7 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger, registry pro
 	}
 	sup := supervisor.Ordered{DrainDelay: infra.DrainDelay, DrainBudget: infra.DrainBudget}
 	sup.Add("ops", opsServer.Run)
+	// debt: #167
 	sup.Add("internal", serve(&http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second,
 		IdleTimeout: 60 * time.Second}, tls.NewListener(ln, serverTLS), infra.ShutdownTimeout))
 	sup.OnDrain(opsServer.Drain)
