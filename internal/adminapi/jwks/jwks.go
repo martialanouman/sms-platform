@@ -22,7 +22,6 @@ const (
 	maxBody     = 64 << 10
 )
 
-// errUnknownKid is a kid the key set lacks.
 var errUnknownKid = errors.New("jwks: unknown kid")
 
 // Keys is the key set at URL, fetched by Client.
@@ -62,7 +61,7 @@ func (k *Keys) Key(ctx context.Context, kid string) (*ecdsa.PublicKey, error) {
 }
 
 func (k *Keys) fetch(ctx context.Context) (map[string]*ecdsa.PublicKey, error) {
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), timeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, k.URL, nil)
 	if err != nil {
@@ -96,6 +95,9 @@ func (k *Keys) fetch(ctx context.Context) (map[string]*ecdsa.PublicKey, error) {
 			continue
 		}
 		keys[jwk.Kid] = key
+	}
+	if len(keys) == 0 {
+		return nil, errors.New("jwks: no key")
 	}
 	return keys, nil
 }

@@ -25,6 +25,7 @@ type issuer struct {
 	extra   []map[string]string
 	fetches atomic.Int32
 	down    atomic.Bool
+	status  int
 	body    string
 }
 
@@ -47,6 +48,9 @@ func (i *issuer) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	if i.body != "" {
+		if i.status != 0 {
+			w.WriteHeader(i.status)
+		}
 		_, _ = w.Write([]byte(i.body))
 		return
 	}
@@ -194,5 +198,34 @@ func TestAnOversizedKeySetIsRefused(t *testing.T) {
 
 	if _, err := k.Key(context.Background(), "v1"); err == nil {
 		t.Fatal("oversized key set read")
+	}
+}
+
+func TestAnErrorStatusOrAnEmptySetKeepsTheCachedKeys(t *testing.T) {
+	for status, body := range map[int]string{http.StatusBadGateway: `{"error":"bad gateway"}`, http.StatusOK: `{"keys":[]}`} {
+		iss, c, k := setup(t)
+		iss.add(t, "v1")
+		if _, err := k.Key(context.Background(), "v1"); err != nil {
+			t.Fatal(err)
+		}
+		iss.status, iss.body = status, body
+		c.advance(time.Minute)
+		if _, err := k.Key(context.Background(), "v2"); err == nil {
+			t.Fatalf("%d %s: unknown kid accepted", status, body)
+		}
+		if _, err := k.Key(context.Background(), "v1"); err != nil {
+			t.Errorf("%d %s: cached key lost: %v", status, body, err)
+		}
+	}
+}
+
+func TestACallerThatHasGoneDoesNotSpoilTheReload(t *testing.T) {
+	iss, _, k := setup(t)
+	iss.add(t, "v1")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if _, err := k.Key(ctx, "v1"); err != nil {
+		t.Fatalf("reload under a cancelled caller: %v", err)
 	}
 }
