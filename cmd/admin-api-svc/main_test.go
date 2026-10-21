@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net"
@@ -11,10 +12,12 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/martialanouman/sms-platform/internal/adminapi/adminapitest"
@@ -47,7 +50,7 @@ func valid(t *testing.T, ca mtlstest.Authority) config.Infra {
 		TLS:               ca.Issue(t, t.TempDir(), "admin-api-svc"),
 		TLSAllowedClients: []string{"dashboard"},
 		JWKSURL:           "https://dashboard:1/.well-known/jwks.json",
-		PublicURL:         adminapitest.Issuer,
+		PublicURL:         adminapitest.Issuer + "/",
 		PostgresURL:       "postgres://admin_api_svc@127.0.0.1:1/control_plane",
 	}
 }
@@ -66,9 +69,6 @@ func TestRunRefusesEachFaultBeforeListening(t *testing.T) {
 		"no issuer":               {func(i *config.Infra) { i.PublicURL = "" }, "DASHBOARD_PUBLIC_URL"},
 		"issuer with a path":      {func(i *config.Infra) { i.PublicURL = "https://dashboard.test/app" }, "DASHBOARD_PUBLIC_URL"},
 		"no Postgres":             {func(i *config.Infra) { i.PostgresURL = "" }, "POSTGRES_URL"},
-		"no certificate":          {func(i *config.Infra) { i.TLS.Cert = "" }, "TLS_CERT_FILE"},
-		"no key":                  {func(i *config.Infra) { i.TLS.Key = "" }, "TLS_KEY_FILE"},
-		"no authority":            {func(i *config.Infra) { i.TLS.CA = "" }, "TLS_CA_FILE"},
 		"unreadable Postgres URL": {func(i *config.Infra) { i.PostgresURL = "postgres://[" }, "POSTGRES_URL"},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -161,13 +161,14 @@ func start(t *testing.T, jwks func(ca mtlstest.Authority, keys adminapitest.Keys
 	return gateway{infra: infra, ca: ca, keys: keys, logs: logs, migrator: migrator}
 }
 
-func servedJWKS(t *testing.T) func(mtlstest.Authority, adminapitest.Keys) string {
+func servedJWKS(t *testing.T, san string, fetches *atomic.Int32) func(mtlstest.Authority, adminapitest.Keys) string {
 	return func(ca mtlstest.Authority, keys adminapitest.Keys) string {
-		cfg, err := ca.Issue(t, t.TempDir(), "localhost").Server([]string{"admin-api-svc"}, []string{"http/1.1"})
+		cfg, err := ca.Issue(t, t.TempDir(), san).Server([]string{"admin-api-svc"}, []string{"http/1.1"})
 		if err != nil {
 			t.Fatal(err)
 		}
 		srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fetches.Add(1)
 			if r.URL.Path != "/.well-known/jwks.json" {
 				http.NotFound(w, r)
 				return
@@ -209,8 +210,12 @@ func (g gateway) get(t *testing.T, c *http.Client, scope string) (int, string) {
 }
 
 func TestTheGatewayVerifiesAgainstTheDashboardJWKSAndAuditsUnderItsOperator(t *testing.T) {
-	g := start(t, servedJWKS(t))
+	var fetches atomic.Int32
+	g := start(t, servedJWKS(t, "localhost", &fetches))
 	c := g.client(t, "dashboard")
+	if n := fetches.Load(); n != 0 {
+		t.Fatalf("the JWKS was read %d times before any token", n)
+	}
 
 	if status, body := g.get(t, c, "audit:read"); status != http.StatusOK {
 		t.Fatalf("first read: %d %s; logs: %s", status, body, g.logs.String())
@@ -233,7 +238,7 @@ func TestTheGatewayVerifiesAgainstTheDashboardJWKSAndAuditsUnderItsOperator(t *t
 	if _, err := g.client(t, "router-svc").Get("https://" + g.infra.InternalAddr + "/admin/audit-log"); err == nil {
 		t.Fatal("router-svc passed the handshake")
 	}
-	if !jsonLine(t, g.logs, "TLS handshake error") {
+	if !jsonLine(t, g.logs, "TLS handshake error", "WARN") {
 		t.Fatalf("no JSON line for the refused handshake; logs: %s", g.logs.String())
 	}
 
@@ -243,22 +248,22 @@ func TestTheGatewayVerifiesAgainstTheDashboardJWKSAndAuditsUnderItsOperator(t *t
 	if status, _ := g.get(t, c, "audit:read"); status != http.StatusServiceUnavailable {
 		t.Fatalf("without its audit line: %d", status)
 	}
-	if !jsonLine(t, g.logs, "admin call not committed") {
+	if !jsonLine(t, g.logs, "admin call not committed", "ERROR") {
 		t.Fatalf("no JSON line for the uncommitted call; logs: %s", g.logs.String())
 	}
-	if m := metricsOf(t, g); !strings.Contains(m, "admin_api_uncommitted_calls_total 1") {
+	if m := metricsOf(t, g); !strings.Contains(m, "\nadmin_api_uncommitted_calls_total 1\n") {
 		t.Fatalf("metrics: %s", m)
 	}
 }
 
-func jsonLine(t *testing.T, logs *lockedBuffer, msg string) bool {
+func jsonLine(t *testing.T, logs *lockedBuffer, msg, level string) bool {
 	t.Helper()
 	for line := range strings.Lines(logs.String()) {
 		var entry struct {
-			Msg     string `json:"msg"`
-			Service string `json:"service"`
+			Msg   string `json:"msg"`
+			Level string `json:"level"`
 		}
-		if strings.Contains(line, msg) && json.Unmarshal([]byte(line), &entry) == nil && strings.Contains(entry.Msg, msg) {
+		if json.Unmarshal([]byte(line), &entry) == nil && strings.Contains(entry.Msg, msg) && entry.Level == level {
 			return true
 		}
 	}
@@ -269,10 +274,25 @@ func TestABootWithAWrongPasswordFails(t *testing.T) {
 	pg := pgtest.ControlPlane(t)
 	infra := valid(t, mtlstest.New(t))
 	infra.PostgresURL = pg.AsWith("admin_api_svc", "wrong")
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
 
-	err := run(t.Context(), infra, slog.New(slog.DiscardHandler), prometheus.NewRegistry(), prometheus.NewRegistry())
-	if err == nil {
-		t.Fatal("booted without reaching Postgres")
+	err := run(ctx, infra, slog.New(slog.DiscardHandler), prometheus.NewRegistry(), prometheus.NewRegistry())
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "28P01" {
+		t.Fatalf("run = %v, want the refusal of the password", err)
+	}
+}
+
+func TestAJWKSServedUnderAnotherNameIsNotTrusted(t *testing.T) {
+	var fetches atomic.Int32
+	g := start(t, servedJWKS(t, "other", &fetches))
+
+	if status, body := g.get(t, g.client(t, "dashboard"), "audit:read"); status != http.StatusUnauthorized {
+		t.Fatalf("%d %s", status, body)
+	}
+	if m := metricsOf(t, g); !strings.Contains(m, "\nadmin_api_jwks_reload_failures_total 1\n") || fetches.Load() != 0 {
+		t.Fatalf("fetches %d, metrics: %s", fetches.Load(), m)
 	}
 }
 
@@ -282,11 +302,11 @@ func TestNothingIsReadFromAnUnreachableJWKSAtBootAndItsCallsAreRefused(t *testin
 	if status, body := g.get(t, g.client(t, "dashboard"), "audit:read"); status != http.StatusUnauthorized {
 		t.Fatalf("%d %s", status, body)
 	}
-	if !strings.Contains(g.logs.String(), `"msg":"jwks not reloaded"`) {
+	if !jsonLine(t, g.logs, "jwks not reloaded", "WARN") {
 		t.Fatalf("no JSON line for the reload; logs: %s", g.logs.String())
 	}
-	if m := metricsOf(t, g); !strings.Contains(m, "admin_api_jwks_reload_failures_total 1") ||
-		!strings.Contains(m, "admin_api_uncommitted_calls_total 0") {
+	if m := metricsOf(t, g); !strings.Contains(m, "\nadmin_api_jwks_reload_failures_total 1\n") ||
+		!strings.Contains(m, "\nadmin_api_uncommitted_calls_total 0\n") {
 		t.Fatalf("metrics: %s", m)
 	}
 }

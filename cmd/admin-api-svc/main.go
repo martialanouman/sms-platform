@@ -58,17 +58,13 @@ func validate(infra config.Infra) error {
 		return fmt.Errorf("JWKS_URL %q is not https://", infra.JWKSURL)
 	case infra.PostgresURL == "":
 		return errors.New("POSTGRES_URL is empty")
-	case infra.TLS.Cert == "":
-		return errors.New("TLS_CERT_FILE is empty")
-	case infra.TLS.Key == "":
-		return errors.New("TLS_KEY_FILE is empty")
-	case infra.TLS.CA == "":
-		return errors.New("TLS_CA_FILE is empty")
 	}
 	return nil
 }
 
 func run(ctx context.Context, infra config.Infra, log *slog.Logger, registry prometheus.Registerer, gatherer prometheus.Gatherer) error {
+	slog.SetDefault(log)
+	slog.SetLogLoggerLevel(slog.LevelWarn)
 	if err := validate(infra); err != nil {
 		return err
 	}
@@ -101,7 +97,6 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger, registry pro
 	if err := pgdial.Retry(ctx, log, pool.Ping); err != nil {
 		return err
 	}
-	slog.SetDefault(log)
 	keys := &jwks.Keys{URL: infra.JWKSURL, Client: &http.Client{Transport: &http.Transport{TLSClientConfig: clientTLS}},
 		Now: time.Now, Log: log, Failures: reloadFailures}
 	handler, _ := adminapihuma.New(adminapihuma.Config{Store: postgres.New(pool),
