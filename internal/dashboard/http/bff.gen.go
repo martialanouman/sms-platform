@@ -17,6 +17,45 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for AccessLinkKind.
+const (
+	Activation AccessLinkKind = "activation"
+	Reset      AccessLinkKind = "reset"
+)
+
+// Valid indicates whether the value is a known member of the AccessLinkKind enum.
+func (e AccessLinkKind) Valid() bool {
+	switch e {
+	case Activation:
+		return true
+	case Reset:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccessLinkState.
+const (
+	Failed AccessLinkState = "failed"
+	Queued AccessLinkState = "queued"
+	Sent   AccessLinkState = "sent"
+)
+
+// Valid indicates whether the value is a known member of the AccessLinkState enum.
+func (e AccessLinkState) Valid() bool {
+	switch e {
+	case Failed:
+		return true
+	case Queued:
+		return true
+	case Sent:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AccessLogEntryEvent.
 const (
 	AccessLogEntryEventAccessLinkRequested AccessLogEntryEvent = "access_link_requested"
@@ -224,6 +263,42 @@ func (e MfaVerificationMethod) Valid() bool {
 	}
 }
 
+// Defines values for OperatorStatus.
+const (
+	OperatorStatusActive   OperatorStatus = "active"
+	OperatorStatusDisabled OperatorStatus = "disabled"
+)
+
+// Valid indicates whether the value is a known member of the OperatorStatus enum.
+func (e OperatorStatus) Valid() bool {
+	switch e {
+	case OperatorStatusActive:
+		return true
+	case OperatorStatusDisabled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OperatorUpdateStatus.
+const (
+	OperatorUpdateStatusActive   OperatorUpdateStatus = "active"
+	OperatorUpdateStatusDisabled OperatorUpdateStatus = "disabled"
+)
+
+// Valid indicates whether the value is a known member of the OperatorUpdateStatus enum.
+func (e OperatorUpdateStatus) Valid() bool {
+	switch e {
+	case OperatorUpdateStatusActive:
+		return true
+	case OperatorUpdateStatusDisabled:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TotpEnrollmentRequestMethod.
 const (
 	TotpEnrollmentRequestMethodRecoveryCode TotpEnrollmentRequestMethod = "recovery_code"
@@ -271,6 +346,18 @@ func (e WebauthnRegistrationOptionsPublicKeyPubKeyCredParamsType) Valid() bool {
 		return false
 	}
 }
+
+// AccessLink defines model for AccessLink.
+type AccessLink struct {
+	Kind  AccessLinkKind  `json:"kind"`
+	State AccessLinkState `json:"state"`
+}
+
+// AccessLinkKind defines model for AccessLink.Kind.
+type AccessLinkKind string
+
+// AccessLinkState defines model for AccessLink.State.
+type AccessLinkState string
 
 // AccessLinkUse defines model for AccessLinkUse.
 type AccessLinkUse struct {
@@ -378,6 +465,42 @@ type MfaVerification struct {
 // MfaVerificationMethod defines model for MfaVerification.Method.
 type MfaVerificationMethod string
 
+// Operator No secret, no hash.
+type Operator struct {
+	// AccessLink Null when no link is queued or awaiting use.
+	AccessLink  *AccessLink `json:"accessLink"`
+	DisplayName string      `json:"displayName"`
+	Email       string      `json:"email"`
+	Id          string      `json:"id"`
+	Roles       []RoleRef   `json:"roles"`
+
+	// SecondFactorEnrolled A secret set, even unconfirmed, or a passkey; what a reset link would remove.
+	SecondFactorEnrolled bool           `json:"secondFactorEnrolled"`
+	Status               OperatorStatus `json:"status"`
+}
+
+// OperatorStatus defines model for Operator.Status.
+type OperatorStatus string
+
+// OperatorCreate defines model for OperatorCreate.
+type OperatorCreate struct {
+	DisplayName string `json:"displayName"`
+	Email       string `json:"email"`
+}
+
+// OperatorRoles defines model for OperatorRoles.
+type OperatorRoles struct {
+	RoleIds []string `json:"roleIds"`
+}
+
+// OperatorUpdate defines model for OperatorUpdate.
+type OperatorUpdate struct {
+	Status OperatorUpdateStatus `json:"status"`
+}
+
+// OperatorUpdateStatus defines model for OperatorUpdate.Status.
+type OperatorUpdateStatus string
+
 // PasskeySummary defines model for PasskeySummary.
 type PasskeySummary struct {
 	CreatedAt time.Time `json:"createdAt"`
@@ -387,6 +510,39 @@ type PasskeySummary struct {
 
 // Permission An Admin API scope or a BFF permission, checked against the generated lists.
 type Permission = string
+
+// Role defines model for Role.
+type Role struct {
+	Description string `json:"description"`
+
+	// Holders The emails of its holders.
+	Holders []string `json:"holders"`
+	Id      string   `json:"id"`
+
+	// IsDefault A default role is read-only.
+	IsDefault   bool         `json:"isDefault"`
+	Name        string       `json:"name"`
+	Permissions []Permission `json:"permissions"`
+}
+
+// RoleCreate defines model for RoleCreate.
+type RoleCreate struct {
+	Description string       `json:"description"`
+	Name        string       `json:"name"`
+	Permissions []Permission `json:"permissions"`
+}
+
+// RoleRef defines model for RoleRef.
+type RoleRef struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// RoleUpdate defines model for RoleUpdate.
+type RoleUpdate struct {
+	Description string       `json:"description"`
+	Permissions []Permission `json:"permissions"`
+}
 
 // SecondFactors What the operator holds as second factor, never its value.
 type SecondFactors struct {
@@ -515,11 +671,17 @@ type HashingBusy = Error
 // InternalError Flat error body. `code` is the stable code of the cause; the HTTP status is on the status line only.
 type InternalError = Error
 
+// NotFound Flat error body. `code` is the stable code of the cause; the HTTP status is on the status line only.
+type NotFound = Error
+
 // PayloadTooLarge Flat error body. `code` is the stable code of the cause; the HTTP status is on the status line only.
 type PayloadTooLarge = Error
 
 // RateLimited Flat error body. `code` is the stable code of the cause; the HTTP status is on the status line only.
 type RateLimited = Error
+
+// SelfLockout Flat error body. `code` is the stable code of the cause; the HTTP status is on the status line only.
+type SelfLockout = Error
 
 // Unauthorized Flat error body. `code` is the stable code of the cause; the HTTP status is on the status line only.
 type Unauthorized = Error
@@ -553,6 +715,21 @@ type VerifyMfaJSONRequestBody = MfaVerification
 
 // FinishWebauthnRegistrationJSONRequestBody defines body for FinishWebauthnRegistration for application/json ContentType.
 type FinishWebauthnRegistrationJSONRequestBody = WebauthnRegistration
+
+// CreateOperatorJSONRequestBody defines body for CreateOperator for application/json ContentType.
+type CreateOperatorJSONRequestBody = OperatorCreate
+
+// UpdateOperatorJSONRequestBody defines body for UpdateOperator for application/json ContentType.
+type UpdateOperatorJSONRequestBody = OperatorUpdate
+
+// SetOperatorRolesJSONRequestBody defines body for SetOperatorRoles for application/json ContentType.
+type SetOperatorRolesJSONRequestBody = OperatorRoles
+
+// CreateRoleJSONRequestBody defines body for CreateRole for application/json ContentType.
+type CreateRoleJSONRequestBody = RoleCreate
+
+// UpdateRoleJSONRequestBody defines body for UpdateRole for application/json ContentType.
+type UpdateRoleJSONRequestBody = RoleUpdate
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -601,6 +778,33 @@ type ServerInterface interface {
 	// Health Liveness probe
 	// (GET /health)
 	Health(w http.ResponseWriter, r *http.Request)
+	// ListOperators List operators, their roles and second-factor state
+	// (GET /operators)
+	ListOperators(w http.ResponseWriter, r *http.Request)
+	// CreateOperator Create an operator, without role or password
+	// (POST /operators)
+	CreateOperator(w http.ResponseWriter, r *http.Request)
+	// UpdateOperator Disable or re-enable an operator
+	// (PATCH /operators/{operatorId})
+	UpdateOperator(w http.ResponseWriter, r *http.Request, operatorId OperatorId)
+	// RequestOperatorAccessLink Send a single-use access link
+	// (POST /operators/{operatorId}/access-link)
+	RequestOperatorAccessLink(w http.ResponseWriter, r *http.Request, operatorId OperatorId)
+	// SetOperatorRoles Replace an operator's roles
+	// (PUT /operators/{operatorId}/roles)
+	SetOperatorRoles(w http.ResponseWriter, r *http.Request, operatorId OperatorId)
+	// ListRoles List roles, their permissions and holders
+	// (GET /roles)
+	ListRoles(w http.ResponseWriter, r *http.Request)
+	// CreateRole Compose a custom role
+	// (POST /roles)
+	CreateRole(w http.ResponseWriter, r *http.Request)
+	// DeleteRole Delete a custom role nobody holds
+	// (DELETE /roles/{roleId})
+	DeleteRole(w http.ResponseWriter, r *http.Request, roleId RoleId)
+	// UpdateRole Replace a custom role's description and permissions
+	// (PATCH /roles/{roleId})
+	UpdateRole(w http.ResponseWriter, r *http.Request, roleId RoleId)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -853,6 +1057,192 @@ func (siw *ServerInterfaceWrapper) Health(w http.ResponseWriter, r *http.Request
 	handler.ServeHTTP(w, r)
 }
 
+// ListOperators operation middleware
+func (siw *ServerInterfaceWrapper) ListOperators(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOperators(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateOperator operation middleware
+func (siw *ServerInterfaceWrapper) CreateOperator(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateOperator(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateOperator operation middleware
+func (siw *ServerInterfaceWrapper) UpdateOperator(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "operatorId" -------------
+	var operatorId OperatorId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "operatorId", r.PathValue("operatorId"), &operatorId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "operatorId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateOperator(w, r, operatorId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RequestOperatorAccessLink operation middleware
+func (siw *ServerInterfaceWrapper) RequestOperatorAccessLink(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "operatorId" -------------
+	var operatorId OperatorId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "operatorId", r.PathValue("operatorId"), &operatorId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "operatorId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RequestOperatorAccessLink(w, r, operatorId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetOperatorRoles operation middleware
+func (siw *ServerInterfaceWrapper) SetOperatorRoles(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "operatorId" -------------
+	var operatorId OperatorId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "operatorId", r.PathValue("operatorId"), &operatorId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "operatorId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetOperatorRoles(w, r, operatorId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListRoles operation middleware
+func (siw *ServerInterfaceWrapper) ListRoles(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRoles(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateRole operation middleware
+func (siw *ServerInterfaceWrapper) CreateRole(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateRole(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteRole operation middleware
+func (siw *ServerInterfaceWrapper) DeleteRole(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "roleId" -------------
+	var roleId RoleId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "roleId", r.PathValue("roleId"), &roleId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roleId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteRole(w, r, roleId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateRole operation middleware
+func (siw *ServerInterfaceWrapper) UpdateRole(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "roleId" -------------
+	var roleId RoleId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "roleId", r.PathValue("roleId"), &roleId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roleId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateRole(w, r, roleId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -987,6 +1377,15 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/mfa/webauthn/assert/begin", wrapper.BeginWebauthnAssertion)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/auth/mfa/webauthn/passkeys", wrapper.ListWebauthnPasskeys)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/auth/mfa/webauthn/passkeys/{passkeyId}", wrapper.DeleteWebauthnPasskey)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/operators", wrapper.ListOperators)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/operators", wrapper.CreateOperator)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/operators/{operatorId}", wrapper.UpdateOperator)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/operators/{operatorId}/roles", wrapper.SetOperatorRoles)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/operators/{operatorId}/access-link", wrapper.RequestOperatorAccessLink)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/roles", wrapper.ListRoles)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/roles", wrapper.CreateRole)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/roles/{roleId}", wrapper.DeleteRole)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/roles/{roleId}", wrapper.UpdateRole)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/access-log", wrapper.ListAccessLog)
 
 	return m
@@ -998,6 +1397,8 @@ type HashingBusyJSONResponse Error
 
 type InternalErrorJSONResponse Error
 
+type NotFoundJSONResponse Error
+
 type PayloadTooLargeJSONResponse Error
 
 type RateLimitedResponseHeaders struct {
@@ -1008,6 +1409,8 @@ type RateLimitedJSONResponse struct {
 
 	Headers RateLimitedResponseHeaders
 }
+
+type SelfLockoutJSONResponse Error
 
 type UnauthorizedJSONResponse Error
 
@@ -2479,6 +2882,991 @@ func (response Health500JSONResponse) VisitHealthResponse(w http.ResponseWriter)
 	return err
 }
 
+type ListOperatorsRequestObject struct {
+}
+
+type ListOperatorsResponseObject interface {
+	VisitListOperatorsResponse(w http.ResponseWriter) error
+}
+
+type ListOperators200JSONResponse []Operator
+
+func (response ListOperators200JSONResponse) VisitListOperatorsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListOperators401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListOperators401JSONResponse) VisitListOperatorsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListOperators403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListOperators403JSONResponse) VisitListOperatorsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListOperators500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListOperators500JSONResponse) VisitListOperatorsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateOperatorRequestObject struct {
+	Body *CreateOperatorJSONRequestBody
+}
+
+type CreateOperatorResponseObject interface {
+	VisitCreateOperatorResponse(w http.ResponseWriter) error
+}
+
+type CreateOperator201JSONResponse Operator
+
+func (response CreateOperator201JSONResponse) VisitCreateOperatorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateOperator401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateOperator401JSONResponse) VisitCreateOperatorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateOperator403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateOperator403JSONResponse) VisitCreateOperatorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateOperator409JSONResponse Error
+
+func (response CreateOperator409JSONResponse) VisitCreateOperatorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateOperator413JSONResponse struct{ PayloadTooLargeJSONResponse }
+
+func (response CreateOperator413JSONResponse) VisitCreateOperatorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateOperator415JSONResponse struct {
+	UnsupportedMediaTypeJSONResponse
+}
+
+func (response CreateOperator415JSONResponse) VisitCreateOperatorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(415)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateOperator422JSONResponse struct{ ValidationErrorJSONResponse }
+
+func (response CreateOperator422JSONResponse) VisitCreateOperatorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateOperator500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response CreateOperator500JSONResponse) VisitCreateOperatorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateOperatorRequestObject struct {
+	OperatorId OperatorId `json:"operatorId"`
+	Body       *UpdateOperatorJSONRequestBody
+}
+
+type UpdateOperatorResponseObject interface {
+	VisitUpdateOperatorResponse(w http.ResponseWriter) error
+}
+
+type UpdateOperator200JSONResponse Operator
+
+func (response UpdateOperator200JSONResponse) VisitUpdateOperatorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateOperator401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateOperator401JSONResponse) VisitUpdateOperatorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateOperator403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateOperator403JSONResponse) VisitUpdateOperatorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateOperator404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateOperator404JSONResponse) VisitUpdateOperatorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateOperator409JSONResponse struct{ SelfLockoutJSONResponse }
+
+func (response UpdateOperator409JSONResponse) VisitUpdateOperatorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateOperator413JSONResponse struct{ PayloadTooLargeJSONResponse }
+
+func (response UpdateOperator413JSONResponse) VisitUpdateOperatorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateOperator415JSONResponse struct {
+	UnsupportedMediaTypeJSONResponse
+}
+
+func (response UpdateOperator415JSONResponse) VisitUpdateOperatorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(415)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateOperator422JSONResponse struct{ ValidationErrorJSONResponse }
+
+func (response UpdateOperator422JSONResponse) VisitUpdateOperatorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateOperator500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response UpdateOperator500JSONResponse) VisitUpdateOperatorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestOperatorAccessLinkRequestObject struct {
+	OperatorId OperatorId `json:"operatorId"`
+}
+
+type RequestOperatorAccessLinkResponseObject interface {
+	VisitRequestOperatorAccessLinkResponse(w http.ResponseWriter) error
+}
+
+type RequestOperatorAccessLink202Response struct {
+}
+
+func (response RequestOperatorAccessLink202Response) VisitRequestOperatorAccessLinkResponse(w http.ResponseWriter) error {
+	w.WriteHeader(202)
+	return nil
+}
+
+type RequestOperatorAccessLink401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response RequestOperatorAccessLink401JSONResponse) VisitRequestOperatorAccessLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestOperatorAccessLink403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RequestOperatorAccessLink403JSONResponse) VisitRequestOperatorAccessLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestOperatorAccessLink404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response RequestOperatorAccessLink404JSONResponse) VisitRequestOperatorAccessLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestOperatorAccessLink409JSONResponse Error
+
+func (response RequestOperatorAccessLink409JSONResponse) VisitRequestOperatorAccessLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestOperatorAccessLink415JSONResponse struct {
+	UnsupportedMediaTypeJSONResponse
+}
+
+func (response RequestOperatorAccessLink415JSONResponse) VisitRequestOperatorAccessLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(415)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestOperatorAccessLink500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response RequestOperatorAccessLink500JSONResponse) VisitRequestOperatorAccessLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetOperatorRolesRequestObject struct {
+	OperatorId OperatorId `json:"operatorId"`
+	Body       *SetOperatorRolesJSONRequestBody
+}
+
+type SetOperatorRolesResponseObject interface {
+	VisitSetOperatorRolesResponse(w http.ResponseWriter) error
+}
+
+type SetOperatorRoles200JSONResponse Operator
+
+func (response SetOperatorRoles200JSONResponse) VisitSetOperatorRolesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetOperatorRoles401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response SetOperatorRoles401JSONResponse) VisitSetOperatorRolesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetOperatorRoles403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response SetOperatorRoles403JSONResponse) VisitSetOperatorRolesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetOperatorRoles404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response SetOperatorRoles404JSONResponse) VisitSetOperatorRolesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetOperatorRoles409JSONResponse struct{ SelfLockoutJSONResponse }
+
+func (response SetOperatorRoles409JSONResponse) VisitSetOperatorRolesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetOperatorRoles413JSONResponse struct{ PayloadTooLargeJSONResponse }
+
+func (response SetOperatorRoles413JSONResponse) VisitSetOperatorRolesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetOperatorRoles415JSONResponse struct {
+	UnsupportedMediaTypeJSONResponse
+}
+
+func (response SetOperatorRoles415JSONResponse) VisitSetOperatorRolesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(415)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetOperatorRoles422JSONResponse struct{ ValidationErrorJSONResponse }
+
+func (response SetOperatorRoles422JSONResponse) VisitSetOperatorRolesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetOperatorRoles500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response SetOperatorRoles500JSONResponse) VisitSetOperatorRolesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRolesRequestObject struct {
+}
+
+type ListRolesResponseObject interface {
+	VisitListRolesResponse(w http.ResponseWriter) error
+}
+
+type ListRoles200JSONResponse []Role
+
+func (response ListRoles200JSONResponse) VisitListRolesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRoles401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListRoles401JSONResponse) VisitListRolesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRoles403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListRoles403JSONResponse) VisitListRolesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRoles500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListRoles500JSONResponse) VisitListRolesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRoleRequestObject struct {
+	Body *CreateRoleJSONRequestBody
+}
+
+type CreateRoleResponseObject interface {
+	VisitCreateRoleResponse(w http.ResponseWriter) error
+}
+
+type CreateRole201JSONResponse Role
+
+func (response CreateRole201JSONResponse) VisitCreateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRole401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateRole401JSONResponse) VisitCreateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRole403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateRole403JSONResponse) VisitCreateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRole409JSONResponse Error
+
+func (response CreateRole409JSONResponse) VisitCreateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRole413JSONResponse struct{ PayloadTooLargeJSONResponse }
+
+func (response CreateRole413JSONResponse) VisitCreateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRole415JSONResponse struct {
+	UnsupportedMediaTypeJSONResponse
+}
+
+func (response CreateRole415JSONResponse) VisitCreateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(415)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRole422JSONResponse struct{ ValidationErrorJSONResponse }
+
+func (response CreateRole422JSONResponse) VisitCreateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRole500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response CreateRole500JSONResponse) VisitCreateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteRoleRequestObject struct {
+	RoleId RoleId `json:"roleId"`
+}
+
+type DeleteRoleResponseObject interface {
+	VisitDeleteRoleResponse(w http.ResponseWriter) error
+}
+
+type DeleteRole204Response struct {
+}
+
+func (response DeleteRole204Response) VisitDeleteRoleResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteRole401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteRole401JSONResponse) VisitDeleteRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteRole403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteRole403JSONResponse) VisitDeleteRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteRole404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteRole404JSONResponse) VisitDeleteRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteRole409JSONResponse Error
+
+func (response DeleteRole409JSONResponse) VisitDeleteRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteRole415JSONResponse struct {
+	UnsupportedMediaTypeJSONResponse
+}
+
+func (response DeleteRole415JSONResponse) VisitDeleteRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(415)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteRole500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response DeleteRole500JSONResponse) VisitDeleteRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRoleRequestObject struct {
+	RoleId RoleId `json:"roleId"`
+	Body   *UpdateRoleJSONRequestBody
+}
+
+type UpdateRoleResponseObject interface {
+	VisitUpdateRoleResponse(w http.ResponseWriter) error
+}
+
+type UpdateRole200JSONResponse Role
+
+func (response UpdateRole200JSONResponse) VisitUpdateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRole401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateRole401JSONResponse) VisitUpdateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRole403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateRole403JSONResponse) VisitUpdateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRole404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateRole404JSONResponse) VisitUpdateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRole409JSONResponse Error
+
+func (response UpdateRole409JSONResponse) VisitUpdateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRole413JSONResponse struct{ PayloadTooLargeJSONResponse }
+
+func (response UpdateRole413JSONResponse) VisitUpdateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRole415JSONResponse struct {
+	UnsupportedMediaTypeJSONResponse
+}
+
+func (response UpdateRole415JSONResponse) VisitUpdateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(415)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRole422JSONResponse struct{ ValidationErrorJSONResponse }
+
+func (response UpdateRole422JSONResponse) VisitUpdateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRole500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response UpdateRole500JSONResponse) VisitUpdateRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// ListAccessLog List the dashboard access log, newest first
@@ -2526,6 +3914,33 @@ type StrictServerInterface interface {
 	// Health Liveness probe
 	// (GET /health)
 	Health(ctx context.Context, request HealthRequestObject) (HealthResponseObject, error)
+	// ListOperators List operators, their roles and second-factor state
+	// (GET /operators)
+	ListOperators(ctx context.Context, request ListOperatorsRequestObject) (ListOperatorsResponseObject, error)
+	// CreateOperator Create an operator, without role or password
+	// (POST /operators)
+	CreateOperator(ctx context.Context, request CreateOperatorRequestObject) (CreateOperatorResponseObject, error)
+	// UpdateOperator Disable or re-enable an operator
+	// (PATCH /operators/{operatorId})
+	UpdateOperator(ctx context.Context, request UpdateOperatorRequestObject) (UpdateOperatorResponseObject, error)
+	// RequestOperatorAccessLink Send a single-use access link
+	// (POST /operators/{operatorId}/access-link)
+	RequestOperatorAccessLink(ctx context.Context, request RequestOperatorAccessLinkRequestObject) (RequestOperatorAccessLinkResponseObject, error)
+	// SetOperatorRoles Replace an operator's roles
+	// (PUT /operators/{operatorId}/roles)
+	SetOperatorRoles(ctx context.Context, request SetOperatorRolesRequestObject) (SetOperatorRolesResponseObject, error)
+	// ListRoles List roles, their permissions and holders
+	// (GET /roles)
+	ListRoles(ctx context.Context, request ListRolesRequestObject) (ListRolesResponseObject, error)
+	// CreateRole Compose a custom role
+	// (POST /roles)
+	CreateRole(ctx context.Context, request CreateRoleRequestObject) (CreateRoleResponseObject, error)
+	// DeleteRole Delete a custom role nobody holds
+	// (DELETE /roles/{roleId})
+	DeleteRole(ctx context.Context, request DeleteRoleRequestObject) (DeleteRoleResponseObject, error)
+	// UpdateRole Replace a custom role's description and permissions
+	// (PATCH /roles/{roleId})
+	UpdateRole(ctx context.Context, request UpdateRoleRequestObject) (UpdateRoleResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -2966,6 +4381,267 @@ func (sh *strictHandler) Health(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(HealthResponseObject); ok {
 		if err := validResponse.VisitHealthResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListOperators operation middleware
+func (sh *strictHandler) ListOperators(w http.ResponseWriter, r *http.Request) {
+	var request ListOperatorsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListOperators(ctx, request.(ListOperatorsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListOperators")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListOperatorsResponseObject); ok {
+		if err := validResponse.VisitListOperatorsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateOperator operation middleware
+func (sh *strictHandler) CreateOperator(w http.ResponseWriter, r *http.Request) {
+	var request CreateOperatorRequestObject
+
+	var body CreateOperatorJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateOperator(ctx, request.(CreateOperatorRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateOperator")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateOperatorResponseObject); ok {
+		if err := validResponse.VisitCreateOperatorResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateOperator operation middleware
+func (sh *strictHandler) UpdateOperator(w http.ResponseWriter, r *http.Request, operatorId OperatorId) {
+	var request UpdateOperatorRequestObject
+
+	request.OperatorId = operatorId
+
+	var body UpdateOperatorJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateOperator(ctx, request.(UpdateOperatorRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateOperator")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateOperatorResponseObject); ok {
+		if err := validResponse.VisitUpdateOperatorResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RequestOperatorAccessLink operation middleware
+func (sh *strictHandler) RequestOperatorAccessLink(w http.ResponseWriter, r *http.Request, operatorId OperatorId) {
+	var request RequestOperatorAccessLinkRequestObject
+
+	request.OperatorId = operatorId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RequestOperatorAccessLink(ctx, request.(RequestOperatorAccessLinkRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RequestOperatorAccessLink")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RequestOperatorAccessLinkResponseObject); ok {
+		if err := validResponse.VisitRequestOperatorAccessLinkResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetOperatorRoles operation middleware
+func (sh *strictHandler) SetOperatorRoles(w http.ResponseWriter, r *http.Request, operatorId OperatorId) {
+	var request SetOperatorRolesRequestObject
+
+	request.OperatorId = operatorId
+
+	var body SetOperatorRolesJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetOperatorRoles(ctx, request.(SetOperatorRolesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetOperatorRoles")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetOperatorRolesResponseObject); ok {
+		if err := validResponse.VisitSetOperatorRolesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListRoles operation middleware
+func (sh *strictHandler) ListRoles(w http.ResponseWriter, r *http.Request) {
+	var request ListRolesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListRoles(ctx, request.(ListRolesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListRoles")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListRolesResponseObject); ok {
+		if err := validResponse.VisitListRolesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateRole operation middleware
+func (sh *strictHandler) CreateRole(w http.ResponseWriter, r *http.Request) {
+	var request CreateRoleRequestObject
+
+	var body CreateRoleJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateRole(ctx, request.(CreateRoleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateRole")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateRoleResponseObject); ok {
+		if err := validResponse.VisitCreateRoleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteRole operation middleware
+func (sh *strictHandler) DeleteRole(w http.ResponseWriter, r *http.Request, roleId RoleId) {
+	var request DeleteRoleRequestObject
+
+	request.RoleId = roleId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteRole(ctx, request.(DeleteRoleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteRole")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteRoleResponseObject); ok {
+		if err := validResponse.VisitDeleteRoleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateRole operation middleware
+func (sh *strictHandler) UpdateRole(w http.ResponseWriter, r *http.Request, roleId RoleId) {
+	var request UpdateRoleRequestObject
+
+	request.RoleId = roleId
+
+	var body UpdateRoleJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateRole(ctx, request.(UpdateRoleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateRole")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateRoleResponseObject); ok {
+		if err := validResponse.VisitUpdateRoleResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
