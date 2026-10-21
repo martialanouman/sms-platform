@@ -29,8 +29,8 @@ Fable, 2026-10-21, sur la décision humaine pour 200.
      bloqués et expliqués sur un rôle par défaut ou sans `roles:write`, « Supprimer » bloqué sur un rôle détenu en
      nommant ses détenteurs (`Role.holders`) ; confirmation de suppression. Éditeur en modale : Nom (création seule),
      Description, sélecteur ; phrase d'audit. Les refus du serveur (`role_name_taken`, `role_held` par course,
-     `self_lockout`) se disent dans la modale. Après un enregistrement : relecture des rôles, de `me` et des
-     opérateurs. Mécaniques de 012d-2 : fermeture au succès, une modale ne ferme qu'elle-même.
+     `self_lockout`) se disent dans la modale. Après un enregistrement : relecture des rôles et de `me` (révisé en
+     revue, 205). Mécaniques de 012d-2 : fermeture au succès, une modale ne ferme qu'elle-même.
 202. **Catalogue du sélecteur** : les permissions du rôle `Propriétaire`, lu par `listRoles` — il est « Tout » (§8.5) et
      semé comme `scopes.All ∪ scopes.Permissions` (140). Groupées par ressource (le préfixe avant `:`), triées, clés en
      mono, sans description : le contrat n'en porte pas. Ni catalogue généré ni endpoint nouveau.
@@ -42,6 +42,27 @@ Fable, 2026-10-21, sur la décision humaine pour 200.
      ou une indisponibilité du signataire (503) se dit en ligne, sans nouvel essai automatique.
 204. **Une PR**, preuve Chromium sur `contabo169`.
 
+## Arbitrages de revue
+
+Premier tour, 2026-10-21 : aucun bloquant.
+
+205. **Après l'enregistrement d'un rôle, la liste des opérateurs n'est pas relue** : un opérateur ne porte que l'`id` et le
+     nom de ses rôles, et un nom ne change pas. Rôles et `me` sont relus même sur un refus : un refus par course
+     (`role_held`) dit que la liste a changé.
+206. **Une suppression ne ferme qu'elle-même**, comme toute modale (189).
+207. **La confirmation devient un composant du kit** (`Confirmation`, `web/src/ui.tsx`) : désactivation, envoi de lien et
+     suppression de rôle la partagent ; elle relit la requête qu'on lui nomme.
+208. **Fidélité** : nombres alignés à droite ; légendes du sélecteur et nom du rôle en mono (valeurs machine) ; groupes du
+     sélecteur alignés en haut ; « ne retirera » ; titre d'erreur d'écran en `h2` ; jeton fermé par « J'ai copié le
+     secret », copié par « Copier le secret » ; raison d'interdiction et durée du jeton de l'origine. Écarts assumés :
+     sélecteur à colonnes de 220 px (pas de description), pas de mention « optionnel », refus sans titre de contexte
+     (012d-2), jeton dans le bloc de secret de 011b.
+209. **Assumés** : un nom fait d'espaces est refusé par le serveur (422) ; une clé hors catalogue reste théorique tant que
+     `Propriétaire` est « Tout » ; le jeton n'entre jamais dans le cache par construction (appel direct), le test prouve
+     son absence du document ; le corps vide du `POST /gateway-token` est prouvé dans le navigateur.
+210. **§8.5 dit « sessions SMPP »** dans les portées d'`Exploitation` et de `Support`, pour ne pas les confondre avec
+     `sessions:*`.
+
 ## Design arrêté
 
 - **`docs/spec/08-dashboard.md`** §8.5 : `sessions:*` hors de tout rôle par défaut sauf `Propriétaire`.
@@ -52,5 +73,5 @@ Fable, 2026-10-21, sur la décision humaine pour 200.
 - **`web/src/styles/app.css`** : classes du sélecteur et de la liste des clés, en jetons.
 - **Tests** (Go : table de vérité ; Vitest, `fetch` simulé, axe, `StrictMode`) : rail, liste, états, création,
   modification, suppression, refus du serveur, contrôles bloqués et expliqués, catalogue tiré de `Propriétaire`, jeton
-  (délivrance, copie, refus, 503, absence dans le cache après fermeture). Mutation manuelle, consignée.
+  (délivrance, copie, refus, 503, absence du document après fermeture). Mutation manuelle, consignée.
 - **Preuve sur `contabo169`**, dans Chromium : le parcours du « Terminé quand », captures, axe.

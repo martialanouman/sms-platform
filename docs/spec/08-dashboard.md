@@ -63,9 +63,9 @@ peut en détenir plusieurs. La SPA masque ce qui est interdit : confort, jamais 
 | Rôle | Portée |
 |---|---|
 | `Propriétaire` | Tout |
-| `Exploitation` | Écriture : routage, numéros exacts, connecteurs, sessions, anti-spam, scripts et `routing-scripts:publish`, réécriture, numéros entrants, opt-out sans `suppressions:delete`, dead-letters, plateforme. `msisdn:reveal`, `cdr:export_bulk`. Lecture ailleurs |
+| `Exploitation` | Écriture : routage, numéros exacts, connecteurs, sessions SMPP, anti-spam, scripts et `routing-scripts:publish`, réécriture, numéros entrants, opt-out sans `suppressions:delete`, dead-letters, plateforme. `msisdn:reveal`, `cdr:export_bulk`. Lecture ailleurs |
 | `Scripts` | `routing-scripts:write` sans `routing-scripts:publish` ; lecture du trafic |
-| `Support` | Lecture : comptes, routage, connecteurs, sessions, CDR, trace, facturation. `msisdn:reveal`. Jamais le corps, ni les scripts, ni la réécriture |
+| `Support` | Lecture : comptes, routage, connecteurs, sessions SMPP, CDR, trace, facturation. `msisdn:reveal`. Jamais le corps, ni les scripts, ni la réécriture |
 | `Finance` | Facturation complète ; lecture ailleurs comme `Support`, sans `msisdn:reveal` |
 | `Reporting` | `billing:read`, lecture du trafic |
 | `Clientèle` | Écriture : clients, comptes, identifiants, groupes, facturation sans `billing:topup` |
