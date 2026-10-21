@@ -142,3 +142,6 @@ func authorize(api huma.API, c Config) func(huma.Context, func(huma.Context)) {
 		}
 	}
 }
+
+// Callers are the only clients the Admin API admits (I14, design 06 §4).
+var Callers = []string{"dashboard"}
