@@ -54,9 +54,25 @@ sans certificat admis, la poignée de main échoue ; le JWKS est absent de l'éc
 
 ## Mutations
 
-Vingt, à la main, sur la validation et le câblage du démarrage, le générateur de NetworkPolicy, les gardes des
+Vingt-quatre, à la main, sur la validation et le câblage du démarrage, le générateur de NetworkPolicy, les gardes des
 manifestes et le client HTTP déplacé ; toutes tombent, sauf le retrait du signataire, qui ne tombe que par la
 compilation (voir les écarts).
+
+## Correctifs de revue, tour 1
+
+Deux revues (correction et sécurité ; tests et code en trop). Un important, aucun bloquant.
+
+1. **L'arrêt ne drainait pas** (important) : `serve` rendait la main dès `Shutdown`, sans attendre les requêtes en vol ;
+   le superviseur passait au suivant et le processus sortait. Le défaut existait pour l'écouteur public ; la fonction
+   partagée attend désormais la fin de `Shutdown`, pour les deux écouteurs. Un test le prouve (rouge trois fois sur
+   trois avant).
+2. **Tests** : l'écouteur interne refuse `h2` (le client l'offre, `http/1.1` seul est négocié) et coupe une requête à
+   demi envoyée ; le générateur ouvre les deux ports d'un service qui porte `GRPC_ADDR` et `INTERNAL_ADDR`.
+3. **Commentaire faux corrigé** : la doc de `netpol.Render` ne nommait que `GRPC_ADDR`.
+4. **Gardé** : le délai du client HTTP vers OpenBao n'est tenu par aucun test (défaut antérieur au déplacement ; seule
+   une comparaison à la constante le tiendrait) ; `slices.Sorted` de la validation de l'allowlist, sans effet à un seul
+   appelant ; les deux validations des fichiers TLS, qui donnent à l'exploitant un message plus net que celui du
+   chargeur.
 
 ## Preuve sur `contabo169`
 
