@@ -36,7 +36,7 @@ Fable, 2026-10-21, sur la décision humaine.
 184. **Kit porté, réduit à l'usage, sans Base UI** (102 tient) : `Modal` sur `<dialog>` natif (titre, bouton « Fermer »
      `aria-label`, glyphe `aria-hidden`, corps, pied ; `showModal` une fois, focus rendu à l'ouvreur) ; `DataTable`
      (`<caption>` masquée visuellement, `scope="col"`, sans tri) ; `Toolbar` ; `EmptyState`, `ErrorState`,
-     `LoadingState` et `Skeleton` ; `Icon` aux trois glyphes employés (`diamond`, `bang`, `times`). Pas de toast : le
+     `LoadingState` et ses squelettes ; `Icon` aux trois glyphes employés (`diamond`, `bang`, `times`). Pas de toast : le
      succès de création se dit en `role="status"` sur l'écran.
 185. **`Button`** (révise 106 sans la contredire : il rend un `<button>` à classe) : variantes `primary`, `secondary`,
      `danger`, taille `sm`, `loading` (`aria-busy`), `blockedReason` : `aria-disabled`, `aria-describedby` vers un texte
@@ -85,6 +85,18 @@ Premier tour, 2026-10-21 : correction et accessibilité, code en trop, fidélit�
 195. **`/account` sans redirection d'une session non élevée** : Fable, 183 ; le serveur refuse les facteurs à une session
      non élevée et `mfa_required` mène à la vérification.
 
+Second tour, 2026-10-21 : aucun bloquant.
+
+196. **La modale retient son ouvreur au premier rendu**, pas dans son effet : sous `StrictMode`, l'effet rejoué captait
+     « Fermer ». Un clic sur le voile ne ferme que s'il a commencé sur le voile : une sélection glissée hors d'un champ
+     ne perd pas la saisie.
+197. **L'infobulle se ferme par Échap** dès qu'elle est visible, au survol comme au focus (WCAG 1.4.13) ; dans une
+     modale, le premier Échap la ferme, le second la modale.
+198. **Le refus de la lecture des rôles** se dit par son message, comme celui des opérateurs.
+199. **Assumés** : Safari ne donne pas le focus à un bouton cliqué, le focus d'une modale fermée à la souris y revient
+     donc au document (au clavier, il revient à l'ouvreur) ; un refus arrivé après la fermeture de sa modale n'est pas
+     montré, la liste relue dit l'état réel ; la densité des lignes est celle de l'unique tableau.
+
 ## Design arrêté
 
 - **`web/src/ui.tsx`** : `Button`, `Icon`, `Modal`, `DataTable`, `Toolbar`, `EmptyState`, `ErrorState`, `LoadingState`
@@ -95,7 +107,7 @@ Premier tour, 2026-10-21 : correction et accessibilité, code en trop, fidélit�
 - **`web/src/routes/_shell.account.tsx`** : « Mon compte ».
 - **`web/src/routes/_shell.operators.tsx`** : l'écran de l'origine.
 - **`web/src/styles/app.css`** : classes de l'origine (`shell`, `rail`, `topbar`, `page-header`, `ui-toolbar`,
-  `ui-table`, `ui-modal`, `ui-scrim` en `::backdrop`, `ui-empty`, `ui-error`, `ui-loading`, `ui-skeleton`,
+  `ui-table`, `ui-modal` (et son `::backdrop`), `ui-empty`, `ui-error`, `ui-loading`, `ui-skeleton`,
   `ui-tooltip`), en jetons ; les classes de 012d qui ne servent plus disparaissent.
 - **Tests** (Vitest, `fetch` simulé, axe) : rail (entrée masquée, groupe vidé), nom → `/account`, titre en portail,
   accueil, `Button` bloqué (focalisable, clic neutre, raison décrite), modale (Fermer, Échap, focus rendu), écran
