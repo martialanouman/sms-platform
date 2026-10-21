@@ -17,7 +17,7 @@ type Role struct {
 	Permissions []string
 }
 
-var sensitive = []string{"content:read", "content:write", "content:erase", "gdpr:erase", "msisdn:reveal", "cdr:export_bulk",
+var sensitive = []string{"content:read", "content:erase", "gdpr:erase", "msisdn:reveal", "cdr:export_bulk",
 	"audit:read", "routing-scripts:publish", "suppressions:delete", "billing:topup"}
 
 // RequiresMFA is whether held carries more than ordinary reads (spec 08 §8.3): a write, a sensitive scope of spec 07

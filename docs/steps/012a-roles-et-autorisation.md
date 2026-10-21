@@ -85,11 +85,11 @@ Fable, 2026-10-21. 012a est conduite sans arbitrage humain ; la coupe (138) est 
 
 ## Design arrêté
 
-- **`migrations/dashboard/00004_roles.sql`** : `roles`, `operator_roles` (cascade à la suppression d'un rôle, jamais
-  d'un opérateur) ; `audit.yaml` (`exempt`, les faits vont au journal d'accès) ; `contracts/grants/dashboard.yaml`
+- **`migrations/dashboard/00004_roles.sql`** : `roles`, `operator_roles` (sans cascade : un rôle détenu ne se
+  supprime pas, un opérateur jamais) ; `audit.yaml` (`exempt`, les faits vont au journal d'accès) ; `contracts/grants/dashboard.yaml`
   et la sortie régénérée.
 - **Cœur `internal/dashboard`** : `roles.go` (rôles par défaut, `Owner`, `RequiresMFA`) ; `session.go`
-  (`Current.Permissions`, `Current.Confined`) ; `bootstrap.go` (semis, propriétaire) ; `store.go` (ports `SeedRole`,
+  (`Current.Permissions`) ; `bootstrap.go` (semis, propriétaire) ; `store.go` (ports `SeedRole`,
   `EnsureOwner`).
 - **`internal/dashboard/postgres`** : requêtes sqlc du semis et du propriétaire ; `SessionOf` rend l'union triée.
 - **`internal/dashboard/http`** : `held` disparaît ; la garde `mfa_required` hors `/auth/*`, puis la permission ;
@@ -101,3 +101,31 @@ Fable, 2026-10-21. 012a est conduite sans arbitrage humain ; la coupe (138) est 
   Mutation manuelle, consignée.
 - **Preuve sur `contabo169`** : déploiement de la branche ; `roles_changed` au journal ; `me` élevé porte l'union de
   `Propriétaire` ; `GET /access-log` 403 non élevé, 200 élevé.
+
+## Écarts au design, constatés à l'implémentation
+
+- **Pas de `Current.Confined`** : la garde de `internal/dashboard/http` appelle `RequiresMFA` sur l'union ; seule elle sait
+  si l'opération est sous `/auth/*`.
+- **`content:write` n'est pas listé parmi les sensibles du cœur** : le suffixe `:write` le couvre déjà.
+
+## Mutations
+
+Trente-sept, à la main, sur la table des rôles, `RequiresMFA`, le SQL généré, l'adaptateur, le bootstrap et la garde ;
+toutes tombent. Une copie inutile dans `me` a survécu (la base rend `{}`, jamais `NULL`) : retirée.
+
+## Correctifs de revue, tour 1
+
+Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloquant.
+
+1. **Union non filtrée par opérateur** (haute, tests) : chaque test n'avait qu'un opérateur ; `WHERE true` survivait.
+   Un second opérateur, `Propriétaire`, tient désormais le test d'union.
+2. **Code en trop retiré** : la cascade de `operator_roles` (un rôle détenu ne se supprime pas, 012b) ; `content:write`
+   des sensibles ; le test HTTP d'union, redondant avec le cœur et `me`.
+3. **Tests** : `noc` attendu en liste littérale, plus recalculé comme le code ; `me` comparé au contenu, plus compté ;
+   `me` sans rôle rend `[]`.
+4. **Gardé, soumis à l'humain** : `sessions:read` et `sessions:write` à `Exploitation` (145, lecture de Fable : la ligne
+   du §8.5 peut ne viser que les sessions SMPP ; en 012b, un opérateur `Exploitation` fermera la session d'un autre).
+5. **Gardé** : le semis ne journalise rien (un déploiement n'est pas un fait d'opérateur, §8.9) ; `Propriétaire` peut
+   aller à l'opérateur du bootstrap désactivé, ce qui ne rend aucun propriétaire actif (142, à la lettre) ; un compte
+   actif jamais activé compte comme propriétaire ; un futur rôle par défaut homonyme d'un rôle taillé l'écraserait,
+   à trancher quand 012b ouvre `createRole`.

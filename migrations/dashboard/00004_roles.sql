@@ -9,7 +9,7 @@ CREATE TABLE dashboard.roles (
 
 CREATE TABLE dashboard.operator_roles (
   operator_id uuid NOT NULL REFERENCES dashboard.operators (id),
-  role_id     uuid NOT NULL REFERENCES dashboard.roles (id) ON DELETE CASCADE,
+  role_id     uuid NOT NULL REFERENCES dashboard.roles (id),
   PRIMARY KEY (operator_id, role_id)
 );
 CREATE INDEX operator_roles_role ON dashboard.operator_roles (role_id);

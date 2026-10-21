@@ -2,7 +2,6 @@ package dashboard_test
 
 import (
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/martialanouman/sms-platform/internal/dashboard"
@@ -35,12 +34,6 @@ var supportReads = read("accounts", "customers", "customer-groups", "sender-ids"
 	"smpp-sessions", "cdr", "billing", "traffic")
 
 func spec85() map[string][]string {
-	var noc []string
-	for _, s := range scopes.All {
-		if strings.HasSuffix(s, ":read") && s != "audit:read" && s != "content:read" {
-			noc = append(noc, s)
-		}
-	}
 	return map[string][]string{
 		"Propriétaire": set(scopes.All, scopes.Permissions),
 		"Exploitation": set(rw("routes", "exact-routes", "connectors", "smpp-sessions", "antispam", "routing-scripts",
@@ -55,7 +48,10 @@ func spec85() map[string][]string {
 		"Conformité": set(rw("suppressions", "opt-out-keywords"), read("inbound-numbers", "accounts", "customers", "customer-groups", "sender-ids", "cdr"),
 			[]string{"suppressions:delete", "gdpr:erase", "content:erase", "msisdn:reveal", "cdr:export_bulk"}),
 		"Audit": {"audit:read"},
-		"noc":   set(noc, []string{"stream:read"}),
+		"noc": {"accounts:read", "antispam:read", "billing:read", "cdr:read", "connectors:read", "credentials:read", "customer-groups:read",
+			"customers:read", "dead-letters:read", "exact-routes:read", "inbound-numbers:read", "jobs:read", "opt-out-keywords:read",
+			"platform:read", "routes:read", "routing-scripts:read", "sender-ids:read", "sender-rewrite:read", "smpp-sessions:read",
+			"stream:read", "suppressions:read", "traffic:read"},
 	}
 }
 

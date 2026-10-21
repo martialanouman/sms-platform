@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"net/netip"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -256,9 +257,14 @@ func TestAnOperatorActivatesLogsInAndOut(t *testing.T) {
 
 	me := a.do(t, call{method: "GET", path: "/api/auth/me", cookie: c.Value})
 	operator, _ := me.body["operator"].(map[string]any)
-	permissions, _ := me.body["permissions"].([]any)
+	var permissions []string
+	for _, p := range me.body["permissions"].([]any) {
+		permissions = append(permissions, p.(string))
+	}
+	owner := slices.Concat(scopes.All, scopes.Permissions)
+	slices.Sort(owner)
 	if me.status != 200 || operator["email"] != "owner@example.test" || operator["displayName"] != "owner@example.test" || operator["id"] == "" ||
-		len(permissions) != len(scopes.All)+len(scopes.Permissions) || me.body["elevated"] != false || me.body["idleTimeoutSeconds"] != float64(900) ||
+		!slices.Equal(permissions, owner) || me.body["elevated"] != false || me.body["idleTimeoutSeconds"] != float64(900) ||
 		!within12h(me.body["absoluteExpiresAt"]) || me.body["secondFactors"] == nil {
 		t.Errorf("me: %d %s", me.status, me.raw)
 	}
