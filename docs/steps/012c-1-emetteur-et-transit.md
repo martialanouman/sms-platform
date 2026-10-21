@@ -73,6 +73,25 @@ Fable, 2026-10-21.
 
 ## Mutations
 
-Quarante-trois, à la main, sur le client déplacé, le cœur, l'adaptateur et les handlers ; toutes tombent. Trois avaient
-survécu : deux gardes redondantes de l'adaptateur (`kid` déjà refusé par `Atoi`, préfixe de version déjà épinglé),
-retirées ; `expiresAt` vérifié seulement non nul, désormais comparé.
+Cinquante-huit, à la main, sur le client déplacé, le cœur, l'adaptateur et les handlers ; toutes tombent. Trois avaient
+survécu à l'implémentation : deux gardes redondantes de l'adaptateur (`kid` déjà refusé par `Atoi`, préfixe de version
+déjà épinglé), retirées ; `expiresAt` vérifié seulement non nul, désormais comparé. La revue des tests en a trouvé six
+autres, tenues désormais (tour 1).
+
+## Correctifs de revue, tour 1
+
+Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloquant.
+
+1. **Un jeton dont l'émission n'a pu être journalisée sortait** avec l'erreur : il ne sort plus. Un store en panne le
+   prouve.
+2. **Clé Transit hors P-256** : une clé `ecdsa-p384` publiait un JWK faux étiqueté `P-256` ; elle est refusée.
+3. **Tests** : le double signe sous deux versions, la plus récente en second (le `kid` courant et chaque JWK sont
+   éprouvés) ; deux scopes refusés, le premier nommé ; chaque réponse fautive de Transit séparément (sans version, sans
+   clé, PEM illisible, P-384, Ed25519) ; un opérateur élevé sans `gateway:personal_token` refusé ; le message du jeton
+   sans scope lu.
+4. **Code en trop retiré** : `ErrUnknownKid` exportée sans appelant ; la revérification complète du JWT côté HTTP, que
+   le cœur prouve (le handler relaie les octets du service, comparés) ; un cas HTTP redoublé ; `exp` calculé deux
+   fois ; le commentaire de `Keys` ; l'enveloppe `bao` du test de `contentkey`.
+5. **Gardé** : le double signataire copié dans deux paquets de test (un paquet partagé pour 25 lignes) ; la garde de
+   méthode et de chemin du JWKS, plutôt qu'un `ServeMux` qui rendrait 405 ; `{"scopes":[]}` est refusé par le
+   contrat (`minItems: 1`) avant le cœur.
