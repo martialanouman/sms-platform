@@ -62,6 +62,9 @@ func (s server) ListOperators(ctx context.Context, _ ListOperatorsRequestObject)
 
 func (s server) CreateOperator(ctx context.Context, request CreateOperatorRequestObject) (CreateOperatorResponseObject, error) {
 	created, err := s.Service.CreateOperator(ctx, actor(ctx), request.Body.Email, request.Body.DisplayName)
+	if refused, ok := invalid(err); ok {
+		return CreateOperator422JSONResponse{refused}, nil
+	}
 	switch {
 	case errors.Is(err, dashboard.ErrEmailTaken):
 		return CreateOperator409JSONResponse{Code: ErrorCodeEmailTaken, Message: "Un opérateur a déjà cette adresse."}, nil

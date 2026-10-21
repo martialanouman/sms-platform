@@ -61,6 +61,12 @@ func (e RateLimited) Error() string {
 	return "too many attempts"
 }
 
+// ValidEmail is whether email, once normalized, has exactly one @ between two non-empty sides.
+func ValidEmail(email string) bool {
+	local, domain, ok := strings.Cut(normalize(email), "@")
+	return ok && local != "" && domain != "" && !strings.Contains(domain, "@")
+}
+
 func normalize(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }

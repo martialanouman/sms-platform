@@ -144,6 +144,10 @@ func generated(held []string) ([]string, error) {
 
 // CreateRole composes a custom role from the generated permissions.
 func (s Service) CreateRole(ctx context.Context, actor, name, description string, held []string) (RoleRecord, error) {
+	name, description = strings.TrimSpace(name), strings.TrimSpace(description)
+	if name == "" {
+		return RoleRecord{}, InvalidField{Field: "name"}
+	}
 	held, err := generated(held)
 	if err != nil {
 		return RoleRecord{}, err
@@ -185,6 +189,7 @@ func custom(ctx context.Context, tx Tx, id string) error {
 // UpdateRole replaces the description and the permissions of a custom role; nobody loses operators:write or
 // roles:write by his own hand.
 func (s Service) UpdateRole(ctx context.Context, actor, id, description string, held []string) (RoleRecord, error) {
+	description = strings.TrimSpace(description)
 	held, err := generated(held)
 	if err != nil {
 		return RoleRecord{}, err

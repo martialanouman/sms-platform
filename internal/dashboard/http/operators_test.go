@@ -62,6 +62,7 @@ func TestAnElevatedOwnerManagesOperators(t *testing.T) {
 		code, field string
 	}{
 		"taken email":      {call{method: "POST", path: "/api/operators", body: `{"email":"ADA@example.test","displayName":"X"}`}, 409, "email_taken", ""},
+		"no email":         {call{method: "POST", path: "/api/operators", body: `{"email":"ada","displayName":"X"}`}, 422, "validation_error", "email"},
 		"unknown role":     {call{method: "PUT", path: path + "/roles", body: `{"roleIds":["` + support + `","x"]}`}, 422, "validation_error", "roleIds[1]"},
 		"own lockout":      {call{method: "PUT", path: "/api/operators/" + owner + "/roles", body: `{"roleIds":["` + support + `"]}`}, 409, "self_lockout", ""},
 		"roles of nobody":  {call{method: "PUT", path: "/api/operators/x/roles", body: `{"roleIds":[]}`}, 404, "not_found", ""},
@@ -125,6 +126,7 @@ func TestAnElevatedOwnerComposesRoles(t *testing.T) {
 		code, field string
 	}{
 		"taken name":     {call{method: "POST", path: "/api/roles", body: `{"name":"lecture","description":"","permissions":[]}`}, 409, "role_name_taken", ""},
+		"blank name":     {call{method: "POST", path: "/api/roles", body: `{"name":"  ","description":"","permissions":[]}`}, 422, "validation_error", "name"},
 		"unknown scope":  {call{method: "POST", path: "/api/roles", body: `{"name":"X","description":"","permissions":["cdr:read","admin:write"]}`}, 422, "validation_error", "permissions[1]"},
 		"default update": {call{method: "PATCH", path: audit, body: `{"description":"","permissions":[]}`}, 409, "role_is_default", ""},
 		"bad update":     {call{method: "PATCH", path: path, body: `{"description":"","permissions":["nope:read"]}`}, 422, "validation_error", "permissions[0]"},

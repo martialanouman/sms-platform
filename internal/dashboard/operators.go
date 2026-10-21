@@ -75,6 +75,9 @@ func operator(ctx context.Context, tx Tx, id string) (OperatorRecord, error) {
 
 // CreateOperator creates an active operator without role nor password, and queues its activation link.
 func (s Service) CreateOperator(ctx context.Context, actor, email, displayName string) (OperatorRecord, error) {
+	if !ValidEmail(email) {
+		return OperatorRecord{}, InvalidField{Field: "email"}
+	}
 	var created OperatorRecord
 	err := s.Store.Tx(ctx, func(tx Tx) error {
 		id, ok, err := tx.InsertOperator(ctx, normalize(email), displayName)

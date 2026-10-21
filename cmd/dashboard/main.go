@@ -82,7 +82,7 @@ func validate(infra config.Infra) error {
 		return errors.New("HTTP_ADDR is empty")
 	case infra.PostgresURL == "":
 		return errors.New("POSTGRES_URL is empty")
-	case !strings.Contains(infra.BootstrapEmail, "@"):
+	case !dashboard.ValidEmail(infra.BootstrapEmail):
 		return errors.New("DASHBOARD_BOOTSTRAP_EMAIL is not an email address")
 	case smtpErr != nil || smtpPort == "":
 		return fmt.Errorf("SMTP_ADDR %q is not host:port", infra.SMTPAddr)

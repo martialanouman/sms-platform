@@ -70,6 +70,12 @@ func TestCreateOperatorQueuesItsActivationAndRefusesATakenEmail(t *testing.T) {
 			t.Errorf("logged %+v", e)
 		}
 	}
+	for _, email := range []string{"   ", "ada", "a@b@example.test", " @example.test", "ada@ "} {
+		var invalid dashboard.InvalidField
+		if _, err := h.svc.CreateOperator(ctx, actor, email, "X"); !errors.As(err, &invalid) || invalid.Field != "email" {
+			t.Errorf("%q: %v", email, err)
+		}
+	}
 	if _, err := h.svc.CreateOperator(ctx, actor, "ADA@example.test", "Other"); !errors.Is(err, dashboard.ErrEmailTaken) {
 		t.Fatalf("a taken email: %v", err)
 	}

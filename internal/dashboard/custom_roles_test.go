@@ -28,7 +28,7 @@ func TestACustomRoleIsComposedFromTheGeneratedPermissionsUnderAFreeName(t *testi
 	ctx := context.Background()
 	actor := h.actor(t)
 	before := len(h.log(t))
-	created, err := h.svc.CreateRole(ctx, actor, "Lecture CDR", "Lit les CDR en clair.", []string{"msisdn:reveal", "cdr:read", "msisdn:reveal"})
+	created, err := h.svc.CreateRole(ctx, actor, " Lecture CDR ", " Lit les CDR en clair. ", []string{"msisdn:reveal", "cdr:read", "msisdn:reveal"})
 	if err != nil || created.Name != "Lecture CDR" || created.Description != "Lit les CDR en clair." || created.Default ||
 		!slices.Equal(created.Permissions, []string{"cdr:read", "msisdn:reveal"}) || len(created.Holders) != 0 {
 		t.Fatalf("created %+v, %v", created, err)
@@ -39,7 +39,7 @@ func TestACustomRoleIsComposedFromTheGeneratedPermissionsUnderAFreeName(t *testi
 	if log := h.since(t, before); len(log) != 1 || log[0].Event != dashboard.EventRoleCreated || log[0].Actor != actor || log[0].Target != created.ID {
 		t.Fatalf("logged %+v", log)
 	}
-	for _, name := range []string{"lecture cdr", "AUDIT"} {
+	for _, name := range []string{"lecture cdr", "AUDIT", " Audit"} {
 		if _, err := h.svc.CreateRole(ctx, actor, name, "", nil); !errors.Is(err, dashboard.ErrRoleNameTaken) {
 			t.Errorf("%q: %v", name, err)
 		}
@@ -47,6 +47,9 @@ func TestACustomRoleIsComposedFromTheGeneratedPermissionsUnderAFreeName(t *testi
 	var invalid dashboard.InvalidField
 	if _, err := h.svc.CreateRole(ctx, actor, "Autre", "", []string{"cdr:read", "admin:write"}); !errors.As(err, &invalid) || invalid.Field != "permissions[1]" {
 		t.Fatalf("an unknown permission: %v", err)
+	}
+	if _, err := h.svc.CreateRole(ctx, actor, " \t ", "", nil); !errors.As(err, &invalid) || invalid.Field != "name" {
+		t.Fatalf("a blank name: %v", err)
 	}
 	all, err := h.svc.Roles(ctx)
 	if err != nil || len(all) != 11 || !slices.IsSortedFunc(all, func(a, b dashboard.RoleRecord) int {
@@ -68,7 +71,7 @@ func TestAnUpdateReplacesACustomRoleButNeverADefaultOne(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := len(h.log(t))
-	updated, err := h.svc.UpdateRole(ctx, actor, created.ID, "Lit tout.", []string{"routes:read", "cdr:read"})
+	updated, err := h.svc.UpdateRole(ctx, actor, created.ID, " Lit tout. ", []string{"routes:read", "cdr:read"})
 	if err != nil || updated.Description != "Lit tout." || !slices.Equal(updated.Permissions, []string{"cdr:read", "routes:read"}) || updated.Name != "Lecture" {
 		t.Fatalf("updated %+v, %v", updated, err)
 	}
