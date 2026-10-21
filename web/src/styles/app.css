@@ -325,3 +325,116 @@ a.shell__link[aria-current="page"] {
     padding: var(--sp-9) var(--sp-7);
   }
 }
+
+.inline-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--sp-6);
+  align-items: end;
+  padding: var(--pad-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-card);
+  background: var(--surface-card);
+}
+
+.inline-form > .auth__refusal {
+  grid-column: 1 / -1;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--text-body);
+}
+
+.table th,
+.table td {
+  padding: var(--pad-cell-y) var(--pad-cell-x);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  vertical-align: top;
+}
+
+.table thead th {
+  color: var(--text-muted);
+  font: var(--text-overline);
+  letter-spacing: var(--ls-caps);
+  text-transform: uppercase;
+}
+
+.table tbody th {
+  font-weight: var(--fw-medium);
+}
+
+.table__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-control);
+}
+
+.table__hint {
+  display: block;
+  color: var(--text-faint);
+  font: var(--text-caption);
+}
+
+.table__refusal,
+.table__note {
+  margin: var(--sp-4) 0 0;
+  font: var(--text-caption);
+}
+
+.table__refusal {
+  color: var(--text-danger-on-tint);
+}
+
+.table__note {
+  color: var(--text-success);
+}
+
+.dialog {
+  width: min(40rem, calc(100% - var(--sp-10)));
+  padding: var(--pad-panel);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-card);
+  background: var(--surface-card);
+  color: var(--text-primary);
+}
+
+.dialog::backdrop {
+  background: color-mix(in srgb, var(--n-950) 70%, transparent);
+}
+
+.dialog__form {
+  display: grid;
+  gap: var(--sp-7);
+}
+
+.dialog__title {
+  margin: 0;
+  font: var(--text-card-title);
+}
+
+.dialog__choices {
+  display: grid;
+  gap: var(--sp-4);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.dialog__choice {
+  display: flex;
+  gap: var(--sp-5);
+  align-items: baseline;
+}
+
+.dialog__description {
+  color: var(--text-muted);
+}
+
+.dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--gap-control);
+}

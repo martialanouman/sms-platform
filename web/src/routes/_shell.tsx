@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, useNavigate } from '@tanstack/react-router'
 import { useEffect, useId, useState } from 'react'
-import { api, json, send, unreachable } from '../api'
+import { api, json, mfaRequired, send, unreachable } from '../api'
 import { Unauthenticated, useActivity, useMe, useSessionClosed } from '../session'
 
 export const Route = createFileRoute('/_shell')({ component: Shell })
@@ -46,6 +46,12 @@ function Shell() {
       closed()
     }
   }, [me.error, closed])
+  useEffect(() => {
+    const factors = me.data?.secondFactors
+    const verify = () => void navigate({ to: factors?.totp || factors?.passkeys ? '/mfa' : '/enroll' })
+    window.addEventListener(mfaRequired, verify)
+    return () => window.removeEventListener(mfaRequired, verify)
+  }, [me.data, navigate])
 
   async function logout() {
     setFailure('')
