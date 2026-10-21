@@ -314,3 +314,20 @@ func TestAServiceReachesTheRelayOfSMTPAddr(t *testing.T) {
 		}
 	}
 }
+
+func TestAServiceReachesThePodOfItsJWKS(t *testing.T) {
+	got := render(t, fstest.MapFS{"verifier.yaml": {Data: []byte(job("verifier", [2]string{"JWKS_URL", "https://issuer:9443/.well-known/jwks.json"}))}})
+	e := got["verifier"].Spec.Egress
+	if len(e) != 1 || len(e[0].To) != 1 ||
+		!reflect.DeepEqual(e[0].To[0].NamespaceSelector.MatchLabels, map[string]string{"kubernetes.io/metadata.name": "sms"}) ||
+		!reflect.DeepEqual(e[0].To[0].PodSelector.MatchLabels, map[string]string{"app.kubernetes.io/name": "issuer"}) ||
+		len(e[0].Ports) != 1 || e[0].Ports[0].Protocol != "TCP" || e[0].Ports[0].Port != 9443 {
+		t.Fatalf("egress %+v, want the issuer's pods on 9443", e)
+	}
+	for _, bad := range []string{"http://issuer:8443/.well-known/jwks.json", "https://issuer/.well-known/jwks.json",
+		"https://issuer.sms.svc:8443/jwks", "https://issuer:0/jwks", "https://Issuer:8443/jwks", "https://issuer:8443"} {
+		if _, err := netpol.Render(fstest.MapFS{"verifier.yaml": {Data: []byte(job("verifier", [2]string{"JWKS_URL", bad}))}}); err == nil || !strings.Contains(err.Error(), "JWKS_URL") {
+			t.Errorf("%q: err = %v, want a refusal", bad, err)
+		}
+	}
+}
