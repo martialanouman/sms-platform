@@ -65,6 +65,7 @@ type Store interface {
 // Audited is whether a call of method under scope enters the audit log: every write, and every read under a
 // sensitive scope (spec 07 §7.5).
 func Audited(method, scope string) bool {
+	// debt: #162
 	return method != "GET" || slices.Contains(scopes.Sensitive, scope)
 }
 
@@ -110,4 +111,17 @@ func parse(cursor string) (*Key, error) {
 		return nil, errs.ErrValidation
 	}
 	return &Key{At: at, ID: id}, nil
+}
+
+type txKey struct{}
+
+// WithTx is ctx carrying the transaction of its request.
+func WithTx(ctx context.Context, tx Tx) context.Context {
+	return context.WithValue(ctx, txKey{}, tx)
+}
+
+// TxFrom is the transaction of the request of ctx, nil outside one.
+func TxFrom(ctx context.Context) Tx {
+	tx, _ := ctx.Value(txKey{}).(Tx)
+	return tx
 }
