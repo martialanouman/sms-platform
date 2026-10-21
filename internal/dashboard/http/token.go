@@ -29,6 +29,9 @@ func (s server) IssueGatewayToken(ctx context.Context, request IssueGatewayToken
 	return IssueGatewayToken200JSONResponse{Token: issued.Token, Scopes: issued.Scopes, ExpiresAt: issued.ExpiresAt}, nil
 }
 
+// JWKSCallers are the only clients the internal listener of the JWKS admits (design 06 §7).
+var JWKSCallers = []string{"admin-api-svc"}
+
 // JWKS serves the public keys of the tokens at /.well-known/jwks.json, for the internal listener only (design 06 §7).
 func JWKS(svc dashboard.Service) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

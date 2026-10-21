@@ -57,6 +57,7 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 		"KAFKA_BROKERS":             "kafka-0:9093, kafka-1:9093",
 		"POSTGRES_ROLE_SECRETS_DIR": "/secrets/postgres",
 		"GRPC_ADDR":                 ":7002",
+		"INTERNAL_ADDR":             ":8443",
 		"OPENBAO_ADDR":              "https://openbao.openbao.svc:8200",
 		"HTTP_ADDR":                 ":8080",
 		"DASHBOARD_PUBLIC_URL":      "http://localhost:8080",
@@ -85,6 +86,7 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 		KafkaBrokers:           []string{"kafka-0:9093", "kafka-1:9093"},
 		PostgresRoleSecretsDir: "/secrets/postgres",
 		GRPCAddr:               ":7002",
+		InternalAddr:           ":8443",
 		OpenBaoAddr:            "https://openbao.openbao.svc:8200",
 		HTTPAddr:               ":8080",
 		PublicURL:              "http://localhost:8080",
@@ -105,7 +107,7 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 func TestVariablesIsTheClosedListLoadReads(t *testing.T) {
 	want := []string{
 		"COOKIE_KEY_FILE", "DASHBOARD_BOOTSTRAP_EMAIL", "DASHBOARD_PUBLIC_URL", "DRAIN_BUDGET", "DRAIN_DELAY", "GRPC_ADDR",
-		"HTTP_ADDR", "KAFKA_BROKERS", "LOG_LEVEL", "OPENBAO_ADDR", "OPS_ADDR", "POSTGRES_ROLE_SECRETS_DIR", "POSTGRES_URL",
+		"HTTP_ADDR", "INTERNAL_ADDR", "KAFKA_BROKERS", "LOG_LEVEL", "OPENBAO_ADDR", "OPS_ADDR", "POSTGRES_ROLE_SECRETS_DIR", "POSTGRES_URL",
 		"SHUTDOWN_TIMEOUT", "SMTP_ADDR", "SMTP_FROM", "SMTP_PASSWORD_FILE", "SMTP_USERNAME", "TLS_ALLOWED_CLIENTS",
 		"TLS_CA_FILE", "TLS_CERT_FILE", "TLS_KEY_FILE", "TOTP_KEY_FILE", "TRACE_SAMPLE_RATIO", "TRUSTED_PROXIES",
 	}

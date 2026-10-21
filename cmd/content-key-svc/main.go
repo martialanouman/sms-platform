@@ -4,14 +4,11 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
 	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"slices"
@@ -29,6 +26,7 @@ import (
 	"github.com/martialanouman/sms-platform/internal/contentkey/openbao"
 	"github.com/martialanouman/sms-platform/internal/platform/config"
 	"github.com/martialanouman/sms-platform/internal/platform/observability"
+	platformopenbao "github.com/martialanouman/sms-platform/internal/platform/openbao"
 	"github.com/martialanouman/sms-platform/internal/platform/ops"
 	"github.com/martialanouman/sms-platform/internal/platform/supervisor"
 )
@@ -70,7 +68,7 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	client, err := openbaoClient(ca)
+	client, err := platformopenbao.HTTPClient(ca)
 	if err != nil {
 		return fmt.Errorf("%s: %w", infra.TLS.CA, err)
 	}
@@ -92,14 +90,6 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger) error {
 	sup.Add("grpc", serve(s, ln, infra.ShutdownTimeout))
 	sup.OnDrain(opsServer.Drain)
 	return sup.Run(ctx, log)
-}
-
-func openbaoClient(ca []byte) (*http.Client, error) {
-	roots := x509.NewCertPool()
-	if !roots.AppendCertsFromPEM(ca) {
-		return nil, errors.New("the internal CA holds no certificate")
-	}
-	return &http.Client{Timeout: 10 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: roots}}}, nil
 }
 
 func serve(s *grpc.Server, ln net.Listener, shutdown time.Duration) func(context.Context) error {

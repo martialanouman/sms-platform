@@ -22,6 +22,7 @@ import (
 	"github.com/martialanouman/sms-platform/contracts"
 	"github.com/martialanouman/sms-platform/internal/catalog"
 	contentkeygrpc "github.com/martialanouman/sms-platform/internal/contentkey/grpc"
+	dashboardhttp "github.com/martialanouman/sms-platform/internal/dashboard/http"
 	"github.com/martialanouman/sms-platform/internal/netpol"
 	"github.com/martialanouman/sms-platform/internal/platform/config"
 	"github.com/martialanouman/sms-platform/internal/schema"
@@ -309,7 +310,7 @@ func checkManifest(path, name string) (string, []error) {
 	if !regexp.MustCompile(`(?m)^ *image: ` + regexp.QuoteMeta(registry+name) + `$`).Match(data) {
 		errs = append(errs, fmt.Errorf("%s: image not in the form deploy.sh tags, %q", name, "image: "+registry+name))
 	}
-	listenPort, servicePorts := 0, []int{}
+	listenPorts, servicePorts := []int{}, []int{}
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	for docs := 0; ; docs++ {
 		var w workload
@@ -404,15 +405,16 @@ func checkManifest(path, name string) (string, []error) {
 				if e.Name == "POSTGRES_URL" && e.ValueFrom.SecretKeyRef == nil {
 					errs = append(errs, fmt.Errorf("%s: POSTGRES_URL does not come from a secretKeyRef", at))
 				}
-				if port, ok := strings.CutPrefix(e.Value, ":"); (e.Name == "GRPC_ADDR" || e.Name == "HTTP_ADDR") && ok {
-					listenPort, _ = strconv.Atoi(port)
+				if port, ok := strings.CutPrefix(e.Value, ":"); (e.Name == "GRPC_ADDR" || e.Name == "HTTP_ADDR" || e.Name == "INTERNAL_ADDR") && ok {
+					n, _ := strconv.Atoi(port)
+					listenPorts = append(listenPorts, n)
 				}
 			}
 		}
 	}
 	for _, p := range servicePorts {
-		if p != listenPort {
-			errs = append(errs, fmt.Errorf("%s: Service port %d, want the port of GRPC_ADDR or HTTP_ADDR %d", name, p, listenPort))
+		if !slices.Contains(listenPorts, p) {
+			errs = append(errs, fmt.Errorf("%s: Service port %d, want a port of GRPC_ADDR, HTTP_ADDR or INTERNAL_ADDR %v", name, p, listenPorts))
 		}
 	}
 	return kind, errs
@@ -441,8 +443,10 @@ func checkService(name string, w workload) []error {
 		if c.ReadinessProbe.HTTPGet.Path != "/readyz" {
 			errs = append(errs, fmt.Errorf("%s: container %s: readinessProbe on %q, want /readyz", name, c.Name, c.ReadinessProbe.HTTPGet.Path))
 		}
+		callers := map[string][]string{"content-key-svc": slices.Sorted(maps.Keys(contentkeygrpc.Callers)), "dashboard": dashboardhttp.JWKSCallers}
 		for _, e := range c.Env {
-			if e.Name != "TLS_ALLOWED_CLIENTS" || name != "content-key-svc" {
+			want, guarded := callers[name]
+			if e.Name != "TLS_ALLOWED_CLIENTS" || !guarded {
 				continue
 			}
 			var allowed []string
@@ -451,8 +455,8 @@ func checkService(name string, w workload) []error {
 					allowed = append(allowed, a)
 				}
 			}
-			if want := slices.Sorted(maps.Keys(contentkeygrpc.Callers)); !slices.Equal(slices.Sorted(slices.Values(allowed)), want) {
-				errs = append(errs, fmt.Errorf("%s: TLS_ALLOWED_CLIENTS %v, want the callers of the method map %v", name, allowed, want))
+			if !slices.Equal(slices.Sorted(slices.Values(allowed)), want) {
+				errs = append(errs, fmt.Errorf("%s: TLS_ALLOWED_CLIENTS %v, want its callers %v", name, allowed, want))
 			}
 		}
 	}
@@ -549,6 +553,8 @@ func TestEachDeliveryRuleFails(t *testing.T) {
 		{"drain lengthened past the grace", "deploy/k8s/content-key-svc.yaml", "          env:\n", "          env:\n            - name: DRAIN_BUDGET\n              value: 91s\n", "terminationGracePeriodSeconds"},
 		{"Service of another name", "deploy/k8s/content-key-svc.yaml", "kind: Service\nmetadata:\n  name: content-key-svc", "kind: Service\nmetadata:\n  name: other", "Service \"other\""},
 		{"Service on another port", "deploy/k8s/content-key-svc.yaml", "      port: 7002", "      port: 7003", "Service port"},
+		{"internal Service on another port", "deploy/k8s/dashboard.yaml", "      port: 8443", "      port: 8444", "Service port"},
+		{"JWKS allowlist beyond its callers", "deploy/k8s/dashboard.yaml", "value: admin-api-svc", "value: admin-api-svc, router-svc", "TLS_ALLOWED_CLIENTS"},
 		{"ServiceAccount of another name", "deploy/k8s/content-key-svc.yaml", "kind: ServiceAccount\nmetadata:\n  name: content-key-svc", "kind: ServiceAccount\nmetadata:\n  name: other", "ServiceAccount \"other\""},
 		{"allowlist beyond the method map", "deploy/k8s/content-key-svc.yaml", "value: admin-api-svc", "value: admin-api-svc, router-svc", "TLS_ALLOWED_CLIENTS"},
 	} {

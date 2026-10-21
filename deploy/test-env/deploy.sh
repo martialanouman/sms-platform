@@ -28,7 +28,7 @@ done
 kubectl -n cert-manager wait --for=condition=available deploy/cert-manager-webhook --timeout=5m
 
 kubectl apply -f deploy/bricks/namespaces.yaml -f deploy/bricks/ca.yaml
-for certificate in cert-manager/internal-ca postgres/postgres-server kafka/kafka-listener openbao/openbao sms/catalog-apply-tls sms/content-key-svc-tls mailpit/mailpit-tls; do
+for certificate in cert-manager/internal-ca postgres/postgres-server kafka/kafka-listener openbao/openbao sms/catalog-apply-tls sms/content-key-svc-tls sms/dashboard-tls mailpit/mailpit-tls; do
 	kubectl -n "${certificate%/*}" wait --for=condition=ready "certificate/${certificate#*/}" --timeout=5m
 done
 bash deploy/bricks/secrets.sh

@@ -122,6 +122,16 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
+              kubernetes.io/metadata.name: sms
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: admin-api-svc
+      ports:
+        - protocol: TCP
+          port: 8443
+    - from:
+        - namespaceSelector:
+            matchLabels:
               kubernetes.io/metadata.name: monitoring
           podSelector:
             matchLabels:
@@ -130,6 +140,16 @@ spec:
         - protocol: TCP
           port: 9090
   egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openbao
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: openbao
+      ports:
+        - protocol: TCP
+          port: 8200
     - to:
         - namespaceSelector:
             matchLabels:

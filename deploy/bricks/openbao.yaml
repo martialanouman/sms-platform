@@ -74,6 +74,12 @@ spec:
               app.kubernetes.io/name: content-key-svc
         - namespaceSelector:
             matchLabels:
+              kubernetes.io/metadata.name: sms
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: dashboard
+        - namespaceSelector:
+            matchLabels:
               kubernetes.io/metadata.name: monitoring
           podSelector:
             matchLabels:
