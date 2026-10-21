@@ -5,7 +5,7 @@ import { act } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, test, vi } from 'vitest'
 import { pendingChallenge, rememberChallenge } from '../session'
-import { challenge, empty, json, me, renderAt, stubFetch, stubPasskeys, violations } from '../test'
+import { challenge, empty, explained, json, me, renderAt, stubFetch, stubPasskeys, violations } from '../test'
 
 const enrollment = {
   secret: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP',
@@ -228,7 +228,12 @@ test('a passkey without name is not attempted', async () => {
   stubPasskeys()
   const calls = stubFetch({})
   renderAt('/enroll')
-  await userEvent.setup().click(await screen.findByRole('button', { name: "Enregistrer une clé d'accès" }))
+  const user = userEvent.setup()
+  const register = await screen.findByRole('button', { name: "Enregistrer une clé d'accès" })
+  await user.click(register)
+  expect(explained(screen.getByLabelText('Nom de la clé'))).toBe('Ce champ est obligatoire.')
+  await user.type(screen.getByLabelText('Nom de la clé'), '   ')
+  await user.click(register)
   expect((await screen.findByRole('alert')).textContent).toBe('Nommez la clé : ce nom la distinguera des autres.')
   expect(calls).toEqual([])
 })

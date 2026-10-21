@@ -25,14 +25,46 @@ export function AuthLayout({ title, children }: { title: string; children: React
   )
 }
 
+function invalidity(validity: ValidityState) {
+  if (validity.valueMissing) {
+    return 'Ce champ est obligatoire.'
+  }
+  return validity.typeMismatch ? 'Adresse e-mail invalide.' : 'Valeur invalide.'
+}
+
 export function Field({ label, ...input }: { label: string } & ComponentProps<'input'>) {
   const id = useId()
+  const [error, setError] = useState('')
   return (
     <div className="ui-field">
       <label className="ui-field__label" htmlFor={id}>
         {label}
       </label>
-      <input id={id} className="ui-input" {...input} />
+      <input
+        id={id}
+        className="ui-input"
+        {...input}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={[error && `${id}-error`, input['aria-describedby']].filter(Boolean).join(' ') || undefined}
+        onInvalid={(e) => {
+          e.preventDefault()
+          setError(invalidity(e.currentTarget.validity))
+          if (e.currentTarget.form?.querySelector(':is(input, select, textarea):invalid') === e.currentTarget) {
+            e.currentTarget.focus()
+          }
+        }}
+        onInput={(e) => {
+          if (e.currentTarget.validity.valid) {
+            setError('')
+          }
+        }}
+      />
+      {error && (
+        <p className="ui-field__error" id={`${id}-error`}>
+          <Icon name="bang" />
+          {error}
+        </p>
+      )}
     </div>
   )
 }
