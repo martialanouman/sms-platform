@@ -63,6 +63,15 @@ Premier tour, 2026-10-21 : aucun bloquant.
 210. **§8.5 dit « sessions SMPP »** dans les portées d'`Exploitation` et de `Support`, pour ne pas les confondre avec
      `sessions:*`.
 
+Second tour, 2026-10-21 : aucun bloquant.
+
+211. **Le focus va au titre** après une suppression seulement si sa modale était encore ouverte : fermée par Échap
+     pendant la requête, le succès ne déplace rien.
+212. **La relecture sur refus** (205) ne suit qu'une réponse du serveur en 4xx, hors 429 : une panne ou une limitation ne
+     déclenche pas de nouvelle lecture qui remplacerait l'écran par son erreur.
+213. **Assumés** : après un refus qui retire la ligne (rôle supprimé ailleurs, 404), le focus revient au document ; la
+     phrase « Personne ne détient ce rôle » reste sous un refus `role_held`, que l'alerte contredit.
+
 ## Design arrêté
 
 - **`docs/spec/08-dashboard.md`** §8.5 : `sessions:*` hors de tout rôle par défaut sauf `Propriétaire`.
