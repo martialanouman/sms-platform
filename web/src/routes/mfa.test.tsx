@@ -101,7 +101,7 @@ test('a login completed by its second factor shows the dashboard', async () => {
   await user.click(screen.getByRole('button', { name: 'Se connecter' }))
   await user.type(await screen.findByLabelText('Code à six chiffres'), '123456')
   await user.click(screen.getByRole('button', { name: 'Vérifier' }))
-  expect(await screen.findByText('Connecté en tant que Opérateur (operateur@example.test)')).toBeDefined()
+  expect(await screen.findByRole('link', { name: 'Opérateur' })).toBeDefined()
   expect(router.state.location.pathname).toBe('/')
 })
 

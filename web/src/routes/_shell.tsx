@@ -1,36 +1,44 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, Outlet, useNavigate } from '@tanstack/react-router'
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api, json, mfaRequired, send, unreachable } from '../api'
 import { Unauthenticated, useActivity, useMe, useSessionClosed } from '../session'
+import { Button, PageHeaderProvider, PageHeaderSlot } from '../ui'
 
 export const Route = createFileRoute('/_shell')({ component: Shell })
 
-const entries = [
-  { to: '/', label: 'Mon compte', permission: undefined },
-  { to: '/operators', label: 'Opérateurs', permission: 'operators:read' },
+const groups = [
+  { label: 'Administration', entries: [{ to: '/operators', label: 'Opérateurs', permission: 'operators:read' }] },
 ] as const
 
-function Entry({ to, label, permission, held }: (typeof entries)[number] & { held: string[] }) {
-  const hint = useId()
-  if (permission && !held.includes(permission)) {
-    return (
-      <li>
-        <span className="shell__link" aria-disabled="true" aria-describedby={hint}>
-          {label}
-        </span>
-        <span className="shell__hint" id={hint}>
-          Il faut la permission {permission}.
-        </span>
-      </li>
-    )
-  }
+function Rail({ held }: { held: string[] }) {
   return (
-    <li>
-      <Link className="shell__link" to={to}>
-        {label}
+    <nav className="shell__rail" aria-label="Navigation principale">
+      <Link className="rail__brand" to="/" activeOptions={{ exact: true }}>
+        SMS Gateway
       </Link>
-    </li>
+      {groups.map((group) => {
+        const entries = group.entries.filter((e) => held.includes(e.permission))
+        return (
+          entries.length > 0 && (
+            <div className="rail__group" key={group.label}>
+              <p className="rail__label" id={`rail-${group.label}`}>
+                {group.label}
+              </p>
+              <ul className="rail__list" aria-labelledby={`rail-${group.label}`}>
+                {entries.map((e) => (
+                  <li key={e.to}>
+                    <Link className="rail__item" to={e.to}>
+                      {e.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )
+        )
+      })}
+    </nav>
   )
 }
 
@@ -69,46 +77,53 @@ function Shell() {
   }
 
   return (
-    <div className="shell">
-      <header className="shell__header">
-        <p className="shell__brand">SMS Gateway</p>
-        {me.data && (
-          <div className="shell__identity">
-            <span>{me.data.operator.displayName}</span>
-            <button className="ui-button ui-button--secondary" type="button" onClick={logout}>
-              Se déconnecter
-            </button>
-          </div>
-        )}
-      </header>
-      {me.data && (
-        <nav className="shell__rail" aria-label="Navigation principale">
-          <ul>
-            {entries.map((e) => (
-              <Entry key={e.to} {...e} held={me.data.permissions} />
-            ))}
-          </ul>
-        </nav>
-      )}
-      <main className="shell__main">
-        {failure && (
-          <p className="auth__refusal" role="alert">
-            {failure}
-          </p>
-        )}
-        {me.error && !(me.error instanceof Unauthenticated) && (
-          <div className="shell__failure">
+    <PageHeaderProvider>
+      <div className="shell">
+        {/* biome-ignore lint/a11y/useValidAnchor: #contenu est une vraie destination ; le fragment seul ne donne pas le focus à main. */}
+        <a
+          className="shell__skip"
+          href="#contenu"
+          onClick={(event) => {
+            event.preventDefault()
+            document.getElementById('contenu')?.focus()
+          }}
+        >
+          Aller au contenu
+        </a>
+        {me.data ? <Rail held={me.data.permissions} /> : <div className="shell__rail" />}
+        <header className="shell__topbar">
+          <PageHeaderSlot />
+          {me.data && (
+            <div className="topbar__end">
+              <Link className="topbar__operator" to="/account">
+                {me.data.operator.displayName}
+              </Link>
+              <Button size="sm" loading={leaving} onClick={logout}>
+                Se déconnecter
+              </Button>
+            </div>
+          )}
+        </header>
+        <main className="shell__content" id="contenu" tabIndex={-1}>
+          {failure && (
             <p className="auth__refusal" role="alert">
-              {unreachable}
+              {failure}
             </p>
-            <button className="ui-button ui-button--secondary" type="button" onClick={() => void me.refetch()}>
-              Réessayer
-            </button>
-          </div>
-        )}
-        {me.isPending && <p className="auth__intro">Chargement de la session…</p>}
-        {me.data && <Outlet />}
-      </main>
-    </div>
+          )}
+          {me.error && !(me.error instanceof Unauthenticated) && (
+            <div className="shell__failure">
+              <p className="auth__refusal" role="alert">
+                {unreachable}
+              </p>
+              <Button size="sm" onClick={() => void me.refetch()}>
+                Réessayer
+              </Button>
+            </div>
+          )}
+          {me.isPending && <p className="auth__intro">Chargement de la session…</p>}
+          {me.data && <Outlet />}
+        </main>
+      </div>
+    </PageHeaderProvider>
   )
 }

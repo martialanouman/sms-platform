@@ -1,42 +1,29 @@
-import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect } from 'react'
-import { PasskeySection, TotpReplacement } from '../factor'
-import { meQuery, useShellMe } from '../session'
+import { useShellMe } from '../session'
+import { EmptyState } from '../ui'
 
-export const Route = createFileRoute('/_shell/')({ component: Account })
+export const Route = createFileRoute('/_shell/')({ component: Home })
 
-function Account() {
+function Home() {
   const me = useShellMe()
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const refreshMe = () => queryClient.invalidateQueries({ queryKey: meQuery.queryKey })
 
   useEffect(() => {
-    document.title = 'Mon compte — Tableau de bord'
+    document.title = 'Accueil — Tableau de bord'
   }, [])
   useEffect(() => {
+    // debt: #155
     if (me.data && !me.data.elevated) {
       void navigate({ to: '/login', search: { notice: 'verification-interrupted' } })
     }
   }, [me.data, navigate])
 
   return (
-    <section className="page">
-      <h1 className="page__title">Mon compte</h1>
-      {me.data && (
-        <>
-          <p className="auth__intro">
-            Connecté en tant que {me.data.operator.displayName} ({me.data.operator.email})
-          </p>
-          <TotpReplacement
-            held={me.data.secondFactors.totp}
-            remaining={me.data.secondFactors.recoveryCodesRemaining}
-            onReplaced={refreshMe}
-          />
-          <PasskeySection count={me.data.secondFactors.passkeys} onChange={refreshMe} />
-        </>
-      )}
-    </section>
+    <div className="page">
+      <EmptyState title="Le cockpit d'exploitation se construit">
+        <p>Les écrans arrivent step par step : chacun avec sa route, son état vide et la permission qui l'ouvre.</p>
+      </EmptyState>
+    </div>
   )
 }
