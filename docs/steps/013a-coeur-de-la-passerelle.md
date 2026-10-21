@@ -102,8 +102,8 @@ Fable, 2026-10-21, sauf mention. La coupe (229) et 234 sont soumises à l'humain
 ## Mutations
 
 À la main, par un script qui copie, mute, teste et restaure (`cmp`), et signale un mutant qui ne compile pas. Vérificateur
-13/13 ; JWKS 12/12 ; curseur 3/3 ; cœur de l'audit 9/9 ; SQL généré 11/11 ; adaptateur Postgres 8/8 ; couche huma 18/19,
-modèle d'erreur et handlers 8/8 après retraits. Équivalents gardés : `>= 400` contre `> 400` (aucun 400 ne sort), l'échec
+13/13 ; JWKS 13/13 ; curseur 3/3 ; cœur de l'audit 8/8 ; SQL généré 11/11 ; adaptateur Postgres 8/8 ; couche huma 18/19,
+modèle d'erreur et handlers 8/8 après retraits, cible et tags JSON 7/7. Équivalents gardés : `>= 400` contre `> 400` (aucun 400 ne sort), l'échec
 de décodage base64 du curseur (le dernier quantum perdu fait tomber l'UUID). Retirés parce qu'équivalents : les filtres
 `kty`/`crv` et de longueur du JWKS, le plafond explicite du corps, `!found` du curseur, la branche 400, le masque du
 message 500 (huma n'y met jamais la cause), `ContentType`. Survivants qui ont révélé un cas réel, tués : une signature
