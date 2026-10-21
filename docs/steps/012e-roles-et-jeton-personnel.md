@@ -84,3 +84,39 @@ Second tour, 2026-10-21 : aucun bloquant.
   modification, suppression, refus du serveur, contrôles bloqués et expliqués, catalogue tiré de `Propriétaire`, jeton
   (délivrance, copie, refus, 503, absence du document après fermeture). Mutation manuelle, consignée.
 - **Preuve sur `contabo169`**, dans Chromium : le parcours du « Terminé quand », captures, axe.
+
+## Écarts au design, constatés à l'implémentation
+
+- **Les requêtes de liste sont mises en commun** (`web/src/queries.ts`) : l'écran Opérateurs et l'écran Rôles lisent les
+  mêmes, avec la même distinction entre session perdue, refus et panne.
+- **Le double de `showModal` donne le focus au premier contrôle** de la modale et la ferme par Échap d'où que vienne la
+  touche, comme le navigateur : le jeton fermé par Échap n'était pas vu sinon.
+- **Les légendes du sélecteur perdaient le mono** contre la règle de `.role-choice` ; trouvé dans Chromium.
+
+## Mutations
+
+Une quarantaine, à la main, sur la table de vérité, le rail, l'écran, l'éditeur, la confirmation, le jeton et les
+requêtes ; toutes tombent. Survivants corrigés en route : le catalogue lu sur le premier rôle par défaut (fixture
+réordonnée), la session perdue pendant la lecture des rôles, la fermeture du jeton par Échap, l'exclusion du 429.
+
+## Preuve sur `contabo169`
+
+Jouée le 2026-10-21 depuis la branche, sur le cluster en v0.23.0 : image `dashboard` en snapshot, importée sous
+`proof-012e`, `proof-012e-b`, puis `proof-012e-c` (légendes) ; timer suspendu. Dans Chromium (`agent-browser`), au
+clavier, en `Propriétaire` :
+
+1. « Rôles » par le rail ([capture](012e/roles.png)) ; nombres alignés à droite ; « Modifier » et « Supprimer » des
+   rôles par défaut bloqués, raison au focus ([capture](012e/par-defaut.png)).
+2. « Voir les permissions » d'`Exploitation` : 37 clés, `smpp-sessions:*` mais plus `sessions:*`
+   ([capture](012e/permissions.png)) ; Échap rend le focus au bouton.
+3. « Nouveau rôle » ([capture](012e/nouveau-role.png)) : 30 groupes tirés de `Propriétaire` ; nom, description,
+   `traffic:read` à l'espace, Entrée : le rôle paraît, focus rendu à « Nouveau rôle ». « Modifier » : `accounts:read`
+   ajouté ([capture](012e/modifier-role.png)), deux permissions. « Supprimer » : confirmation
+   ([capture](012e/supprimer.png)), la ligne disparaît, focus sur le titre « Rôles ».
+4. « Mon compte », « Délivrer » : le `POST /gateway-token` sans corps est servi ; la modale montre le jeton une fois,
+   l'heure d'expiration et 47 scopes, sans `content:read`, `content:erase` ni `gdpr:erase` ; « Copier le secret » :
+   « Copié. » ; « J'ai copié le secret » : la modale se ferme, le jeton n'est plus dans le document, focus rendu à
+   « Délivrer » ([capture](012e/jeton.png), prise après fermeture : le dépôt est public).
+5. axe (WCAG 2.1 AA) : aucune violation sur l'écran Rôles, l'éditeur ouvert et la modale du jeton.
+
+Le cluster reste sur `proof-012e-c`, timer suspendu ; il se réarme au merge.
