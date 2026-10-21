@@ -66,6 +66,16 @@ func (t tx) SetPassword(ctx context.Context, operatorID, phc string) error {
 	return queries.SetPassword(ctx, t.db, sqlc.SetPasswordParams{Phc: &phc, ID: operatorID})
 }
 
+func (t tx) SeedRole(ctx context.Context, r dashboard.Role) error {
+	return queries.SeedRole(ctx, t.db, sqlc.SeedRoleParams{Name: r.Name, Description: r.Description, Permissions: r.Permissions})
+}
+
+func (t tx) EnsureOwner(ctx context.Context, email string) (string, bool, error) {
+	id, err := queries.EnsureOwner(ctx, t.db, sqlc.EnsureOwnerParams{Email: email, Role: dashboard.Owner})
+	granted, err := found(err)
+	return id, granted, err
+}
+
 func (t tx) QueueLink(ctx context.Context, operatorID string, kind dashboard.LinkKind) error {
 	return queries.QueueLink(ctx, t.db, sqlc.QueueLinkParams{OperatorID: operatorID, Kind: string(kind)})
 }
@@ -118,7 +128,7 @@ func (t tx) SessionOf(ctx context.Context, digest []byte, idle, fresh time.Durat
 	ok, err := found(err)
 	return dashboard.SessionView{Current: dashboard.Current{SessionID: r.ID, OperatorID: r.OperatorID, Email: r.Email,
 		DisplayName: r.DisplayName, ExpiresAt: r.ExpiresAt, Elevated: r.Elevated, Fresh: r.Fresh, Totp: r.Totp,
-		RecoveryCodesRemaining: int(r.RecoveryCodesRemaining), Passkeys: int(r.Passkeys)}, Live: r.Live}, ok, err
+		RecoveryCodesRemaining: int(r.RecoveryCodesRemaining), Passkeys: int(r.Passkeys), Permissions: r.Permissions}, Live: r.Live}, ok, err
 }
 
 func (t tx) Touch(ctx context.Context, digest []byte, idle time.Duration) (bool, error) {

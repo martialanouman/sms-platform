@@ -42,10 +42,23 @@ type DashboardOperator struct {
 	CreatedAt    time.Time
 }
 
+type DashboardOperatorRole struct {
+	OperatorID string
+	RoleID     string
+}
+
 type DashboardRecoveryCode struct {
 	Digest   []byte
 	FactorID string
 	UsedAt   *time.Time
+}
+
+type DashboardRole struct {
+	ID          string
+	Name        string
+	Description string
+	Permissions []string
+	IsDefault   bool
 }
 
 type DashboardSession struct {

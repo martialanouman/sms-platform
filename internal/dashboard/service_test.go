@@ -201,7 +201,11 @@ func TestBootstrapCreatesTheOperatorOnceAndQueuesOneActivation(t *testing.T) {
 		t.Fatalf("%d operators, %d links, %q named %q, link %q", operators, links, email, name, kind)
 	}
 	id := h.operatorID(t, email)
-	if got := h.log(t); len(got) != 1 || got[0].Event != dashboard.EventAccessLinkRequested || got[0].Actor != "" || got[0].Target != id || !got[0].Success {
+	if got := rolesChanged(h.log(t)); len(got) != 1 || got[0].Target != id {
+		t.Fatalf("roles_changed %+v, want one targeting %s", got, id)
+	}
+	if got := slices.DeleteFunc(h.log(t), func(e dashboard.Entry) bool { return e.Event == dashboard.EventRolesChanged }); len(got) != 1 ||
+		got[0].Event != dashboard.EventAccessLinkRequested || got[0].Actor != "" || got[0].Target != id || !got[0].Success {
 		t.Fatalf("log %+v, want one access_link_requested targeting %s", got, id)
 	}
 	if err := h.svc.Bootstrap(ctx, "owner@example.test"); err != nil {
@@ -600,15 +604,15 @@ func TestTheAccessLogPagesNewestFirst(t *testing.T) {
 		t.Fatalf("first page: %d entries, next %q, %v", len(page), next, err)
 	}
 	all := h.log(t)
-	if len(all) != 122 {
-		t.Fatalf("%d entries, want 122", len(all))
+	if len(all) != 123 {
+		t.Fatalf("%d entries, want 123", len(all))
 	}
 	if !slices.IsSortedFunc(all, func(a, b dashboard.Entry) int {
 		if c := b.At.Compare(a.At); c != 0 {
 			return c
 		}
 		return strings.Compare(b.ID, a.ID)
-	}) || all[121].Event != dashboard.EventAccessLinkRequested {
+	}) || all[122].Event != dashboard.EventAccessLinkRequested {
 		t.Fatal("the log is not newest first")
 	}
 	encode := func(s string) string { return base64.RawURLEncoding.EncodeToString([]byte(s)) }

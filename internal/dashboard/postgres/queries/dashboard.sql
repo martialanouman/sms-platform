@@ -75,6 +75,8 @@ SELECT s.id::text AS id, s.operator_id::text AS operator_id, o.email, o.display_
   (SELECT count(*) FROM dashboard.recovery_codes c JOIN dashboard.totp_factors f ON f.id = c.factor_id
     WHERE f.operator_id = s.operator_id AND f.confirmed_at IS NOT NULL AND c.used_at IS NULL)::int AS recovery_codes_remaining,
   (SELECT count(*) FROM dashboard.webauthn_credentials w WHERE w.operator_id = s.operator_id)::int AS passkeys,
+  (SELECT coalesce(array_agg(DISTINCT p ORDER BY p), '{}') FROM dashboard.operator_roles x
+    JOIN dashboard.roles r ON r.id = x.role_id, unnest(r.permissions) p WHERE x.operator_id = s.operator_id)::text[] AS permissions,
   (now() < s.expires_at AND now() < s.last_seen_at + make_interval(secs => @idle_seconds::float8) AND o.status = 'active')::bool AS live
 FROM dashboard.sessions s JOIN dashboard.operators o ON o.id = s.operator_id
 WHERE s.token_hash = @digest;
@@ -182,3 +184,16 @@ WHERE credential_id = @credential_id AND operator_id = @operator_id::uuid AND (@
 
 -- name: RemovePasskey :exec
 DELETE FROM dashboard.webauthn_credentials WHERE id = @id::uuid AND operator_id = @operator_id::uuid;
+
+-- name: SeedRole :exec
+INSERT INTO dashboard.roles (name, description, permissions, is_default) VALUES (@name, @description, @permissions::text[], true)
+ON CONFLICT (name) DO UPDATE SET description = excluded.description, permissions = excluded.permissions, is_default = true;
+
+-- name: EnsureOwner :one
+INSERT INTO dashboard.operator_roles (operator_id, role_id)
+SELECT o.id, r.id FROM dashboard.operators o, dashboard.roles r
+WHERE lower(o.email) = lower(@email) AND r.name = @role
+  AND NOT EXISTS (SELECT 1 FROM dashboard.operator_roles x JOIN dashboard.operators a ON a.id = x.operator_id
+    WHERE x.role_id = r.id AND a.status = 'active')
+ON CONFLICT DO NOTHING
+RETURNING operator_id::text;

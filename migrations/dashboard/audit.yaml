@@ -7,3 +7,5 @@ totp_factors: {audit: exempt, reason: "secrets scellés ; enrôlements et retrai
 recovery_codes: {audit: exempt, reason: "codes hachés ; leur usage va au journal d'accès"}
 webauthn_credentials: {audit: exempt, reason: "clés publiques ; enregistrements et retraits vont au journal d'accès"}
 webauthn_challenges: {audit: exempt, reason: "état d'exécution des cérémonies, mort avec sa session"}
+roles: {audit: exempt, reason: "création, modification et suppression d'un rôle vont au journal d'accès du dashboard"}
+operator_roles: {audit: exempt, reason: "les changements de rôles d'un opérateur vont au journal d'accès du dashboard"}
