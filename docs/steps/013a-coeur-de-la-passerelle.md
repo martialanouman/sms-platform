@@ -25,7 +25,7 @@ réponse de succès ; le contrat servi est un sous-ensemble du fichier.
 
 ## Arbitrages
 
-Fable, 2026-10-21, sauf mention. La coupe (229) et 234 sont soumises à l'humain avec la PR.
+Fable, 2026-10-21, sauf mention. La coupe (229) et 234 ont été confirmées par l'humain (voir la fin).
 
 229. **Coupe de 013 en quatre** :
      - **013a, cœur et adaptateurs** : vérificateur, scope par opération, middleware d'audit, `list-audit-log`,
@@ -144,3 +144,13 @@ Une revue des correctifs du tour 1. Aucun bloquant.
    acceptée jusqu'au redémarrage, aucun `kid` connu ne rechargeant le jeu. Issue #163 (`debt`), soumise à l'humain avec
    la PR : la clé privée ne quitte pas OpenBao et une rotation ordinaire attend l'expiration des jetons.
 4. **Message de test** qui disait l'inverse de son assertion, corrigé.
+
+## Décisions humaines
+
+2026-10-21, sur la PR #164.
+
+- **Coupe de 013 en quatre** (229) : confirmée.
+- **403 de scope audité** (234) : confirmé.
+- **#163** : reste en dette, étiquetée `go-live`.
+- **Prose de `AuditEntry.target`** (« masqué sauf `msisdn:reveal` ») : retirée en 013d, avec la génération des types
+  TypeScript du contrat Admin.
