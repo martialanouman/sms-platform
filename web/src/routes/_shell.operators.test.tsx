@@ -39,6 +39,10 @@ const zed = {
   roles: [],
   accessLink: null,
 }
+const links = [
+  { kind: 'reset', state: 'sent', text: 'Réinitialisation envoyée' },
+  { kind: 'activation', state: 'failed', text: 'Activation en échec' },
+]
 
 function row(name: string) {
   const cell = screen.getByRole('rowheader', { name })
@@ -104,6 +108,7 @@ test('an operator is created, and a refusal is told by its message', async () =>
   await user.click(within(form).getByRole('button', { name: 'Créer' }))
   expect(await screen.findByRole('rowheader', { name: 'Ada' })).toBeDefined()
   expect((within(form).getByLabelText('Adresse e-mail') as HTMLInputElement).value).toBe('')
+  expect((within(form).getByLabelText('Nom') as HTMLInputElement).value).toBe('')
   const created = calls.filter((c) => c.method === 'POST' && c.url.endsWith('/api/operators'))
   expect(await created[1]?.json()).toEqual({ email: 'ada@example.test', displayName: 'Ada' })
   expect(created[1]?.headers.get('Content-Type')).toBe('application/json')
@@ -277,14 +282,12 @@ test('a refusal of a row action is told in the row', async () => {
     'GET /api/auth/me': () => json(200, owner),
     'GET /api/operators': () => json(200, [self, ada]),
     'POST /api/operators/o-ada/access-link': () =>
-      json(409, { code: 'operator_disabled', message: 'Aucun lien ne part vers un compte désactivé.' }),
+      json(409, { code: 'operator_disabled', message: 'Compte désactivé entre-temps (serveur).' }),
   })
   renderAt('/operators')
   await screen.findByRole('rowheader', { name: 'Ada' })
   await userEvent.setup().click(within(row('Ada')).getByRole('button', { name: 'Envoyer un lien' }))
-  expect((await within(row('Ada')).findByRole('alert')).textContent).toBe(
-    'Aucun lien ne part vers un compte désactivé.',
-  )
+  expect((await within(row('Ada')).findByRole('alert')).textContent).toBe('Compte désactivé entre-temps (serveur).')
 })
 
 test('the dialog survives the list read again while it is open', async () => {
@@ -365,4 +368,89 @@ test('taking operators:read away from oneself closes the dialog and tells why', 
   expect(await screen.findByText('Il faut la permission operators:read pour lire les opérateurs.')).toBeDefined()
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(document.activeElement?.closest('main')).not.toBeNull()
+})
+
+test('each kind and state of access link is told', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, owner),
+    'GET /api/operators': () =>
+      json(
+        200,
+        links.map((l, i) => ({
+          ...ada,
+          id: `o-${i}`,
+          displayName: `L${i}`,
+          accessLink: { kind: l.kind, state: l.state },
+        })),
+      ),
+  })
+  renderAt('/operators')
+  for (const [i, l] of links.entries()) {
+    expect(
+      within((await screen.findByRole('rowheader', { name: `L${i}` })).closest('tr') as HTMLElement).getAllByRole(
+        'cell',
+      )[4]?.textContent,
+    ).toBe(l.text)
+  }
+})
+
+test('the list tells it is loading, then that it is empty', async () => {
+  let answer: (r: Response) => void = () => {}
+  stubFetch({
+    'GET /api/auth/me': () => json(200, owner),
+    'GET /api/operators': () => new Promise<Response>((resolve) => (answer = resolve)),
+  })
+  renderAt('/operators')
+  expect(await screen.findByText('Chargement des opérateurs…')).toBeDefined()
+  await act(async () => answer(json(200, [])))
+  expect(await screen.findByText('Aucun opérateur.')).toBeDefined()
+  expect(screen.queryByText('Chargement des opérateurs…')).toBeNull()
+})
+
+test('the dialog tells the roles are loading, then that they cannot be read', async () => {
+  let answer: (r: Response) => void = () => {}
+  stubFetch({
+    'GET /api/auth/me': () => json(200, owner),
+    'GET /api/operators': () => json(200, [self, ada]),
+    'GET /api/roles': () => new Promise<Response>((resolve) => (answer = resolve)),
+  })
+  renderAt('/operators')
+  await screen.findByRole('rowheader', { name: 'Ada' })
+  await userEvent.setup().click(within(row('Ada')).getByRole('button', { name: 'Rôles' }))
+  const dialog = await screen.findByRole('dialog')
+  expect(within(dialog).getByText('Chargement des rôles…')).toBeDefined()
+  expect(within(dialog).getByRole('button', { name: 'Enregistrer' }).hasAttribute('disabled')).toBe(true)
+  await act(async () => answer(new Response(null, { status: 500 })))
+  expect((await within(dialog).findByRole('alert')).textContent).toBe('Le service ne répond pas ; réessayez.')
+  expect(within(dialog).getByRole('button', { name: 'Enregistrer' }).hasAttribute('disabled')).toBe(true)
+})
+
+test('a row action runs once at a time, and a new one forgets the last outcome', async () => {
+  let release: () => void = () => {}
+  let sent = 0
+  stubFetch({
+    'GET /api/auth/me': () => json(200, owner),
+    'GET /api/operators': () => json(200, [self, ada]),
+    'POST /api/operators/o-ada/access-link': async () => {
+      sent++
+      if (sent === 1) {
+        await new Promise<void>((resolve) => (release = resolve))
+        return empty(202)
+      }
+      return json(409, { code: 'operator_disabled', message: 'Refusé (serveur).' })
+    },
+  })
+  renderAt('/operators')
+  const user = userEvent.setup()
+  await screen.findByRole('rowheader', { name: 'Ada' })
+  const link = within(row('Ada')).getByRole('button', { name: 'Envoyer un lien' })
+  await user.click(link)
+  await user.click(link)
+  expect(link.hasAttribute('disabled')).toBe(true)
+  await act(async () => release())
+  expect(await within(row('Ada')).findByText('Lien demandé.')).toBeDefined()
+  expect(sent).toBe(1)
+  await user.click(within(row('Ada')).getByRole('button', { name: 'Envoyer un lien' }))
+  expect((await within(row('Ada')).findByRole('alert')).textContent).toBe('Refusé (serveur).')
+  expect(within(row('Ada')).queryByText('Lien demandé.')).toBeNull()
 })

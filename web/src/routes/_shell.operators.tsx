@@ -196,11 +196,13 @@ function Row({
 }) {
   const queryClient = useQueryClient()
   const [outcome, setOutcome] = useState<{ refusal?: string; note?: string }>({})
+  const [waiting, setWaiting] = useState(false)
   const active = o.status === 'active'
 
   async function act(call: Parameters<typeof send>[0], note?: string) {
-    setOutcome({})
+    setWaiting(true)
     const { failure } = await send(call)
+    setWaiting(false)
     if (failure !== undefined) {
       setOutcome({ refusal: failure })
       return
@@ -237,7 +239,7 @@ function Row({
               <button
                 className="ui-button ui-button--secondary"
                 type="button"
-                disabled={!!hint}
+                disabled={!!hint || waiting}
                 aria-describedby={hint}
                 onClick={() =>
                   void act(
@@ -254,12 +256,12 @@ function Row({
               </button>
             )}
           </Explained>
-          <Explained reason={writable || (self && active ? 'Vous ne pouvez pas vous désactiver.' : '')}>
+          <Explained reason={writable || (self ? 'Vous ne pouvez pas vous désactiver.' : '')}>
             {(hint) => (
               <button
                 className="ui-button ui-button--secondary"
                 type="button"
-                disabled={!!hint}
+                disabled={!!hint || waiting}
                 aria-describedby={hint}
                 onClick={() =>
                   void act(() =>
@@ -281,11 +283,9 @@ function Row({
             {outcome.refusal}
           </p>
         )}
-        {outcome.note && (
-          <p className="table__note" role="status">
-            {outcome.note}
-          </p>
-        )}
+        <p className="table__note" role="status">
+          {outcome.note}
+        </p>
       </td>
     </tr>
   )
@@ -349,6 +349,7 @@ function RolesDialog({ operator, self, onClose }: { operator: Operator; self: bo
             {unreachable}
           </p>
         )}
+        {roles.isPending && <p className="auth__intro">Chargement des rôles…</p>}
         {roles.data && (
           <fieldset className="dialog__choices">
             <legend className="ui-field__label">Rôles détenus</legend>

@@ -27,7 +27,7 @@ function Entry({ to, label, permission, held }: (typeof entries)[number] & { hel
   }
   return (
     <li>
-      <Link className="shell__link" to={to} activeOptions={{ exact: true }}>
+      <Link className="shell__link" to={to}>
         {label}
       </Link>
     </li>
@@ -106,6 +106,7 @@ function Shell() {
             </button>
           </div>
         )}
+        {me.isPending && <p className="auth__intro">Chargement de la session…</p>}
         {me.data && <Outlet />}
       </main>
     </div>
