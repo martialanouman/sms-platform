@@ -45,9 +45,14 @@ export BAO_TOKEN
 
 bao secrets list | grep -q "^transit/" || bao secrets enable transit
 bao read transit/keys/config-secrets >/dev/null 2>&1 || bao write -f transit/keys/config-secrets
+bao read transit/keys/dashboard-token >/dev/null 2>&1 || bao write transit/keys/dashboard-token type=ecdsa-p256
 bao policy write content-key-svc - <<HCL
 path "transit/encrypt/config-secrets" { capabilities = ["update"] }
 path "transit/decrypt/config-secrets" { capabilities = ["update"] }
+HCL
+bao policy write dashboard - <<HCL
+path "transit/sign/dashboard-token" { capabilities = ["update"] }
+path "transit/keys/dashboard-token" { capabilities = ["read"] }
 HCL
 
 bao auth list | grep -q "^kubernetes/" || bao auth enable kubernetes
@@ -55,6 +60,9 @@ bao write auth/kubernetes/config kubernetes_host="https://$KUBERNETES_SERVICE_HO
 bao write auth/kubernetes/role/content-key-svc bound_service_account_names=content-key-svc \
   bound_service_account_namespaces=sms audience=openbao token_ttl=1h token_max_ttl=1h \
   token_policies=content-key-svc token_no_default_policy=true
+bao write auth/kubernetes/role/dashboard bound_service_account_names=dashboard \
+  bound_service_account_namespaces=sms audience=openbao token_ttl=1h token_max_ttl=1h \
+  token_policies=dashboard token_no_default_policy=true
 
 bao secrets list | grep -q "^database/" || bao secrets enable database
 printf "%s" "$pg" | bao write database/config/control_plane plugin_name=postgresql-database-plugin \

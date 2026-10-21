@@ -198,9 +198,15 @@ func TestAServerReachesOpenBaoAndAdmitsOnlyItsCallers(t *testing.T) {
 			[2]string{"OPENBAO_ADDR", "https://bao.secrets.svc:8200"}, [2]string{"GRPC_ADDR", ":7002"},
 			[2]string{"TLS_ALLOWED_CLIENTS", "admin-api-svc, router-svc,"}))},
 		"listener.yaml": {Data: []byte(job("listener", [2]string{"GRPC_ADDR", ":7003"}, [2]string{"TLS_ALLOWED_CLIENTS", "dashboard"}))},
+		"jwks.yaml": {Data: []byte(job("jwks", [2]string{"HTTP_ADDR", ":8080"}, [2]string{"INTERNAL_ADDR", ":8443"},
+			[2]string{"TLS_ALLOWED_CLIENTS", "admin-api-svc"}))},
 	})
 	if l := got["listener"]; len(l.Spec.Egress) != 0 || len(l.Spec.Ingress) != 1 || l.Spec.Ingress[0].Ports[0].Port != 7003 {
 		t.Errorf("listener without egress: %+v", l.Spec)
+	}
+	if j := got["jwks"].Spec.Ingress; len(j) != 1 || len(j[0].Ports) != 1 || j[0].Ports[0].Port != 8443 || len(j[0].From) != 1 ||
+		j[0].From[0].PodSelector.MatchLabels["app.kubernetes.io/name"] != "admin-api-svc" {
+		t.Errorf("internal listener: %+v", j)
 	}
 	p := got["content-key-svc"]
 	if !reflect.DeepEqual(p.Spec.PolicyTypes, []string{"Ingress", "Egress"}) {
@@ -230,16 +236,18 @@ func TestAServerReachesOpenBaoAndAdmitsOnlyItsCallers(t *testing.T) {
 
 func TestRenderRefusesAServerItCannotBound(t *testing.T) {
 	for name, env := range map[string][][2]string{
-		"OpenBao in clear":        {{"OPENBAO_ADDR", "http://openbao.openbao.svc:8200"}},
-		"OpenBao outside cluster": {{"OPENBAO_ADDR", "https://openbao.example.com:8200"}},
-		"OpenBao without port":    {{"OPENBAO_ADDR", "https://openbao.openbao.svc"}},
-		"OpenBao on port 0":       {{"OPENBAO_ADDR", "https://openbao.openbao.svc:0"}},
-		"OpenBao with a path":     {{"OPENBAO_ADDR", "https://openbao.openbao.svc:8200/v1"}},
-		"callers without port":    {{"TLS_ALLOWED_CLIENTS", "admin-api-svc"}},
-		"port without callers":    {{"GRPC_ADDR", ":7002"}},
-		"port with a host":        {{"GRPC_ADDR", "0.0.0.0:7002"}, {"TLS_ALLOWED_CLIENTS", "admin-api-svc"}},
-		"port beyond range":       {{"GRPC_ADDR", ":65536"}, {"TLS_ALLOWED_CLIENTS", "admin-api-svc"}},
-		"caller not a pod name":   {{"GRPC_ADDR", ":7002"}, {"TLS_ALLOWED_CLIENTS", "Admin_API"}},
+		"OpenBao in clear":         {{"OPENBAO_ADDR", "http://openbao.openbao.svc:8200"}},
+		"OpenBao outside cluster":  {{"OPENBAO_ADDR", "https://openbao.example.com:8200"}},
+		"OpenBao without port":     {{"OPENBAO_ADDR", "https://openbao.openbao.svc"}},
+		"OpenBao on port 0":        {{"OPENBAO_ADDR", "https://openbao.openbao.svc:0"}},
+		"OpenBao with a path":      {{"OPENBAO_ADDR", "https://openbao.openbao.svc:8200/v1"}},
+		"callers without port":     {{"TLS_ALLOWED_CLIENTS", "admin-api-svc"}},
+		"port without callers":     {{"GRPC_ADDR", ":7002"}},
+		"internal without callers": {{"INTERNAL_ADDR", ":8443"}},
+		"internal with a host":     {{"INTERNAL_ADDR", "0.0.0.0:8443"}, {"TLS_ALLOWED_CLIENTS", "admin-api-svc"}},
+		"port with a host":         {{"GRPC_ADDR", "0.0.0.0:7002"}, {"TLS_ALLOWED_CLIENTS", "admin-api-svc"}},
+		"port beyond range":        {{"GRPC_ADDR", ":65536"}, {"TLS_ALLOWED_CLIENTS", "admin-api-svc"}},
+		"caller not a pod name":    {{"GRPC_ADDR", ":7002"}, {"TLS_ALLOWED_CLIENTS", "Admin_API"}},
 	} {
 		_, err := netpol.Render(fstest.MapFS{"server.yaml": {Data: []byte(job("server", env...))}})
 		if err == nil || !strings.Contains(err.Error(), "server") {

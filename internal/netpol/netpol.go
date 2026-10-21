@@ -157,17 +157,21 @@ func flows(fsys fs.FS, file string) (policy, error) {
 			p.Spec.Egress = append(p.Spec.Egress, f)
 		}
 	}
-	var grpcPort, opsPort int
+	var listenPorts []int
+	var opsPort int
 	var callers []string
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	for {
 		var w workload
 		if err := dec.Decode(&w); errors.Is(err, io.EOF) {
 			switch {
-			case (grpcPort != 0) != (len(callers) > 0):
-				return p, fmt.Errorf("%s: GRPC_ADDR and TLS_ALLOWED_CLIENTS go together", name)
-			case grpcPort != 0:
-				in := ingress{Ports: []port{{"TCP", grpcPort}}}
+			case (len(listenPorts) > 0) != (len(callers) > 0):
+				return p, fmt.Errorf("%s: GRPC_ADDR or INTERNAL_ADDR and TLS_ALLOWED_CLIENTS go together", name)
+			case len(listenPorts) > 0:
+				in := ingress{}
+				for _, lp := range listenPorts {
+					in.Ports = append(in.Ports, port{"TCP", lp})
+				}
 				for _, c := range callers {
 					in.From = append(in.From, to("sms", map[string]string{"app.kubernetes.io/name": c}).To...)
 				}
@@ -208,12 +212,12 @@ func flows(fsys fs.FS, file string) (policy, error) {
 						return p, fmt.Errorf("%s: SMTP_ADDR %q is not <name>.<namespace>.svc:<port>", name, e.Value)
 					}
 					add(to(m[2], map[string]string{"app.kubernetes.io/name": m[1]}, port{"TCP", tcpPort(m[3])}))
-				case "GRPC_ADDR":
+				case "GRPC_ADDR", "INTERNAL_ADDR":
 					m := listen.FindStringSubmatch(e.Value)
 					if m == nil || tcpPort(m[1]) == 0 {
-						return p, fmt.Errorf("%s: GRPC_ADDR %q is not :<port>", name, e.Value)
+						return p, fmt.Errorf("%s: %s %q is not :<port>", name, e.Name, e.Value)
 					}
-					grpcPort = tcpPort(m[1])
+					listenPorts = append(listenPorts, tcpPort(m[1]))
 				case "TLS_ALLOWED_CLIENTS":
 					for c := range strings.SplitSeq(e.Value, ",") {
 						if c = strings.TrimSpace(c); c == "" {
