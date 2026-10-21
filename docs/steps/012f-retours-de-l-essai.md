@@ -55,3 +55,51 @@ Charte et spec, 2026-10-21.
 - **Tests** (Go : sortie TypeScript ; Vitest, `StrictMode`, axe) : message et couleur d'erreur sans bulle, focus au
   premier invalide, effacement, libellés français et clé visible, clé inconnue brute. Mutation manuelle, consignée.
 - **Preuve sur `contabo169`**, dans Chromium : le parcours du « Terminé quand », captures, axe.
+
+## Arbitrages de revue
+
+Premier tour, 2026-10-21 : aucun bloquant.
+
+220. **Le message d'un champ s'annonce** (`role="alert"`) : un champ déjà focalisé et soumis vide ne recevait aucun
+     focus, et rien ne se disait (WCAG 3.3.1, 4.1.3).
+221. **Le message suit la saisie** une fois affiché : « ada » dans un champ e-mail dit « Adresse e-mail invalide. », plus
+     « Ce champ est obligatoire. » ; un champ vierge ne dit rien avant la soumission.
+222. **Libellés alignés sur la spec** : `Dead-letters`, `Jobs`, `MSISDN`, `Sender IDs`, « Sessions des opérateurs »,
+     « Jeton personnel — Se délivrer », et `billing:topup` dit « Recharger, ajuster et fixer les conditions de crédit »
+     (§7.4). Une ressource connue dont l'action est inconnue garde son libellé.
+223. **Même disposition dans les deux vues** : libellé, puis clé en mono dessous ; la vue d'un rôle passe en colonnes,
+     en modale large. Elle défile : la liste devient focalisable (axe, `scrollable-region-focusable` ; exception Biome
+     motivée).
+224. **Icône du message à 12 px**, comme le kit ; contraste du texte d'erreur et de la bordure rouge ajoutés aux tests.
+225. **Générateur** : le type seul (`export type Scope`), sans liste à l'exécution ; deux écritures à plat.
+226. **Libellés lus en propriétés propres** (`Object.hasOwn`).
+227. **Assumés** : `explained` ne lit qu'un identifiant ; un refus serveur et une erreur de saisie peuvent coexister ;
+     `typeMismatch` ne sert qu'à l'e-mail ; les gestionnaires `onInput` et `onInvalid` d'un appelant seraient écrasés
+     (aucun n'en passe).
+228. **Différé** : les raisons d'interdiction nomment la clé en prose (#160).
+
+## Mutations
+
+Une vingtaine, à la main ; toutes tombent : tri et écriture de la sortie TypeScript ; libellés de ressource, d'action,
+légende, option, clé inconnue, ressource connue ; focus au premier invalide, garde du premier, `aria-invalid`,
+`aria-describedby`, effacement, message d'e-mail, annonce, recalcul, silence d'un champ vierge (survivant corrigé
+par un test), liste focalisable. `tsc` refuse une ressource ou une action sans libellé.
+
+## Preuve sur `contabo169`
+
+Jouée le 2026-10-21 depuis la branche, sur le cluster en v0.23.0 : image `dashboard` en snapshot, importée sous
+`proof-012f`, `proof-012f-b`, puis `proof-012f-c` ; timer suspendu. Dans Chromium (`agent-browser`) :
+
+1. Connexion soumise vide : deux champs rouges, « Ce champ est obligatoire. » sous chacun, focus sur le premier, pas
+   de bulle ([capture](012f/connexion-vide.png)).
+2. « Nouvel opérateur » soumis vide, puis « ada » : le message devient « Adresse e-mail invalide. »
+   ([capture](012f/nouvel-operateur.png)) ; une adresse valide rend le focus teal, collé à l'arrondi
+   ([capture](012f/focus.png)).
+3. « Nouveau rôle » : groupes et options en français, clé en mono dessous ([capture](012f/selecteur.png)).
+4. « Voir les permissions » de `Propriétaire` : colonnes, libellé et clé ; Tab atteint la liste
+   ([capture](012f/vue.png)).
+5. axe (WCAG 2.1 AA) : aucune violation sur la connexion, la modale d'opérateur, l'éditeur et la vue d'un rôle. Une
+   clé coupée par le bord de la modale sort en violation de contraste tant qu'elle est à cheval ; défilée, elle
+   passe : les couleurs sont tenues par `contrast.test.ts`.
+
+Le cluster reste sur `proof-012f-c`, timer suspendu ; il se réarme au merge.
