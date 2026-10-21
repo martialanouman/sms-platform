@@ -100,7 +100,8 @@ Rôles et élévation de l'opérateur rétablis ; `dashboard` reste sous `proof-
 Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloquant.
 
 1. **Transport sans délai de connexion ni de poignée** (moyenne) : une passerelle muette retenait chaque requête sans
-   rendre le 503 promis ; `GatewayTransport` borne chaque étape, un test le prouve contre un écouteur muet.
+   rendre le 503 promis ; `GatewayTransport` borne la connexion (5 s), la poignée TLS (5 s) et l'attente des en-têtes
+   (30 s), pas la lecture du corps ; un test prouve la poignée bornée contre un écouteur muet.
 2. **Segments `.` et `..` relayés** (basse) : `/admin/customers/%2e%2e` atteignait la passerelle ; le proxy refuse tout
    chemin que `path.Clean` change.
 3. **Client parti journalisé comme passerelle injoignable** (basse) : rien n'est journalisé quand le contexte de la
@@ -115,3 +116,17 @@ Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloq
 7. **Gardés, avec raison** : les en-têtes de réponse de la passerelle ne sont pas filtrés (elle n'en pose aucun qui
    gêne) ; les en-têtes de requête du navigateur sont relayés sauf ceux retirés (liste de refus : la passerelle ne lit
    aucun des autres) ; l'origine reste contrôlée en double dans la garde du BFF et le proxy (quatre lignes).
+
+## Correctifs de revue, tour 2
+
+Une revue des correctifs du tour 1.
+
+1. **Le test du client parti n'atteignait pas le relais** (haute) : le contexte annulé d'avance faisait échouer la
+   session ; la passerelle de test tient désormais la requête, le client part pendant le relais, le test vérifie
+   l'appel amont. Le mutant qui journalise toujours tombe.
+2. **Test de l'écouteur muet** : il échoue en 15 s au lieu de pendre jusqu'au délai global ; sa boucle `Accept` est
+   retirée (la file d'attente du noyau suffit à garder la connexion muette).
+3. **Prose du tour 1** : le transport ne borne pas « chaque étape » ; corrigé. Le délai de connexion n'est prouvé par
+   aucun test (une connexion locale n'attend jamais).
+4. **Gardés** : un `%2F` dans un paramètre de chemin est refusé (404), antérieur au tour 1 et sans paramètre qui en
+   porte au contrat ; pas de HTTP/2 ni de pool élargi vers la passerelle, suffisant au trafic d'un tableau de bord.

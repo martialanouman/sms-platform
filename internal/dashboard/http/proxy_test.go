@@ -32,6 +32,7 @@ type gateway struct {
 	received  []relayed
 	status    int
 	answer    string
+	held      chan struct{}
 }
 
 func newGateway(t *testing.T) *gateway {
@@ -50,8 +51,13 @@ func newGateway(t *testing.T) *gateway {
 		body, _ := io.ReadAll(r.Body)
 		g.mu.Lock()
 		g.received = append(g.received, relayed{r.Method, r.URL.Path, r.URL.RawQuery, string(body), r.Header.Clone()})
-		status, answer := g.status, g.answer
+		status, answer, held := g.status, g.answer, g.held
 		g.mu.Unlock()
+		if held != nil {
+			held <- struct{}{}
+			<-r.Context().Done()
+			return
+		}
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.Header().Set("X-Request-Id", "01a16026-a1b2-7c44-afc6-4791c68f65e8")
 		w.WriteHeader(status)
@@ -237,21 +243,17 @@ func TestAGatewayThatNeverHandsShakesIsServiceUnavailableWithinItsBound(t *testi
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = silent.Close() })
-	go func() {
-		for {
-			conn, err := silent.Accept()
-			if err != nil {
-				return
-			}
-			t.Cleanup(func() { _ = conn.Close() })
-		}
-	}()
 	a.gateway.url.Host = silent.Addr().String()
 
-	start := time.Now()
-	got := a.do(t, call{method: "GET", path: "/api/gw/admin/audit-log", cookie: c})
-	if got.status != 503 || time.Since(start) > 15*time.Second {
-		t.Fatalf("%d after %s", got.status, time.Since(start))
+	answered := make(chan answer, 1)
+	go func() { answered <- a.do(t, call{method: "GET", path: "/api/gw/admin/audit-log", cookie: c}) }()
+	select {
+	case got := <-answered:
+		if got.status != 503 || got.code() != "service_unavailable" {
+			t.Fatalf("%d %s", got.status, got.raw)
+		}
+	case <-time.After(15 * time.Second):
+		t.Fatal("a gateway that never completes the handshake held the call past its bound")
 	}
 }
 
@@ -259,12 +261,25 @@ func TestACallerThatHasGoneLeavesNoUnreachableLine(t *testing.T) {
 	a := newAPI(t, netip.MustParsePrefix("127.0.0.0/8"))
 	a.activate(t)
 	c := a.elevated(t)
+	held := make(chan struct{})
+	a.gateway.mu.Lock()
+	a.gateway.held = held
+	a.gateway.mu.Unlock()
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
 	r := httptest.NewRequestWithContext(ctx, "GET", "/api/gw/admin/audit-log", nil)
 	r.Header.Set("Cookie", "__Host-dashboard_session="+c)
-	a.handler.ServeHTTP(httptest.NewRecorder(), r)
+	done := make(chan struct{})
+	go func() {
+		a.handler.ServeHTTP(httptest.NewRecorder(), r)
+		close(done)
+	}()
+	<-held
+	cancel()
+	<-done
 
+	if len(a.gateway.calls()) != 1 {
+		t.Fatal("the call never reached the gateway")
+	}
 	if strings.Contains(a.logs.String(), "admin api unreachable") {
 		t.Fatalf("a caller gone was logged as the gateway out of reach: %s", a.logs.String())
 	}
