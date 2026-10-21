@@ -1,3 +1,4 @@
+import { focusManager } from '@tanstack/react-query'
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
@@ -285,4 +286,30 @@ test('a refusal of a row action is told in the row', async () => {
   expect((await within(row('Ada')).findByRole('alert')).textContent).toBe(
     'Aucun lien ne part vers un compte désactivé.',
   )
+})
+
+test('the dialog survives the list read again while it is open', async () => {
+  let list: unknown[] = [self, ada]
+  stubFetch({
+    'GET /api/auth/me': () => json(200, owner),
+    'GET /api/operators': () => json(200, list),
+    'GET /api/roles': () => json(200, roles),
+  })
+  renderAt('/operators')
+  const user = userEvent.setup()
+  await screen.findByRole('rowheader', { name: 'Ada' })
+  const opener = within(row('Ada')).getByRole('button', { name: 'Rôles' })
+  await user.click(opener)
+  const dialog = await screen.findByRole('dialog', { name: 'Rôles de Ada' })
+  list = [self, { ...ada, displayName: 'Ada L.' }]
+  act(() => {
+    focusManager.setFocused(false)
+    focusManager.setFocused(true)
+  })
+  await screen.findByRole('rowheader', { name: 'Ada L.' })
+  expect(dialog.hasAttribute('open')).toBe(true)
+  await act(async () => {
+    ;(dialog as HTMLDialogElement).close()
+  })
+  expect(document.activeElement).toBe(opener)
 })

@@ -285,12 +285,16 @@ function RolesDialog({ operator, self, onClose }: { operator: Operator; self: bo
   const [chosen, setChosen] = useState(operator.roles.map((r) => r.id))
   const { submit, waiting, refusal } = useSubmission()
 
+  const closed = useRef(onClose)
+  closed.current = onClose
+
   useEffect(() => {
     const element = dialog.current
+    const close = () => closed.current()
     element?.showModal()
-    element?.addEventListener('close', onClose)
-    return () => element?.removeEventListener('close', onClose)
-  }, [onClose])
+    element?.addEventListener('close', close)
+    return () => element?.removeEventListener('close', close)
+  }, [])
 
   async function save(event: FormEvent) {
     event.preventDefault()

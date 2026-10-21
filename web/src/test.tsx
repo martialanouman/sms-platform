@@ -7,6 +7,9 @@ import { routeTree } from './routeTree.gen'
 import { rememberChallenge } from './session'
 
 HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+  if (this.hasAttribute('open')) {
+    throw new DOMException('The dialog is already open.', 'InvalidStateError')
+  }
   this.setAttribute('open', '')
 }
 HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
