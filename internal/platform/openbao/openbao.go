@@ -5,6 +5,8 @@ package openbao
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,6 +31,15 @@ func New(addr string, client *http.Client, role, jwtFile string) *Client {
 	c := *client
 	c.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	return &Client{addr: addr, role: role, jwtFile: jwtFile, client: &c, sem: make(chan struct{}, 1)}
+}
+
+// HTTPClient is the client of an OpenBao served under the internal CA ca, over TLS 1.3 and without client certificate.
+func HTTPClient(ca []byte) (*http.Client, error) {
+	roots := x509.NewCertPool()
+	if !roots.AppendCertsFromPEM(ca) {
+		return nil, errors.New("the internal CA holds no certificate")
+	}
+	return &http.Client{Timeout: 10 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: roots}}}, nil
 }
 
 // StatusError is an answer of OpenBao other than 200; it carries neither the body nor the token.

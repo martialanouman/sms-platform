@@ -31,6 +31,7 @@ type Infra struct {
 	KafkaBrokers           []string
 	PostgresRoleSecretsDir string
 	GRPCAddr               string
+	InternalAddr           string
 	OpenBaoAddr            string
 	HTTPAddr               string
 	PublicURL              string
@@ -59,6 +60,7 @@ var defaults = map[string]string{
 	"KAFKA_BROKERS":             "",
 	"POSTGRES_ROLE_SECRETS_DIR": "",
 	"GRPC_ADDR":                 "",
+	"INTERNAL_ADDR":             "",
 	"OPENBAO_ADDR":              "",
 	"HTTP_ADDR":                 "",
 	"DASHBOARD_PUBLIC_URL":      "",
@@ -120,6 +122,7 @@ func Load() (Infra, error) {
 		KafkaBrokers:           list("KAFKA_BROKERS"),
 		PostgresRoleSecretsDir: value("POSTGRES_ROLE_SECRETS_DIR"),
 		GRPCAddr:               value("GRPC_ADDR"),
+		InternalAddr:           value("INTERNAL_ADDR"),
 		OpenBaoAddr:            value("OPENBAO_ADDR"),
 		HTTPAddr:               value("HTTP_ADDR"),
 		PublicURL:              value("DASHBOARD_PUBLIC_URL"),
