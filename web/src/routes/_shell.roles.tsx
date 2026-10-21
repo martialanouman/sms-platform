@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { type FormEvent, useEffect, useId, useRef, useState } from 'react'
 import { api, json, unreachable } from '../api'
 import type { components } from '../api.gen'
+import { actionLabel, resourceLabel } from '../permissions'
 import { rolesQuery } from '../queries'
 import { meQuery, Refused, Unauthenticated, useSessionClosed, useShellMe } from '../session'
 import {
@@ -165,9 +166,15 @@ function View({ role, onClose }: { role: Role; onClose: () => void }) {
     <Modal title={`Rôle ${role.name}`} onClose={onClose} footer={<Button onClick={onClose}>Fermer</Button>}>
       <p>{role.description}</p>
       <ul className="role-keys">
-        {role.permissions.map((key) => (
-          <li key={key}>{key}</li>
-        ))}
+        {role.permissions.map((key) => {
+          const action = actionLabel(key)
+          return (
+            <li key={key}>
+              {action && `${resourceLabel(key.split(':')[0] ?? key)} — ${action} `}
+              <span className="role-keys__key">{key}</span>
+            </li>
+          )
+        })}
       </ul>
     </Modal>
   )
@@ -246,7 +253,7 @@ function Editor({ role, catalog, onClose }: { role?: Role; catalog: string[]; on
         <div className="permission-picker">
           {resources.map((resource) => (
             <fieldset className="role-choice" key={resource}>
-              <legend>{resource}</legend>
+              <legend>{resourceLabel(resource)}</legend>
               {keys
                 .filter((key) => key.startsWith(`${resource}:`))
                 .map((key) => (
@@ -258,7 +265,7 @@ function Editor({ role, catalog, onClose }: { role?: Role; catalog: string[]; on
                         setPermissions(e.target.checked ? [...permissions, key] : permissions.filter((p) => p !== key))
                       }
                     />
-                    <span className="role-keys__key">{key}</span>
+                    {actionLabel(key)} <span className="role-keys__key">{key}</span>
                   </label>
                 ))}
             </fieldset>

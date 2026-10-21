@@ -64,8 +64,9 @@ test('the roles are listed with their permissions and holders counted', async ()
   expect(await violations(container)).toEqual([])
 })
 
-test('the permissions of a role are shown as keys', async () => {
-  stubFetch({ 'GET /api/auth/me': () => json(200, writer), 'GET /api/roles': () => json(200, [owner, support]) })
+test('the permissions of a role are told in French, each beside its key', async () => {
+  const future = { ...support, permissions: [...support.permissions, 'future:thing'] }
+  stubFetch({ 'GET /api/auth/me': () => json(200, writer), 'GET /api/roles': () => json(200, [owner, future]) })
   renderAt('/roles')
   await screen.findByRole('rowheader', { name: 'Support' })
   const user = userEvent.setup()
@@ -76,13 +77,13 @@ test('the permissions of a role are shown as keys', async () => {
     within(dialog)
       .getAllByRole('listitem')
       .map((i) => i.textContent),
-  ).toEqual(['accounts:read', 'traffic:read'])
+  ).toEqual(['Comptes — Lire accounts:read', 'Trafic — Lire traffic:read', 'future:thing'])
   await user.click(within(dialog).getAllByRole('button', { name: 'Fermer' })[1] as HTMLElement)
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(document.activeElement).toBe(opener)
 })
 
-test('a role is composed from the permissions of the owner, grouped by resource', async () => {
+test('a role is composed from the permissions of the owner, grouped by resource, in French', async () => {
   let list = [support, owner]
   let reads = 0
   const calls = stubFetch({
@@ -109,12 +110,12 @@ test('a role is composed from the permissions of the owner, grouped by resource'
     within(dialog)
       .getAllByRole('group')
       .map((g) => g.querySelector('legend')?.textContent),
-  ).toEqual(['accounts', 'roles', 'traffic'])
+  ).toEqual(['Comptes', 'Rôles', 'Trafic'])
   expect(within(dialog).getAllByRole('checkbox').length).toBe(5)
   expect(await violations(container)).toEqual([])
   await user.type(within(dialog).getByLabelText('Nom'), 'Support')
   await user.type(within(dialog).getByLabelText('Description'), 'Lit le trafic.')
-  await user.click(within(dialog).getByRole('checkbox', { name: 'traffic:read' }))
+  await user.click(within(dialog).getByRole('checkbox', { name: 'Lire traffic:read' }))
   await user.click(within(dialog).getByRole('button', { name: 'Créer le rôle' }))
   expect((await within(dialog).findByRole('alert')).textContent).toBe('Un rôle porte déjà ce nom.')
   await user.clear(within(dialog).getByLabelText('Nom'))
@@ -153,14 +154,14 @@ test('a custom role is edited, and a refusal is told in its dialog', async () =>
   await user.click(within(row('Lecteurs')).getByRole('button', { name: 'Modifier' }))
   const dialog = await screen.findByRole('dialog', { name: 'Modifier Lecteurs' })
   expect(within(dialog).queryByLabelText('Nom')).toBeNull()
-  const traffic = within(dialog).getByRole('checkbox', { name: 'traffic:read' }) as HTMLInputElement
+  const traffic = within(dialog).getByRole('checkbox', { name: 'Lire traffic:read' }) as HTMLInputElement
   expect(traffic.checked).toBe(true)
   await user.click(traffic)
   await user.click(within(dialog).getByRole('button', { name: 'Enregistrer le rôle' }))
   expect((await within(dialog).findByRole('alert')).textContent).toBe(
     'Ce changement vous retirerait la gestion des rôles.',
   )
-  await user.click(within(dialog).getByRole('checkbox', { name: 'accounts:read' }))
+  await user.click(within(dialog).getByRole('checkbox', { name: 'Lire accounts:read' }))
   await user.click(within(dialog).getByRole('button', { name: 'Enregistrer le rôle' }))
   await waitFor(() => expect(within(row('Lecteurs')).getAllByRole('cell')[1]?.textContent).toBe('1'))
   expect(screen.queryByRole('dialog')).toBeNull()

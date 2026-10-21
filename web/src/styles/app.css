@@ -747,14 +747,13 @@
 }
 
 .role-keys {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-4) var(--sp-7);
+  display: grid;
+  gap: var(--sp-4);
   margin: 0;
   padding: 0;
   list-style: none;
   color: var(--text-primary);
-  font: var(--text-data);
+  font: var(--text-body);
 }
 
 .role-keys__key,
@@ -762,10 +761,12 @@
   font: var(--text-data);
 }
 
-.permission-picker .role-choice legend {
-  font: var(--text-data);
-  letter-spacing: normal;
-  text-transform: none;
+.role-keys__key {
+  color: var(--text-muted);
+}
+
+.role-choice__option .role-keys__key {
+  grid-column: 2;
 }
 
 .role-choice {
