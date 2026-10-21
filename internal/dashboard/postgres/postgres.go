@@ -121,6 +121,36 @@ func (t tx) PermissionsOf(ctx context.Context, operatorID string) ([]string, err
 	return queries.PermissionsOf(ctx, t.db, operatorID)
 }
 
+func (t tx) Roles(ctx context.Context, id string) ([]dashboard.RoleRecord, error) {
+	rows, err := queries.Roles(ctx, t.db, optional(id))
+	out := make([]dashboard.RoleRecord, len(rows))
+	for i, r := range rows {
+		out[i] = dashboard.RoleRecord{Role: dashboard.Role{Name: r.Name, Description: r.Description, Permissions: r.Permissions},
+			ID: r.ID, Default: r.IsDefault, Holders: r.Holders}
+	}
+	return out, err
+}
+
+func (t tx) LockRole(ctx context.Context, id string) (bool, bool, error) {
+	isDefault, err := queries.LockRole(ctx, t.db, id)
+	ok, err := found(err)
+	return isDefault, ok, err
+}
+
+func (t tx) InsertRole(ctx context.Context, r dashboard.Role) (string, bool, error) {
+	id, err := queries.InsertRole(ctx, t.db, sqlc.InsertRoleParams{Name: r.Name, Description: r.Description, Permissions: r.Permissions})
+	created, err := found(err)
+	return id, created, err
+}
+
+func (t tx) UpdateRole(ctx context.Context, id, description string, permissions []string) error {
+	return queries.UpdateRole(ctx, t.db, sqlc.UpdateRoleParams{Description: description, Permissions: permissions, ID: id})
+}
+
+func (t tx) DeleteRole(ctx context.Context, id string) error {
+	return queries.DeleteRole(ctx, t.db, id)
+}
+
 func (t tx) SeedRole(ctx context.Context, r dashboard.Role) error {
 	return queries.SeedRole(ctx, t.db, sqlc.SeedRoleParams{Name: r.Name, Description: r.Description, Permissions: r.Permissions})
 }

@@ -241,6 +241,15 @@ func (q *Queries) CurrentStep(ctx context.Context, db DBTX) (int64, error) {
 	return column_1, err
 }
 
+const deleteRole = `-- name: DeleteRole :exec
+DELETE FROM dashboard.roles WHERE id = $1::uuid
+`
+
+func (q *Queries) DeleteRole(ctx context.Context, db DBTX, id string) error {
+	_, err := db.Exec(ctx, deleteRole, id)
+	return err
+}
+
 const dropConfirmed = `-- name: DropConfirmed :execrows
 DELETE FROM dashboard.totp_factors WHERE operator_id = $1::uuid AND confirmed_at IS NOT NULL
 `
@@ -424,6 +433,36 @@ func (q *Queries) InsertOperator(ctx context.Context, db DBTX, arg InsertOperato
 	var id string
 	err := row.Scan(&id)
 	return id, err
+}
+
+const insertRole = `-- name: InsertRole :one
+INSERT INTO dashboard.roles (name, description, permissions) VALUES ($1, $2, $3::text[])
+ON CONFLICT ((lower(name))) DO NOTHING
+RETURNING id::text AS id
+`
+
+type InsertRoleParams struct {
+	Name        string
+	Description string
+	Permissions []string
+}
+
+func (q *Queries) InsertRole(ctx context.Context, db DBTX, arg InsertRoleParams) (string, error) {
+	row := db.QueryRow(ctx, insertRole, arg.Name, arg.Description, arg.Permissions)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
+const lockRole = `-- name: LockRole :one
+SELECT is_default FROM dashboard.roles WHERE id::text = $1 FOR UPDATE
+`
+
+func (q *Queries) LockRole(ctx context.Context, db DBTX, id string) (bool, error) {
+	row := db.QueryRow(ctx, lockRole, id)
+	var is_default bool
+	err := row.Scan(&is_default)
+	return is_default, err
 }
 
 const lockedFor = `-- name: LockedFor :one
@@ -792,6 +831,51 @@ func (q *Queries) Reserve(ctx context.Context, db DBTX, arg ReserveParams) (bool
 	return column_1, err
 }
 
+const roles = `-- name: Roles :many
+SELECT r.id::text AS id, r.name, r.description, r.permissions, r.is_default,
+  coalesce((SELECT array_agg(o.email ORDER BY o.email) FROM dashboard.operator_roles x
+    JOIN dashboard.operators o ON o.id = x.operator_id WHERE x.role_id = r.id), '{}')::text[] AS holders
+FROM dashboard.roles r
+WHERE $1::text IS NULL OR r.id::text = $1::text
+ORDER BY lower(r.name)
+`
+
+type RolesRow struct {
+	ID          string
+	Name        string
+	Description string
+	Permissions []string
+	IsDefault   bool
+	Holders     []string
+}
+
+func (q *Queries) Roles(ctx context.Context, db DBTX, id *string) ([]RolesRow, error) {
+	rows, err := db.Query(ctx, roles, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RolesRow
+	for rows.Next() {
+		var i RolesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Permissions,
+			&i.IsDefault,
+			&i.Holders,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const rolesOf = `-- name: RolesOf :many
 SELECT role_id::text FROM dashboard.operator_roles WHERE operator_id = $1::uuid ORDER BY 1
 `
@@ -964,6 +1048,21 @@ func (q *Queries) Undeliverable(ctx context.Context, db DBTX, maxAttempts int64)
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const updateRole = `-- name: UpdateRole :exec
+UPDATE dashboard.roles SET description = $1, permissions = $2::text[] WHERE id = $3::uuid
+`
+
+type UpdateRoleParams struct {
+	Description string
+	Permissions []string
+	ID          string
+}
+
+func (q *Queries) UpdateRole(ctx context.Context, db DBTX, arg UpdateRoleParams) error {
+	_, err := db.Exec(ctx, updateRole, arg.Description, arg.Permissions, arg.ID)
+	return err
 }
 
 const useRecoveryCode = `-- name: UseRecoveryCode :execrows

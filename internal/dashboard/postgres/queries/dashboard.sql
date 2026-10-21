@@ -244,3 +244,25 @@ INSERT INTO dashboard.operator_roles (operator_id, role_id) SELECT @operator_id:
 -- name: PermissionsOf :one
 SELECT coalesce(array_agg(DISTINCT p ORDER BY p), '{}')::text[] FROM dashboard.operator_roles x
   JOIN dashboard.roles r ON r.id = x.role_id, unnest(r.permissions) p WHERE x.operator_id = @operator_id::uuid;
+
+-- name: Roles :many
+SELECT r.id::text AS id, r.name, r.description, r.permissions, r.is_default,
+  coalesce((SELECT array_agg(o.email ORDER BY o.email) FROM dashboard.operator_roles x
+    JOIN dashboard.operators o ON o.id = x.operator_id WHERE x.role_id = r.id), '{}')::text[] AS holders
+FROM dashboard.roles r
+WHERE sqlc.narg(id)::text IS NULL OR r.id::text = sqlc.narg(id)::text
+ORDER BY lower(r.name);
+
+-- name: LockRole :one
+SELECT is_default FROM dashboard.roles WHERE id::text = @id FOR UPDATE;
+
+-- name: InsertRole :one
+INSERT INTO dashboard.roles (name, description, permissions) VALUES (@name, @description, @permissions::text[])
+ON CONFLICT ((lower(name))) DO NOTHING
+RETURNING id::text AS id;
+
+-- name: UpdateRole :exec
+UPDATE dashboard.roles SET description = @description, permissions = @permissions::text[] WHERE id = @id::uuid;
+
+-- name: DeleteRole :exec
+DELETE FROM dashboard.roles WHERE id = @id::uuid;

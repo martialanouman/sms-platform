@@ -48,7 +48,7 @@ GRANT select, insert, update, delete ON dashboard.login_attempt_counters TO dash
 GRANT select, insert, delete ON dashboard.operator_roles TO dashboard;
 GRANT select, insert, update ON dashboard.operators TO dashboard;
 GRANT select, insert, update, delete ON dashboard.recovery_codes TO dashboard;
-GRANT select, insert, update ON dashboard.roles TO dashboard;
+GRANT select, insert, update, delete ON dashboard.roles TO dashboard;
 GRANT select, insert, update, delete ON dashboard.sessions TO dashboard;
 GRANT select, insert, update, delete ON dashboard.totp_factors TO dashboard;
 GRANT select, insert, update, delete ON dashboard.webauthn_challenges TO dashboard;

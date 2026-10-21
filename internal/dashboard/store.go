@@ -31,6 +31,9 @@ const (
 	EventOperatorCreated     Event = "operator_created"
 	EventOperatorDisabled    Event = "operator_disabled"
 	EventOperatorEnabled     Event = "operator_enabled"
+	EventRoleCreated         Event = "role_created"
+	EventRoleUpdated         Event = "role_updated"
+	EventRoleDeleted         Event = "role_deleted"
 )
 
 // TotpFactor is an authenticator app of an operator, its secret sealed.
@@ -97,6 +100,11 @@ type Tx interface {
 	ExistingRoles(ctx context.Context, ids []string) ([]string, error)
 	SetRoles(ctx context.Context, operatorID string, roleIDs []string) error
 	PermissionsOf(ctx context.Context, operatorID string) ([]string, error)
+	Roles(ctx context.Context, id string) ([]RoleRecord, error)
+	LockRole(ctx context.Context, id string) (isDefault, found bool, err error)
+	InsertRole(ctx context.Context, r Role) (id string, created bool, err error)
+	UpdateRole(ctx context.Context, id string, description string, permissions []string) error
+	DeleteRole(ctx context.Context, id string) error
 
 	SeedRole(ctx context.Context, r Role) error
 	EnsureOwner(ctx context.Context, email string) (operatorID string, granted bool, err error)
