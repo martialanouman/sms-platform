@@ -169,6 +169,20 @@ export function Button({
 } & Omit<ComponentProps<'button'>, 'className'>) {
   const reason = useId()
   const [dismissed, setDismissed] = useState(false)
+  const [shown, setShown] = useState(false)
+  useEffect(() => {
+    if (!shown || dismissed) {
+      return
+    }
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setDismissed(true)
+      }
+    }
+    window.addEventListener('keydown', dismiss)
+    return () => window.removeEventListener('keydown', dismiss)
+  }, [shown, dismissed])
   const inert = loading || blockedReason !== undefined
   const button = (
     <button
@@ -179,14 +193,16 @@ export function Button({
       aria-disabled={inert || undefined}
       aria-describedby={blockedReason === undefined ? undefined : reason}
       onClick={inert ? (event) => event.preventDefault() : onClick}
-      onKeyDown={(event) => {
-        if (blockedReason !== undefined && event.key === 'Escape' && !dismissed) {
-          event.preventDefault()
-          setDismissed(true)
-        }
+      onFocus={() => setShown(blockedReason !== undefined)}
+      onMouseEnter={() => setShown(blockedReason !== undefined)}
+      onBlur={() => {
+        setShown(false)
+        setDismissed(false)
       }}
-      onBlur={() => setDismissed(false)}
-      onMouseLeave={() => setDismissed(false)}
+      onMouseLeave={() => {
+        setShown(false)
+        setDismissed(false)
+      }}
     >
       {loading && <span className="ui-button__spinner" aria-hidden="true" />}
       {children}
@@ -302,12 +318,15 @@ export function Modal({
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const heading = useId()
+  const [opener] = useState(() => document.activeElement as HTMLElement | null)
+  const pressed = useRef<EventTarget>(null)
 
   useEffect(() => {
-    const opener = document.activeElement as HTMLElement | null
-    dialog.current?.showModal()
+    if (!dialog.current?.open) {
+      dialog.current?.showModal()
+    }
     return () => opener?.focus()
-  }, [])
+  }, [opener])
 
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: le clic ne vise que le voile ; au clavier, Échap ferme nativement.
@@ -316,7 +335,10 @@ export function Modal({
       className="ui-modal"
       aria-labelledby={heading}
       onClose={onClose}
-      onClick={(event) => event.target === event.currentTarget && dialog.current?.close()}
+      onMouseDown={(event) => {
+        pressed.current = event.target
+      }}
+      onClick={(event) => pressed.current === event.currentTarget && dialog.current?.close()}
     >
       <header className="ui-modal__head">
         <h2 className="ui-modal__title" id={heading}>

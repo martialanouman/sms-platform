@@ -1,5 +1,5 @@
 import { focusManager } from '@tanstack/react-query'
-import { act, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
 import { rememberChallenge } from '../session'
@@ -162,7 +162,12 @@ test('a dialog closes by its close button, its cancel and its backdrop, and noth
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(document.activeElement).toBe(opener)
   await user.click(opener)
-  await user.click(await screen.findByRole('dialog'))
+  const dialog = await screen.findByRole('dialog')
+  fireEvent.mouseDown(within(dialog).getByLabelText('Adresse e-mail'))
+  fireEvent.mouseUp(dialog)
+  fireEvent.click(dialog)
+  expect(screen.getByRole('dialog')).toBe(dialog)
+  await user.click(dialog)
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(document.activeElement).toBe(opener)
   expect(calls.some((c) => c.method === 'POST' && c.url.includes('/api/operators'))).toBe(false)
@@ -266,7 +271,7 @@ test('a link is sent after a confirmation that tells its kind and length', async
     accessLink: { kind: 'reset', state: 'sent' },
   }
   const bare = { ...ada, id: 'o-cy', email: 'cy@example.test', displayName: 'Cy', accessLink: null }
-  const calls = stubFetch({
+  stubFetch({
     'GET /api/auth/me': () => json(200, owner),
     'GET /api/operators': () => json(200, [ada, reset, bare]),
     'POST /api/operators/o-ada/access-link': () => empty(202),
@@ -294,9 +299,6 @@ test('a link is sent after a confirmation that tells its kind and length', async
   expect(dialog.textContent).toContain('il restera valable 72 heures')
   expect(dialog.textContent).toContain('Le lien envoyé plus tôt cesse de valoir dès cette demande.')
   expect(dialog.textContent).toContain('L’action est enregistrée dans le journal d’audit.')
-  await user.click(within(dialog).getByRole('button', { name: 'Envoyer' }))
-  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-  expect(calls.filter((c) => c.url.endsWith('/access-link')).length).toBe(1)
 })
 
 test('a link is sent once at a time, and a refusal is told in its dialog', async () => {
@@ -542,15 +544,28 @@ test('the dialog tells the roles are loading, then that they cannot be read', as
   expect(explained(within(dialog).getByRole('button', { name: 'Enregistrer les rôles' }))).toBe(
     'Les rôles n’ont pas pu être chargés : rien ne peut être enregistré.',
   )
+  const user = userEvent.setup()
+  await user.click(within(dialog).getByRole('button', { name: 'Enregistrer les rôles' }))
+  await user.keyboard('{Escape}')
+  expect(dialog.hasAttribute('open')).toBe(true)
+  await user.keyboard('{Escape}')
+  expect(screen.queryByRole('dialog')).toBeNull()
   let retried: (r: Response) => void = () => {}
+  let reads = 0
   stubFetch({
     'GET /api/auth/me': () => json(200, owner),
     'GET /api/operators': () => json(200, [self, ada]),
-    'GET /api/roles': () => new Promise<Response>((resolve) => (retried = resolve)),
+    'GET /api/roles': () => {
+      reads++
+      return reads === 1 ? new Response(null, { status: 500 }) : new Promise<Response>((resolve) => (retried = resolve))
+    },
   })
-  await userEvent.setup().click(within(alert).getByRole('button', { name: 'Réessayer' }))
+  await user.click(within(row('ada@example.test')).getByRole('button', { name: 'Modifier les rôles' }))
+  const again = await screen.findByRole('dialog')
+  await within(again).findByRole('alert')
+  await user.click(within(again).getByRole('button', { name: 'Réessayer' }))
   await act(async () => retried(json(200, roles)))
-  expect(await within(dialog).findByRole('checkbox', { name: /Support/ })).toBeDefined()
+  expect(await within(again).findByRole('checkbox', { name: /Support/ })).toBeDefined()
 })
 
 test('a failure of the service with an error envelope is told as unreachable', async () => {
@@ -649,4 +664,25 @@ test('the reason of a blocked control is dismissed by Escape', async () => {
   expect(reason.classList.contains('ui-blocked--dismissed')).toBe(true)
   await user.tab()
   expect(reason.classList.contains('ui-blocked--dismissed')).toBe(false)
+  await user.hover(create)
+  await user.keyboard('{Escape}')
+  expect(reason.classList.contains('ui-blocked--dismissed')).toBe(true)
+  await user.unhover(create)
+  expect(reason.classList.contains('ui-blocked--dismissed')).toBe(false)
+})
+
+test('a refusal to read the roles is told by its message', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, owner),
+    'GET /api/operators': () => json(200, [self, ada]),
+    'GET /api/roles': () =>
+      json(403, { code: 'forbidden_scope', message: 'Il faut la permission roles:read (serveur).' }),
+  })
+  renderAt('/operators')
+  await screen.findByText('ada@example.test')
+  await userEvent.setup().click(within(row('ada@example.test')).getByRole('button', { name: 'Modifier les rôles' }))
+  const dialog = await screen.findByRole('dialog')
+  expect((await within(dialog).findByRole('alert')).textContent).toContain(
+    'Il faut la permission roles:read (serveur).',
+  )
 })

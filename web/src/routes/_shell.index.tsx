@@ -22,7 +22,13 @@ function Home() {
   return (
     <div className="page">
       <EmptyState as="h1" title="Le cockpit d'exploitation se construit">
-        <p>Les écrans arrivent step par step : chacun avec sa route, son état vide et la permission qui l'ouvre.</p>
+        <p>
+          Les écrans arrivent step par step. Les rôles et le jeton personnel arrivent avec la step 012e ; le trafic en
+          direct et les sessions SMPP, avec la step 026.
+        </p>
+        <p>
+          Chaque écran arrive avec sa route, son état vide et la permission qui l'ouvre : aucun lien ne mène nulle part.
+        </p>
       </EmptyState>
     </div>
   )

@@ -290,13 +290,6 @@
   min-width: 0;
 }
 
-.shell__failure {
-  display: grid;
-  gap: var(--sp-6);
-  justify-items: start;
-  padding: var(--pad-panel);
-}
-
 .topbar__start {
   display: flex;
   flex: 1;
@@ -646,6 +639,12 @@
   animation: ui-fade var(--dur-base) var(--ease-entrance);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .ui-modal::backdrop {
+    animation: none;
+  }
+}
+
 @keyframes ui-fade {
   from {
     opacity: 0;
@@ -722,6 +721,7 @@
   gap: var(--sp-5);
   padding: var(--sp-6) var(--sp-8);
   border-top: 1px solid var(--border-subtle);
+  border-radius: 0 0 var(--r-card) var(--r-card);
   background: var(--surface-sunken);
 }
 
@@ -730,10 +730,6 @@
   gap: var(--sp-7);
   color: var(--text-muted);
   font: var(--text-body);
-}
-
-.form p {
-  margin: 0;
 }
 
 .role-choice {

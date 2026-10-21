@@ -264,9 +264,9 @@ function Roles({ operator, self, onClose }: { operator: Operator; self: boolean;
   const roles = useQuery({
     queryKey: ['roles'],
     queryFn: async () => {
-      const { data } = await api.GET('/roles')
+      const { data, error, response } = await api.GET('/roles')
       if (!data) {
-        throw new Error('roles')
+        throw response.status < 500 && error?.message ? new Refused(error.message) : new Error('roles')
       }
       return data
     },
@@ -317,7 +317,7 @@ function Roles({ operator, self, onClose }: { operator: Operator; self: boolean;
           title="Les rôles n’ont pas pu être chargés : rien ne peut être enregistré"
           onRetry={() => void roles.refetch()}
         >
-          {unreachable}
+          {roles.error instanceof Refused ? roles.error.message : unreachable}
         </ErrorState>
       )}
       {roles.isPending && <LoadingState label="Chargement des rôles…" rows={2} line />}
@@ -465,7 +465,7 @@ function Status({
       }),
     )
     if (outcome.failure === undefined) {
-      await queryClient.invalidateQueries({ queryKey: operatorsQuery.queryKey })
+      void queryClient.invalidateQueries({ queryKey: operatorsQuery.queryKey })
     }
   }
 
