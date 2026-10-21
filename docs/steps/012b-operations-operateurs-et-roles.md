@@ -50,6 +50,18 @@ Fable, 2026-10-21.
 159. **404** : un `operatorId` ou `roleId` inconnu ou non uuid, sans distinction.
 160. **GRANT** : `roles` et `operator_roles` reçoivent `delete`.
 
+161. **Écritures sérialisées** (Fable, au tour de revue) : deux gestes concurrents contournaient `self_lockout` (deux
+     rôles vidés à la fois), deux détenteurs se retiraient l'un l'autre `operators:write`, une suppression de rôle
+     concurrente de sa pose rendait 500. Un verrou consultatif transactionnel unique,
+     `pg_advisory_xact_lock(hashtext('dashboard.roles'))`, est le premier ordre de `updateOperator`,
+     `setOperatorRoles`, `createRole`, `updateRole`, `deleteRole` et du bootstrap ; les `FOR UPDATE` partent.
+162. **L'auteur revérifié sous le verrou** (Fable) : actif et détenteur de la permission de l'opération, sinon 403
+     `forbidden_scope`. Il reste un détenteur actif parce que chaque écriture est sérialisée et revérifie son auteur
+     (150 corrigé).
+163. **Email** (Fable) : après normalisation, exactement un `@`, les deux côtés non vides, sinon 422 `email` ; la même
+     fonction refuse au démarrage une `DASHBOARD_BOOTSTRAP_EMAIL` invalide.
+164. **Nom de rôle** (Fable) : espaces retirées ; vide ensuite → 422 `name`. La description est retaillée de même.
+
 ## Design arrêté
 
 - **Cœur `internal/dashboard`** : `operators.go` (liste, création, statut, rôles, lien), `roles.go` (liste,
