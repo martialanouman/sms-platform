@@ -122,3 +122,22 @@ Une revue des correctifs du tour 1. Aucun bloquant.
    test.
 5. **Gardé** : `self_lockout` (409) et les 422 de validation passent avant la revérification (403) ; sans effet, la
    garde HTTP ayant déjà vérifié la permission.
+
+## Preuve sur `contabo169`
+
+Jouée le 2026-10-21 depuis la branche, sur le cluster en v0.18.0 : images construites par GoReleaser en snapshot,
+importées sous `proof-012b` ; timer suspendu, puis réarmé, et dashboard rendu à la v0.18.0 (aucune migration). Compte
+de test réinitialisé par un lien `reset` (Mailpit), session élevée par une application enrôlée ; puis, par `curl` sur
+`port-forward` :
+
+1. Création d'un opérateur : 201, lien d'activation en file ; `Support` posé : 200 ; lien demandé : 202, reçu par
+   Mailpit ; désactivé puis réactivé : 200.
+2. Rôle taillé « Preuve CDR » (`cdr:read`) composé : 201 ; posé ; sa suppression refusée tant qu'il est détenu (409
+   `role_held`, qui nomme le détenteur) ; retiré, puis supprimé : 204.
+3. `Audit` refuse la modification (409 `role_is_default`) ; se désactiver et se retirer `operators:write` rendent 409
+   `self_lockout`.
+4. Journal : `operator_created`, `access_link_requested`, `roles_changed`, `access_link_requested`,
+   `operator_disabled`, `operator_enabled`, `role_created`, `roles_changed`, `roles_changed`, `role_deleted`, après les
+   faits de la connexion.
+
+L'opérateur de preuve est laissé désactivé.
