@@ -2,22 +2,39 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router'
 import { cleanup, render } from '@testing-library/react'
 import axeCore from 'axe-core'
+import { StrictMode } from 'react'
 import { afterEach, vi } from 'vitest'
 import { routeTree } from './routeTree.gen'
 import { rememberChallenge } from './session'
+
+const modals = new Set<HTMLDialogElement>()
+const focus = HTMLElement.prototype.focus
+HTMLElement.prototype.focus = function (this: HTMLElement, options?: FocusOptions) {
+  const inert = [...modals].some((d) => d.isConnected && d.hasAttribute('open') && !d.contains(this))
+  if (!inert) {
+    focus.call(this, options)
+  }
+}
 
 HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
   if (this.hasAttribute('open')) {
     throw new DOMException('The dialog is already open.', 'InvalidStateError')
   }
+  modals.add(this)
   this.setAttribute('open', '')
   this.addEventListener('keydown', dismissOnEscape)
 }
 
 function dismissOnEscape(this: HTMLDialogElement, event: KeyboardEvent) {
-  if (event.key === 'Escape' && this.dispatchEvent(new Event('cancel', { cancelable: true }))) {
-    this.close()
-  }
+  queueMicrotask(() => {
+    if (
+      event.key === 'Escape' &&
+      !event.defaultPrevented &&
+      this.dispatchEvent(new Event('cancel', { cancelable: true }))
+    ) {
+      this.close()
+    }
+  })
 }
 HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
   if (this.hasAttribute('open')) {
@@ -29,6 +46,7 @@ HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
 
 afterEach(() => {
   cleanup()
+  modals.clear()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
   Reflect.deleteProperty(navigator, 'credentials')
@@ -39,9 +57,11 @@ afterEach(() => {
 export function renderAt(path: string) {
   const router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: [path] }) })
   const view = render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>,
+    <StrictMode>
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </StrictMode>,
   )
   return { router, ...view }
 }
