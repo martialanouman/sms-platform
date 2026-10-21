@@ -14,6 +14,7 @@ import (
 type server struct {
 	Config
 	permission map[string][]string
+	auth       map[string]bool
 }
 
 var _ StrictServerInterface = server{}
@@ -71,7 +72,7 @@ func (s server) Me(ctx context.Context, _ MeRequestObject) (MeResponseObject, er
 	idle := int(dashboard.IdleTimeout.Seconds())
 	return Me200JSONResponse{
 		Operator:           CurrentOperator{Id: c.OperatorID, Email: c.Email, DisplayName: c.DisplayName},
-		Permissions:        []Permission{},
+		Permissions:        c.Permissions,
 		Elevated:           c.Elevated,
 		SecondFactors:      SecondFactors{Totp: c.Totp, RecoveryCodesRemaining: c.RecoveryCodesRemaining, Passkeys: c.Passkeys},
 		IdleTimeoutSeconds: &idle,
