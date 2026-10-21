@@ -58,3 +58,37 @@ Fable, 2026-10-21, sauf mention. 252 et 254 tranchés par l'humain le même jour
   réécriture, en-têtes posés et retirés, 401, `mfa_required`, `forbidden_origin`, 415 et média accepté de l'opération,
   404 hors contrat et pour les flux sans appel amont, 503, aucun octet du corps au journal, réponse amont relayée telle
   quelle (403 de la passerelle compris) ; `cmd/` (refus de `ADMIN_API_URL`) ; `netpol`.
+
+## Écarts au design, constatés à l'implémentation
+
+- **Session partagée** : la lecture du cookie et `Resolve` sont sorties de la garde des opérations du BFF
+  (`server.current`) ; le proxy et cette garde l'appellent tous deux. `unsafe` est partagé de même.
+- **Opération sans corps** : le proxy exige `application/json` sur une méthode non sûre dont l'opération Admin ne
+  déclare aucun corps, comme le BFF pour ses propres opérations.
+- **Relais du `cmd/` non prouvé en test** : le test de bout en bout du dashboard n'a pas d'OpenBao, le jeton ne s'y
+  signe pas ; le transport mTLS du relais est prouvé sur `contabo169`.
+
+## Mutations
+
+À la main, par le script de 013a. Jeton de l'opérateur 4/4 ; proxy 13/13 ; configuration 1/1 ; validation de
+`ADMIN_API_URL` 1/1 ; `netpol` 3/3.
+
+## Preuve sur `contabo169`
+
+Jouée le 2026-10-21 depuis la branche, sur le cluster en v0.27.0 (`admin-api-svc` déployé par la release, paquet GHCR
+public) : image `dashboard` construite localement, importée sous `proof-013c` ; timer suspendu, puis réarmé.
+
+1. NetworkPolicy et manifest appliqués ; `rollout status` réussi ; le dashboard redémarré porte `dashboard-tls` avec
+   `client auth`.
+2. Sans session : `GET /api/gw/admin/audit-log` 401 `unauthenticated` ; `POST` sans `Origin` 403 `forbidden_origin` ;
+   `/api/gw/admin/nope` et `/api/gw/admin/stream/metrics` 404 `not_found` ; `Cache-Control: no-store`.
+3. Session élevée de l'opérateur, interrogée toutes les 10 s depuis la console pendant que l'état change :
+   - `Propriétaire` : 200, la ligne d'audit porte le `sub` de l'opérateur et un `X-Request-Id` de la passerelle ;
+   - rôle `Reporting` seul : 403 `forbidden_scope`, avec un `X-Request-Id` : refus de la passerelle, audité ;
+   - session désélevée : 403 `mfa_required` sans `X-Request-Id` ; la ligne la plus récente du journal reste le dernier
+     403 de la passerelle : rien n'a été relayé ;
+   - `admin-api-svc` à zéro réplique : 503 `service_unavailable` ; le journal du dashboard ne porte que l'opération et
+     l'erreur de connexion ;
+   - réplique rendue : 200.
+
+Rôles et élévation de l'opérateur rétablis ; `dashboard` reste sous `proof-013c` jusqu'à la release.
