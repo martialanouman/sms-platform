@@ -32,6 +32,7 @@ type Service struct {
 	Totp      TotpKey
 	Passkeys  Passkeys
 	Mailer    Mailer
+	Signer    Signer
 	PublicURL string
 }
 
