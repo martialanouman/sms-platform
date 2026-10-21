@@ -1,6 +1,6 @@
 # ADR-0019 : Le BFF du tableau de bord émet les jetons de l'API Admin, au nom de l'opérateur connecté
 
-> Amendé par la décision 5 (§3.3 : scopes `<tag>:read/write`), la décision 6 (§7 : JWKS interne, `stream:read`) et la spec (`../spec/08-dashboard.md` §8.4 : signature par OpenBao Transit).
+> Amendé par la décision 5 (§3.3 : scopes `<tag>:read/write`), la décision 6 (§7 : JWKS interne, `stream:read`), la spec (`../spec/08-dashboard.md` §8.4 : signature par OpenBao Transit) et la step 013a (arbitrage 232 : un `kid` inconnu après rechargement, ou un JWKS injoignable, rend 401, jamais 503, spec 07 §7.7).
 >
 > Repris de `go-gateway`. Les chemins, steps et fiches `debts/` cités appartiennent à ce dépôt d'origine.
 
