@@ -228,9 +228,12 @@ func TestTheListTellsTheStateOfTheAccessLinkAndOfTheSecondFactor(t *testing.T) {
 	if !h.find(t, "ada@example.test").SecondFactor {
 		t.Fatal("a passkey alone is a second factor a reset would remove")
 	}
+	if _, err := h.svc.CreateOperator(ctx, actor, "bob@example.test", "Bob"); err != nil {
+		t.Fatal(err)
+	}
 	all, err := h.svc.Operators(ctx)
-	if err != nil || !slices.IsSortedFunc(all, func(a, b dashboard.OperatorRecord) int { return strings.Compare(a.Email, b.Email) }) || len(all) != 2 {
-		t.Fatalf("listed %+v, %v; want both, by email", all, err)
+	if err != nil || !slices.IsSortedFunc(all, func(a, b dashboard.OperatorRecord) int { return strings.Compare(a.Email, b.Email) }) || len(all) != 3 {
+		t.Fatalf("listed %+v, %v; want three, by email", all, err)
 	}
 	l := h.login(t, "owner@example.test")
 	if _, err := h.svc.EnrollTotp(ctx, l.Cookie, nil); err != nil {
