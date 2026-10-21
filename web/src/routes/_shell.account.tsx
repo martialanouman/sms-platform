@@ -11,6 +11,7 @@ function Account() {
   const queryClient = useQueryClient()
   const refreshMe = () => queryClient.invalidateQueries({ queryKey: meQuery.queryKey })
 
+  // debt: #157
   return (
     <section className="page">
       <PageHeader title="Mon compte" />

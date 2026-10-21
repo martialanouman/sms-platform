@@ -156,4 +156,6 @@ tunnel SSH vers `port-forward`, sur `localhost:8080`, au clavier :
    création et la vue `Support`. Modale des rôles ouverte : une, le contraste d'un bouton « Désactiver » **sous le
    voile**, inerte pendant la modale (même constat qu'en 012d).
 
+Validé par l'humain le 2026-10-21 ; la mise en page de « Mon compte » sera revue plus tard (#157).
+
 Le cluster reste sur `proof-012d2-b`, timer suspendu, pour l'essai humain ; le timer se réarme au merge.
