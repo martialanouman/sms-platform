@@ -3,7 +3,6 @@ package adminapi_test
 import (
 	"context"
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -15,38 +14,16 @@ import (
 	"time"
 
 	"github.com/martialanouman/sms-platform/internal/adminapi"
+	"github.com/martialanouman/sms-platform/internal/adminapi/adminapitest"
 	errs "github.com/martialanouman/sms-platform/internal/platform/errors"
 )
 
 const (
-	issuer   = "https://dashboard.test"
-	operator = "0199f0a2-7c1e-7000-8000-000000000001"
+	issuer   = adminapitest.Issuer
+	operator = adminapitest.Operator
 )
 
 var now = time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
-
-type keys map[string]*ecdsa.PrivateKey
-
-func (k keys) Key(_ context.Context, kid string) (*ecdsa.PublicKey, error) {
-	key, ok := k[kid]
-	if !ok {
-		return nil, errors.New("unknown kid")
-	}
-	return &key.PublicKey, nil
-}
-
-func newKeys(t *testing.T, kids ...string) keys {
-	t.Helper()
-	k := keys{}
-	for _, kid := range kids {
-		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		if err != nil {
-			t.Fatal(err)
-		}
-		k[kid] = key
-	}
-	return k
-}
 
 func sign(t *testing.T, key *ecdsa.PrivateKey, header, claims map[string]any) string {
 	t.Helper()
@@ -82,12 +59,12 @@ func with(c map[string]any, key string, value any) map[string]any {
 	return c
 }
 
-func verifier(k keys) adminapi.Verifier {
+func verifier(k adminapitest.Keys) adminapi.Verifier {
 	return adminapi.Verifier{Keys: k, Issuer: issuer, Now: func() time.Time { return now }}
 }
 
 func TestATokenOfTheIssuerGivesItsOperatorAndTheScopesOfTheContract(t *testing.T) {
-	k := newKeys(t, "v1", "v2")
+	k := adminapitest.NewKeys(t, "v1", "v2")
 	token := sign(t, k["v2"], header("v2"), with(claims(), "scope", "audit:read routes:write admin:read"))
 
 	p, err := verifier(k).Verify(context.Background(), token)
@@ -100,8 +77,8 @@ func TestATokenOfTheIssuerGivesItsOperatorAndTheScopesOfTheContract(t *testing.T
 }
 
 func TestATokenIsRefusedUnlessEveryClaimIsTheIssuers(t *testing.T) {
-	k := newKeys(t, "v1", "v2")
-	other := newKeys(t, "v1")
+	k := adminapitest.NewKeys(t, "v1", "v2")
+	other := adminapitest.NewKeys(t, "v1")
 	valid := sign(t, k["v1"], header("v1"), claims())
 	tampered := valid[:len(valid)-4] + "AAAA"
 	dot := strings.LastIndex(valid, ".")

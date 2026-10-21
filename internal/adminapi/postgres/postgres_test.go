@@ -11,12 +11,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/martialanouman/sms-platform/internal/adminapi"
+	"github.com/martialanouman/sms-platform/internal/adminapi/adminapitest"
 	"github.com/martialanouman/sms-platform/internal/adminapi/postgres"
 	"github.com/martialanouman/sms-platform/internal/platform/pgtest"
 	"github.com/martialanouman/sms-platform/migrations"
 )
 
-const operator = "0199f0a2-7c1e-7000-8000-000000000001"
+const operator = adminapitest.Operator
 
 type db struct {
 	store    postgres.Store

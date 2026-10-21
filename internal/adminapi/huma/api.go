@@ -23,14 +23,10 @@ const scheme = "OperatorBearer"
 type Config struct {
 	Store    adminapi.Store
 	Verifier adminapi.Verifier
-	Log      *slog.Logger
 }
 
 // New is the handler of the Admin API, and its huma API, whose OpenAPI document the contract guard reads.
 func New(c Config) (http.Handler, huma.API) {
-	if c.Log == nil {
-		c.Log = slog.Default()
-	}
 	mux := http.NewServeMux()
 	cfg := huma.DefaultConfig("SMS Gateway — Admin API", "1.0.0")
 	cfg.OpenAPIPath, cfg.DocsPath, cfg.SchemasPath, cfg.CreateHooks = "", "", "", nil
@@ -39,7 +35,7 @@ func New(c Config) (http.Handler, huma.API) {
 	api := humago.New(mux, cfg)
 	api.UseMiddleware(authorize(api, c))
 	registerAudit(api)
-	return audit{mux: mux, log: c.Log}, api
+	return audit{mux: mux}, api
 }
 
 type state struct {
@@ -53,15 +49,10 @@ type stateKey struct{}
 // ponytail: every response is buffered until its audit line commits; a stream (026) needs to pass through.
 type audit struct {
 	mux http.Handler
-	log *slog.Logger
 }
 
 func (a audit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.NewV7()
-	if err != nil {
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
+	id := uuid.Must(uuid.NewV7())
 	buf := &buffer{header: http.Header{}}
 	st := &state{requestID: id.String(), response: buf}
 	a.mux.ServeHTTP(buf, r.WithContext(context.WithValue(r.Context(), stateKey{}, st)))
@@ -142,7 +133,7 @@ func authorize(api huma.API, c Config) func(huma.Context, func(huma.Context)) {
 		case errors.Is(err, errRefused):
 			refuse(st.response.status)
 		case err != nil:
-			c.Log.ErrorContext(ctx.Context(), "admin call not committed", "operation", op.OperationID, "err", err)
+			slog.ErrorContext(ctx.Context(), "admin call not committed", "operation", op.OperationID, "err", err)
 			st.failed = true
 		}
 	}

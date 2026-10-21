@@ -1,4 +1,4 @@
-// Package keyset is the opaque cursor of a page ordered by time and UUID, newest first.
+// Package keyset is the opaque cursor of a page ordered by time and UUID.
 package keyset
 
 import (
