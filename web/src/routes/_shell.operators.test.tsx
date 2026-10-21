@@ -313,3 +313,12 @@ test('the dialog survives the list read again while it is open', async () => {
   })
   expect(document.activeElement).toBe(opener)
 })
+
+test('an operator who may not read the operators is told why, without a request', async () => {
+  const calls = stubFetch({ 'GET /api/auth/me': () => json(200, { ...me, permissions: ['accounts:read'] }) })
+  const { container } = renderAt('/operators')
+  expect(await screen.findByText('Il faut la permission operators:read pour lire les opérateurs.')).toBeDefined()
+  expect(screen.queryByRole('form')).toBeNull()
+  expect(calls.some((c) => c.url.endsWith('/api/operators'))).toBe(false)
+  expect(await violations(container)).toEqual([])
+})

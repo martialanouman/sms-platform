@@ -41,14 +41,24 @@ function Explained({ reason, children }: { reason: string; children: (describedB
 
 function Operators() {
   const me = useShellMe()
-  const operators = useQuery(operatorsQuery)
   const held = me.data?.permissions ?? []
+  const readable = held.includes('operators:read')
+  const operators = useQuery({ ...operatorsQuery, enabled: readable })
   const writable = held.includes('operators:write') ? '' : 'Il faut la permission operators:write.'
   const [editing, setEditing] = useState<{ operator: Operator; opener: HTMLButtonElement }>()
 
   useEffect(() => {
     document.title = 'Opérateurs — Tableau de bord'
   }, [])
+
+  if (!readable) {
+    return (
+      <section className="page">
+        <h1 className="page__title">Opérateurs</h1>
+        <p className="auth__intro">Il faut la permission operators:read pour lire les opérateurs.</p>
+      </section>
+    )
+  }
 
   return (
     <section className="page">
