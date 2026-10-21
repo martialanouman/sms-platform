@@ -83,3 +83,50 @@ Fable, 2026-10-21, sauf mention. La coupe (229) et 234 sont soumises à l'humain
   `admin_api_svc` : ligne d'audit dans la transaction, échec d'audit → 503, refus du handler → rollback et ligne,
   403 audité, 401 non, filtres et curseur de `list-audit-log`, `list-audit-changes` 404 et page. Mutation manuelle,
   consignée.
+
+## Écarts au design, constatés à l'implémentation
+
+- **Transaction de la requête dans le contexte** : `adminapi.WithTx` et `TxFrom` (cœur), lus par les handlers ; toute
+  opération servie, auditée ou non, s'exécute dans la transaction ouverte par le middleware. Un flux (026) devra en
+  sortir, comme du tampon de réponse (marque `ponytail:` dans `huma/api.go`).
+- **Curseur partagé** : `internal/platform/keyset`, sorti de `internal/dashboard/accesslog.go` ; deux consommateurs.
+- **Tests bout en bout dans `internal/adminapi/postgres`** (`gateway_test.go`) : la sonde d'écriture du test passe par la
+  transaction réelle, que seul ce paquet expose à ses tests. La signature de jetons de test vit dans
+  `internal/adminapi/adminapitest`.
+- **Modèle d'erreur réduit** à ce que les deux opérations atteignent : 422 `validation_error` avec `errors[]`, un code du
+  catalogue porté par l'erreur, sinon 500. Une opération à corps (014a) y ajoutera 400 et 413.
+- **Une opération sans exactement un scope** rend 401 à tout jeton : l'échec reste fermé si la garde de contrat manquait.
+- **L'adaptateur Postgres** a été écrit dans la même commande que son test, sans rouge lu ; compensé par les mutations du
+  SQL généré.
+
+## Mutations
+
+À la main, par un script qui copie, mute, teste et restaure (`cmp`), et signale un mutant qui ne compile pas. Vérificateur
+13/13 ; JWKS 12/12 ; curseur 3/3 ; cœur de l'audit 9/9 ; SQL généré 11/11 ; adaptateur Postgres 8/8 ; couche huma 18/19,
+modèle d'erreur et handlers 8/8 après retraits. Équivalents gardés : `>= 400` contre `> 400` (aucun 400 ne sort), l'échec
+de décodage base64 du curseur (le dernier quantum perdu fait tomber l'UUID). Retirés parce qu'équivalents : les filtres
+`kty`/`crv` et de longueur du JWKS, le plafond explicite du corps, `!found` du curseur, la branche 400, le masque du
+message 500 (huma n'y met jamais la cause), `ContentType`. Survivants qui ont révélé un cas réel, tués : une signature
+complétée de zéros, un jeton à quatre segments, un jeton brut sans `Bearer`, le `$schema` d'huma.
+
+## Correctifs de revue, tour 1
+
+Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloquant.
+
+1. **JWKS vidé par un corps d'erreur** (haute, sécurité ; mon retrait du contrôle de statut) : un `502` ou un `200` sans
+   clé remplaçait le cache par un jeu vide, 401 pour tous une minute. Un jeu sans clé est désormais un échec ; le statut
+   n'ajoute rien de plus (mutant équivalent, retiré).
+2. **Rechargement sous le contexte de l'appelant** (moyenne) : un appelant parti faisait échouer le rechargement et
+   bloquait la minute. Il tourne sous `WithoutCancel`, borné par son propre délai.
+3. **Tests creux** : la cible d'un appel avec requête, et chaque champ des pages, sont désormais affirmés ; les mutations
+   (`RequestURI`, tags JSON) tombent.
+4. **Code en trop retiré** : les helpers de `verify_test` recopiés d'`adminapitest`, la constante `operator` redéclarée,
+   `Config.Log`, la branche d'erreur de `uuid.NewV7`, un commentaire.
+5. **Gardés, avec raison** :
+   - la ligne d'une lecture auditée dans la transaction de sa lecture n'a pas de test qui la distingue d'une ligne
+     écrite juste après le `COMMIT` : seul le refus d'écrire (503) est prouvé ;
+   - la composition `jwks.Keys` + vérificateur + huma, et « rien n'est lu au démarrage », se prouvent au câblage de 013b ;
+   - un `Issuer` vide et un `Log` nil du JWKS sont des erreurs de configuration, refusées par la validation de 013b ;
+   - la regexp d'UUID reste écrite deux fois (vérification d'un `sub`, d'un curseur) : la partager lierait le cœur de
+     l'autorisation au paquet de pagination ;
+   - un 503 après un `COMMIT` dont l'accusé se perd peut cacher une mutation faite : inhérent.
