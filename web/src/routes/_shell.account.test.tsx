@@ -469,11 +469,12 @@ test('a personal token is shown once, copied, and gone once closed', async () =>
   const dialog = await screen.findByRole('dialog', { name: 'Jeton d’API personnel' })
   expect(dialog.textContent).toContain('eyJ.jeton-de-preuve.sig')
   expect(dialog.textContent).toContain('Ce jeton ne sera plus jamais affiché.')
+  expect(screen.getByText(/expire une heure après sa délivrance/)).toBeDefined()
   expect(dialog.textContent).toContain('accounts:read, traffic:read')
   expect(await violations(container)).toEqual([])
-  await user.click(within(dialog).getByRole('button', { name: 'Copier le jeton' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Copier le secret' }))
   expect(await navigator.clipboard.readText()).toBe('eyJ.jeton-de-preuve.sig')
-  await user.click(within(dialog).getAllByRole('button', { name: 'Fermer' })[1] as HTMLElement)
+  await user.click(within(dialog).getByRole('button', { name: 'J’ai copié le secret' }))
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(document.body.textContent).not.toContain('eyJ.jeton-de-preuve.sig')
   expect(document.activeElement).toBe(issue)
@@ -509,7 +510,7 @@ test('without gateway:personal_token, the delivery is refused and explained', as
   const issue = await screen.findByRole('button', { name: 'Délivrer' })
   expect(issue.getAttribute('aria-disabled')).toBe('true')
   expect(document.getElementById(issue.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
-    'La délivrance d’un jeton personnel demande gateway:personal_token.',
+    'Se délivrer un jeton personnel demande gateway:personal_token, que seul le rôle Propriétaire détient par défaut ; un administrateur peut l’accorder.',
   )
   await userEvent.setup().click(issue)
   expect(calls.some((c) => c.url.endsWith('/api/gateway-token'))).toBe(false)

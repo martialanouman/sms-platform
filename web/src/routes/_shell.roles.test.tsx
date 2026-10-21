@@ -2,7 +2,7 @@ import { focusManager } from '@tanstack/react-query'
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
-import { json, me, noSession, once, renderAt, stubFetch, violations } from '../test'
+import { explained, json, me, noSession, once, renderAt, stubFetch, violations } from '../test'
 
 const writer = { ...me, permissions: ['roles:read', 'roles:write'] }
 const owner = {
@@ -35,9 +35,6 @@ function row(name: string) {
   return screen.getByRole('rowheader', { name }).closest('tr') as HTMLTableRowElement
 }
 
-const explained = (button: HTMLElement) =>
-  document.getElementById(button.getAttribute('aria-describedby') ?? '')?.textContent
-
 test('the rail leads to the roles for an operator who may read them', async () => {
   stubFetch({ 'GET /api/auth/me': () => json(200, writer), 'GET /api/roles': () => json(200, [owner]) })
   const { router } = renderAt('/')
@@ -62,6 +59,7 @@ test('the roles are listed with their permissions and holders counted', async ()
     .slice(0, 3)
     .map((c) => c.textContent)
   expect(cells).toEqual(['Lit les comptes.', '2', '2'])
+  expect(within(row('Support')).getAllByRole('cell')[1]?.classList.contains('ui-table__cell--end')).toBe(true)
   expect(await violations(container)).toEqual([])
 })
 
@@ -131,7 +129,7 @@ test('a role is composed from the permissions of the owner, grouped by resource'
     permissions: ['traffic:read'],
   })
   expect(created[1]?.headers.get('Content-Type')).toBe('application/json')
-  await waitFor(() => expect(reads).toBe(2))
+  await waitFor(() => expect(reads).toBe(3))
 })
 
 test('a custom role is edited, and a refusal is told in its dialog', async () => {
@@ -139,7 +137,6 @@ test('a custom role is edited, and a refusal is told in its dialog', async () =>
   const calls = stubFetch({
     'GET /api/auth/me': () => json(200, writer),
     'GET /api/roles': () => json(200, list),
-    'GET /api/operators': () => json(200, []),
     'PATCH /api/roles/r-readers': async (r) => {
       const body = await r.clone().json()
       if (body.permissions.length === 0) {
@@ -185,6 +182,7 @@ test('a role nobody holds is deleted after a confirmation, and the focus goes to
   await screen.findByRole('rowheader', { name: 'Lecteurs' })
   await user.click(within(row('Lecteurs')).getByRole('button', { name: 'Supprimer' }))
   const dialog = await screen.findByRole('dialog', { name: 'Supprimer le rôle Lecteurs ?' })
+  expect(dialog.textContent).toContain('sa suppression ne retirera aucune permission')
   expect(dialog.textContent).toContain('L’action est enregistrée dans le journal d’audit.')
   await user.click(within(dialog).getByRole('button', { name: 'Supprimer' }))
   await waitFor(() => expect(screen.queryByRole('rowheader', { name: 'Lecteurs' })).toBeNull())
@@ -192,10 +190,14 @@ test('a role nobody holds is deleted after a confirmation, and the focus goes to
   expect(calls.filter((c) => c.method === 'DELETE').length).toBe(1)
 })
 
-test('a role held since the list was read is refused in its dialog', async () => {
+test('a role held since the list was read is refused in its dialog, and the list read again', async () => {
+  let reads = 0
   stubFetch({
     'GET /api/auth/me': () => json(200, writer),
-    'GET /api/roles': () => json(200, [owner, readers]),
+    'GET /api/roles': () => {
+      reads++
+      return json(200, [owner, readers])
+    },
     'DELETE /api/roles/r-readers': () =>
       json(409, { code: 'role_held', message: 'Le rôle est détenu par ada@example.test (serveur).' }),
   })
@@ -208,6 +210,7 @@ test('a role held since the list was read is refused in its dialog', async () =>
   expect((await within(dialog).findByRole('alert')).textContent).toBe(
     'Le rôle est détenu par ada@example.test (serveur).',
   )
+  await waitFor(() => expect(reads).toBe(2))
 })
 
 test('a default role, a held role and a reader without roles:write are refused, explained', async () => {
@@ -269,7 +272,7 @@ test('the list tells it is loading, then that it cannot be read, with a retry', 
   expect(await screen.findByText('Chargement des rôles…')).toBeDefined()
   await act(async () => answer(json(403, { code: 'forbidden_scope', message: 'Refusé (serveur).' })))
   const alert = await screen.findByRole('alert')
-  expect(alert.textContent).toContain('Les rôles n’ont pas pu être chargés')
+  expect(within(alert).getByRole('heading', { level: 2, name: 'Les rôles n’ont pas pu être chargés' })).toBeDefined()
   expect(alert.textContent).toContain('Refusé (serveur).')
   await userEvent.setup().click(within(alert).getByRole('button', { name: 'Réessayer' }))
   expect(await screen.findByRole('rowheader', { name: 'Propriétaire' })).toBeDefined()
@@ -280,4 +283,26 @@ test('a session gone while reading the roles sends to the login', async () => {
   const { router } = renderAt('/roles')
   await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
   expect(router.state.location.search).toEqual({ notice: 'session-closed' })
+})
+
+test('a deletion that succeeds after its dialog was closed leaves another dialog open', async () => {
+  let release: () => void = () => {}
+  stubFetch({
+    'GET /api/auth/me': () => json(200, writer),
+    'GET /api/roles': () => json(200, [owner, readers]),
+    'DELETE /api/roles/r-readers': async () => {
+      await new Promise<void>((resolve) => (release = resolve))
+      return new Response(null, { status: 204 })
+    },
+  })
+  renderAt('/roles')
+  const user = userEvent.setup()
+  await screen.findByRole('rowheader', { name: 'Lecteurs' })
+  await user.click(within(row('Lecteurs')).getByRole('button', { name: 'Supprimer' }))
+  await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Supprimer' }))
+  await user.keyboard('{Escape}')
+  await user.click(within(row('Propriétaire')).getByRole('button', { name: 'Voir les permissions' }))
+  await screen.findByRole('dialog', { name: 'Rôle Propriétaire' })
+  await act(async () => release())
+  expect(screen.getByRole('dialog', { name: 'Rôle Propriétaire' })).toBeDefined()
 })

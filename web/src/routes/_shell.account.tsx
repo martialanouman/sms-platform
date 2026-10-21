@@ -56,13 +56,17 @@ function PersonalToken({ allowed }: { allowed: boolean }) {
         Jeton d’API personnel
       </h2>
       <p className="auth__aside">
-        Le jeton vaut une heure. Il porte les scopes de vos rôles, moins content:read, content:erase et gdpr:erase. Sa
-        délivrance est enregistrée dans le journal d’audit.
+        Le jeton expire une heure après sa délivrance. Il porte les scopes de vos rôles, moins content:read,
+        content:erase et gdpr:erase. Sa délivrance est enregistrée dans le journal d’audit.
       </p>
       {refusal}
       <div>
         <Button
-          blockedReason={allowed ? undefined : 'La délivrance d’un jeton personnel demande gateway:personal_token.'}
+          blockedReason={
+            allowed
+              ? undefined
+              : 'Se délivrer un jeton personnel demande gateway:personal_token, que seul le rôle Propriétaire détient par défaut ; un administrateur peut l’accorder.'
+          }
           loading={waiting}
           onClick={() => void issue()}
         >
@@ -73,14 +77,18 @@ function PersonalToken({ allowed }: { allowed: boolean }) {
         <Modal
           title="Jeton d’API personnel"
           onClose={() => setIssued(undefined)}
-          footer={<Button onClick={() => setIssued(undefined)}>Fermer</Button>}
+          footer={
+            <Button variant="primary" onClick={() => setIssued(undefined)}>
+              J’ai copié le secret
+            </Button>
+          }
         >
           <p>
             Ce jeton ne sera plus jamais affiché. Il expire à {expiry.format(new Date(issued.expiresAt))} et ouvre :{' '}
             {issued.scopes.join(', ')}.
           </p>
           <code className="auth__secret">{issued.token}</code>
-          <CopyButton label="Copier le jeton" value={issued.token} />
+          <CopyButton label="Copier le secret" value={issued.token} />
         </Modal>
       )}
     </section>

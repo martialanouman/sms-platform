@@ -3,9 +3,20 @@ import { createFileRoute } from '@tanstack/react-router'
 import { type FormEvent, useEffect, useId, useRef, useState } from 'react'
 import { api, json, unreachable } from '../api'
 import type { components } from '../api.gen'
-import { operatorsQuery, rolesQuery } from '../queries'
+import { rolesQuery } from '../queries'
 import { meQuery, Refused, Unauthenticated, useSessionClosed, useShellMe } from '../session'
-import { Button, DataTable, ErrorState, Field, LoadingState, Modal, PageHeader, Toolbar, useSubmission } from '../ui'
+import {
+  Button,
+  Confirmation,
+  DataTable,
+  ErrorState,
+  Field,
+  LoadingState,
+  Modal,
+  PageHeader,
+  Toolbar,
+  useSubmission,
+} from '../ui'
 
 type Role = components['schemas']['Role']
 
@@ -61,7 +72,7 @@ function Roles() {
             {roles.isPending ? (
               <LoadingState label="Chargement des rôles…" rows={3} />
             ) : roles.error ? (
-              <ErrorState title="Les rôles n’ont pas pu être chargés" onRetry={() => void roles.refetch()}>
+              <ErrorState as="h2" title="Les rôles n’ont pas pu être chargés" onRetry={() => void roles.refetch()}>
                 {roles.error instanceof Refused ? roles.error.message : unreachable}
               </ErrorState>
             ) : (
@@ -72,8 +83,8 @@ function Roles() {
                 columns={[
                   { header: 'Nom', cell: (r) => r.name },
                   { header: 'Description', cell: (r) => r.description },
-                  { header: 'Permissions', cell: (r) => r.permissions.length },
-                  { header: 'Détenteurs', cell: (r) => r.holders.length },
+                  { header: 'Permissions', cell: (r) => r.permissions.length, end: true },
+                  { header: 'Détenteurs', cell: (r) => r.holders.length, end: true },
                   {
                     header: 'Actions',
                     cell: (r) => (
@@ -113,14 +124,25 @@ function Roles() {
             {pending?.kind === 'create' && <Editor catalog={catalog} onClose={dismiss(pending)} />}
             {pending?.kind === 'edit' && <Editor role={pending.role} catalog={catalog} onClose={dismiss(pending)} />}
             {pending?.kind === 'delete' && (
-              <Delete
-                role={pending.role}
+              <Confirmation
+                title={`Supprimer le rôle ${pending.role.name} ?`}
+                action="Supprimer"
+                danger
+                invalidate={rolesQuery.queryKey}
+                call={() =>
+                  api.DELETE('/roles/{roleId}', { params: { path: { roleId: pending.role.id } }, headers: json })
+                }
                 onClose={dismiss(pending)}
-                onDeleted={() => {
-                  setPending(undefined)
+                onDone={() => {
+                  dismiss(pending)()
                   setDeleted((n) => n + 1)
                 }}
-              />
+              >
+                <p>
+                  Personne ne détient ce rôle : sa suppression ne retirera aucune permission à aucun opérateur. Elle est
+                  définitive.
+                </p>
+              </Confirmation>
             )}
           </section>
         </>
@@ -153,7 +175,8 @@ function Editor({ role, catalog, onClose }: { role?: Role; catalog: string[]; on
   const [description, setDescription] = useState(role?.description ?? '')
   const [permissions, setPermissions] = useState(role?.permissions ?? [])
   const form = useId()
-  const resources = [...new Set(catalog.map((key) => key.split(':')[0] ?? key))].sort()
+  const keys = [...catalog].sort()
+  const resources = [...new Set(keys.map((key) => key.split(':')[0] ?? key))]
 
   async function save(event: FormEvent) {
     event.preventDefault()
@@ -166,10 +189,10 @@ function Editor({ role, catalog, onClose }: { role?: Role; catalog: string[]; on
           })
         : api.POST('/roles', { body: { name, description, permissions }, headers: json }),
     )
+    for (const query of [rolesQuery, meQuery]) {
+      void queryClient.invalidateQueries({ queryKey: query.queryKey })
+    }
     if (outcome.failure === undefined) {
-      for (const query of [rolesQuery, meQuery, operatorsQuery]) {
-        void queryClient.invalidateQueries({ queryKey: query.queryKey })
-      }
       onClose()
     }
   }
@@ -199,6 +222,7 @@ function Editor({ role, catalog, onClose }: { role?: Role; catalog: string[]; on
         {!role && (
           <Field
             label="Nom"
+            className="ui-input ui-input--mono"
             required
             maxLength={100}
             value={name}
@@ -216,9 +240,8 @@ function Editor({ role, catalog, onClose }: { role?: Role; catalog: string[]; on
           {resources.map((resource) => (
             <fieldset className="role-choice" key={resource}>
               <legend>{resource}</legend>
-              {catalog
+              {keys
                 .filter((key) => key.startsWith(`${resource}:`))
-                .sort()
                 .map((key) => (
                   <label className="role-choice__option" key={key}>
                     <input
@@ -235,42 +258,6 @@ function Editor({ role, catalog, onClose }: { role?: Role; catalog: string[]; on
           ))}
         </div>
       </form>
-    </Modal>
-  )
-}
-
-function Delete({ role, onClose, onDeleted }: { role: Role; onClose: () => void; onDeleted: () => void }) {
-  const queryClient = useQueryClient()
-  const { submit, waiting, refusal } = useSubmission()
-
-  async function remove() {
-    const outcome = await submit(() =>
-      api.DELETE('/roles/{roleId}', { params: { path: { roleId: role.id } }, headers: json }),
-    )
-    if (outcome.failure === undefined) {
-      void queryClient.invalidateQueries({ queryKey: rolesQuery.queryKey })
-      onDeleted()
-    }
-  }
-
-  return (
-    <Modal
-      title={`Supprimer le rôle ${role.name} ?`}
-      onClose={onClose}
-      footer={
-        <>
-          <Button onClick={onClose}>Annuler</Button>
-          <Button variant="danger" loading={waiting} onClick={() => void remove()}>
-            Supprimer
-          </Button>
-        </>
-      }
-    >
-      {refusal}
-      <p>
-        Personne ne détient ce rôle : sa suppression ne retire aucune permission à aucun opérateur. Elle est définitive.
-      </p>
-      <p>L’action est enregistrée dans le journal d’audit.</p>
     </Modal>
   )
 }

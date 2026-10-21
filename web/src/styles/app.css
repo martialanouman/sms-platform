@@ -533,6 +533,10 @@
   vertical-align: middle;
 }
 
+.ui-table__cell--end {
+  text-align: end;
+}
+
 .ui-table__row:hover .ui-table__cell {
   background: var(--surface-hover);
 }
@@ -753,12 +757,20 @@
   font: var(--text-data);
 }
 
-.role-keys__key {
+.role-keys__key,
+.ui-input--mono {
   font: var(--text-data);
+}
+
+.permission-picker legend {
+  font: var(--text-data);
+  letter-spacing: normal;
+  text-transform: none;
 }
 
 .role-choice {
   display: grid;
+  align-content: start;
   gap: var(--sp-4);
   margin: 0;
   padding: 0;

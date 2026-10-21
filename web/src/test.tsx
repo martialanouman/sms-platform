@@ -121,6 +121,9 @@ export function stubPasskeys() {
   return device
 }
 
+export const explained = (button: HTMLElement) =>
+  document.getElementById(button.getAttribute('aria-describedby') ?? '')?.textContent
+
 export const noSession = () => json(401, { code: 'unauthenticated', message: 'Aucune session ouverte.' })
 
 export function once(answer: () => Response) {
