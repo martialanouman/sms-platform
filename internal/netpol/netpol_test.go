@@ -331,3 +331,20 @@ func TestAServiceReachesThePodOfItsJWKS(t *testing.T) {
 		}
 	}
 }
+
+func TestAServiceReachesThePodsOfItsAdminAPI(t *testing.T) {
+	got := render(t, fstest.MapFS{"relay.yaml": {Data: []byte(job("relay", [2]string{"ADMIN_API_URL", "https://gateway:9443"}))}})
+	e := got["relay"].Spec.Egress
+	if len(e) != 1 || len(e[0].To) != 1 ||
+		!reflect.DeepEqual(e[0].To[0].NamespaceSelector.MatchLabels, map[string]string{"kubernetes.io/metadata.name": "sms"}) ||
+		!reflect.DeepEqual(e[0].To[0].PodSelector.MatchLabels, map[string]string{"app.kubernetes.io/name": "gateway"}) ||
+		len(e[0].Ports) != 1 || e[0].Ports[0].Port != 9443 {
+		t.Fatalf("egress %+v, want the gateway's pods on 9443", e)
+	}
+	for _, bad := range []string{"http://gateway:9443", "https://gateway", "https://gateway.sms.svc:9443", "https://gateway:0",
+		"https://Gateway:9443", "https://gateway:9443/admin"} {
+		if _, err := netpol.Render(fstest.MapFS{"relay.yaml": {Data: []byte(job("relay", [2]string{"ADMIN_API_URL", bad}))}}); err == nil || !strings.Contains(err.Error(), "ADMIN_API_URL") {
+			t.Errorf("%q: err = %v, want a refusal", bad, err)
+		}
+	}
+}

@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"net/netip"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -21,8 +22,9 @@ import (
 )
 
 type keySigner struct {
-	key  *ecdsa.PrivateKey
-	fail error
+	key   *ecdsa.PrivateKey
+	fail  error
+	signs atomic.Int32
 }
 
 func newKeySigner(t *testing.T) *keySigner {
@@ -39,6 +41,7 @@ func (k *keySigner) Keys(context.Context) (string, []dashboard.PublicKey, error)
 }
 
 func (k *keySigner) Sign(_ context.Context, _ string, input []byte) ([]byte, error) {
+	k.signs.Add(1)
 	if k.fail != nil {
 		return nil, k.fail
 	}

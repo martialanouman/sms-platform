@@ -213,3 +213,35 @@ func TestAPersonalTokenRefusesAScopeItMayNotCarry(t *testing.T) {
 		t.Fatalf("a refused token was logged: %+v", log)
 	}
 }
+
+func TestAnOperatorTokenCarriesEveryScopeOfItsRolesForFiveMinutes(t *testing.T) {
+	ctx := context.Background()
+	svc := dashboard.Service{Signer: newKeySigner(t), PublicURL: publicURL}
+	jwks, err := svc.JWKS(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const operator = "0199f0a2-7c1e-7000-8000-000000000009"
+	for _, tc := range []struct {
+		held []string
+		want string
+	}{
+		{slices.Concat(scopes.Permissions, scopes.All), strings.Join(scopes.All, " ")},
+		{[]string{"traffic:read", "operators:read", "billing:read", "gateway:personal_token"}, "billing:read traffic:read"},
+		{[]string{"operators:read"}, ""},
+	} {
+		token, err := svc.IssueOperatorToken(ctx, dashboard.Current{OperatorID: operator, Permissions: tc.held})
+		if err != nil {
+			t.Fatal(err)
+		}
+		header, c := verify(t, jwks, token)
+		if header["kid"] != "test-v2" || c.Iss != publicURL || c.Aud != "gateway-admin" || c.Sub != operator || c.Scope != tc.want ||
+			c.Exp-c.Iat != 300 || time.Since(time.Unix(c.Iat, 0)).Abs() > time.Minute {
+			t.Errorf("held %v: header %v, claims %+v", tc.held, header, c)
+		}
+	}
+	svc.Signer.(*keySigner).fail = errors.New("openbao down")
+	if _, err := svc.IssueOperatorToken(ctx, dashboard.Current{OperatorID: operator}); !errors.Is(err, dashboard.ErrSignerUnavailable) {
+		t.Fatalf("a signer down: %v", err)
+	}
+}

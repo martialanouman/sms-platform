@@ -16,6 +16,7 @@ import (
 const (
 	audience         = "gateway-admin"
 	personalLifetime = time.Hour
+	operatorLifetime = 5 * time.Minute
 )
 
 var personalExcluded = []string{"content:read", "content:erase", "gdpr:erase"}
@@ -77,16 +78,7 @@ func (s Service) IssuePersonalToken(ctx context.Context, c Current, requested []
 	if err != nil {
 		return PersonalToken{}, err
 	}
-	now := time.Now()
-	exp := now.Add(personalLifetime).Unix()
-	token, err := s.sign(ctx, struct {
-		Iss   string `json:"iss"`
-		Aud   string `json:"aud"`
-		Sub   string `json:"sub"`
-		Scope string `json:"scope"`
-		Iat   int64  `json:"iat"`
-		Exp   int64  `json:"exp"`
-	}{s.PublicURL, audience, c.OperatorID, strings.Join(carried, " "), now.Unix(), exp})
+	token, exp, err := s.issue(ctx, c.OperatorID, carried, personalLifetime)
 	if err != nil {
 		return PersonalToken{}, err
 	}
@@ -96,6 +88,28 @@ func (s Service) IssuePersonalToken(ctx context.Context, c Current, requested []
 		return PersonalToken{}, err
 	}
 	return PersonalToken{Token: token, Scopes: carried, ExpiresAt: time.Unix(exp, 0)}, nil
+}
+
+// IssueOperatorToken signs, for the operator of c, the token of five minutes the proxy sets on a relayed request: every
+// scope of its roles (spec 08 §8.4), the gateway deciding (I12).
+func (s Service) IssueOperatorToken(ctx context.Context, c Current) (string, error) {
+	carried := slices.DeleteFunc(slices.Clone(c.Permissions), func(p string) bool { return !slices.Contains(scopes.All, p) })
+	token, _, err := s.issue(ctx, c.OperatorID, permissions(carried), operatorLifetime)
+	return token, err
+}
+
+func (s Service) issue(ctx context.Context, sub string, carried []string, lifetime time.Duration) (string, int64, error) {
+	now := time.Now()
+	exp := now.Add(lifetime).Unix()
+	token, err := s.sign(ctx, struct {
+		Iss   string `json:"iss"`
+		Aud   string `json:"aud"`
+		Sub   string `json:"sub"`
+		Scope string `json:"scope"`
+		Iat   int64  `json:"iat"`
+		Exp   int64  `json:"exp"`
+	}{s.PublicURL, audience, sub, strings.Join(carried, " "), now.Unix(), exp})
+	return token, exp, err
 }
 
 func (s Service) keys(ctx context.Context) (string, []PublicKey, error) {

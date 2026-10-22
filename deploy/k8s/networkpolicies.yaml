@@ -207,6 +207,16 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
+              kubernetes.io/metadata.name: sms
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: admin-api-svc
+      ports:
+        - protocol: TCP
+          port: 8443
+    - to:
+        - namespaceSelector:
+            matchLabels:
               kubernetes.io/metadata.name: mailpit
           podSelector:
             matchLabels:
