@@ -456,7 +456,12 @@ test('the dialog survives the list read again while it is open', async () => {
 test('an operator who may not read the operators is told why, without a request', async () => {
   const calls = stubFetch({ 'GET /api/auth/me': () => json(200, { ...me, permissions: ['accounts:read'] }) })
   const { container } = renderAt('/operators')
-  expect(await screen.findByText('Il faut la permission operators:read pour lire les opérateurs.')).toBeDefined()
+  expect(
+    (await screen.findByRole('heading', { level: 2, name: 'Accès aux opérateurs non accordé' })).parentElement
+      ?.textContent,
+  ).toContain(
+    'la permission Opérateurs : lire operators:read, qu’aucun rôle de ce compte n’accorde. Un opérateur habilité à modifier les rôles des opérateurs peut ajouter le rôle « Propriétaire » à ce compte.',
+  )
   expect(screen.queryByRole('button', { name: 'Nouvel opérateur' })).toBeNull()
   expect(calls.some((c) => c.url.endsWith('/api/operators'))).toBe(false)
   expect(await violations(container)).toEqual([])
@@ -505,7 +510,7 @@ test('taking operators:read away from oneself closes the dialog and tells why', 
   const dialog = await screen.findByRole('dialog')
   await within(dialog).findByRole('checkbox', { name: /Support/ })
   await user.click(within(dialog).getByRole('button', { name: 'Enregistrer les rôles' }))
-  expect(await screen.findByText('Il faut la permission operators:read pour lire les opérateurs.')).toBeDefined()
+  expect(await screen.findByRole('heading', { level: 2, name: 'Accès aux opérateurs non accordé' })).toBeDefined()
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Opérateurs', level: 1 }))
 })
@@ -600,7 +605,7 @@ test('a dialog left open when the permission goes does not come back with it', a
   await screen.findByRole('dialog')
   held = []
   refocus()
-  expect(await screen.findByText('Il faut la permission operators:read pour lire les opérateurs.')).toBeDefined()
+  expect(await screen.findByRole('heading', { level: 2, name: 'Accès aux opérateurs non accordé' })).toBeDefined()
   held = owner.permissions
   refocus()
   await screen.findByText('ada@example.test')

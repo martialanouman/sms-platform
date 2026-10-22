@@ -14,6 +14,7 @@ import {
   EmptyState,
   ErrorState,
   Field,
+  Forbidden,
   LoadingState,
   Modal,
   PageHeader,
@@ -189,7 +190,12 @@ function Operators() {
         </>
       ) : (
         <section className="page">
-          <p className="auth__intro">Il faut la permission operators:read pour lire les opérateurs.</p>
+          <Forbidden
+            title="Accès aux opérateurs non accordé"
+            about="Cet écran liste les comptes du tableau de bord, leurs rôles et l’état de leur second facteur."
+            permission="operators:read"
+            grantedBy="Propriétaire"
+          />
         </section>
       )}
     </>

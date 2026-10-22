@@ -14,6 +14,7 @@ import {
   DataTable,
   ErrorState,
   Field,
+  Forbidden,
   LoadingState,
   Modal,
   PageHeader,
@@ -155,7 +156,12 @@ function Roles() {
         </>
       ) : (
         <section className="page">
-          <p className="auth__intro">Il faut la permission roles:read pour lire les rôles.</p>
+          <Forbidden
+            title="Accès aux rôles non accordé"
+            about="Cet écran compose les rôles à partir des permissions de la passerelle et du tableau de bord."
+            permission="roles:read"
+            grantedBy="Propriétaire"
+          />
         </section>
       )}
     </>

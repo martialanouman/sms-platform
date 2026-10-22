@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet } from '@tanstack/react-router'
 import { useShellMe } from '../session'
-import { PageHeader } from '../ui'
+import { Forbidden, PageHeader } from '../ui'
 
 export const Route = createFileRoute('/_shell/audit')({ component: Audit })
 
@@ -24,7 +24,12 @@ function Audit() {
             <Outlet />
           </>
         ) : (
-          <p className="auth__intro">Il faut la permission audit:read pour lire les journaux d’audit.</p>
+          <Forbidden
+            title="Accès aux journaux d’audit non accordé"
+            about="Ces journaux retracent les appels à l’administration de la passerelle et les accès au tableau de bord."
+            permission="audit:read"
+            grantedBy="Audit"
+          />
         )}
       </section>
     </>

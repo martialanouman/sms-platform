@@ -256,7 +256,9 @@ test('a default role, a held role and a reader without roles:write are refused, 
 test('an operator who may not read the roles is told why, without a request', async () => {
   const calls = stubFetch({ 'GET /api/auth/me': () => json(200, { ...me, permissions: ['operators:read'] }) })
   const { container } = renderAt('/roles')
-  expect(await screen.findByText('Il faut la permission roles:read pour lire les rôles.')).toBeDefined()
+  expect(
+    (await screen.findByRole('heading', { level: 2, name: 'Accès aux rôles non accordé' })).parentElement?.textContent,
+  ).toContain('Cet écran demande la permission Rôles : lire roles:read')
   expect(calls.some((c) => c.url.endsWith('/api/roles'))).toBe(false)
   expect(await violations(container)).toEqual([])
 })

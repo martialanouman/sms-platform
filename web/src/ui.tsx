@@ -20,6 +20,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { send } from './api'
+import { permissionLabel } from './permissions'
 
 export function AuthLayout({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -261,7 +262,7 @@ export function EmptyState({
   children,
 }: {
   title: string
-  as?: 'h1' | 'p'
+  as?: 'h1' | 'h2' | 'p'
   children?: ReactNode
 }) {
   return (
@@ -272,6 +273,27 @@ export function EmptyState({
       <Title className="ui-empty__title">{title}</Title>
       {children && <div className="ui-empty__text">{children}</div>}
     </div>
+  )
+}
+
+export function Forbidden({
+  title,
+  about,
+  permission,
+  grantedBy,
+}: {
+  title: string
+  about: string
+  permission: string
+  grantedBy: string
+}) {
+  const { resource, action } = permissionLabel(permission)
+  return (
+    <EmptyState as="h2" title={title}>
+      {about} Cet écran demande la permission {resource} : {action?.toLocaleLowerCase('fr')}{' '}
+      <span className="role-keys__key">{permission}</span>, qu’aucun rôle de ce compte n’accorde. Un opérateur habilité
+      à modifier les rôles des opérateurs peut ajouter le rôle « {grantedBy} » à ce compte.
+    </EmptyState>
   )
 }
 

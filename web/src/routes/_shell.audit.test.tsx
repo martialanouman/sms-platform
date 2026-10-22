@@ -281,7 +281,16 @@ test('a scope the gateway refuses is told in its words', async () => {
 test('without audit:read the screen says why and asks nothing', async () => {
   const calls = stubFetch({ 'GET /api/auth/me': () => json(200, { ...me, permissions: ['operators:read'] }) })
   renderAt('/audit/access')
-  expect(await screen.findByText('Il faut la permission audit:read pour lire les journaux d’audit.')).toBeDefined()
+  const title = await screen.findByRole('heading', { level: 2, name: 'Accès aux journaux d’audit non accordé' })
+  const state = title.parentElement as HTMLElement
+  expect(state.textContent).toBe(
+    'Accès aux journaux d’audit non accordé' +
+      'Ces journaux retracent les appels à l’administration de la passerelle et les accès au tableau de bord. ' +
+      'Cet écran demande la permission Journal d’audit : lire audit:read, qu’aucun rôle de ce compte n’accorde. ' +
+      'Un opérateur habilité à modifier les rôles des opérateurs peut ajouter le rôle « Audit » à ce compte.',
+  )
+  expect(within(state).getByText('audit:read').className).toBe('role-keys__key')
+  expect(state.querySelector('.ui-empty__icon')).not.toBeNull()
   expect(calls.map((r) => new URL(r.url).pathname)).toEqual(['/api/auth/me'])
 })
 
