@@ -107,11 +107,11 @@ test('a role is composed from the permissions of the owner, grouped by resource,
   const opener = await screen.findByRole('button', { name: 'Nouveau rôle' })
   await user.click(opener)
   const dialog = await screen.findByRole('dialog', { name: 'Nouveau rôle' })
-  expect(
-    within(dialog)
-      .getAllByRole('group')
-      .map((g) => g.querySelector('legend')?.textContent),
-  ).toEqual(['Comptes', 'Rôles', 'Trafic'])
+  expect([...dialog.querySelectorAll('fieldset > legend')].map((l) => l.textContent)).toEqual([
+    'Comptes',
+    'Rôles',
+    'Trafic',
+  ])
   expect(within(dialog).getAllByRole('checkbox').length).toBe(5)
   expect(await violations(container)).toEqual([])
   await user.type(within(dialog).getByLabelText('Nom'), 'Support')
@@ -155,8 +155,8 @@ test('a custom role is edited, and a refusal is told in its dialog', async () =>
   await user.click(within(row('Lecteurs')).getByRole('button', { name: 'Modifier' }))
   const dialog = await screen.findByRole('dialog', { name: 'Modifier Lecteurs' })
   expect(within(dialog).queryByLabelText('Nom')).toBeNull()
-  const traffic = within(dialog).getByRole('checkbox', { name: 'Lire traffic:read' }) as HTMLInputElement
-  expect(traffic.checked).toBe(true)
+  const traffic = within(dialog).getByRole('checkbox', { name: 'Lire traffic:read' })
+  expect(traffic.getAttribute('aria-checked')).toBe('true')
   await user.click(traffic)
   await user.click(within(dialog).getByRole('button', { name: 'Enregistrer le rôle' }))
   expect((await within(dialog).findByRole('alert')).textContent).toBe(

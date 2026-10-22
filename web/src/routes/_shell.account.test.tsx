@@ -507,7 +507,7 @@ test('a personal token carries the scopes checked, among those it may carry', as
     expect.stringContaining('accounts:read'),
     expect.stringContaining('traffic:read'),
   ])
-  expect(boxes.every((b) => (b as HTMLInputElement).checked)).toBe(true)
+  expect(boxes.every((b) => b.getAttribute('aria-checked') === 'true')).toBe(true)
   await user.click(within(picker).getByRole('checkbox', { name: /traffic:read/ }))
   await user.click(screen.getByRole('button', { name: 'Délivrer' }))
   await screen.findByRole('dialog')

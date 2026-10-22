@@ -1,4 +1,5 @@
 import { permissionLabel } from './permissions'
+import { Choice, Choices } from './ui'
 
 export function PermissionPicker({
   keys,
@@ -11,24 +12,19 @@ export function PermissionPicker({
 }) {
   const resources = [...new Set(keys.map((key) => key.split(':')[0] ?? key))]
   return (
-    <div className="permission-picker">
+    <Choices value={chosen} onChange={onChange} className="permission-picker">
       {resources.map((resource) => (
         <fieldset className="role-choice" key={resource}>
           <legend>{permissionLabel(`${resource}:`).resource ?? resource}</legend>
           {keys
             .filter((key) => key.startsWith(`${resource}:`))
             .map((key) => (
-              <label className="role-choice__option" key={key}>
-                <input
-                  type="checkbox"
-                  checked={chosen.includes(key)}
-                  onChange={(e) => onChange(e.target.checked ? [...chosen, key] : chosen.filter((p) => p !== key))}
-                />
+              <Choice value={key} key={key}>
                 {permissionLabel(key).action} <span className="role-keys__key">{key}</span>
-              </label>
+              </Choice>
             ))}
         </fieldset>
       ))}
-    </div>
+    </Choices>
   )
 }

@@ -828,9 +828,40 @@
   cursor: pointer;
 }
 
-.role-choice__option input {
-  margin: 0;
-  accent-color: var(--action-primary-fg);
+.ui-check {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-1);
+  background: var(--surface-sunken);
+  color: var(--n-900);
+  transition: var(--transition-control);
+}
+
+.role-choice__option:hover .ui-check {
+  border-color: var(--teal-600);
+}
+
+.ui-check[data-checked] {
+  border-color: var(--teal-500);
+  background: var(--teal-500);
+}
+
+.ui-check:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+.ui-check__mark {
+  display: flex;
+}
+
+.ui-check__mark .ui-icon {
+  width: 12px;
+  height: 12px;
 }
 
 .role-choice__description {

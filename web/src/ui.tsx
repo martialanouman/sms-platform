@@ -1,5 +1,7 @@
 import { AlertDialog } from '@base-ui/react/alert-dialog'
 import { Button as BaseButton } from '@base-ui/react/button'
+import { Checkbox } from '@base-ui/react/checkbox'
+import { CheckboxGroup } from '@base-ui/react/checkbox-group'
 import { Combobox as BaseCombobox } from '@base-ui/react/combobox'
 import { Dialog } from '@base-ui/react/dialog'
 import { Field as BaseField } from '@base-ui/react/field'
@@ -123,6 +125,37 @@ export function Combobox<Item>({
   )
 }
 
+export function Choices({
+  value,
+  onChange,
+  className,
+  children,
+}: {
+  value: string[]
+  onChange: (next: string[]) => void
+  className?: string
+  children: ReactNode
+}) {
+  return (
+    <CheckboxGroup value={value} onValueChange={onChange} className={className}>
+      {children}
+    </CheckboxGroup>
+  )
+}
+
+export function Choice({ value, children }: { value: string; children: ReactNode }) {
+  return (
+    <label className="role-choice__option">
+      <Checkbox.Root value={value} className="ui-check">
+        <Checkbox.Indicator className="ui-check__mark">
+          <Icon name="check" />
+        </Checkbox.Indicator>
+      </Checkbox.Root>
+      {children}
+    </label>
+  )
+}
+
 export function useSubmission() {
   const id = useId()
   const [error, setError] = useState('')
@@ -173,6 +206,7 @@ const glyphs = {
       <path d="M12 4l-8 8" />
     </>
   ),
+  check: <path d="M3.4 8.6 6.4 11.6 12.6 4.9" />,
 }
 
 export function Icon({ name }: { name: keyof typeof glyphs }) {

@@ -7,6 +7,8 @@ import { operatorsQuery, rolesQuery } from '../queries'
 import { meQuery, Refused, Unauthenticated, useSessionClosed, useShellMe } from '../session'
 import {
   Button,
+  Choice,
+  Choices,
   Confirmation,
   DataTable,
   EmptyState,
@@ -311,16 +313,13 @@ function Roles({ operator, self, onClose }: { operator: Operator; self: boolean;
             Les permissions s’additionnent : l’opérateur détient l’union de ses rôles, dès sa prochaine requête.
             L’action est enregistrée dans le journal d’audit.
           </p>
-          {roles.data.map((r) => (
-            <label key={r.id} className="role-choice__option">
-              <input
-                type="checkbox"
-                checked={chosen.includes(r.id)}
-                onChange={(e) => setChosen(e.target.checked ? [...chosen, r.id] : chosen.filter((id) => id !== r.id))}
-              />
-              <span>{r.name}</span> <span className="role-choice__description">{r.description}</span>
-            </label>
-          ))}
+          <Choices value={chosen} onChange={setChosen}>
+            {roles.data.map((r) => (
+              <Choice value={r.id} key={r.id}>
+                <span>{r.name}</span> <span className="role-choice__description">{r.description}</span>
+              </Choice>
+            ))}
+          </Choices>
         </fieldset>
       )}
     </Modal>
