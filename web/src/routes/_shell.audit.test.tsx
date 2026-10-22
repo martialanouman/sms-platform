@@ -48,9 +48,11 @@ test('the control plane tab lists the gateway journal, newest first', async () =
     'GET /api/gw/admin/audit-log': () => page([refused, entry]),
   })
   const { container } = renderAt('/audit')
-  expect(await screen.findByRole('table', { name: 'Journal du plan de contrôle' })).toBeDefined()
+  expect(await screen.findByRole('table', { name: 'Journal d’administration de la passerelle' })).toBeDefined()
   expect(document.title).toBe('Audit — Tableau de bord')
-  expect(screen.getByRole('link', { name: 'Plan de contrôle' }).getAttribute('aria-current')).toBe('page')
+  expect(screen.getByRole('link', { name: 'Administration de la passerelle' }).getAttribute('aria-current')).toBe(
+    'page',
+  )
   expect(screen.getByRole('navigation', { name: 'Navigation principale' }).textContent).toContain('Audit')
   expect(cells('create-route').slice(0, 4)).toEqual([ada, 'create-route', '/admin/routes', '403'])
   expect(calls.some((r) => ['/api/access-log', '/api/operators'].includes(new URL(r.url).pathname))).toBe(false)
@@ -167,6 +169,41 @@ test('the filters and the cursor travel in the request', async () => {
       null,
     ])
   })
+})
+
+test('Previous walks back the pages one at a time, and shows only when there is one behind', async () => {
+  const third = { ...entry, id: '01a16026-0000-7000-8000-000000000003', operation_id: 'delete-route' }
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, auditor),
+    'GET /api/gw/admin/audit-log': (r) =>
+      ({
+        'next-1': page([refused], 'next-2'),
+        'next-2': page([third]),
+      })[new URL(r.url).searchParams.get('cursor') ?? ''] ?? page([entry], 'next-1'),
+    'GET /api/audit/operators': directory,
+  })
+  renderAt('/audit/control-plane')
+  const user = userEvent.setup()
+  const cursor = () => new URL(calls.at(-1)?.url ?? '').searchParams.get('cursor')
+  await screen.findByText('list-audit-log')
+  expect(screen.queryByRole('button', { name: 'Précédent' })).toBeNull()
+  await user.click(screen.getByRole('button', { name: 'Suivant' }))
+  await screen.findByText('create-route')
+  await user.click(screen.getByRole('button', { name: 'Suivant' }))
+  await screen.findByText('delete-route')
+  expect(screen.queryByRole('button', { name: 'Suivant' })).toBeNull()
+  await user.click(screen.getByRole('button', { name: 'Précédent' }))
+  await screen.findByText('create-route')
+  expect(cursor()).toBe('next-1')
+  await user.click(screen.getByRole('button', { name: 'Précédent' }))
+  await screen.findByText('list-audit-log')
+  expect(cursor()).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Précédent' })).toBeNull()
+  await user.click(screen.getByRole('button', { name: 'Suivant' }))
+  await screen.findByText('create-route')
+  await user.click(screen.getByRole('button', { name: 'Filtrer' }))
+  await screen.findByText('list-audit-log')
+  expect(screen.queryByRole('button', { name: 'Précédent' })).toBeNull()
 })
 
 test('the changes of a request show before and after, the changed columns marked', async () => {
@@ -289,9 +326,13 @@ test('the access tab lists the dashboard journal in French, on its own', async (
   expect(await screen.findByRole('table', { name: 'Journal d’accès au tableau de bord' })).toBeDefined()
   expect(screen.getByRole('link', { name: 'Accès au dashboard' }).getAttribute('aria-current')).toBe('page')
   expect(cells('Jeton personnel délivré')).toEqual([ada, 'Jeton personnel délivré', '—', 'Réussi'])
-  await userEvent.setup().click(screen.getByRole('button', { name: 'Suivant' }))
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('button', { name: 'Suivant' }))
   await screen.findByText('Connexion')
   expect(cells('Connexion')).toEqual(['—', 'Connexion', '—', 'Échec'])
+  await user.click(screen.getByRole('button', { name: 'Précédent' }))
+  await screen.findByText('Jeton personnel délivré')
+  expect(new URL(calls.at(-1)?.url ?? '').searchParams.get('cursor')).toBeNull()
   expect(calls.some((r) => new URL(r.url).pathname.startsWith('/api/gw/'))).toBe(false)
   expect(await violations(container)).toEqual([])
 })

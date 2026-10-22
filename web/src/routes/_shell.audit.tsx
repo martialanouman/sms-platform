@@ -15,7 +15,7 @@ function Audit() {
           <>
             <nav className="audit-tabs" aria-label="Journaux d’audit">
               <Link className="audit-tabs__tab" to="/audit/control-plane">
-                Plan de contrôle
+                Administration de la passerelle
               </Link>
               <Link className="audit-tabs__tab" to="/audit/access">
                 Accès au dashboard

@@ -2,9 +2,9 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { api } from '../api'
 import type { components } from '../api.gen'
-import { AuditFilters, at, auditSearch, Failure, period, useClosedOn, useOperatorName } from '../audit'
+import { AuditFilters, at, auditSearch, Failure, Pager, period, useClosedOn, useOperatorName } from '../audit'
 import { read } from '../queries'
-import { Button, DataTable, EmptyState, LoadingState, Toolbar } from '../ui'
+import { DataTable, EmptyState, LoadingState } from '../ui'
 
 type Entry = components['schemas']['AccessLogEntry']
 
@@ -70,16 +70,7 @@ function Access() {
               { header: 'Résultat', cell: (e) => (e.outcome === 'success' ? 'Réussi' : 'Échec') },
             ]}
           />
-          {log.data.nextCursor && (
-            <Toolbar>
-              <Button
-                size="sm"
-                onClick={() => void navigate({ search: { ...search, cursor: log.data.nextCursor ?? undefined } })}
-              >
-                Suivant
-              </Button>
-            </Toolbar>
-          )}
+          <Pager search={search} next={log.data.nextCursor} go={(next) => void navigate({ search: next })} />
         </>
       )}
     </>

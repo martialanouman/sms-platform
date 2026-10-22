@@ -2,10 +2,10 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import type { components } from '../admin.gen'
-import { AuditFilters, at, auditSearch, Failure, period, useClosedOn, useOperatorName } from '../audit'
+import { AuditFilters, at, auditSearch, Failure, Pager, period, useClosedOn, useOperatorName } from '../audit'
 import { gw } from '../gw'
 import { read } from '../queries'
-import { Button, DataTable, EmptyState, LoadingState, Modal, Toolbar } from '../ui'
+import { Button, DataTable, EmptyState, LoadingState, Modal } from '../ui'
 
 type Entry = components['schemas']['AuditEntry']
 export const Route = createFileRoute('/_shell/audit/control-plane')({
@@ -38,7 +38,7 @@ function ControlPlane() {
         <LoadingState label="Chargement du journal…" rows={3} />
       ) : log.error ? (
         <Failure
-          title="Le journal du plan de contrôle n’a pas pu être chargé"
+          title="Le journal d’administration de la passerelle n’a pas pu être chargé"
           error={log.error}
           retry={() => void log.refetch()}
         />
@@ -47,7 +47,7 @@ function ControlPlane() {
       ) : (
         <>
           <DataTable<Entry>
-            caption="Journal du plan de contrôle"
+            caption="Journal d’administration de la passerelle"
             rows={log.data.data}
             rowKey={(e) => e.id}
             columns={[
@@ -67,16 +67,7 @@ function ControlPlane() {
               },
             ]}
           />
-          {log.data.next_cursor && (
-            <Toolbar>
-              <Button
-                size="sm"
-                onClick={() => void navigate({ search: { ...search, cursor: log.data.next_cursor ?? undefined } })}
-              >
-                Suivant
-              </Button>
-            </Toolbar>
-          )}
+          <Pager search={search} next={log.data.next_cursor} go={(next) => void navigate({ search: next })} />
         </>
       )}
       {changes && <Changes requestId={changes} onClose={() => setChanges(undefined)} />}
