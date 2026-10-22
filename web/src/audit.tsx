@@ -122,12 +122,13 @@ export function AuditFilters({ search, onFilter }: { search: AuditSearch; onFilt
   }
   return (
     <form
-      key={[operators.length, search.operator, search.from, search.to].join('|')}
+      key={[search.operator, search.from, search.to].join('|')}
       className="audit-filters"
       aria-label="Filtres du journal"
       onSubmit={filter}
     >
       <Combobox
+        key={operators.length}
         label="Opérateur"
         name="operator"
         items={operators}

@@ -177,12 +177,22 @@ Trois revues en lecture seule : correction et sécurité, tests creux, code en t
    scopes du jeton, échec et reprise des modifications ; l'annuaire testé opérateur par opérateur (un mutant du statut
    survivait à une recherche de sous-chaîne). Onze mutants survivants, tous tombés.
 6. **Code en trop** : les scopes exclus du jeton personnel sont générés dans `scopes.gen.ts` depuis
-   `dashboard.PersonalExcluded`, plus recopiés en TS ; `OperatorCell` partagé par l'écran Opérateurs et l'audit ;
+   `personal.Excluded`, plus recopiés en TS ; `OperatorCell` partagé par l'écran Opérateurs et l'audit ;
    l'annuaire construit `OperatorRef` sans passer par le DTO complet.
 7. **Gardés** :
-   - `useClosedOn` et `Failure` restent dans `audit.tsx`, et les deux journaux ne fusionnent pas : leur adoption par
-     Opérateurs et Rôles, ou un composant `Journal`, sortent du périmètre pour un gain modéré.
+   - Non retenu : l'adoption de `useClosedOn` et `Failure` par Opérateurs et Rôles, et un composant `Journal` commun
+     aux deux journaux ; gain modéré, pas un report.
    - `Combobox` et `Choices` restent des briques du kit (278) : les écrans n'importent pas Base UI.
    - La restauration du focus de `Modal` reste : son mutant tombe, `finalFocus` ne joue pas au démontage.
    - `malformed` sans `InvalidParamFormatError` n'a pas de test : les quatre `RequiredParamError` générés portent sur
      les paramètres optionnels de `listAccessLog`, et la liaison d'un paramètre optionnel ne rend jamais cette erreur.
+
+## Correctifs de revue, tour 2
+
+Une revue des correctifs du tour 1.
+
+1. **Le générateur compilait contre sa propre sortie** (basse) : `tools/openapi` importait `dashboard`, qui importe
+   `scopes`, que l'outil génère. La liste vit dans le paquet feuille `internal/dashboard/personal`, importé par les deux.
+2. **Saisie perdue au chargement de l'annuaire** (basse) : le formulaire entier se remontait quand le nombre
+   d'opérateurs changeait ; seul le `Combobox` se remonte sur l'annuaire, le formulaire sur l'adresse.
+3. **Forme** : les refus du tour 1 sont écrits « non retenu », pas comme un report.
