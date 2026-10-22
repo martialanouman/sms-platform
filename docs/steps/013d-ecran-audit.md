@@ -97,6 +97,12 @@ Second retour, même jour :
 280. **Nom de l'onglet** (humain, révise la spec 08 l.109) : « Plan de contrôle » devient « Administration de la
      passerelle » ; « Accès passerelle », proposé, se confondrait avec les accès des clients SMS (SMPP, REST). Le
      chemin `/audit/control-plane` reste, identifiant de code.
+281. **Écran refusé** (humain, sur proposition ; guide des messages d'erreur de Google, états vides de Material) : la
+     phrase brute « Il faut la permission … » devient un `Forbidden` du kit, sur l'état vide de la charte : titre
+     (« Accès aux … non accordé »), ce que l'écran contient, la permission par son libellé français et sa clé en mono,
+     qu'aucun rôle du compte n'accorde, et l'issue (le rôle par défaut qui l'accorde, ajouté par un opérateur habilité).
+     Pas de bouton : l'opérateur n'a rien à faire lui-même. Audit, Opérateurs et Rôles. Solde en partie #160 (les
+     bulles des boutons bloqués restent en prose).
 
 ## Design arrêté
 
