@@ -17,4 +17,9 @@ export async function read<T>(
 
 export const operatorsQuery = { queryKey: ['operators'], queryFn: () => read(api.GET('/operators'), 'operators') }
 
+export const auditOperatorsQuery = {
+  queryKey: ['audit', 'operators'],
+  queryFn: () => read(api.GET('/audit/operators'), 'audit-operators'),
+}
+
 export const rolesQuery = { queryKey: ['roles'], queryFn: () => read(api.GET('/roles'), 'roles') }

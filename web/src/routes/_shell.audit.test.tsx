@@ -4,7 +4,6 @@ import { expect, test } from 'vitest'
 import { json, me, renderAt, stubFetch, violations } from '../test'
 
 const auditor = { ...me, permissions: ['audit:read'] }
-const owner = { ...me, permissions: ['audit:read', 'operators:read'] }
 const ada = '01a159b0-0000-7000-8000-00000000000a'
 const entry = {
   id: '01a16026-0000-7000-8000-000000000001',
@@ -58,25 +57,51 @@ test('the control plane tab lists the gateway journal, newest first', async () =
   expect(await violations(container)).toEqual([])
 })
 
-test('an operator is named when operators:read is held, and only then', async () => {
+const directory = () =>
+  json(200, [
+    { id: ada, email: 'ada@example.test', displayName: 'Ada', status: 'active' },
+    { id: 'gone', email: 'bob@example.test', displayName: 'Bob', status: 'disabled' },
+  ])
+
+test('an operator is named from the audit directory, with audit:read alone', async () => {
   stubFetch({
-    'GET /api/auth/me': () => json(200, owner),
+    'GET /api/auth/me': () => json(200, auditor),
     'GET /api/gw/admin/audit-log': () => page([entry]),
-    'GET /api/operators': () =>
-      json(200, [
-        {
-          id: ada,
-          email: 'ada@example.test',
-          displayName: 'Ada',
-          status: 'active',
-          roles: [],
-          secondFactorEnrolled: true,
-          accessLink: null,
-        },
-      ]),
+    'GET /api/audit/operators': directory,
   })
   renderAt('/audit/control-plane')
-  await waitFor(() => expect(cells('list-audit-log')[0]).toBe(`Ada${ada}`))
+  await waitFor(() => expect(cells('list-audit-log')[0]).toBe('Adaada@example.test'))
+})
+
+test('the operator is chosen by email among every operator and sent by its id', async () => {
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, auditor),
+    'GET /api/gw/admin/audit-log': () => page([entry]),
+    'GET /api/audit/operators': directory,
+  })
+  const { container } = renderAt('/audit/control-plane')
+  const user = userEvent.setup()
+  await waitFor(() => expect(cells('list-audit-log')[0]).toBe('Adaada@example.test'))
+  const field = screen.getByLabelText('Opérateur') as HTMLInputElement
+  const options = [...(field.list?.options ?? [])].map((o) => [o.value, o.textContent])
+  expect(options).toEqual([
+    ['ada@example.test', 'Ada'],
+    ['bob@example.test', 'Bob (désactivé)'],
+  ])
+  await user.type(field, 'ada@example.test')
+  await user.click(screen.getByRole('button', { name: 'Filtrer' }))
+  await waitFor(() => expect(new URL(calls.at(-1)?.url ?? '').searchParams.get('operator')).toBe(ada))
+  expect(await violations(container)).toEqual([])
+})
+
+test('an operator carried by the address shows by its email once the directory is read', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, auditor),
+    'GET /api/access-log': () => json(200, { data: [], nextCursor: null }),
+    'GET /api/audit/operators': directory,
+  })
+  renderAt(`/audit/access?operator=${ada}`)
+  await waitFor(() => expect((screen.getByLabelText('Opérateur') as HTMLInputElement).value).toBe('ada@example.test'))
 })
 
 const local = (day: string) => new Date(`${day}T00:00`).toISOString()

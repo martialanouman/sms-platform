@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { type FormEvent, useEffect } from 'react'
+import { type FormEvent, useEffect, useId } from 'react'
 import { unreachable } from './api'
-import { operatorsQuery } from './queries'
+import { auditOperatorsQuery } from './queries'
 import { Refused, Unauthenticated, useSessionClosed } from './session'
 import { Button, ErrorState, Field } from './ui'
 
@@ -9,17 +9,17 @@ const when = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: '
 
 export const at = (iso: string) => when.format(new Date(iso))
 
-export function useOperatorName(held: string[]) {
-  const operators = useQuery({ ...operatorsQuery, enabled: held.includes('operators:read') })
+export function useOperatorName() {
+  const operators = useQuery(auditOperatorsQuery)
   return (id: string | null) => {
     if (!id) {
       return '—'
     }
-    const name = operators.data?.find((o) => o.id === id)?.displayName
-    return name ? (
+    const known = operators.data?.find((o) => o.id === id)
+    return known ? (
       <span className="operator-cell">
-        <span>{name}</span>
-        <span className="operator-cell__email">{id}</span>
+        <span>{known.displayName}</span>
+        <span className="operator-cell__email">{known.email}</span>
       </span>
     ) : (
       <span className="audit-id">{id}</span>
@@ -65,14 +65,35 @@ export function period(search: AuditSearch) {
 }
 
 export function AuditFilters({ search, onFilter }: { search: AuditSearch; onFilter: (next: AuditSearch) => void }) {
+  const operators = useQuery(auditOperatorsQuery).data
+  const list = useId()
   const filter = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
-    onFilter({ operator: text(form.get('operator')), from: day(form.get('from')), to: day(form.get('to')) })
+    const typed = text(form.get('operator'))
+    onFilter({
+      operator: operators?.find((o) => o.email === typed)?.id ?? typed,
+      from: day(form.get('from')),
+      to: day(form.get('to')),
+    })
   }
   return (
     <form className="audit-filters" aria-label="Filtres du journal" onSubmit={filter}>
-      <Field label="Opérateur" name="operator" defaultValue={search.operator} />
+      <Field
+        key={operators ? 'named' : 'raw'}
+        label="Opérateur"
+        name="operator"
+        list={list}
+        autoComplete="off"
+        defaultValue={operators?.find((o) => o.id === search.operator)?.email ?? search.operator}
+      />
+      <datalist id={list}>
+        {operators?.map((o) => (
+          <option key={o.id} value={o.email}>
+            {o.status === 'disabled' ? `${o.displayName} (désactivé)` : o.displayName}
+          </option>
+        ))}
+      </datalist>
       <Field label="Depuis" name="from" type="date" defaultValue={search.from ?? today()} />
       <Field label="Jusqu’à" name="to" type="date" defaultValue={search.to ?? today()} />
       <Button type="submit">Filtrer</Button>

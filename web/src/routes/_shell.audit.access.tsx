@@ -4,7 +4,6 @@ import { api } from '../api'
 import type { components } from '../api.gen'
 import { AuditFilters, at, auditSearch, Failure, period, useClosedOn, useOperatorName } from '../audit'
 import { read } from '../queries'
-import { useShellMe } from '../session'
 import { Button, DataTable, EmptyState, LoadingState, Toolbar } from '../ui'
 
 type Entry = components['schemas']['AccessLogEntry']
@@ -34,7 +33,7 @@ export const Route = createFileRoute('/_shell/audit/access')({ validateSearch: a
 function Access() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
-  const name = useOperatorName(useShellMe().data?.permissions ?? [])
+  const name = useOperatorName()
   const { from, to } = period(search)
   const log = useQuery({
     queryKey: ['audit', 'access', search, from, to],

@@ -5,7 +5,6 @@ import type { components } from '../admin.gen'
 import { AuditFilters, at, auditSearch, Failure, period, useClosedOn, useOperatorName } from '../audit'
 import { gw } from '../gw'
 import { read } from '../queries'
-import { useShellMe } from '../session'
 import { Button, DataTable, EmptyState, LoadingState, Modal, Toolbar } from '../ui'
 
 type Entry = components['schemas']['AuditEntry']
@@ -17,8 +16,7 @@ export const Route = createFileRoute('/_shell/audit/control-plane')({
 function ControlPlane() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
-  const held = useShellMe().data?.permissions ?? []
-  const name = useOperatorName(held)
+  const name = useOperatorName()
   const [changes, setChanges] = useState<string>()
   const { from, to } = period(search)
   const log = useQuery({
