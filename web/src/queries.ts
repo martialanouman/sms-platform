@@ -1,7 +1,10 @@
 import { api } from './api'
 import { Refused, Unauthenticated } from './session'
 
-async function read<T>(call: Promise<{ data?: T; error?: { message?: string }; response: Response }>, name: string) {
+export async function read<T>(
+  call: Promise<{ data?: T; error?: { message?: string }; response: Response }>,
+  name: string,
+) {
   const { data, error, response } = await call
   if (response.status === 401) {
     throw new Unauthenticated()

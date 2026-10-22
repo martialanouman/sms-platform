@@ -1,4 +1,4 @@
-import createClient from 'openapi-fetch'
+import createClient, { type Middleware } from 'openapi-fetch'
 import type { paths } from './api.gen'
 
 export const api = createClient<paths>({
@@ -8,7 +8,7 @@ export const api = createClient<paths>({
 
 export const mfaRequired = 'dashboard:mfa-required'
 
-api.use({
+export const mfaInterceptor: Middleware = {
   async onResponse({ response }) {
     if (response.status === 403) {
       const body = await response
@@ -20,7 +20,9 @@ api.use({
       }
     }
   },
-})
+}
+
+api.use(mfaInterceptor)
 
 export const json = { 'Content-Type': 'application/json' }
 

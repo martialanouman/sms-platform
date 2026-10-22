@@ -4,8179 +4,8244 @@
  */
 
 export interface paths {
-    "/admin/customer-groups": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List customer groups */
-        get: operations["list-customer-groups"];
-        put?: never;
-        /** Create a customer group */
-        post: operations["create-customer-group"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/customer-groups/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        /** Get a customer group */
-        get: operations["get-customer-group"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete a customer group
-         * @description Its customers are detached, not deleted.
-         */
-        delete: operations["delete-customer-group"];
-        options?: never;
-        head?: never;
-        /** Update a customer group */
-        patch: operations["update-customer-group"];
-        trace?: never;
-    };
-    "/admin/customer-groups/{id}/customers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        /** List the customers of a group */
-        get: operations["list-group-customers"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/customers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List customers */
-        get: operations["list-customers"];
-        put?: never;
-        /**
-         * Create a customer
-         * @description Billing and content policy are set by their own operations.
-         */
-        post: operations["create-customer"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/customers/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        /** Get a customer */
-        get: operations["get-customer"];
-        put?: never;
-        post?: never;
-        /** Delete a customer */
-        delete: operations["delete-customer"];
-        options?: never;
-        head?: never;
-        /**
-         * Update a customer
-         * @description A closed customer stays closed.
-         */
-        patch: operations["update-customer"];
-        trace?: never;
-    };
-    "/admin/customers/{id}/suspend": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Suspend a customer
-         * @description Suspends its accounts and disconnects their live binds; closed accounts stay closed. A closed customer cannot be suspended.
-         */
-        post: operations["suspend-customer"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/customers/{id}/suspension-impact": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        /** Preview what suspending a customer affects */
-        get: operations["get-customer-suspension-impact"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/customers/{id}/content-policy": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        /**
-         * Get a customer's content policy
-         * @description The customer's own setting; `null` inherits the platform policy.
-         */
-        get: operations["get-customer-content-policy"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Update a customer's content policy
-         * @description Applies to bodies stored from then on.
-         */
-        patch: operations["update-customer-content-policy"];
-        trace?: never;
-    };
-    "/admin/customers/{id}/content/rotate-key": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Rotate a customer's content key
-         * @description Provisions the first key, or retires the active one and creates the next. A retired key still opens the bodies it sealed.
-         */
-        post: operations["rotate-content-key"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/customers/{id}/sender-ids": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        /** List a customer's sender IDs */
-        get: operations["list-sender-ids"];
-        put?: never;
-        /**
-         * Register a sender ID
-         * @description Starts pending carrier approval. Every source address, numeric included, must be an active sender ID of the customer.
-         */
-        post: operations["create-sender-id"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/customers/{id}/sender-ids/{sender_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                sender_id: components["parameters"]["SenderId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete a sender ID
-         * @description Refused once the sender ID has been used; disable it instead.
-         */
-        delete: operations["delete-sender-id"];
-        options?: never;
-        head?: never;
-        /** Update a sender ID */
-        patch: operations["update-sender-id"];
-        trace?: never;
-    };
-    "/admin/customers/{id}/sender-ids/{sender_id}/rate-limit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                sender_id: components["parameters"]["SenderId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Set a sender ID's rate limit
-         * @description Checked at admission, before the account's limit; past it the submission is refused (`rate_limited`) and nothing is written.
-         */
-        put: operations["set-sender-id-rate-limit"];
-        post?: never;
-        /**
-         * Remove a sender ID's rate limit
-         * @description The account's limit alone then applies. Removing an absent limit answers 204.
-         */
-        delete: operations["delete-sender-id-rate-limit"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/accounts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List accounts */
-        get: operations["list-accounts"];
-        put?: never;
-        /** Create an account */
-        post: operations["create-account"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/accounts/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        /** Get an account */
-        get: operations["get-account"];
-        put?: never;
-        post?: never;
-        /** Delete an account */
-        delete: operations["delete-account"];
-        options?: never;
-        head?: never;
-        /**
-         * Update an account
-         * @description A closed account stays closed. Leaving `active` disconnects its live binds.
-         */
-        patch: operations["update-account"];
-        trace?: never;
-    };
-    "/admin/accounts/{id}/suspend": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Suspend an account
-         * @description Disconnects its live binds. A closed account cannot be suspended.
-         */
-        post: operations["suspend-account"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/accounts/{id}/channels": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Enable or disable the account's channels */
-        patch: operations["set-account-channels"];
-        trace?: never;
-    };
-    "/admin/accounts/{id}/session-limits": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Set the account's session limits
-         * @description Lowering `max_sessions` cuts no live bind.
-         */
-        patch: operations["set-account-session-limits"];
-        trace?: never;
-    };
-    "/admin/accounts/{id}/smpp-ops": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Enable or disable query_sm and cancel_sm
-         * @description The flags are read at bind, so a change disconnects the account's live binds.
-         */
-        patch: operations["set-account-smpp-ops"];
-        trace?: never;
-    };
-    "/admin/accounts/{id}/rate-limit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Set the account's rate limit
-         * @description Checked at admission, after the sender ID's limit; past it the submission is refused (`rate_limited`) and nothing is written.
-         */
-        put: operations["set-account-rate-limit"];
-        post?: never;
-        /**
-         * Remove the account's rate limit
-         * @description Removing an absent limit answers 204.
-         */
-        delete: operations["delete-account-rate-limit"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/accounts/{id}/webhooks": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        /**
-         * List the account's webhooks
-         * @description At most one per event type, so unpaged.
-         */
-        get: operations["list-webhooks"];
-        put?: never;
-        /**
-         * Create a webhook
-         * @description The gateway generates the signing secret and returns it this once.
-         */
-        post: operations["create-webhook"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/accounts/{id}/webhooks/{webhook_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                webhook_id: components["parameters"]["WebhookId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Delete a webhook */
-        delete: operations["delete-webhook"];
-        options?: never;
-        head?: never;
-        /** Update a webhook */
-        patch: operations["update-webhook"];
-        trace?: never;
-    };
-    "/admin/accounts/{id}/webhooks/{webhook_id}/rotate-secret": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                webhook_id: components["parameters"]["WebhookId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Rotate a webhook's signing secret
-         * @description The gateway generates the new secret and returns it this once.
-         */
-        post: operations["rotate-webhook-secret"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/accounts/{id}/credentials": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        /**
-         * List the account's credentials
-         * @description At most one per type, so unpaged. Never carries a secret.
-         */
-        get: operations["list-credentials"];
-        put?: never;
-        /**
-         * Create a credential
-         * @description The secret is returned this once.
-         */
-        post: operations["create-credential"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/accounts/{id}/credentials/{credential_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                credential_id: components["parameters"]["CredentialId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Revoke a credential
-         * @description The credential stays, `revoked`; only a rotation revives it, with a new secret. Revoking an `smpp_bind` disconnects the account's live binds.
-         */
-        delete: operations["revoke-credential"];
-        options?: never;
-        head?: never;
-        /**
-         * Enable or disable a credential
-         * @description Disabling an `smpp_bind` disconnects the account's live binds. Revocation is `revoke-credential` only.
-         */
-        patch: operations["update-credential-status"];
-        trace?: never;
-    };
-    "/admin/accounts/{id}/credentials/{credential_id}/rotate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                credential_id: components["parameters"]["CredentialId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Rotate a credential
-         * @description The new secret is returned this once. Without a grace period the old secret stops at once and an
-         *     `smpp_bind` rotation disconnects the account's live binds. A revoked credential is reactivated
-         *     without a grace period; a disabled one stays disabled.
-         */
-        post: operations["rotate-credential"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/connectors": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List connectors */
-        get: operations["list-connectors"];
-        put?: never;
-        /** Create a connector */
-        post: operations["create-connector"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/connectors/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        /** Get a connector */
-        get: operations["get-connector"];
-        put?: never;
-        post?: never;
-        /** Delete a connector */
-        delete: operations["delete-connector"];
-        options?: never;
-        head?: never;
-        /** Update a connector */
-        patch: operations["update-connector"];
-        trace?: never;
-    };
-    "/admin/connectors/{id}/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        /** Live state of a connector's operator accounts */
-        get: operations["get-connector-status"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/connectors/{id}/reconnect-policy": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Set the automatic reconnection policy */
-        patch: operations["set-connector-reconnect-policy"];
-        trace?: never;
-    };
-    "/admin/connectors/{id}/accounts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        /** List a connector's operator accounts */
-        get: operations["list-connector-accounts"];
-        put?: never;
-        /**
-         * Create an operator account
-         * @description The account is `provisioning` until its partition exists on the routed topics, then `active` and
-         *     bound within seconds. The job reports the partition extension; on failure the account stays
-         *     `provisioning`, which the router ignores.
-         */
-        post: operations["create-connector-account"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/connectors/{id}/accounts/{connector_account_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                connector_account_id: components["parameters"]["ConnectorAccountId"];
-            };
-            cookie?: never;
-        };
-        /** Get an operator account */
-        get: operations["get-connector-account"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete an operator account
-         * @description Its partition is never reassigned.
-         */
-        delete: operations["delete-connector-account"];
-        options?: never;
-        head?: never;
-        /**
-         * Update an operator account
-         * @description `draining` stops routing to the account and empties its partition; `disabled` republishes its backlog to a sibling account.
-         */
-        patch: operations["update-connector-account"];
-        trace?: never;
-    };
-    "/admin/connectors/{id}/accounts/{connector_account_id}/rebind": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                connector_account_id: components["parameters"]["ConnectorAccountId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Rebind an operator account
-         * @description Asks the lease holder to unbind and bind again.
-         */
-        post: operations["rebind-connector-account"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/routes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List routes, by priority */
-        get: operations["list-routes"];
-        put?: never;
-        /** Create a route */
-        post: operations["create-route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/routes/reorder": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Reorder routes
-         * @description `ordered_ids` lists every route exactly once; the first gets priority 10, the next 20, and so on. A refused list changes nothing.
-         */
-        post: operations["reorder-routes"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/routes/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        /** Get a route */
-        get: operations["get-route"];
-        put?: never;
-        post?: never;
-        /** Delete a route */
-        delete: operations["delete-route"];
-        options?: never;
-        head?: never;
-        /** Update a route */
-        patch: operations["update-route"];
-        trace?: never;
-    };
-    "/admin/exact-routes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create or replace an exact route */
-        post: operations["create-exact-route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Update an exact route */
-        patch: operations["update-exact-route"];
-        trace?: never;
-    };
-    "/admin/exact-routes/delete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Delete an exact route */
-        post: operations["delete-exact-route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/exact-routes/lookup": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Look up the exact route of a number */
-        post: operations["lookup-exact-route"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/exact-routes/import": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Import exact routes in bulk
-         * @description One row per route: `msisdn,target_type,target_id`, no header. The audit log records one event with the row count and the file digest.
-         */
-        post: operations["import-exact-routes"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/routing-scripts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List routing scripts */
-        get: operations["list-routing-scripts"];
-        put?: never;
-        /**
-         * Create a routing script
-         * @description Created as a draft.
-         */
-        post: operations["create-routing-script"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/routing-scripts/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        /** Get a routing script */
-        get: operations["get-routing-script"];
-        put?: never;
-        post?: never;
-        /** Delete a routing script */
-        delete: operations["delete-routing-script"];
-        options?: never;
-        head?: never;
-        /**
-         * Update a routing script
-         * @description Edits the draft; the published version runs until the next publication.
-         */
-        patch: operations["update-routing-script"];
-        trace?: never;
-    };
-    "/admin/routing-scripts/{id}/assign": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Assign a routing script to a scope
-         * @description Moving an active script puts it into production in its new scope.
-         */
-        patch: operations["assign-routing-script"];
-        trace?: never;
-    };
-    "/admin/routing-scripts/{id}/validate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Validate a routing script
-         * @description Static checks only; writes nothing.
-         */
-        post: operations["validate-routing-script"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/routing-scripts/{id}/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Dry-run a routing script against a sample message
-         * @description Writes nothing.
-         */
-        post: operations["test-routing-script"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/routing-scripts/{id}/publish": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Publish a routing script
-         * @description Activates the draft as a new version. Refused while another script is active in the same scope.
-         */
-        post: operations["publish-routing-script"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/routing-scripts/{id}/rollback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Republish an earlier version */
-        post: operations["rollback-routing-script"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/routing-scripts/{id}/versions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        /** List a routing script's versions */
-        get: operations["list-routing-script-versions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/sessions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List live client SMPP binds
-         * @description Read from the live registry, which gives no snapshot; a bind opened or closed between two pages may be missed.
-         */
-        get: operations["list-sessions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/sessions/{bind_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                bind_id: components["parameters"]["BindId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Force-disconnect a bind
-         * @description The close is asynchronous; 204 means it was ordered.
-         */
-        delete: operations["disconnect-session"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/antispam-rules": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List anti-spam rules */
-        get: operations["list-antispam-rules"];
-        put?: never;
-        /** Create an anti-spam rule */
-        post: operations["create-antispam-rule"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/antispam-rules/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Delete an anti-spam rule */
-        delete: operations["delete-antispam-rule"];
-        options?: never;
-        head?: never;
-        /** Update an anti-spam rule */
-        patch: operations["update-antispam-rule"];
-        trace?: never;
-    };
-    "/admin/suppressions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Add a suppression */
-        post: operations["create-suppression"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/suppressions/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Search suppressions */
-        post: operations["search-suppressions"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/suppressions/import": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Import suppressions in bulk */
-        post: operations["import-suppressions"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/suppressions/check": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Would this recipient be blocked, and by which scope? */
-        post: operations["check-suppression"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/suppressions/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Lift an opt-out */
-        delete: operations["delete-suppression"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/opt-out-keywords": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List STOP keywords */
-        get: operations["list-opt-out-keywords"];
-        put?: never;
-        /** Create a STOP keyword */
-        post: operations["create-opt-out-keyword"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/opt-out-keywords/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Delete a STOP keyword */
-        delete: operations["delete-opt-out-keyword"];
-        options?: never;
-        head?: never;
-        /** Update a STOP keyword */
-        patch: operations["update-opt-out-keyword"];
-        trace?: never;
-    };
-    "/admin/inbound-numbers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List inbound numbers */
-        get: operations["list-inbound-numbers"];
-        put?: never;
-        /** Create an inbound number */
-        post: operations["create-inbound-number"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/inbound-numbers/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Delete an inbound number */
-        delete: operations["delete-inbound-number"];
-        options?: never;
-        head?: never;
-        /** Update an inbound number */
-        patch: operations["update-inbound-number"];
-        trace?: never;
-    };
-    "/admin/inbound-numbers/{id}/assign": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Dedicate a number to an account, or share it
-         * @description A shared number (`account_id` null) resolves its MO by keyword.
-         */
-        patch: operations["assign-inbound-number"];
-        trace?: never;
-    };
-    "/admin/inbound-numbers/{id}/keywords": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        /** List a shared number's keywords */
-        get: operations["list-inbound-keywords"];
-        put?: never;
-        /** Add a keyword to a shared number */
-        post: operations["create-inbound-keyword"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/inbound-numbers/{id}/keywords/{keyword_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                keyword_id: components["parameters"]["KeywordId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Delete a keyword */
-        delete: operations["delete-inbound-keyword"];
-        options?: never;
-        head?: never;
-        /** Update a keyword */
-        patch: operations["update-inbound-keyword"];
-        trace?: never;
-    };
-    "/admin/unrouted-mo": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List unrouted MO messages
-         * @description MO messages that matched no account and no fallback account.
-         */
-        get: operations["list-unrouted-mo"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/sender-rewrite-rules": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List sender ID rewrite rules
-         * @description In evaluation order, by scope (connector, account, customer, platform) then priority.
-         */
-        get: operations["list-sender-rewrite-rules"];
-        put?: never;
-        /** Create a rewrite rule */
-        post: operations["create-sender-rewrite-rule"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/sender-rewrite-rules/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Delete a rewrite rule */
-        delete: operations["delete-sender-rewrite-rule"];
-        options?: never;
-        head?: never;
-        /**
-         * Update a rewrite rule
-         * @description Validated on the rule the patch leaves behind.
-         */
-        patch: operations["update-sender-rewrite-rule"];
-        trace?: never;
-    };
-    "/admin/sender-rewrite-rules/{id}/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Test a rewrite rule against a sample
-         * @description Runs this rule alone, whatever its status and the others. Writes nothing.
-         */
-        post: operations["test-sender-rewrite-rule"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/customers/{id}/billing": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        /** Get a customer's billing configuration */
-        get: operations["get-customer-billing"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Update a customer's billing configuration
-         * @description A new `charge_on` applies to messages reserved from then on.
-         */
-        patch: operations["update-customer-billing"];
-        trace?: never;
-    };
-    "/admin/customers/{id}/billing/credit-terms": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Update a customer's credit terms
-         * @description Whether and how far the customer may send without prepaid credit.
-         */
-        patch: operations["update-customer-credit-terms"];
-        trace?: never;
-    };
-    "/admin/customers/{id}/balances": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        /**
-         * Get a customer's MT and MO balances
-         * @description One entry per balance owner, the customer or each of its accounts according to `balance_scope`.
-         */
-        get: operations["get-customer-balances"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/customers/{id}/billing/topup": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Top up a balance */
-        post: operations["topup-balance"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/customers/{id}/billing/adjust": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Adjust a balance
-         * @description A signed correction, written to the ledger as `adjustment`.
-         */
-        post: operations["adjust-balance"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/customers/{id}/billing/transfer": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Move MT credits between two accounts of the customer
-         * @description Only under `balance_scope` `account`; otherwise `conflict`.
-         */
-        post: operations["transfer-balance"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/customers/{id}/billing/balance-scope": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Change the balance owner
-         * @description Refused while any balance of the customer is not zero or a lease is open.
-         */
-        post: operations["change-balance-scope"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/customers/{id}/billing/ledger": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        /**
-         * Read a balance's ledger
-         * @description The customer's balance, or the account's under `balance_scope` `account`.
-         */
-        get: operations["get-billing-ledger"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/billing/mo-floor": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List the balance owners whose MO counter is at its floor */
-        get: operations["list-mo-floor-owners"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/rate-plans": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List rate plans */
-        get: operations["list-rate-plans"];
-        put?: never;
-        /** Create a rate plan */
-        post: operations["create-rate-plan"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/rate-plans/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Delete a rate plan */
-        delete: operations["delete-rate-plan"];
-        options?: never;
-        head?: never;
-        /**
-         * Update a rate plan
-         * @description Bumps `version`; a message keeps the version it was reserved under.
-         */
-        patch: operations["update-rate-plan"];
-        trace?: never;
-    };
-    "/admin/platform/policy": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get the platform policy */
-        get: operations["get-platform-policy"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Update the platform policy
-         * @description Reaches the services on their next configuration reload, without a restart.
-         */
-        patch: operations["update-platform-policy"];
-        trace?: never;
-    };
-    "/admin/platform/content-policy": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Update the platform content policy
-         * @description The default of every customer without its own setting. Applies to bodies stored from then on.
-         */
-        patch: operations["update-platform-content-policy"];
-        trace?: never;
-    };
-    "/admin/platform/billing-policy": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Switch billing on or off for the whole platform
-         * @description Off, no customer is billed and the reservation step is a no-op.
-         */
-        patch: operations["update-platform-billing-policy"];
-        trace?: never;
-    };
-    "/admin/messages/{id}/content": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Message ID (UUIDv7). */
-                id: components["parameters"]["MessageId"];
-            };
-            cookie?: never;
-        };
-        /**
-         * Read a stored message body
-         * @description The audit log records the read, `granted`, `unreadable` or `not_found`, before the body is
-         *     returned. An unknown message, a message without a stored body, or one whose key was destroyed
-         *     answers `not_found`.
-         */
-        get: operations["get-message-content"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/customers/{id}/content/erase": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Erase a customer's stored bodies
-         * @description Crypto-shreds the customer's content keys; every stored body becomes unreadable at once. Irreversible.
-         */
-        post: operations["erase-customer-content"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/gdpr/erase": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Erase a customer or a person
-         * @description A customer: its content keys are crypto-shredded, then its CDR rows deleted; the ledger is kept.
-         *     A person: CDR rows and stored bodies with that number are deleted, across customers. Irreversible;
-         *     concluded by an attestation.
-         */
-        post: operations["gdpr-erase"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/gdpr/erase/{job_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                job_id: components["parameters"]["JobId"];
-            };
-            cookie?: never;
-        };
-        /** Get an erasure job and its attestation */
-        get: operations["get-gdpr-erase-job"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/audit-log": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List the control-plane audit log
-         * @description One entry per mutation and per read under a sensitive scope, newest first. Entries are immutable.
-         */
-        get: operations["list-audit-log"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/audit-log/{request_id}/changes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                request_id: components["parameters"]["RequestId"];
-            };
-            cookie?: never;
-        };
-        /**
-         * List the row changes of a mutation
-         * @description Before and after values; sealed, hashed and key-reference columns are left out.
-         */
-        get: operations["list-audit-changes"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/messages/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Message ID (UUIDv7). */
-                id: components["parameters"]["MessageId"];
-            };
-            cookie?: never;
-        };
-        /**
-         * Get a message
-         * @description Exact within 72 hours of acceptance; beyond, read from the CDR (`source`), which may lag. Never carries the body.
-         */
-        get: operations["get-message"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/messages/{id}/trace": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Message ID (UUIDv7). */
-                id: components["parameters"]["MessageId"];
-            };
-            cookie?: never;
-        };
-        /**
-         * Get a message's timeline
-         * @description Within 72 hours of acceptance, every transition from the state. Beyond, only each segment's
-         *     outcome from the CDR. A `trace_id` is resolved by `search-messages`. Never carries the body.
-         */
-        get: operations["get-message-trace"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/messages/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Search the CDR
-         * @description Every filter narrows the result. The date window is required and at most 31 days. Never carries the body.
-         */
-        post: operations["search-messages"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/messages/export": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Export the CDR
-         * @description CSV, with the filters of `search-messages`. Numbers are masked unless the creator held
-         *     `msisdn:reveal` at creation. A selection over 100,000 rows is refused at creation
-         *     (`validation_error`). Never carries the body.
-         */
-        post: operations["create-message-export"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/messages/export/{job_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                job_id: components["parameters"]["JobId"];
-            };
-            cookie?: never;
-        };
-        /** Get an export job */
-        get: operations["get-message-export"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/metrics/summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Traffic counters over a window
-         * @description Messages accepted within the window, each with its current status; the bucket in progress is excluded.
-         */
-        get: operations["get-metrics-summary"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/metrics/traffic": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Traffic time series by dimension
-         * @description The 20 keys with the most messages get their own series; the rest is summed under `other`.
-         */
-        get: operations["get-traffic-metrics"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/stream/metrics": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Live traffic snapshots (WebSocket)
-         * @description Each text frame is one `MetricSnapshot`, aggregated across replicas.
-         */
-        get: operations["stream-metrics"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/stream/sessions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Live client bind events (WebSocket)
-         * @description Each text frame is one `SessionEvent`.
-         */
-        get: operations["stream-sessions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/stream/connectors": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Live operator account snapshots (WebSocket)
-         * @description Each text frame is one `ConnectorSnapshot`.
-         */
-        get: operations["stream-connectors"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/dead-letters": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List dead-letter groups */
-        get: operations["list-dead-letter-groups"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/dead-letters/{group}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Consumer group whose dead-letter topic is read. */
-                group: components["parameters"]["Group"];
-            };
-            cookie?: never;
-        };
-        /**
-         * List the records of a dead-letter group
-         * @description Metadata only, never the payload.
-         */
-        get: operations["list-dead-letters"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/dead-letters/{group}/replay": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Consumer group whose dead-letter topic is read. */
-                group: components["parameters"]["Group"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Replay dead-letter records
-         * @description Republishes each record on its source topic with `replay_count + 1` and `origin_ts` unchanged. An
-         *     expired record, or one whose message is already terminal, is refused with `conflict` in its result.
-         */
-        post: operations["replay-dead-letter"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/jobs/{job_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                job_id: components["parameters"]["JobId"];
-            };
-            cookie?: never;
-        };
-        /**
-         * Get a job
-         * @description Imports, content erasure and partition extension. Export and GDPR erasure jobs are read by their own operations only, and answer `not_found` here.
-         */
-        get: operations["get-job"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-}
-export type webhooks = Record<string, never>;
-export interface components {
-    schemas: {
-        /** @description Flat error body. `code` is the stable code of the cause; the HTTP status is on the status line only. */
-        Error: {
-            /** @enum {string} */
-            code: "unauthenticated" | "forbidden_scope" | "not_found" | "conflict" | "validation_error" | "payload_too_large" | "idempotency_conflict" | "insufficient_credit" | "service_unavailable" | "internal_error";
-            /** @description Human-readable explanation. Never a subscriber number or a message body. */
-            message: string;
-            /** @description Per-field problems. */
-            errors?: {
-                field: string;
-                /** @description Never a subscriber number or a message body. */
-                message: string;
-            }[];
-        };
-        /**
-         * @description Why a message or a segment did not succeed, recorded after acceptance.
-         * @enum {string}
-         */
-        ErrorCode: "invalid_destination" | "invalid_source" | "sender_id_not_authorized" | "recipient_opted_out" | "content_blocked" | "no_route" | "insufficient_credit" | "quiet_hours" | "billing_unavailable" | "message_expired" | "submit_failed" | "ambiguous_submit" | "incomplete_message" | "fallback_exhausted" | "retries_exhausted" | "delivery_failed" | "delivery_expired" | "internal_error";
-        /**
-         * @description Subscriber number. In a response, masked unless the caller holds `msisdn:reveal`; an unmasked response is audited.
-         * @example +12025550101
-         */
-        Msisdn: string;
-        /**
-         * @description Subscriber number, E.164.
-         * @example +12025550101
-         */
-        MsisdnInput: string;
-        MsisdnRequest: {
-            msisdn: components["schemas"]["MsisdnInput"];
-        };
-        /** @description Cursor of the next page; null on the last one. */
-        NextCursor: string | null;
-        /** @enum {string} */
-        Direction: "mt" | "mo";
-        /** @enum {string} */
-        TrafficCategory: "otp" | "transactional" | "marketing";
-        /** @enum {string} */
-        Ingress: "rest" | "smpp";
-        /** @enum {string} */
-        ChargeOn: "submit" | "accept" | "delivery";
-        /** @enum {string} */
-        OwnerType: "customer" | "account";
-        /** @enum {string} */
-        BindType: "transmitter" | "receiver" | "transceiver";
-        /** @enum {string} */
-        ContentStorage: "off" | "stored_encrypted";
-        /** @enum {string} */
-        ActiveStatus: "active" | "disabled";
-        /** @enum {string} */
-        CustomerGroupStatus: "active" | "archived";
-        /** @enum {string} */
-        CustomerStatus: "active" | "suspended" | "closed";
-        /** @enum {string} */
-        AccountStatus: "active" | "suspended" | "closed";
-        /** @enum {string} */
-        SenderIdStatus: "pending_carrier_approval" | "active" | "disabled";
-        /** @enum {string} */
-        ScriptScope: "platform" | "customer" | "account";
-        /** @enum {string} */
-        RewriteScope: "platform" | "customer" | "account" | "connector";
-        /** @enum {string} */
-        AntispamScope: "platform" | "customer" | "account";
-        /** @enum {string} */
-        SuppressionScope: "inbound_number" | "account" | "customer" | "platform";
-        /** @enum {string} */
-        SuppressionSource: "mo_stop" | "admin" | "import" | "carrier" | "regulator";
-        /** @enum {string} */
-        JobStatus: "queued" | "running" | "completed" | "failed";
-        /** @enum {string} */
-        DistributionStrategy: "static" | "round_robin" | "weighted" | "failover_priority" | "hash_based";
-        /** @enum {string} */
-        TrafficDimension: "connector" | "customer" | "account" | "group" | "channel";
-        /**
-         * @description Lifecycle of a message, as published on the public API.
-         * @enum {string}
-         */
-        MessageStatus: "accepted" | "enroute" | "delivered" | "failed" | "expired" | "rejected" | "rerouted" | "cancelled";
-        /** @enum {string} */
-        TransitionKind: "accepted" | "rejected" | "parked" | "unparked" | "cancelled" | "routed" | "submitted" | "submit_failed" | "not_sent" | "delivered" | "undeliverable" | "expired" | "dlr_window_closed" | "outcome_missing" | "received" | "routed_to_account" | "unrouted" | "delivered_to_account" | "delivery_failed";
-        /** @enum {string} */
-        AntispamVerdict: "flag" | "block";
-        /** @description Daily window, in the reference country's time zone. An `end` before `start` crosses midnight. */
-        TimeWindow: {
-            /** @example 21:00 */
-            start: string;
-            /** @example 08:00 */
-            end: string;
-            days: ("mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun")[];
-        };
-        RateLimit: {
-            max_per_sec: number;
-            /** @description Messages admitted at once before `max_per_sec` paces them. */
-            burst_capacity: number;
-        };
-        RateLimitSet: {
-            max_per_sec: number;
-            /** @description Defaults to `max_per_sec`. */
-            burst_capacity?: number;
-        };
-        Job: {
-            /** Format: uuid */
-            job_id: string;
-            /** @enum {string} */
-            kind: "exact_route_import" | "suppression_import" | "content_erase" | "partition_extension" | "message_export" | "gdpr_erase";
-            status: components["schemas"]["JobStatus"];
-            progress: number | null;
-            /** @description Rows or items handled so far. */
-            counts: {
-                processed: number;
-                rejected: number;
-            };
-            /** @description Why a failed job failed. Never a subscriber number or a message body. */
-            error: string | null;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            finished_at: string | null;
-        };
-        CustomerGroup: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-            description: string | null;
-            status: components["schemas"]["CustomerGroupStatus"];
-            member_count: number;
-            created_by: components["schemas"]["CreatedBy"];
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        CustomerGroupCreate: {
-            name: string;
-            description?: string | null;
-        };
-        CustomerGroupUpdate: {
-            name?: string;
-            description?: string | null;
-            status?: components["schemas"]["CustomerGroupStatus"];
-        };
-        CustomerGroupPage: {
-            data: components["schemas"]["CustomerGroup"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        /**
-         * Format: uuid
-         * @description The creating operator's `sub`; null for a break-glass write.
-         */
-        CreatedBy: string | null;
-        /** @description Maximum age per traffic category, in seconds; it can only lower the platform's. Null keeps the platform's. */
-        MaxAgeOverride: {
-            otp: number | null;
-            transactional: number | null;
-            marketing: number | null;
-        };
-        Customer: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-            status: components["schemas"]["CustomerStatus"];
-            /** Format: uuid */
-            group_id: string | null;
-            max_age_override: components["schemas"]["MaxAgeOverride"];
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        CustomerCreate: {
-            name: string;
-            /** Format: uuid */
-            group_id?: string | null;
-            max_age_override?: components["schemas"]["MaxAgeOverride"];
-        };
-        CustomerUpdate: {
-            name?: string;
-            status?: components["schemas"]["CustomerStatus"];
-            /** Format: uuid */
-            group_id?: string | null;
-            max_age_override?: components["schemas"]["MaxAgeOverride"];
-        };
-        CustomerPage: {
-            data: components["schemas"]["Customer"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        AccountRef: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-        };
-        SuspensionImpact: {
-            accounts_to_suspend: components["schemas"]["AccountRef"][];
-            /** @description Closed accounts, which stay closed. */
-            accounts_closed: components["schemas"]["AccountRef"][];
-            binds_to_disconnect: components["schemas"]["Session"][];
-        };
-        CustomerContentPolicy: {
-            /** @description Null inherits the platform policy. */
-            content_storage: components["schemas"]["ContentStorage"] | null;
-            /** @description Null inherits the platform policy. */
-            content_retention_days: number | null;
-        };
-        CustomerContentPolicyUpdate: {
-            content_storage?: components["schemas"]["ContentStorage"] | null;
-            content_retention_days?: number | null;
-        };
-        ContentKeyRotated: {
-            /**
-             * Format: uuid
-             * @description The new active key.
-             */
-            content_key_id: string;
-        };
-        SenderId: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            customer_id: string;
-            address: string;
-            status: components["schemas"]["SenderIdStatus"];
-            traffic_category: components["schemas"]["TrafficCategory"];
-            /** @description Null when only the account's limit applies. */
-            rate_limit: components["schemas"]["RateLimit"] | null;
-            /**
-             * Format: date-time
-             * @description Set when a message from this sender ID is first routed; from then on it cannot be deleted.
-             */
-            first_used_at: string | null;
-            created_by: components["schemas"]["CreatedBy"];
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        SenderIdCreate: {
-            /**
-             * @description Alphanumeric, at most 11 characters, or numeric E.164, at most 15 digits.
-             * @example ACME
-             */
-            address: string;
-            /** @default marketing */
-            traffic_category: components["schemas"]["TrafficCategory"];
-        };
-        SenderIdUpdate: {
-            status?: components["schemas"]["SenderIdStatus"];
-            traffic_category?: components["schemas"]["TrafficCategory"];
-        };
-        SenderIdPage: {
-            data: components["schemas"]["SenderId"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        Account: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            customer_id: string;
-            name: string;
-            status: components["schemas"]["AccountStatus"];
-            smpp_enabled: boolean;
-            rest_enabled: boolean;
-            query_sm_enabled: boolean;
-            cancel_sm_enabled: boolean;
-            allowed_bind_types: components["schemas"]["BindType"][];
-            max_sessions: number;
-            rate_limit: components["schemas"]["RateLimit"] | null;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        AccountCreate: {
-            /** Format: uuid */
-            customer_id: string;
-            name: string;
-            /** @default true */
-            smpp_enabled: boolean;
-            /** @default true */
-            rest_enabled: boolean;
-            /** @default true */
-            query_sm_enabled: boolean;
-            /** @default true */
-            cancel_sm_enabled: boolean;
-            allowed_bind_types?: components["schemas"]["BindType"][];
-            /** @default 1 */
-            max_sessions: number;
-        };
-        AccountUpdate: {
-            name?: string;
-            status?: components["schemas"]["AccountStatus"];
-        };
-        /** @description At least one channel stays enabled. */
-        ChannelsUpdate: {
-            smpp_enabled: boolean;
-            rest_enabled: boolean;
-        };
-        SessionLimitsUpdate: {
-            max_sessions: number;
-            allowed_bind_types: components["schemas"]["BindType"][];
-        };
-        SmppOpsUpdate: {
-            query_sm_enabled?: boolean;
-            cancel_sm_enabled?: boolean;
-        };
-        AccountPage: {
-            data: components["schemas"]["Account"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        /** @description The account's MO or receipt webhook. Its secret is never returned after creation or rotation. */
-        Webhook: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            account_id: string;
-            /** @enum {string} */
-            event_type: "mo" | "dlr";
-            /** Format: uri */
-            url: string;
-            status: components["schemas"]["ActiveStatus"];
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        /**
-         * Format: uri
-         * @description An `https` URL without user information. Loopback, private and link-local addresses are refused at send time.
-         * @example https://hooks.example.com/sms
-         */
-        WebhookUrl: string;
-        WebhookWithSecret: components["schemas"]["Webhook"] & {
-            /** @description HMAC-SHA256 signing secret, shown this once. */
-            secret: string;
-        };
-        WebhookCreate: {
-            /** @enum {string} */
-            event_type: "mo" | "dlr";
-            url: components["schemas"]["WebhookUrl"];
-        };
-        WebhookUpdate: {
-            url?: components["schemas"]["WebhookUrl"];
-            status?: components["schemas"]["ActiveStatus"];
-        };
-        /** @description Never carries a secret. */
-        Credential: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            account_id: string;
-            /** @enum {string} */
-            type: "smpp_bind" | "api_key";
-            /** @description Set for `smpp_bind`. */
-            system_id: string | null;
-            /** @enum {string} */
-            status: "active" | "disabled" | "revoked";
-            /** Format: date-time */
-            last_used_at: string | null;
-            /**
-             * Format: date-time
-             * @description Until then the previous secret is accepted too.
-             */
-            grace_expires_at: string | null;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            rotated_at: string | null;
-        };
-        CredentialWithSecret: components["schemas"]["Credential"] & {
-            /** @description The SMPP password or API key, shown this once. */
-            secret: string;
-        };
-        CredentialCreate: {
-            /** @enum {string} */
-            type: "smpp_bind" | "api_key";
-            /** @description Required for `smpp_bind`. */
-            system_id?: string;
-        };
-        CredentialStatusUpdate: {
-            status: components["schemas"]["ActiveStatus"];
-        };
-        CredentialRotate: {
-            /** @description How long the old secret stays valid too; at most 7 days. */
-            grace_period_sec?: number | null;
-        };
-        /** @description SMPP session parameters of a connector, applied at the next bind. */
-        SmppProfile: {
-            vendor_profile?: string | null;
-            /**
-             * @description 52 is SMPP 3.4, 80 is SMPP 5.0.
-             * @default 52
-             * @enum {integer}
-             */
-            interface_version: 52 | 80;
-            /** @default 0 */
-            addr_ton: number;
-            /** @default 0 */
-            addr_npi: number;
-            /** @default 0 */
-            source_addr_ton: number;
-            /** @default 0 */
-            source_addr_npi: number;
-            /** @default 1 */
-            dest_addr_ton: number;
-            /** @default 1 */
-            dest_addr_npi: number;
-            data_coding_default?: number | null;
-            /** @default 0 */
-            esm_class_default: number;
-            /** @default 1 */
-            registered_delivery_default: number;
-            /**
-             * @description Sent for a message of effective priority 0.
-             * @default 0
-             */
-            priority_flag_default: number;
-            validity_period_default?: string | null;
-            /** @default 30 */
-            enquire_link_interval_sec: number;
-            /** @default 3 */
-            enquire_link_max_missed: number;
-            /** @default 10000 */
-            bind_timeout_ms: number;
-            /** @default 10000 */
-            response_timeout_ms: number;
-        };
-        /** @description Automatic reconnection of the connector's SMPP binds, opt-in. The breaker never reconnects. */
-        ReconnectPolicy: {
-            enabled: boolean;
-            /** @default 1000 */
-            initial_delay_ms: number;
-            /** @default 2 */
-            multiplier: number;
-            /** @default 60000 */
-            max_delay_ms: number;
-            /** @default 20 */
-            jitter_pct: number;
-            /**
-             * @description 0 retries without limit.
-             * @default 0
-             */
-            max_attempts: number;
-        };
-        /** @description A destination, SMPP or HTTP, holding operator accounts. Its throughput is the sum of its available accounts'. */
-        Connector: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-            status: components["schemas"]["ActiveStatus"];
-            /** @enum {string} */
-            protocol: "smpp" | "http";
-            smpp_profile: components["schemas"]["SmppProfile"] | null;
-            /** @description Name of a compiled HTTP adapter. */
-            http_adapter: string | null;
-            /** @description Lowest traffic category rank accepted: 0 all, 1 transactional and otp, 2 otp only. */
-            priority_tier: number;
-            reconnect_policy: components["schemas"]["ReconnectPolicy"];
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        /** @description `smpp_profile` is required for `smpp`, `http_adapter` for `http`. */
-        ConnectorCreate: {
-            name: string;
-            /** @enum {string} */
-            protocol: "smpp" | "http";
-            smpp_profile?: components["schemas"]["SmppProfile"];
-            http_adapter?: string;
-            /** @default 0 */
-            priority_tier: number;
-            reconnect_policy?: components["schemas"]["ReconnectPolicy"];
-        };
-        ConnectorUpdate: {
-            name?: string;
-            status?: components["schemas"]["ActiveStatus"];
-            smpp_profile?: components["schemas"]["SmppProfile"];
-            http_adapter?: string;
-            priority_tier?: number;
-        };
-        ConnectorPage: {
-            data: components["schemas"]["Connector"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        /** @enum {string} */
-        ConnectorAccountStatus: "provisioning" | "active" | "draining" | "disabled";
-        /** @description An operator account. Its credentials are write-only. */
-        ConnectorAccount: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            connector_id: string;
-            /** @description `host:port` for SMPP, `https` base URL for HTTP. Loopback, private and link-local addresses are refused at send time. */
-            endpoint: string;
-            throughput_limit_per_sec: number;
-            /** @description SMPP. */
-            max_binds: number | null;
-            /** @description Window per bind for SMPP, concurrent requests for HTTP. */
-            max_in_flight: number;
-            /** @description SMPP. */
-            bind_type: components["schemas"]["BindType"] | null;
-            tls_enabled: boolean;
-            tls_server_name: string | null;
-            /** @description Partition of the account on the routed topics, never reassigned. */
-            partition: number;
-            status: components["schemas"]["ConnectorAccountStatus"];
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        /** @description Write-only, sealed at rest. Keys depend on the protocol and adapter, such as `system_id` and `password` for SMPP. */
-        ConnectorAccountCredentials: {
-            [key: string]: string;
-        };
-        ConnectorAccountCreate: {
-            endpoint: string;
-            credentials: components["schemas"]["ConnectorAccountCredentials"];
-            throughput_limit_per_sec: number;
-            max_binds?: number | null;
-            /** @default 10 */
-            max_in_flight: number;
-            bind_type?: components["schemas"]["BindType"];
-            /** @default false */
-            tls_enabled: boolean;
-            tls_server_name?: string | null;
-        };
-        /** @description Changing `endpoint`, `tls_enabled` or `tls_server_name` requires `credentials` in the same request, else `validation_error`. */
-        ConnectorAccountUpdate: {
-            endpoint?: string;
-            credentials?: components["schemas"]["ConnectorAccountCredentials"];
-            throughput_limit_per_sec?: number;
-            max_binds?: number | null;
-            max_in_flight?: number;
-            bind_type?: components["schemas"]["BindType"];
-            tls_enabled?: boolean;
-            tls_server_name?: string | null;
-            /** @enum {string} */
-            status?: "active" | "draining" | "disabled";
-        };
-        ConnectorAccountCreated: {
-            account: components["schemas"]["ConnectorAccount"];
-            job: components["schemas"]["Job"];
-        };
-        ConnectorAccountPage: {
-            data: components["schemas"]["ConnectorAccount"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        /** @description Live state published by the account's lease holder. A state older than 15 seconds makes the account unavailable. */
-        ConnectorAccountState: {
-            /** Format: uuid */
-            connector_account_id: string;
-            /** @description Pod holding the lease. */
-            holder: string | null;
-            /** Format: int64 */
-            epoch: number;
-            /** @enum {string} */
-            link_status: "up" | "reconnecting" | "down" | "auth_failed";
-            /** @enum {string} */
-            breaker_state: "closed" | "open" | "half_open";
-            /** Format: int64 */
-            in_flight: number;
-            /** Format: int64 */
-            lag: number;
-            /** Format: date-time */
-            observed_at: string;
-        };
-        ConnectorStatus: {
-            /** Format: uuid */
-            connector_id: string;
-            /** @description At least one account is active, up, with its breaker not open. */
-            available: boolean;
-            accounts: components["schemas"]["ConnectorAccountState"][];
-        };
-        RouteTarget: {
-            /** Format: uuid */
-            connector_id: string;
-            weight?: number;
-            priority?: number;
-        };
-        Route: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-            /** @description Lower is evaluated first. */
-            priority: number;
-            /** Format: uuid */
-            match_account_id: string | null;
-            /** Format: uuid */
-            match_customer_id: string | null;
-            match_sender_pattern: string | null;
-            /** @description Digit prefix of the E.164 destination. */
-            match_dest_pattern: string | null;
-            match_mccmnc: string | null;
-            /** @description RE2 regex. */
-            match_content_pattern: string | null;
-            match_time_window: components["schemas"]["TimeWindow"] | null;
-            distribution_strategy: components["schemas"]["DistributionStrategy"];
-            /**
-             * Format: uuid
-             * @description Set for `static`.
-             */
-            target_connector_id: string | null;
-            /** @description At least two for any other strategy. */
-            targets: components["schemas"]["RouteTarget"][];
-            /** Format: uuid */
-            fallback_route_id: string | null;
-            status: components["schemas"]["ActiveStatus"];
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        RouteCreate: {
-            name: string;
-            /** @default 100 */
-            priority: number;
-            /** Format: uuid */
-            match_account_id?: string | null;
-            /** Format: uuid */
-            match_customer_id?: string | null;
-            match_sender_pattern?: string | null;
-            match_dest_pattern?: string | null;
-            match_mccmnc?: string | null;
-            /** @description RE2 regex. */
-            match_content_pattern?: string | null;
-            match_time_window?: components["schemas"]["TimeWindow"] | null;
-            distribution_strategy: components["schemas"]["DistributionStrategy"];
-            /** Format: uuid */
-            target_connector_id?: string | null;
-            targets?: components["schemas"]["RouteTarget"][];
-            /** Format: uuid */
-            fallback_route_id?: string | null;
-        };
-        RouteUpdate: {
-            name?: string;
-            priority?: number;
-            /** Format: uuid */
-            match_account_id?: string | null;
-            /** Format: uuid */
-            match_customer_id?: string | null;
-            match_sender_pattern?: string | null;
-            match_dest_pattern?: string | null;
-            match_mccmnc?: string | null;
-            /** @description RE2 regex. */
-            match_content_pattern?: string | null;
-            match_time_window?: components["schemas"]["TimeWindow"] | null;
-            distribution_strategy?: components["schemas"]["DistributionStrategy"];
-            /** Format: uuid */
-            target_connector_id?: string | null;
-            targets?: components["schemas"]["RouteTarget"][];
-            /** Format: uuid */
-            fallback_route_id?: string | null;
-            status?: components["schemas"]["ActiveStatus"];
-        };
-        RouteReorder: {
-            ordered_ids: string[];
-        };
-        RoutePage: {
-            data: components["schemas"]["Route"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        /** @enum {string} */
-        ExactRouteTargetType: "connector" | "route";
-        /** @enum {string} */
-        ExactRouteSource: "mnp_import" | "manual" | "carrier_feed";
-        ExactRoute: {
-            msisdn: components["schemas"]["Msisdn"];
-            target_type: components["schemas"]["ExactRouteTargetType"];
-            /** Format: uuid */
-            target_id: string;
-            source: components["schemas"]["ExactRouteSource"];
-            /** Format: date-time */
-            updated_at: string;
-        };
-        ExactRouteCreate: {
-            msisdn: components["schemas"]["MsisdnInput"];
-            target_type: components["schemas"]["ExactRouteTargetType"];
-            /** Format: uuid */
-            target_id: string;
-            /** @default manual */
-            source: components["schemas"]["ExactRouteSource"];
-        };
-        ExactRouteUpdate: {
-            msisdn: components["schemas"]["MsisdnInput"];
-            target_type?: components["schemas"]["ExactRouteTargetType"];
-            /** Format: uuid */
-            target_id?: string;
-            source?: components["schemas"]["ExactRouteSource"];
-        };
-        /** @enum {string} */
-        ScriptStatus: "draft" | "active" | "disabled";
-        /** @description A JavaScript routing script, bounded by a wall-clock timeout. */
-        RoutingScript: {
-            /** Format: uuid */
-            id: string;
-            scope: components["schemas"]["ScriptScope"];
-            /** Format: uuid */
-            scope_id: string | null;
-            name: string;
-            source_code: string;
-            checksum: string;
-            status: components["schemas"]["ScriptStatus"];
-            timeout_ms: number;
-            created_by: components["schemas"]["CreatedBy"];
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            published_at: string | null;
-        };
-        RoutingScriptCreate: {
-            scope: components["schemas"]["ScriptScope"];
-            /** Format: uuid */
-            scope_id?: string | null;
-            name: string;
-            source_code: string;
-            /** @default 2 */
-            timeout_ms: number;
-        };
-        RoutingScriptUpdate: {
-            name?: string;
-            source_code?: string;
-            timeout_ms?: number;
-        };
-        ScriptAssign: {
-            scope: components["schemas"]["ScriptScope"];
-            /** Format: uuid */
-            scope_id?: string | null;
-        };
-        ScriptRollback: {
-            version: number;
-        };
-        ScriptValidateResult: {
-            valid: boolean;
-            checksum: string | null;
-            errors: {
-                line: number | null;
-                message: string;
-            }[];
-        };
-        ScriptTestRequest: {
-            message: {
-                source_addr: string;
-                dest_addr: components["schemas"]["MsisdnInput"];
-                /** @description Sample text, never stored. */
-                content: string;
-                /** Format: uuid */
-                account_id?: string | null;
-                /** Format: uuid */
-                customer_id?: string | null;
-            };
-        };
-        ScriptTestResult: {
-            /**
-             * Format: uuid
-             * @description Null falls through to declarative routing.
-             */
-            route_id: string | null;
-            took_ms: number;
-            timed_out: boolean;
-            error: string | null;
-            logs: string[];
-        };
-        ScriptVersion: {
-            version: number;
-            checksum: string;
-            status: components["schemas"]["ScriptStatus"];
-            created_by: components["schemas"]["CreatedBy"];
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            published_at: string | null;
-        };
-        RoutingScriptPage: {
-            data: components["schemas"]["RoutingScript"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        ScriptVersionPage: {
-            data: components["schemas"]["ScriptVersion"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        /** @description A live client SMPP bind. */
-        Session: {
-            /** Format: uuid */
-            account_id: string;
-            bind_id: string;
-            bind_type: components["schemas"]["BindType"];
-            /** @description The SMPP server pod holding the bind. */
-            pod_addr: string;
-            /** Format: date-time */
-            connected_at: string;
-            remote_addr: string;
-        };
-        SessionPage: {
-            data: components["schemas"]["Session"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        /** @enum {string} */
-        AntispamRuleType: "velocity" | "content_blacklist" | "duplicate" | "category_mismatch";
-        AntispamRule: {
-            /** Format: uuid */
-            id: string;
-            rule_type: components["schemas"]["AntispamRuleType"];
-            scope: components["schemas"]["AntispamScope"];
-            /** Format: uuid */
-            scope_id: string | null;
-            config_json: {
-                [key: string]: unknown;
-            };
-            action: components["schemas"]["AntispamVerdict"];
-            status: components["schemas"]["ActiveStatus"];
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        AntispamRuleCreate: {
-            rule_type: components["schemas"]["AntispamRuleType"];
-            scope: components["schemas"]["AntispamScope"];
-            /** Format: uuid */
-            scope_id?: string | null;
-            /**
-             * @description Per rule type; a pattern is RE2, at most 1024 characters. `category_mismatch`, every field optional: `otp_code_min_digits` (4) and
-             *     `otp_code_max_digits` (8, at most 32) bound the code an otp message must carry;
-             *     `otp_max_length` (160) bounds its body, which holds no link; `promo_markers` ([]) are the
-             *     case-insensitive words a transactional message must not contain.
-             */
-            config_json?: {
-                [key: string]: unknown;
-            };
-            /** @default flag */
-            action: components["schemas"]["AntispamVerdict"];
-        };
-        AntispamRuleUpdate: {
-            config_json?: {
-                [key: string]: unknown;
-            };
-            action?: components["schemas"]["AntispamVerdict"];
-            status?: components["schemas"]["ActiveStatus"];
-        };
-        AntispamRulePage: {
-            data: components["schemas"]["AntispamRule"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        Suppression: {
-            /** Format: uuid */
-            id: string;
-            scope: components["schemas"]["SuppressionScope"];
-            /** Format: uuid */
-            scope_id: string | null;
-            msisdn: components["schemas"]["Msisdn"];
-            source: components["schemas"]["SuppressionSource"];
-            reason: string | null;
-            /** Format: date-time */
-            created_at: string;
-        };
-        SuppressionCreate: {
-            scope: components["schemas"]["SuppressionScope"];
-            /** Format: uuid */
-            scope_id?: string | null;
-            msisdn: components["schemas"]["MsisdnInput"];
-            source: components["schemas"]["SuppressionSource"];
-            reason?: string | null;
-        };
-        SuppressionSearch: {
-            scope?: components["schemas"]["SuppressionScope"];
-            /** Format: uuid */
-            scope_id?: string;
-            msisdn?: components["schemas"]["MsisdnInput"];
-        };
-        SuppressionImport: {
-            scope: components["schemas"]["SuppressionScope"];
-            /** Format: uuid */
-            scope_id?: string | null;
-            source: components["schemas"]["SuppressionSource"];
-            msisdns: components["schemas"]["MsisdnInput"][];
-        };
-        SuppressionCheck: {
-            msisdn: components["schemas"]["MsisdnInput"];
-            sender_addr?: string | null;
-            /** Format: uuid */
-            account_id?: string | null;
-        };
-        SuppressionCheckResult: {
-            blocked: boolean;
-            matched_scopes: {
-                scope: components["schemas"]["SuppressionScope"];
-                /** Format: uuid */
-                scope_id: string | null;
-            }[];
-        };
-        SuppressionPage: {
-            data: components["schemas"]["Suppression"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        /** @description A STOP keyword of the reference country; a match records an opt-out. */
-        OptOutKeyword: {
-            /** Format: uuid */
-            id: string;
-            keyword: string;
-            /** @enum {string} */
-            match_type: "exact" | "prefix";
-            status: components["schemas"]["ActiveStatus"];
-        };
-        OptOutKeywordCreate: {
-            keyword: string;
-            /**
-             * @default exact
-             * @enum {string}
-             */
-            match_type: "exact" | "prefix";
-        };
-        OptOutKeywordUpdate: {
-            keyword?: string;
-            /** @enum {string} */
-            match_type?: "exact" | "prefix";
-            status?: components["schemas"]["ActiveStatus"];
-        };
-        OptOutKeywordPage: {
-            data: components["schemas"]["OptOutKeyword"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        InboundNumber: {
-            /** Format: uuid */
-            id: string;
-            address: string;
-            /** @enum {string} */
-            number_type: "shortcode" | "longcode" | "alphanumeric";
-            mccmnc: string | null;
-            /** Format: uuid */
-            connector_id: string | null;
-            /**
-             * Format: uuid
-             * @description Dedicated account; null for a shared number.
-             */
-            account_id: string | null;
-            /**
-             * Format: uuid
-             * @description Receives a shared number's MO that matches no keyword.
-             */
-            fallback_account_id: string | null;
-            status: components["schemas"]["ActiveStatus"];
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        InboundNumberCreate: {
-            address: string;
-            /** @enum {string} */
-            number_type: "shortcode" | "longcode" | "alphanumeric";
-            mccmnc?: string | null;
-            /** Format: uuid */
-            connector_id?: string | null;
-            /** Format: uuid */
-            account_id?: string | null;
-            /** Format: uuid */
-            fallback_account_id?: string | null;
-        };
-        InboundNumberUpdate: {
-            /** @enum {string} */
-            number_type?: "shortcode" | "longcode" | "alphanumeric";
-            mccmnc?: string | null;
-            /** Format: uuid */
-            connector_id?: string | null;
-            /** Format: uuid */
-            fallback_account_id?: string | null;
-            status?: components["schemas"]["ActiveStatus"];
-        };
-        InboundNumberAssign: {
-            /** Format: uuid */
-            account_id: string | null;
-        };
-        InboundNumberPage: {
-            data: components["schemas"]["InboundNumber"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        InboundKeyword: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            inbound_number_id: string;
-            /** @description RE2 regex when `match_type` is `regex`. */
-            keyword: string;
-            /** @enum {string} */
-            match_type: "exact" | "prefix" | "regex";
-            /** Format: uuid */
-            account_id: string;
-            priority: number;
-            status: components["schemas"]["ActiveStatus"];
-        };
-        InboundKeywordCreate: {
-            /** @description RE2 regex when `match_type` is `regex`. */
-            keyword: string;
-            /**
-             * @default prefix
-             * @enum {string}
-             */
-            match_type: "exact" | "prefix" | "regex";
-            /** Format: uuid */
-            account_id: string;
-            /** @default 0 */
-            priority: number;
-        };
-        InboundKeywordUpdate: {
-            keyword?: string;
-            /** @enum {string} */
-            match_type?: "exact" | "prefix" | "regex";
-            /** Format: uuid */
-            account_id?: string;
-            priority?: number;
-            status?: components["schemas"]["ActiveStatus"];
-        };
-        InboundKeywordPage: {
-            data: components["schemas"]["InboundKeyword"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        UnroutedMo: {
-            /** Format: uuid */
-            message_id: string;
-            source_addr: components["schemas"]["Msisdn"];
-            /** @description Inbound number that received the message. */
-            dest_addr: string;
-            /** Format: date-time */
-            received_at: string;
-        };
-        UnroutedMoPage: {
-            data: components["schemas"]["UnroutedMo"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        /** @enum {string} */
-        RewriteType: "static" | "fallback_pool" | "truncate" | "sanitize";
-        SenderRewriteRule: {
-            /** Format: uuid */
-            id: string;
-            scope: components["schemas"]["RewriteScope"];
-            /** Format: uuid */
-            scope_id: string | null;
-            /** @description RE2 regex on the whole submitted sender; null matches any. */
-            match_sender_pattern: string | null;
-            /** @description RE2 regex on the whole destination, digits only; null matches any. */
-            match_dest_pattern: string | null;
-            rewrite_type: components["schemas"]["RewriteType"];
-            /** @description Set for `static`. */
-            rewrite_to: string | null;
-            /** @description Set for `fallback_pool`; the sender is picked by hashing the message ID. */
-            fallback_pool_json: string[] | null;
-            /** @description Set for `truncate`. */
-            max_length: number | null;
-            /** @description For `sanitize`: `{"allowed": "<characters kept>"}`; null keeps ASCII letters and digits. */
-            sanitize_charset_json: {
-                [key: string]: string;
-            } | null;
-            /** @description Lower is evaluated first within a scope. */
-            priority: number;
-            reason: string | null;
-            status: components["schemas"]["ActiveStatus"];
-            created_by: components["schemas"]["CreatedBy"];
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        SenderRewriteRuleCreate: {
-            scope: components["schemas"]["RewriteScope"];
-            /** Format: uuid */
-            scope_id?: string | null;
-            match_sender_pattern?: string | null;
-            match_dest_pattern?: string | null;
-            rewrite_type: components["schemas"]["RewriteType"];
-            rewrite_to?: string | null;
-            fallback_pool_json?: string[] | null;
-            max_length?: number | null;
-            sanitize_charset_json?: {
-                [key: string]: string;
-            } | null;
-            /** @default 100 */
-            priority: number;
-            reason?: string | null;
-        };
-        SenderRewriteRuleUpdate: {
-            match_sender_pattern?: string | null;
-            match_dest_pattern?: string | null;
-            rewrite_type?: components["schemas"]["RewriteType"];
-            rewrite_to?: string | null;
-            fallback_pool_json?: string[] | null;
-            max_length?: number | null;
-            sanitize_charset_json?: {
-                [key: string]: string;
-            } | null;
-            priority?: number;
-            reason?: string | null;
-            status?: components["schemas"]["ActiveStatus"];
-        };
-        RewriteTestRequest: {
-            /** @description The sender as submitted. */
-            source_addr: string;
-            dest_addr: components["schemas"]["MsisdnInput"];
-            /**
-             * Format: uuid
-             * @description Picks the `fallback_pool` sender as for that message; absent, the nil UUID.
-             */
-            message_id?: string;
-        };
-        RewriteTestResult: {
-            matched: boolean;
-            rewritten_source: string | null;
-        };
-        SenderRewriteRulePage: {
-            data: components["schemas"]["SenderRewriteRule"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        /**
-         * @description A customer's billing configuration. Under `balance_scope` `account` there is neither overdraft
-         *     nor hard limit: the floor is 0.
-         */
-        BillingCustomer: {
-            /** Format: uuid */
-            customer_id: string;
-            billing_enabled: boolean;
-            /** @enum {string} */
-            billing_mode: "prepaid" | "postpaid";
-            overdraft_enabled: boolean;
-            overdraft_limit: number | null;
-            credit_limit: number | null;
-            credit_limit_is_hard: boolean;
-            charge_on: components["schemas"]["ChargeOn"];
-            /** Format: uuid */
-            rate_plan_id: string | null;
-            mo_billing_floor: number | null;
-            balance_scope: components["schemas"]["OwnerType"];
-            /** Format: date-time */
-            updated_at: string;
-        };
-        BillingCustomerUpdate: {
-            charge_on?: components["schemas"]["ChargeOn"];
-            /** Format: uuid */
-            rate_plan_id?: string | null;
-            mo_billing_floor?: number | null;
-        };
-        CreditTermsUpdate: {
-            billing_enabled?: boolean;
-            /** @enum {string} */
-            billing_mode?: "prepaid" | "postpaid";
-            overdraft_enabled?: boolean;
-            overdraft_limit?: number | null;
-            credit_limit?: number | null;
-            credit_limit_is_hard?: boolean;
-        };
-        BalanceScopeChange: {
-            balance_scope: components["schemas"]["OwnerType"];
-        };
-        Owner: {
-            owner_type: components["schemas"]["OwnerType"];
-            /** Format: uuid */
-            owner_id: string;
-        };
-        OwnerPage: {
-            data: components["schemas"]["Owner"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        Balance: {
-            owner_type: components["schemas"]["OwnerType"];
-            /** Format: uuid */
-            owner_id: string;
-            /**
-             * Format: int64
-             * @description MT balance, in credits; may be negative.
-             */
-            mt: number;
-            /**
-             * Format: int64
-             * @description MO counter, in credits.
-             */
-            mo: number;
-        };
-        BalancePage: {
-            data: components["schemas"]["Balance"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        Topup: {
-            /** Format: int64 */
-            credits: number;
-            direction: components["schemas"]["Direction"];
-            /**
-             * Format: uuid
-             * @description Required under `balance_scope` `account`, refused otherwise.
-             */
-            account_id?: string | null;
-        };
-        Adjust: {
-            /**
-             * Format: int64
-             * @description Signed.
-             */
-            delta: number;
-            direction: components["schemas"]["Direction"];
-            /**
-             * Format: uuid
-             * @description Required under `balance_scope` `account`, refused otherwise.
-             */
-            account_id?: string | null;
-        };
-        Transfer: {
-            /** Format: int64 */
-            credits: number;
-            /** Format: uuid */
-            from_account_id: string;
-            /** Format: uuid */
-            to_account_id: string;
-        };
-        LedgerEntry: {
-            /** @enum {string} */
-            entry_type: "lease_grant" | "lease_refund" | "late_release" | "charge" | "mo_charge" | "topup" | "transfer" | "adjustment";
-            direction: components["schemas"]["Direction"];
-            /**
-             * Format: int64
-             * @description Signed.
-             */
-            credits: number;
-            /** Format: date-time */
-            at: string;
-        };
-        LedgerPage: {
-            data: components["schemas"]["LedgerEntry"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        RatePlan: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-            /** Format: int64 */
-            readonly version: number;
-            /** @description Integer credits per MT segment, by destination and sender type. */
-            credits_per_segment_mt_json: {
-                [key: string]: unknown;
-            };
-            credits_per_segment_mo_json: {
-                [key: string]: unknown;
-            };
-            /** @enum {string} */
-            billing_mode: "prepaid" | "postpaid" | "either";
-            status: components["schemas"]["ActiveStatus"];
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        RatePlanCreate: {
-            name: string;
-            credits_per_segment_mt_json: {
-                [key: string]: unknown;
-            };
-            credits_per_segment_mo_json: {
-                [key: string]: unknown;
-            };
-            /**
-             * @default either
-             * @enum {string}
-             */
-            billing_mode: "prepaid" | "postpaid" | "either";
-        };
-        RatePlanUpdate: {
-            name?: string;
-            credits_per_segment_mt_json?: {
-                [key: string]: unknown;
-            };
-            credits_per_segment_mo_json?: {
-                [key: string]: unknown;
-            };
-            /** @enum {string} */
-            billing_mode?: "prepaid" | "postpaid" | "either";
-            status?: components["schemas"]["ActiveStatus"];
-        };
-        RatePlanPage: {
-            data: components["schemas"]["RatePlan"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        PlatformPolicy: {
-            content_storage: components["schemas"]["ContentStorage"];
-            /** @description Default 7. */
-            content_retention_days: number;
-            /** @description Null disables them. Inside the window, a marketing message is refused at admission (`quiet_hours`). */
-            quiet_hours: components["schemas"]["TimeWindow"] | null;
-            /** @description Global switch; off, no customer is billed. */
-            billing_enabled: boolean;
-        };
-        /** @description The content policy is set by `update-platform-content-policy`, the billing switch by `update-platform-billing-policy`. */
-        PlatformPolicyUpdate: {
-            quiet_hours?: components["schemas"]["TimeWindow"] | null;
-        };
-        PlatformBillingPolicyUpdate: {
-            billing_enabled: boolean;
-        };
-        PlatformContentPolicyUpdate: {
-            content_storage?: components["schemas"]["ContentStorage"];
-            content_retention_days?: number;
-        };
-        /** @description Exactly one of `text` and `octets` is set. */
-        MessageContent: {
-            /** Format: uuid */
-            message_id: string;
-            /** @enum {string} */
-            data_coding: "gsm7" | "ucs2" | "binary";
-            /** @description Body when `data_coding` is gsm7 or ucs2. */
-            text: string | null;
-            /** @description Body when `data_coding` is binary. */
-            octets: string | null;
-        };
-        /** @description `customer_id` for a customer, `msisdn` for a person. */
-        GdprEraseRequest: {
-            /** @enum {string} */
-            subject_type: "customer" | "msisdn";
-            /** Format: uuid */
-            customer_id?: string;
-            msisdn?: components["schemas"]["MsisdnInput"];
-        } & ({
-            /** @constant */
-            subject_type?: "customer";
-        } | {
-            /** @constant */
-            subject_type?: "msisdn";
-        });
-        GdprSubject: {
-            /** @enum {string} */
-            subject_type: "customer" | "msisdn";
-            /** Format: uuid */
-            customer_id: string | null;
-            msisdn: components["schemas"]["Msisdn"] | null;
-        };
-        GdprEraseJob: components["schemas"]["Job"] & components["schemas"]["GdprSubject"] & {
-            /** @description Set once completed. */
-            attestation: components["schemas"]["Attestation"] | null;
-        };
-        Attestation: {
-            /** @description What was erased, in order, each verified after mutation. */
-            steps: {
-                step: string;
-                /** Format: date-time */
-                completed_at: string;
-            }[];
-            /** @description What survives the erasure, and for how long. */
-            exclusions: {
-                /** @example audit log */
-                data: string;
-                /** @example 365 days */
-                retention: string;
-            }[];
-        };
-        AuditEntry: {
-            /** Format: uuid */
-            id: string;
-            /** @description The operator's `sub`, `service:<name>` or `breakglass:<name>`. */
-            operator: string;
-            operation_id: string;
-            /** @description The path of the call, without its query. */
-            target: string;
-            request_id: string | null;
-            /** @description HTTP status. */
-            status: number;
-            /** @description For a body read: `granted`, `unreadable` or `not_found`. */
-            outcome: string | null;
-            /**
-             * Format: date-time
-             * @description When the outcome was recorded; an entry is written once.
-             */
-            at: string;
-        };
-        AuditEntryPage: {
-            data: components["schemas"]["AuditEntry"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        AuditChange: {
-            actor: string;
-            table: string;
-            pk: string;
-            /** @enum {string} */
-            op: "insert" | "update" | "delete";
-            before: {
-                [key: string]: unknown;
-            } | null;
-            after: {
-                [key: string]: unknown;
-            } | null;
-            /** Format: date-time */
-            at: string;
-        };
-        AuditChangePage: {
-            data: components["schemas"]["AuditChange"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        /** @description The folded state of a message. For an MT `source_addr` is the sender ID; for an MO it is the subscriber. */
-        MessageDetail: {
-            /** Format: uuid */
-            message_id: string;
-            /** Format: uuid */
-            trace_id: string;
-            direction: components["schemas"]["Direction"];
-            /** Format: uuid */
-            account_id: string;
-            /** Format: uuid */
-            customer_id: string;
-            status: components["schemas"]["MessageStatus"];
-            source_addr: components["schemas"]["Msisdn"];
-            dest_addr: components["schemas"]["Msisdn"];
-            ingress: components["schemas"]["Ingress"] | null;
-            traffic_category: components["schemas"]["TrafficCategory"] | null;
-            /** Format: uuid */
-            route_id: string | null;
-            error_code: components["schemas"]["ErrorCode"] | null;
-            antispam_verdict: components["schemas"]["AntispamVerdict"] | null;
-            /** Format: uuid */
-            antispam_rule_id: string | null;
-            /** @description Empty until routed. */
-            segments: components["schemas"]["SegmentState"][];
-            /**
-             * @description `state`: exact. `history`: from the CDR, which may lag.
-             * @enum {string}
-             */
-            source: "state" | "history";
-        };
-        SegmentState: {
-            segment_seq: number;
-            attempt: number;
-            kind: components["schemas"]["TransitionKind"];
-            /** Format: uuid */
-            connector_id: string | null;
-            /** Format: uuid */
-            connector_account_id: string | null;
-            /** @description The carrier's message ID. */
-            remote_id: string | null;
-            /** @description The sender as sent, after rewriting. */
-            sent_source_addr: string | null;
-            error_code: components["schemas"]["ErrorCode"] | null;
-            raw_dlr_status: string | null;
-            /** Format: int64 */
-            credits: number;
-            charge_on: components["schemas"]["ChargeOn"] | null;
-        };
-        MessageTrace: {
-            /** Format: uuid */
-            message_id: string;
-            /** Format: uuid */
-            trace_id: string;
-            /** @description From `state`: every transition. From `history`: one outcome per segment. */
-            transitions: {
-                kind: components["schemas"]["TransitionKind"];
-                segment_seq: number;
-                attempt: number;
-                /** Format: date-time */
-                occurred_at: string;
-            }[];
-            /** @enum {string} */
-            source: "state" | "history";
-        };
-        /** @description Every filter narrows the result; unknown members are refused. */
-        MessageSearch: {
-            /** Format: uuid */
-            trace_id?: string;
-            /** Format: uuid */
-            account_id?: string;
-            /** Format: uuid */
-            customer_id?: string;
-            /**
-             * Format: uuid
-             * @description Customers currently in the group.
-             */
-            group_id?: string;
-            /** Format: uuid */
-            connector_id?: string;
-            status?: components["schemas"]["MessageStatus"];
-            direction?: components["schemas"]["Direction"];
-            traffic_category?: components["schemas"]["TrafficCategory"];
-            ingress?: components["schemas"]["Ingress"];
-            error_code?: components["schemas"]["ErrorCode"];
-            antispam_verdict?: components["schemas"]["AntispamVerdict"];
-            /** @description Exact match on either address, never a prefix. */
-            msisdn?: components["schemas"]["MsisdnInput"];
-            /** Format: date-time */
-            from_date: string;
-            /** Format: date-time */
-            to_date: string;
-        };
-        /** @description One CDR row, per message and per segment. For an MT `source_addr` is the sender ID; for an MO it is the subscriber. */
-        MessageSummary: {
-            /** Format: uuid */
-            message_id: string;
-            /** Format: uuid */
-            trace_id: string;
-            segment_seq: number;
-            segment_count: number;
-            /** Format: uuid */
-            account_id: string;
-            /** Format: uuid */
-            customer_id: string;
-            direction: components["schemas"]["Direction"];
-            source_addr: components["schemas"]["Msisdn"];
-            /** @description The sender as sent, after rewriting. */
-            sent_source_addr: string | null;
-            dest_addr: components["schemas"]["Msisdn"];
-            ingress: components["schemas"]["Ingress"] | null;
-            traffic_category: components["schemas"]["TrafficCategory"] | null;
-            /** Format: uuid */
-            connector_id: string | null;
-            /** Format: uuid */
-            connector_account_id: string | null;
-            /** Format: uuid */
-            route_id: string | null;
-            status: components["schemas"]["MessageStatus"];
-            error_code: components["schemas"]["ErrorCode"] | null;
-            antispam_verdict: components["schemas"]["AntispamVerdict"] | null;
-            /** Format: int64 */
-            credits: number;
-            charge_on: components["schemas"]["ChargeOn"] | null;
-            /** @enum {string} */
-            settlement_status: "not_billable" | "pending" | "captured" | "captured_without_dlr" | "released";
-            /**
-             * Format: date-time
-             * @description Acceptance time.
-             */
-            submitted_at: string;
-            /** Format: date-time */
-            delivered_at: string | null;
-            /** @description From acceptance to delivery receipt. */
-            latency_ms: number | null;
-        };
-        MessageSummaryPage: {
-            data: components["schemas"]["MessageSummary"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        MessageExportRequest: {
-            filters: components["schemas"]["MessageSearch"];
-        };
-        ExportJob: components["schemas"]["Job"] & {
-            /**
-             * Format: uri
-             * @description Set once completed; expires at `expires_at`.
-             */
-            download_url: string | null;
-            /** Format: date-time */
-            expires_at: string | null;
-        };
-        MetricsSummary: {
-            /** @enum {string} */
-            window: "5m" | "15m" | "30m" | "1h";
-            submitted: number;
-            delivered: number;
-            /** @description Failed or expired. */
-            failed: number;
-            rejected: number;
-            mo_received: number;
-            e2e_latency_ms_p50: number | null;
-            /** @description From acceptance to delivery receipt. */
-            e2e_latency_ms_p99: number | null;
-            /** @description Client binds open at read time; null when the registry cannot be read. */
-            active_sessions: number | null;
-        };
-        TrafficMetrics: {
-            group_by: components["schemas"]["TrafficDimension"];
-            /** @enum {string} */
-            window: "5m" | "15m" | "30m" | "1h";
-            series: {
-                /** @description Dimension value: an ID, or `rest` or `smpp` by channel; or the reserved `other`, `ungrouped`, `unknown`. */
-                key: string;
-                points: {
-                    /** Format: date-time */
-                    t: string;
-                    submitted: number;
-                    delivered: number;
-                    failed: number;
-                    mo_received: number;
-                }[];
-            }[];
-        };
-        /** @description Platform-wide counters over the last interval, aggregated by the gateway. */
-        MetricSnapshot: {
-            /** Format: date-time */
-            emitted_at: string;
-            interval_seconds: number;
-            submitted: number;
-            delivered: number;
-            failed: number;
-            rejected: number;
-            mo_received: number;
-            active_sessions: number | null;
-        };
-        /** @description A client bind opened or closed. Identifiers only. */
-        SessionEvent: {
-            /** Format: date-time */
-            emitted_at: string;
-            /** Format: uuid */
-            account_id: string;
-            system_id: string;
-            /** @enum {string} */
-            state: "bound" | "unbound";
-            /** @description The account's live binds after the change; null on `unbound`. */
-            sessions: number | null;
-        };
-        ConnectorSnapshot: {
-            /** Format: date-time */
-            emitted_at: string;
-            connectors: components["schemas"]["ConnectorStatus"][];
-        };
-        DeadLetterGroup: {
-            group: string;
-            /** Format: int64 */
-            count: number;
-            /** Format: date-time */
-            oldest_at: string | null;
-        };
-        DeadLetterGroupPage: {
-            data: components["schemas"]["DeadLetterGroup"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        /** @description Position of a record in the dead-letter topic. */
-        DeadLetterPosition: {
-            partition: number;
-            /** Format: int64 */
-            offset: number;
-        };
-        DeadLetter: {
-            partition: number;
-            /** Format: int64 */
-            offset: number;
-            /** @description Never a subscriber number or a message body. */
-            dlq_reason: string;
-            /** Format: date-time */
-            dlq_at: string;
-            source_topic: string;
-            source_partition: number;
-            /** Format: int64 */
-            source_offset: number;
-            /** Format: date-time */
-            origin_ts: string;
-            replay_count: number;
-            /** Format: uuid */
-            message_id: string | null;
-            /** @description Past its maximum age; not replayable. */
-            expired: boolean;
-        };
-        DeadLetterPage: {
-            data: components["schemas"]["DeadLetter"][];
-            next_cursor: components["schemas"]["NextCursor"];
-        };
-        ReplayRequest: {
-            records: components["schemas"]["DeadLetterPosition"][];
-        };
-        ReplayResult: {
-            results: {
-                partition: number;
-                /** Format: int64 */
-                offset: number;
-                replayed: boolean;
-                /** @description Why the record was not replayed. */
-                error: components["schemas"]["Error"] | null;
-            }[];
-        };
-    };
-    responses: {
-        /** @description Missing, expired or invalid operator token (`unauthenticated`). */
-        Unauthorized: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["Error"];
-            };
-        };
-        /** @description The token lacks the operation's scope (`forbidden_scope`). */
-        Forbidden: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["Error"];
-            };
-        };
-        /** @description No such resource (`not_found`). */
-        NotFound: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["Error"];
-            };
-        };
-        /** @description The current state forbids the operation (`conflict`); `errors[]` says why. */
-        Conflict: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["Error"];
-            };
-        };
-        /**
-         * @description The `Idempotency-Key` is in flight or was used for another body (`idempotency_conflict`), or the
-         *     current state forbids the operation (`conflict`).
-         */
-        IdempotencyConflict: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["Error"];
-            };
-        };
-        /** @description The source balance, counting its open leases, cannot cover the amount (`insufficient_credit`). */
-        InsufficientCredit: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["Error"];
-            };
-        };
-        /** @description The request body exceeds the accepted size (`payload_too_large`). */
-        PayloadTooLarge: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["Error"];
-            };
-        };
-        /** @description Malformed request (`validation_error`); `errors[]` details each field. */
-        ValidationError: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["Error"];
-            };
-        };
-        /** @description Unexpected error (`internal_error`). */
-        InternalError: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["Error"];
-            };
-        };
-        /** @description A dependency is unreachable (`service_unavailable`); nothing was changed, retry later. */
-        ServiceUnavailable: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["Error"];
-            };
-        };
-    };
+  '/admin/customer-groups': {
     parameters: {
-        Id: string;
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List customer groups */
+    get: operations['list-customer-groups']
+    put?: never
+    /** Create a customer group */
+    post: operations['create-customer-group']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/customer-groups/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    /** Get a customer group */
+    get: operations['get-customer-group']
+    put?: never
+    post?: never
+    /**
+     * Delete a customer group
+     * @description Its customers are detached, not deleted.
+     */
+    delete: operations['delete-customer-group']
+    options?: never
+    head?: never
+    /** Update a customer group */
+    patch: operations['update-customer-group']
+    trace?: never
+  }
+  '/admin/customer-groups/{id}/customers': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    /** List the customers of a group */
+    get: operations['list-group-customers']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/customers': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List customers */
+    get: operations['list-customers']
+    put?: never
+    /**
+     * Create a customer
+     * @description Billing and content policy are set by their own operations.
+     */
+    post: operations['create-customer']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/customers/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    /** Get a customer */
+    get: operations['get-customer']
+    put?: never
+    post?: never
+    /** Delete a customer */
+    delete: operations['delete-customer']
+    options?: never
+    head?: never
+    /**
+     * Update a customer
+     * @description A closed customer stays closed.
+     */
+    patch: operations['update-customer']
+    trace?: never
+  }
+  '/admin/customers/{id}/suspend': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Suspend a customer
+     * @description Suspends its accounts and disconnects their live binds; closed accounts stay closed. A closed customer cannot be suspended.
+     */
+    post: operations['suspend-customer']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/customers/{id}/suspension-impact': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    /** Preview what suspending a customer affects */
+    get: operations['get-customer-suspension-impact']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/customers/{id}/content-policy': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    /**
+     * Get a customer's content policy
+     * @description The customer's own setting; `null` inherits the platform policy.
+     */
+    get: operations['get-customer-content-policy']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /**
+     * Update a customer's content policy
+     * @description Applies to bodies stored from then on.
+     */
+    patch: operations['update-customer-content-policy']
+    trace?: never
+  }
+  '/admin/customers/{id}/content/rotate-key': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Rotate a customer's content key
+     * @description Provisions the first key, or retires the active one and creates the next. A retired key still opens the bodies it sealed.
+     */
+    post: operations['rotate-content-key']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/customers/{id}/sender-ids': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    /** List a customer's sender IDs */
+    get: operations['list-sender-ids']
+    put?: never
+    /**
+     * Register a sender ID
+     * @description Starts pending carrier approval. Every source address, numeric included, must be an active sender ID of the customer.
+     */
+    post: operations['create-sender-id']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/customers/{id}/sender-ids/{sender_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        sender_id: components['parameters']['SenderId']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /**
+     * Delete a sender ID
+     * @description Refused once the sender ID has been used; disable it instead.
+     */
+    delete: operations['delete-sender-id']
+    options?: never
+    head?: never
+    /** Update a sender ID */
+    patch: operations['update-sender-id']
+    trace?: never
+  }
+  '/admin/customers/{id}/sender-ids/{sender_id}/rate-limit': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        sender_id: components['parameters']['SenderId']
+      }
+      cookie?: never
+    }
+    get?: never
+    /**
+     * Set a sender ID's rate limit
+     * @description Checked at admission, before the account's limit; past it the submission is refused (`rate_limited`) and nothing is written.
+     */
+    put: operations['set-sender-id-rate-limit']
+    post?: never
+    /**
+     * Remove a sender ID's rate limit
+     * @description The account's limit alone then applies. Removing an absent limit answers 204.
+     */
+    delete: operations['delete-sender-id-rate-limit']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/accounts': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List accounts */
+    get: operations['list-accounts']
+    put?: never
+    /** Create an account */
+    post: operations['create-account']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/accounts/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    /** Get an account */
+    get: operations['get-account']
+    put?: never
+    post?: never
+    /** Delete an account */
+    delete: operations['delete-account']
+    options?: never
+    head?: never
+    /**
+     * Update an account
+     * @description A closed account stays closed. Leaving `active` disconnects its live binds.
+     */
+    patch: operations['update-account']
+    trace?: never
+  }
+  '/admin/accounts/{id}/suspend': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Suspend an account
+     * @description Disconnects its live binds. A closed account cannot be suspended.
+     */
+    post: operations['suspend-account']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/accounts/{id}/channels': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /** Enable or disable the account's channels */
+    patch: operations['set-account-channels']
+    trace?: never
+  }
+  '/admin/accounts/{id}/session-limits': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /**
+     * Set the account's session limits
+     * @description Lowering `max_sessions` cuts no live bind.
+     */
+    patch: operations['set-account-session-limits']
+    trace?: never
+  }
+  '/admin/accounts/{id}/smpp-ops': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /**
+     * Enable or disable query_sm and cancel_sm
+     * @description The flags are read at bind, so a change disconnects the account's live binds.
+     */
+    patch: operations['set-account-smpp-ops']
+    trace?: never
+  }
+  '/admin/accounts/{id}/rate-limit': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    /**
+     * Set the account's rate limit
+     * @description Checked at admission, after the sender ID's limit; past it the submission is refused (`rate_limited`) and nothing is written.
+     */
+    put: operations['set-account-rate-limit']
+    post?: never
+    /**
+     * Remove the account's rate limit
+     * @description Removing an absent limit answers 204.
+     */
+    delete: operations['delete-account-rate-limit']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/accounts/{id}/webhooks': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    /**
+     * List the account's webhooks
+     * @description At most one per event type, so unpaged.
+     */
+    get: operations['list-webhooks']
+    put?: never
+    /**
+     * Create a webhook
+     * @description The gateway generates the signing secret and returns it this once.
+     */
+    post: operations['create-webhook']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/accounts/{id}/webhooks/{webhook_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        webhook_id: components['parameters']['WebhookId']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete a webhook */
+    delete: operations['delete-webhook']
+    options?: never
+    head?: never
+    /** Update a webhook */
+    patch: operations['update-webhook']
+    trace?: never
+  }
+  '/admin/accounts/{id}/webhooks/{webhook_id}/rotate-secret': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        webhook_id: components['parameters']['WebhookId']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Rotate a webhook's signing secret
+     * @description The gateway generates the new secret and returns it this once.
+     */
+    post: operations['rotate-webhook-secret']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/accounts/{id}/credentials': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    /**
+     * List the account's credentials
+     * @description At most one per type, so unpaged. Never carries a secret.
+     */
+    get: operations['list-credentials']
+    put?: never
+    /**
+     * Create a credential
+     * @description The secret is returned this once.
+     */
+    post: operations['create-credential']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/accounts/{id}/credentials/{credential_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        credential_id: components['parameters']['CredentialId']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /**
+     * Revoke a credential
+     * @description The credential stays, `revoked`; only a rotation revives it, with a new secret. Revoking an `smpp_bind` disconnects the account's live binds.
+     */
+    delete: operations['revoke-credential']
+    options?: never
+    head?: never
+    /**
+     * Enable or disable a credential
+     * @description Disabling an `smpp_bind` disconnects the account's live binds. Revocation is `revoke-credential` only.
+     */
+    patch: operations['update-credential-status']
+    trace?: never
+  }
+  '/admin/accounts/{id}/credentials/{credential_id}/rotate': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        credential_id: components['parameters']['CredentialId']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Rotate a credential
+     * @description The new secret is returned this once. Without a grace period the old secret stops at once and an
+     *     `smpp_bind` rotation disconnects the account's live binds. A revoked credential is reactivated
+     *     without a grace period; a disabled one stays disabled.
+     */
+    post: operations['rotate-credential']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/connectors': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List connectors */
+    get: operations['list-connectors']
+    put?: never
+    /** Create a connector */
+    post: operations['create-connector']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/connectors/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    /** Get a connector */
+    get: operations['get-connector']
+    put?: never
+    post?: never
+    /** Delete a connector */
+    delete: operations['delete-connector']
+    options?: never
+    head?: never
+    /** Update a connector */
+    patch: operations['update-connector']
+    trace?: never
+  }
+  '/admin/connectors/{id}/status': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    /** Live state of a connector's operator accounts */
+    get: operations['get-connector-status']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/connectors/{id}/reconnect-policy': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /** Set the automatic reconnection policy */
+    patch: operations['set-connector-reconnect-policy']
+    trace?: never
+  }
+  '/admin/connectors/{id}/accounts': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    /** List a connector's operator accounts */
+    get: operations['list-connector-accounts']
+    put?: never
+    /**
+     * Create an operator account
+     * @description The account is `provisioning` until its partition exists on the routed topics, then `active` and
+     *     bound within seconds. The job reports the partition extension; on failure the account stays
+     *     `provisioning`, which the router ignores.
+     */
+    post: operations['create-connector-account']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/connectors/{id}/accounts/{connector_account_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        connector_account_id: components['parameters']['ConnectorAccountId']
+      }
+      cookie?: never
+    }
+    /** Get an operator account */
+    get: operations['get-connector-account']
+    put?: never
+    post?: never
+    /**
+     * Delete an operator account
+     * @description Its partition is never reassigned.
+     */
+    delete: operations['delete-connector-account']
+    options?: never
+    head?: never
+    /**
+     * Update an operator account
+     * @description `draining` stops routing to the account and empties its partition; `disabled` republishes its backlog to a sibling account.
+     */
+    patch: operations['update-connector-account']
+    trace?: never
+  }
+  '/admin/connectors/{id}/accounts/{connector_account_id}/rebind': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        connector_account_id: components['parameters']['ConnectorAccountId']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Rebind an operator account
+     * @description Asks the lease holder to unbind and bind again.
+     */
+    post: operations['rebind-connector-account']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/routes': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List routes, by priority */
+    get: operations['list-routes']
+    put?: never
+    /** Create a route */
+    post: operations['create-route']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/routes/reorder': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Reorder routes
+     * @description `ordered_ids` lists every route exactly once; the first gets priority 10, the next 20, and so on. A refused list changes nothing.
+     */
+    post: operations['reorder-routes']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/routes/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    /** Get a route */
+    get: operations['get-route']
+    put?: never
+    post?: never
+    /** Delete a route */
+    delete: operations['delete-route']
+    options?: never
+    head?: never
+    /** Update a route */
+    patch: operations['update-route']
+    trace?: never
+  }
+  '/admin/exact-routes': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Create or replace an exact route */
+    post: operations['create-exact-route']
+    delete?: never
+    options?: never
+    head?: never
+    /** Update an exact route */
+    patch: operations['update-exact-route']
+    trace?: never
+  }
+  '/admin/exact-routes/delete': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Delete an exact route */
+    post: operations['delete-exact-route']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/exact-routes/lookup': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Look up the exact route of a number */
+    post: operations['lookup-exact-route']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/exact-routes/import': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Import exact routes in bulk
+     * @description One row per route: `msisdn,target_type,target_id`, no header. The audit log records one event with the row count and the file digest.
+     */
+    post: operations['import-exact-routes']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/routing-scripts': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List routing scripts */
+    get: operations['list-routing-scripts']
+    put?: never
+    /**
+     * Create a routing script
+     * @description Created as a draft.
+     */
+    post: operations['create-routing-script']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/routing-scripts/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    /** Get a routing script */
+    get: operations['get-routing-script']
+    put?: never
+    post?: never
+    /** Delete a routing script */
+    delete: operations['delete-routing-script']
+    options?: never
+    head?: never
+    /**
+     * Update a routing script
+     * @description Edits the draft; the published version runs until the next publication.
+     */
+    patch: operations['update-routing-script']
+    trace?: never
+  }
+  '/admin/routing-scripts/{id}/assign': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /**
+     * Assign a routing script to a scope
+     * @description Moving an active script puts it into production in its new scope.
+     */
+    patch: operations['assign-routing-script']
+    trace?: never
+  }
+  '/admin/routing-scripts/{id}/validate': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Validate a routing script
+     * @description Static checks only; writes nothing.
+     */
+    post: operations['validate-routing-script']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/routing-scripts/{id}/test': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Dry-run a routing script against a sample message
+     * @description Writes nothing.
+     */
+    post: operations['test-routing-script']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/routing-scripts/{id}/publish': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Publish a routing script
+     * @description Activates the draft as a new version. Refused while another script is active in the same scope.
+     */
+    post: operations['publish-routing-script']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/routing-scripts/{id}/rollback': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Republish an earlier version */
+    post: operations['rollback-routing-script']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/routing-scripts/{id}/versions': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    /** List a routing script's versions */
+    get: operations['list-routing-script-versions']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/sessions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List live client SMPP binds
+     * @description Read from the live registry, which gives no snapshot; a bind opened or closed between two pages may be missed.
+     */
+    get: operations['list-sessions']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/sessions/{bind_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        bind_id: components['parameters']['BindId']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /**
+     * Force-disconnect a bind
+     * @description The close is asynchronous; 204 means it was ordered.
+     */
+    delete: operations['disconnect-session']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/antispam-rules': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List anti-spam rules */
+    get: operations['list-antispam-rules']
+    put?: never
+    /** Create an anti-spam rule */
+    post: operations['create-antispam-rule']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/antispam-rules/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete an anti-spam rule */
+    delete: operations['delete-antispam-rule']
+    options?: never
+    head?: never
+    /** Update an anti-spam rule */
+    patch: operations['update-antispam-rule']
+    trace?: never
+  }
+  '/admin/suppressions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Add a suppression */
+    post: operations['create-suppression']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/suppressions/search': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Search suppressions */
+    post: operations['search-suppressions']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/suppressions/import': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Import suppressions in bulk */
+    post: operations['import-suppressions']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/suppressions/check': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Would this recipient be blocked, and by which scope? */
+    post: operations['check-suppression']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/suppressions/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Lift an opt-out */
+    delete: operations['delete-suppression']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/opt-out-keywords': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List STOP keywords */
+    get: operations['list-opt-out-keywords']
+    put?: never
+    /** Create a STOP keyword */
+    post: operations['create-opt-out-keyword']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/opt-out-keywords/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete a STOP keyword */
+    delete: operations['delete-opt-out-keyword']
+    options?: never
+    head?: never
+    /** Update a STOP keyword */
+    patch: operations['update-opt-out-keyword']
+    trace?: never
+  }
+  '/admin/inbound-numbers': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List inbound numbers */
+    get: operations['list-inbound-numbers']
+    put?: never
+    /** Create an inbound number */
+    post: operations['create-inbound-number']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/inbound-numbers/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete an inbound number */
+    delete: operations['delete-inbound-number']
+    options?: never
+    head?: never
+    /** Update an inbound number */
+    patch: operations['update-inbound-number']
+    trace?: never
+  }
+  '/admin/inbound-numbers/{id}/assign': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /**
+     * Dedicate a number to an account, or share it
+     * @description A shared number (`account_id` null) resolves its MO by keyword.
+     */
+    patch: operations['assign-inbound-number']
+    trace?: never
+  }
+  '/admin/inbound-numbers/{id}/keywords': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    /** List a shared number's keywords */
+    get: operations['list-inbound-keywords']
+    put?: never
+    /** Add a keyword to a shared number */
+    post: operations['create-inbound-keyword']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/inbound-numbers/{id}/keywords/{keyword_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        keyword_id: components['parameters']['KeywordId']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete a keyword */
+    delete: operations['delete-inbound-keyword']
+    options?: never
+    head?: never
+    /** Update a keyword */
+    patch: operations['update-inbound-keyword']
+    trace?: never
+  }
+  '/admin/unrouted-mo': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List unrouted MO messages
+     * @description MO messages that matched no account and no fallback account.
+     */
+    get: operations['list-unrouted-mo']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/sender-rewrite-rules': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List sender ID rewrite rules
+     * @description In evaluation order, by scope (connector, account, customer, platform) then priority.
+     */
+    get: operations['list-sender-rewrite-rules']
+    put?: never
+    /** Create a rewrite rule */
+    post: operations['create-sender-rewrite-rule']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/sender-rewrite-rules/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete a rewrite rule */
+    delete: operations['delete-sender-rewrite-rule']
+    options?: never
+    head?: never
+    /**
+     * Update a rewrite rule
+     * @description Validated on the rule the patch leaves behind.
+     */
+    patch: operations['update-sender-rewrite-rule']
+    trace?: never
+  }
+  '/admin/sender-rewrite-rules/{id}/test': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Test a rewrite rule against a sample
+     * @description Runs this rule alone, whatever its status and the others. Writes nothing.
+     */
+    post: operations['test-sender-rewrite-rule']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/customers/{id}/billing': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    /** Get a customer's billing configuration */
+    get: operations['get-customer-billing']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /**
+     * Update a customer's billing configuration
+     * @description A new `charge_on` applies to messages reserved from then on.
+     */
+    patch: operations['update-customer-billing']
+    trace?: never
+  }
+  '/admin/customers/{id}/billing/credit-terms': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /**
+     * Update a customer's credit terms
+     * @description Whether and how far the customer may send without prepaid credit.
+     */
+    patch: operations['update-customer-credit-terms']
+    trace?: never
+  }
+  '/admin/customers/{id}/balances': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    /**
+     * Get a customer's MT and MO balances
+     * @description One entry per balance owner, the customer or each of its accounts according to `balance_scope`.
+     */
+    get: operations['get-customer-balances']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/customers/{id}/billing/topup': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Top up a balance */
+    post: operations['topup-balance']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/customers/{id}/billing/adjust': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Adjust a balance
+     * @description A signed correction, written to the ledger as `adjustment`.
+     */
+    post: operations['adjust-balance']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/customers/{id}/billing/transfer': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Move MT credits between two accounts of the customer
+     * @description Only under `balance_scope` `account`; otherwise `conflict`.
+     */
+    post: operations['transfer-balance']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/customers/{id}/billing/balance-scope': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Change the balance owner
+     * @description Refused while any balance of the customer is not zero or a lease is open.
+     */
+    post: operations['change-balance-scope']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/customers/{id}/billing/ledger': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    /**
+     * Read a balance's ledger
+     * @description The customer's balance, or the account's under `balance_scope` `account`.
+     */
+    get: operations['get-billing-ledger']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/billing/mo-floor': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List the balance owners whose MO counter is at its floor */
+    get: operations['list-mo-floor-owners']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/rate-plans': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List rate plans */
+    get: operations['list-rate-plans']
+    put?: never
+    /** Create a rate plan */
+    post: operations['create-rate-plan']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/rate-plans/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete a rate plan */
+    delete: operations['delete-rate-plan']
+    options?: never
+    head?: never
+    /**
+     * Update a rate plan
+     * @description Bumps `version`; a message keeps the version it was reserved under.
+     */
+    patch: operations['update-rate-plan']
+    trace?: never
+  }
+  '/admin/platform/policy': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get the platform policy */
+    get: operations['get-platform-policy']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /**
+     * Update the platform policy
+     * @description Reaches the services on their next configuration reload, without a restart.
+     */
+    patch: operations['update-platform-policy']
+    trace?: never
+  }
+  '/admin/platform/content-policy': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /**
+     * Update the platform content policy
+     * @description The default of every customer without its own setting. Applies to bodies stored from then on.
+     */
+    patch: operations['update-platform-content-policy']
+    trace?: never
+  }
+  '/admin/platform/billing-policy': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /**
+     * Switch billing on or off for the whole platform
+     * @description Off, no customer is billed and the reservation step is a no-op.
+     */
+    patch: operations['update-platform-billing-policy']
+    trace?: never
+  }
+  '/admin/messages/{id}/content': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
         /** @description Message ID (UUIDv7). */
-        MessageId: string;
-        SenderId: string;
-        CredentialId: string;
-        WebhookId: string;
-        KeywordId: string;
-        ConnectorAccountId: string;
-        BindId: string;
-        JobId: string;
-        RequestId: string;
+        id: components['parameters']['MessageId']
+      }
+      cookie?: never
+    }
+    /**
+     * Read a stored message body
+     * @description The audit log records the read, `granted`, `unreadable` or `not_found`, before the body is
+     *     returned. An unknown message, a message without a stored body, or one whose key was destroyed
+     *     answers `not_found`.
+     */
+    get: operations['get-message-content']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/customers/{id}/content/erase': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Erase a customer's stored bodies
+     * @description Crypto-shreds the customer's content keys; every stored body becomes unreadable at once. Irreversible.
+     */
+    post: operations['erase-customer-content']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/gdpr/erase': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Erase a customer or a person
+     * @description A customer: its content keys are crypto-shredded, then its CDR rows deleted; the ledger is kept.
+     *     A person: CDR rows and stored bodies with that number are deleted, across customers. Irreversible;
+     *     concluded by an attestation.
+     */
+    post: operations['gdpr-erase']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/gdpr/erase/{job_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        job_id: components['parameters']['JobId']
+      }
+      cookie?: never
+    }
+    /** Get an erasure job and its attestation */
+    get: operations['get-gdpr-erase-job']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/audit-log': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the control-plane audit log
+     * @description One entry per mutation and per read under a sensitive scope, newest first. Entries are immutable.
+     */
+    get: operations['list-audit-log']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/audit-log/{request_id}/changes': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        request_id: components['parameters']['RequestId']
+      }
+      cookie?: never
+    }
+    /**
+     * List the row changes of a mutation
+     * @description Before and after values; sealed, hashed and key-reference columns are left out.
+     */
+    get: operations['list-audit-changes']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/messages/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Message ID (UUIDv7). */
+        id: components['parameters']['MessageId']
+      }
+      cookie?: never
+    }
+    /**
+     * Get a message
+     * @description Exact within 72 hours of acceptance; beyond, read from the CDR (`source`), which may lag. Never carries the body.
+     */
+    get: operations['get-message']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/messages/{id}/trace': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Message ID (UUIDv7). */
+        id: components['parameters']['MessageId']
+      }
+      cookie?: never
+    }
+    /**
+     * Get a message's timeline
+     * @description Within 72 hours of acceptance, every transition from the state. Beyond, only each segment's
+     *     outcome from the CDR. A `trace_id` is resolved by `search-messages`. Never carries the body.
+     */
+    get: operations['get-message-trace']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/messages/search': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Search the CDR
+     * @description Every filter narrows the result. The date window is required and at most 31 days. Never carries the body.
+     */
+    post: operations['search-messages']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/messages/export': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Export the CDR
+     * @description CSV, with the filters of `search-messages`. Numbers are masked unless the creator held
+     *     `msisdn:reveal` at creation. A selection over 100,000 rows is refused at creation
+     *     (`validation_error`). Never carries the body.
+     */
+    post: operations['create-message-export']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/messages/export/{job_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        job_id: components['parameters']['JobId']
+      }
+      cookie?: never
+    }
+    /** Get an export job */
+    get: operations['get-message-export']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/metrics/summary': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Traffic counters over a window
+     * @description Messages accepted within the window, each with its current status; the bucket in progress is excluded.
+     */
+    get: operations['get-metrics-summary']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/metrics/traffic': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Traffic time series by dimension
+     * @description The 20 keys with the most messages get their own series; the rest is summed under `other`.
+     */
+    get: operations['get-traffic-metrics']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/stream/metrics': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Live traffic snapshots (WebSocket)
+     * @description Each text frame is one `MetricSnapshot`, aggregated across replicas.
+     */
+    get: operations['stream-metrics']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/stream/sessions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Live client bind events (WebSocket)
+     * @description Each text frame is one `SessionEvent`.
+     */
+    get: operations['stream-sessions']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/stream/connectors': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Live operator account snapshots (WebSocket)
+     * @description Each text frame is one `ConnectorSnapshot`.
+     */
+    get: operations['stream-connectors']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/dead-letters': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List dead-letter groups */
+    get: operations['list-dead-letter-groups']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/dead-letters/{group}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
         /** @description Consumer group whose dead-letter topic is read. */
-        Group: string;
-        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-        Cursor: string;
-        Limit: number;
-        Window: "5m" | "15m" | "30m" | "1h";
-        /** @description A retry with the same key applies once. */
-        IdempotencyKey: string;
-    };
-    requestBodies: never;
-    headers: {
-        /** @description The response must not be cached. */
-        NoStore: "no-store";
-    };
-    pathItems: never;
+        group: components['parameters']['Group']
+      }
+      cookie?: never
+    }
+    /**
+     * List the records of a dead-letter group
+     * @description Metadata only, never the payload.
+     */
+    get: operations['list-dead-letters']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/dead-letters/{group}/replay': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Consumer group whose dead-letter topic is read. */
+        group: components['parameters']['Group']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Replay dead-letter records
+     * @description Republishes each record on its source topic with `replay_count + 1` and `origin_ts` unchanged. An
+     *     expired record, or one whose message is already terminal, is refused with `conflict` in its result.
+     */
+    post: operations['replay-dead-letter']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/admin/jobs/{job_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        job_id: components['parameters']['JobId']
+      }
+      cookie?: never
+    }
+    /**
+     * Get a job
+     * @description Imports, content erasure and partition extension. Export and GDPR erasure jobs are read by their own operations only, and answer `not_found` here.
+     */
+    get: operations['get-job']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
 }
-export type $defs = Record<string, never>;
+export type webhooks = Record<string, never>
+export interface components {
+  schemas: {
+    /** @description Flat error body. `code` is the stable code of the cause; the HTTP status is on the status line only. */
+    Error: {
+      /** @enum {string} */
+      code:
+        | 'unauthenticated'
+        | 'forbidden_scope'
+        | 'not_found'
+        | 'conflict'
+        | 'validation_error'
+        | 'payload_too_large'
+        | 'idempotency_conflict'
+        | 'insufficient_credit'
+        | 'service_unavailable'
+        | 'internal_error'
+      /** @description Human-readable explanation. Never a subscriber number or a message body. */
+      message: string
+      /** @description Per-field problems. */
+      errors?: {
+        field: string
+        /** @description Never a subscriber number or a message body. */
+        message: string
+      }[]
+    }
+    /**
+     * @description Why a message or a segment did not succeed, recorded after acceptance.
+     * @enum {string}
+     */
+    ErrorCode:
+      | 'invalid_destination'
+      | 'invalid_source'
+      | 'sender_id_not_authorized'
+      | 'recipient_opted_out'
+      | 'content_blocked'
+      | 'no_route'
+      | 'insufficient_credit'
+      | 'quiet_hours'
+      | 'billing_unavailable'
+      | 'message_expired'
+      | 'submit_failed'
+      | 'ambiguous_submit'
+      | 'incomplete_message'
+      | 'fallback_exhausted'
+      | 'retries_exhausted'
+      | 'delivery_failed'
+      | 'delivery_expired'
+      | 'internal_error'
+    /**
+     * @description Subscriber number. In a response, masked unless the caller holds `msisdn:reveal`; an unmasked response is audited.
+     * @example +12025550101
+     */
+    Msisdn: string
+    /**
+     * @description Subscriber number, E.164.
+     * @example +12025550101
+     */
+    MsisdnInput: string
+    MsisdnRequest: {
+      msisdn: components['schemas']['MsisdnInput']
+    }
+    /** @description Cursor of the next page; null on the last one. */
+    NextCursor: string | null
+    /** @enum {string} */
+    Direction: 'mt' | 'mo'
+    /** @enum {string} */
+    TrafficCategory: 'otp' | 'transactional' | 'marketing'
+    /** @enum {string} */
+    Ingress: 'rest' | 'smpp'
+    /** @enum {string} */
+    ChargeOn: 'submit' | 'accept' | 'delivery'
+    /** @enum {string} */
+    OwnerType: 'customer' | 'account'
+    /** @enum {string} */
+    BindType: 'transmitter' | 'receiver' | 'transceiver'
+    /** @enum {string} */
+    ContentStorage: 'off' | 'stored_encrypted'
+    /** @enum {string} */
+    ActiveStatus: 'active' | 'disabled'
+    /** @enum {string} */
+    CustomerGroupStatus: 'active' | 'archived'
+    /** @enum {string} */
+    CustomerStatus: 'active' | 'suspended' | 'closed'
+    /** @enum {string} */
+    AccountStatus: 'active' | 'suspended' | 'closed'
+    /** @enum {string} */
+    SenderIdStatus: 'pending_carrier_approval' | 'active' | 'disabled'
+    /** @enum {string} */
+    ScriptScope: 'platform' | 'customer' | 'account'
+    /** @enum {string} */
+    RewriteScope: 'platform' | 'customer' | 'account' | 'connector'
+    /** @enum {string} */
+    AntispamScope: 'platform' | 'customer' | 'account'
+    /** @enum {string} */
+    SuppressionScope: 'inbound_number' | 'account' | 'customer' | 'platform'
+    /** @enum {string} */
+    SuppressionSource: 'mo_stop' | 'admin' | 'import' | 'carrier' | 'regulator'
+    /** @enum {string} */
+    JobStatus: 'queued' | 'running' | 'completed' | 'failed'
+    /** @enum {string} */
+    DistributionStrategy: 'static' | 'round_robin' | 'weighted' | 'failover_priority' | 'hash_based'
+    /** @enum {string} */
+    TrafficDimension: 'connector' | 'customer' | 'account' | 'group' | 'channel'
+    /**
+     * @description Lifecycle of a message, as published on the public API.
+     * @enum {string}
+     */
+    MessageStatus: 'accepted' | 'enroute' | 'delivered' | 'failed' | 'expired' | 'rejected' | 'rerouted' | 'cancelled'
+    /** @enum {string} */
+    TransitionKind:
+      | 'accepted'
+      | 'rejected'
+      | 'parked'
+      | 'unparked'
+      | 'cancelled'
+      | 'routed'
+      | 'submitted'
+      | 'submit_failed'
+      | 'not_sent'
+      | 'delivered'
+      | 'undeliverable'
+      | 'expired'
+      | 'dlr_window_closed'
+      | 'outcome_missing'
+      | 'received'
+      | 'routed_to_account'
+      | 'unrouted'
+      | 'delivered_to_account'
+      | 'delivery_failed'
+    /** @enum {string} */
+    AntispamVerdict: 'flag' | 'block'
+    /** @description Daily window, in the reference country's time zone. An `end` before `start` crosses midnight. */
+    TimeWindow: {
+      /** @example 21:00 */
+      start: string
+      /** @example 08:00 */
+      end: string
+      days: ('mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun')[]
+    }
+    RateLimit: {
+      max_per_sec: number
+      /** @description Messages admitted at once before `max_per_sec` paces them. */
+      burst_capacity: number
+    }
+    RateLimitSet: {
+      max_per_sec: number
+      /** @description Defaults to `max_per_sec`. */
+      burst_capacity?: number
+    }
+    Job: {
+      /** Format: uuid */
+      job_id: string
+      /** @enum {string} */
+      kind:
+        | 'exact_route_import'
+        | 'suppression_import'
+        | 'content_erase'
+        | 'partition_extension'
+        | 'message_export'
+        | 'gdpr_erase'
+      status: components['schemas']['JobStatus']
+      progress: number | null
+      /** @description Rows or items handled so far. */
+      counts: {
+        processed: number
+        rejected: number
+      }
+      /** @description Why a failed job failed. Never a subscriber number or a message body. */
+      error: string | null
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      finished_at: string | null
+    }
+    CustomerGroup: {
+      /** Format: uuid */
+      id: string
+      name: string
+      description: string | null
+      status: components['schemas']['CustomerGroupStatus']
+      member_count: number
+      created_by: components['schemas']['CreatedBy']
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      updated_at: string
+    }
+    CustomerGroupCreate: {
+      name: string
+      description?: string | null
+    }
+    CustomerGroupUpdate: {
+      name?: string
+      description?: string | null
+      status?: components['schemas']['CustomerGroupStatus']
+    }
+    CustomerGroupPage: {
+      data: components['schemas']['CustomerGroup'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    /**
+     * Format: uuid
+     * @description The creating operator's `sub`; null for a break-glass write.
+     */
+    CreatedBy: string | null
+    /** @description Maximum age per traffic category, in seconds; it can only lower the platform's. Null keeps the platform's. */
+    MaxAgeOverride: {
+      otp: number | null
+      transactional: number | null
+      marketing: number | null
+    }
+    Customer: {
+      /** Format: uuid */
+      id: string
+      name: string
+      status: components['schemas']['CustomerStatus']
+      /** Format: uuid */
+      group_id: string | null
+      max_age_override: components['schemas']['MaxAgeOverride']
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      updated_at: string
+    }
+    CustomerCreate: {
+      name: string
+      /** Format: uuid */
+      group_id?: string | null
+      max_age_override?: components['schemas']['MaxAgeOverride']
+    }
+    CustomerUpdate: {
+      name?: string
+      status?: components['schemas']['CustomerStatus']
+      /** Format: uuid */
+      group_id?: string | null
+      max_age_override?: components['schemas']['MaxAgeOverride']
+    }
+    CustomerPage: {
+      data: components['schemas']['Customer'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    AccountRef: {
+      /** Format: uuid */
+      id: string
+      name: string
+    }
+    SuspensionImpact: {
+      accounts_to_suspend: components['schemas']['AccountRef'][]
+      /** @description Closed accounts, which stay closed. */
+      accounts_closed: components['schemas']['AccountRef'][]
+      binds_to_disconnect: components['schemas']['Session'][]
+    }
+    CustomerContentPolicy: {
+      /** @description Null inherits the platform policy. */
+      content_storage: components['schemas']['ContentStorage'] | null
+      /** @description Null inherits the platform policy. */
+      content_retention_days: number | null
+    }
+    CustomerContentPolicyUpdate: {
+      content_storage?: components['schemas']['ContentStorage'] | null
+      content_retention_days?: number | null
+    }
+    ContentKeyRotated: {
+      /**
+       * Format: uuid
+       * @description The new active key.
+       */
+      content_key_id: string
+    }
+    SenderId: {
+      /** Format: uuid */
+      id: string
+      /** Format: uuid */
+      customer_id: string
+      address: string
+      status: components['schemas']['SenderIdStatus']
+      traffic_category: components['schemas']['TrafficCategory']
+      /** @description Null when only the account's limit applies. */
+      rate_limit: components['schemas']['RateLimit'] | null
+      /**
+       * Format: date-time
+       * @description Set when a message from this sender ID is first routed; from then on it cannot be deleted.
+       */
+      first_used_at: string | null
+      created_by: components['schemas']['CreatedBy']
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      updated_at: string
+    }
+    SenderIdCreate: {
+      /**
+       * @description Alphanumeric, at most 11 characters, or numeric E.164, at most 15 digits.
+       * @example ACME
+       */
+      address: string
+      /** @default marketing */
+      traffic_category: components['schemas']['TrafficCategory']
+    }
+    SenderIdUpdate: {
+      status?: components['schemas']['SenderIdStatus']
+      traffic_category?: components['schemas']['TrafficCategory']
+    }
+    SenderIdPage: {
+      data: components['schemas']['SenderId'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    Account: {
+      /** Format: uuid */
+      id: string
+      /** Format: uuid */
+      customer_id: string
+      name: string
+      status: components['schemas']['AccountStatus']
+      smpp_enabled: boolean
+      rest_enabled: boolean
+      query_sm_enabled: boolean
+      cancel_sm_enabled: boolean
+      allowed_bind_types: components['schemas']['BindType'][]
+      max_sessions: number
+      rate_limit: components['schemas']['RateLimit'] | null
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      updated_at: string
+    }
+    AccountCreate: {
+      /** Format: uuid */
+      customer_id: string
+      name: string
+      /** @default true */
+      smpp_enabled: boolean
+      /** @default true */
+      rest_enabled: boolean
+      /** @default true */
+      query_sm_enabled: boolean
+      /** @default true */
+      cancel_sm_enabled: boolean
+      allowed_bind_types?: components['schemas']['BindType'][]
+      /** @default 1 */
+      max_sessions: number
+    }
+    AccountUpdate: {
+      name?: string
+      status?: components['schemas']['AccountStatus']
+    }
+    /** @description At least one channel stays enabled. */
+    ChannelsUpdate: {
+      smpp_enabled: boolean
+      rest_enabled: boolean
+    }
+    SessionLimitsUpdate: {
+      max_sessions: number
+      allowed_bind_types: components['schemas']['BindType'][]
+    }
+    SmppOpsUpdate: {
+      query_sm_enabled?: boolean
+      cancel_sm_enabled?: boolean
+    }
+    AccountPage: {
+      data: components['schemas']['Account'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    /** @description The account's MO or receipt webhook. Its secret is never returned after creation or rotation. */
+    Webhook: {
+      /** Format: uuid */
+      id: string
+      /** Format: uuid */
+      account_id: string
+      /** @enum {string} */
+      event_type: 'mo' | 'dlr'
+      /** Format: uri */
+      url: string
+      status: components['schemas']['ActiveStatus']
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      updated_at: string
+    }
+    /**
+     * Format: uri
+     * @description An `https` URL without user information. Loopback, private and link-local addresses are refused at send time.
+     * @example https://hooks.example.com/sms
+     */
+    WebhookUrl: string
+    WebhookWithSecret: components['schemas']['Webhook'] & {
+      /** @description HMAC-SHA256 signing secret, shown this once. */
+      secret: string
+    }
+    WebhookCreate: {
+      /** @enum {string} */
+      event_type: 'mo' | 'dlr'
+      url: components['schemas']['WebhookUrl']
+    }
+    WebhookUpdate: {
+      url?: components['schemas']['WebhookUrl']
+      status?: components['schemas']['ActiveStatus']
+    }
+    /** @description Never carries a secret. */
+    Credential: {
+      /** Format: uuid */
+      id: string
+      /** Format: uuid */
+      account_id: string
+      /** @enum {string} */
+      type: 'smpp_bind' | 'api_key'
+      /** @description Set for `smpp_bind`. */
+      system_id: string | null
+      /** @enum {string} */
+      status: 'active' | 'disabled' | 'revoked'
+      /** Format: date-time */
+      last_used_at: string | null
+      /**
+       * Format: date-time
+       * @description Until then the previous secret is accepted too.
+       */
+      grace_expires_at: string | null
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      rotated_at: string | null
+    }
+    CredentialWithSecret: components['schemas']['Credential'] & {
+      /** @description The SMPP password or API key, shown this once. */
+      secret: string
+    }
+    CredentialCreate: {
+      /** @enum {string} */
+      type: 'smpp_bind' | 'api_key'
+      /** @description Required for `smpp_bind`. */
+      system_id?: string
+    }
+    CredentialStatusUpdate: {
+      status: components['schemas']['ActiveStatus']
+    }
+    CredentialRotate: {
+      /** @description How long the old secret stays valid too; at most 7 days. */
+      grace_period_sec?: number | null
+    }
+    /** @description SMPP session parameters of a connector, applied at the next bind. */
+    SmppProfile: {
+      vendor_profile?: string | null
+      /**
+       * @description 52 is SMPP 3.4, 80 is SMPP 5.0.
+       * @default 52
+       * @enum {integer}
+       */
+      interface_version: 52 | 80
+      /** @default 0 */
+      addr_ton: number
+      /** @default 0 */
+      addr_npi: number
+      /** @default 0 */
+      source_addr_ton: number
+      /** @default 0 */
+      source_addr_npi: number
+      /** @default 1 */
+      dest_addr_ton: number
+      /** @default 1 */
+      dest_addr_npi: number
+      data_coding_default?: number | null
+      /** @default 0 */
+      esm_class_default: number
+      /** @default 1 */
+      registered_delivery_default: number
+      /**
+       * @description Sent for a message of effective priority 0.
+       * @default 0
+       */
+      priority_flag_default: number
+      validity_period_default?: string | null
+      /** @default 30 */
+      enquire_link_interval_sec: number
+      /** @default 3 */
+      enquire_link_max_missed: number
+      /** @default 10000 */
+      bind_timeout_ms: number
+      /** @default 10000 */
+      response_timeout_ms: number
+    }
+    /** @description Automatic reconnection of the connector's SMPP binds, opt-in. The breaker never reconnects. */
+    ReconnectPolicy: {
+      enabled: boolean
+      /** @default 1000 */
+      initial_delay_ms: number
+      /** @default 2 */
+      multiplier: number
+      /** @default 60000 */
+      max_delay_ms: number
+      /** @default 20 */
+      jitter_pct: number
+      /**
+       * @description 0 retries without limit.
+       * @default 0
+       */
+      max_attempts: number
+    }
+    /** @description A destination, SMPP or HTTP, holding operator accounts. Its throughput is the sum of its available accounts'. */
+    Connector: {
+      /** Format: uuid */
+      id: string
+      name: string
+      status: components['schemas']['ActiveStatus']
+      /** @enum {string} */
+      protocol: 'smpp' | 'http'
+      smpp_profile: components['schemas']['SmppProfile'] | null
+      /** @description Name of a compiled HTTP adapter. */
+      http_adapter: string | null
+      /** @description Lowest traffic category rank accepted: 0 all, 1 transactional and otp, 2 otp only. */
+      priority_tier: number
+      reconnect_policy: components['schemas']['ReconnectPolicy']
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      updated_at: string
+    }
+    /** @description `smpp_profile` is required for `smpp`, `http_adapter` for `http`. */
+    ConnectorCreate: {
+      name: string
+      /** @enum {string} */
+      protocol: 'smpp' | 'http'
+      smpp_profile?: components['schemas']['SmppProfile']
+      http_adapter?: string
+      /** @default 0 */
+      priority_tier: number
+      reconnect_policy?: components['schemas']['ReconnectPolicy']
+    }
+    ConnectorUpdate: {
+      name?: string
+      status?: components['schemas']['ActiveStatus']
+      smpp_profile?: components['schemas']['SmppProfile']
+      http_adapter?: string
+      priority_tier?: number
+    }
+    ConnectorPage: {
+      data: components['schemas']['Connector'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    /** @enum {string} */
+    ConnectorAccountStatus: 'provisioning' | 'active' | 'draining' | 'disabled'
+    /** @description An operator account. Its credentials are write-only. */
+    ConnectorAccount: {
+      /** Format: uuid */
+      id: string
+      /** Format: uuid */
+      connector_id: string
+      /** @description `host:port` for SMPP, `https` base URL for HTTP. Loopback, private and link-local addresses are refused at send time. */
+      endpoint: string
+      throughput_limit_per_sec: number
+      /** @description SMPP. */
+      max_binds: number | null
+      /** @description Window per bind for SMPP, concurrent requests for HTTP. */
+      max_in_flight: number
+      /** @description SMPP. */
+      bind_type: components['schemas']['BindType'] | null
+      tls_enabled: boolean
+      tls_server_name: string | null
+      /** @description Partition of the account on the routed topics, never reassigned. */
+      partition: number
+      status: components['schemas']['ConnectorAccountStatus']
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      updated_at: string
+    }
+    /** @description Write-only, sealed at rest. Keys depend on the protocol and adapter, such as `system_id` and `password` for SMPP. */
+    ConnectorAccountCredentials: {
+      [key: string]: string
+    }
+    ConnectorAccountCreate: {
+      endpoint: string
+      credentials: components['schemas']['ConnectorAccountCredentials']
+      throughput_limit_per_sec: number
+      max_binds?: number | null
+      /** @default 10 */
+      max_in_flight: number
+      bind_type?: components['schemas']['BindType']
+      /** @default false */
+      tls_enabled: boolean
+      tls_server_name?: string | null
+    }
+    /** @description Changing `endpoint`, `tls_enabled` or `tls_server_name` requires `credentials` in the same request, else `validation_error`. */
+    ConnectorAccountUpdate: {
+      endpoint?: string
+      credentials?: components['schemas']['ConnectorAccountCredentials']
+      throughput_limit_per_sec?: number
+      max_binds?: number | null
+      max_in_flight?: number
+      bind_type?: components['schemas']['BindType']
+      tls_enabled?: boolean
+      tls_server_name?: string | null
+      /** @enum {string} */
+      status?: 'active' | 'draining' | 'disabled'
+    }
+    ConnectorAccountCreated: {
+      account: components['schemas']['ConnectorAccount']
+      job: components['schemas']['Job']
+    }
+    ConnectorAccountPage: {
+      data: components['schemas']['ConnectorAccount'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    /** @description Live state published by the account's lease holder. A state older than 15 seconds makes the account unavailable. */
+    ConnectorAccountState: {
+      /** Format: uuid */
+      connector_account_id: string
+      /** @description Pod holding the lease. */
+      holder: string | null
+      /** Format: int64 */
+      epoch: number
+      /** @enum {string} */
+      link_status: 'up' | 'reconnecting' | 'down' | 'auth_failed'
+      /** @enum {string} */
+      breaker_state: 'closed' | 'open' | 'half_open'
+      /** Format: int64 */
+      in_flight: number
+      /** Format: int64 */
+      lag: number
+      /** Format: date-time */
+      observed_at: string
+    }
+    ConnectorStatus: {
+      /** Format: uuid */
+      connector_id: string
+      /** @description At least one account is active, up, with its breaker not open. */
+      available: boolean
+      accounts: components['schemas']['ConnectorAccountState'][]
+    }
+    RouteTarget: {
+      /** Format: uuid */
+      connector_id: string
+      weight?: number
+      priority?: number
+    }
+    Route: {
+      /** Format: uuid */
+      id: string
+      name: string
+      /** @description Lower is evaluated first. */
+      priority: number
+      /** Format: uuid */
+      match_account_id: string | null
+      /** Format: uuid */
+      match_customer_id: string | null
+      match_sender_pattern: string | null
+      /** @description Digit prefix of the E.164 destination. */
+      match_dest_pattern: string | null
+      match_mccmnc: string | null
+      /** @description RE2 regex. */
+      match_content_pattern: string | null
+      match_time_window: components['schemas']['TimeWindow'] | null
+      distribution_strategy: components['schemas']['DistributionStrategy']
+      /**
+       * Format: uuid
+       * @description Set for `static`.
+       */
+      target_connector_id: string | null
+      /** @description At least two for any other strategy. */
+      targets: components['schemas']['RouteTarget'][]
+      /** Format: uuid */
+      fallback_route_id: string | null
+      status: components['schemas']['ActiveStatus']
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      updated_at: string
+    }
+    RouteCreate: {
+      name: string
+      /** @default 100 */
+      priority: number
+      /** Format: uuid */
+      match_account_id?: string | null
+      /** Format: uuid */
+      match_customer_id?: string | null
+      match_sender_pattern?: string | null
+      match_dest_pattern?: string | null
+      match_mccmnc?: string | null
+      /** @description RE2 regex. */
+      match_content_pattern?: string | null
+      match_time_window?: components['schemas']['TimeWindow'] | null
+      distribution_strategy: components['schemas']['DistributionStrategy']
+      /** Format: uuid */
+      target_connector_id?: string | null
+      targets?: components['schemas']['RouteTarget'][]
+      /** Format: uuid */
+      fallback_route_id?: string | null
+    }
+    RouteUpdate: {
+      name?: string
+      priority?: number
+      /** Format: uuid */
+      match_account_id?: string | null
+      /** Format: uuid */
+      match_customer_id?: string | null
+      match_sender_pattern?: string | null
+      match_dest_pattern?: string | null
+      match_mccmnc?: string | null
+      /** @description RE2 regex. */
+      match_content_pattern?: string | null
+      match_time_window?: components['schemas']['TimeWindow'] | null
+      distribution_strategy?: components['schemas']['DistributionStrategy']
+      /** Format: uuid */
+      target_connector_id?: string | null
+      targets?: components['schemas']['RouteTarget'][]
+      /** Format: uuid */
+      fallback_route_id?: string | null
+      status?: components['schemas']['ActiveStatus']
+    }
+    RouteReorder: {
+      ordered_ids: string[]
+    }
+    RoutePage: {
+      data: components['schemas']['Route'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    /** @enum {string} */
+    ExactRouteTargetType: 'connector' | 'route'
+    /** @enum {string} */
+    ExactRouteSource: 'mnp_import' | 'manual' | 'carrier_feed'
+    ExactRoute: {
+      msisdn: components['schemas']['Msisdn']
+      target_type: components['schemas']['ExactRouteTargetType']
+      /** Format: uuid */
+      target_id: string
+      source: components['schemas']['ExactRouteSource']
+      /** Format: date-time */
+      updated_at: string
+    }
+    ExactRouteCreate: {
+      msisdn: components['schemas']['MsisdnInput']
+      target_type: components['schemas']['ExactRouteTargetType']
+      /** Format: uuid */
+      target_id: string
+      /** @default manual */
+      source: components['schemas']['ExactRouteSource']
+    }
+    ExactRouteUpdate: {
+      msisdn: components['schemas']['MsisdnInput']
+      target_type?: components['schemas']['ExactRouteTargetType']
+      /** Format: uuid */
+      target_id?: string
+      source?: components['schemas']['ExactRouteSource']
+    }
+    /** @enum {string} */
+    ScriptStatus: 'draft' | 'active' | 'disabled'
+    /** @description A JavaScript routing script, bounded by a wall-clock timeout. */
+    RoutingScript: {
+      /** Format: uuid */
+      id: string
+      scope: components['schemas']['ScriptScope']
+      /** Format: uuid */
+      scope_id: string | null
+      name: string
+      source_code: string
+      checksum: string
+      status: components['schemas']['ScriptStatus']
+      timeout_ms: number
+      created_by: components['schemas']['CreatedBy']
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      published_at: string | null
+    }
+    RoutingScriptCreate: {
+      scope: components['schemas']['ScriptScope']
+      /** Format: uuid */
+      scope_id?: string | null
+      name: string
+      source_code: string
+      /** @default 2 */
+      timeout_ms: number
+    }
+    RoutingScriptUpdate: {
+      name?: string
+      source_code?: string
+      timeout_ms?: number
+    }
+    ScriptAssign: {
+      scope: components['schemas']['ScriptScope']
+      /** Format: uuid */
+      scope_id?: string | null
+    }
+    ScriptRollback: {
+      version: number
+    }
+    ScriptValidateResult: {
+      valid: boolean
+      checksum: string | null
+      errors: {
+        line: number | null
+        message: string
+      }[]
+    }
+    ScriptTestRequest: {
+      message: {
+        source_addr: string
+        dest_addr: components['schemas']['MsisdnInput']
+        /** @description Sample text, never stored. */
+        content: string
+        /** Format: uuid */
+        account_id?: string | null
+        /** Format: uuid */
+        customer_id?: string | null
+      }
+    }
+    ScriptTestResult: {
+      /**
+       * Format: uuid
+       * @description Null falls through to declarative routing.
+       */
+      route_id: string | null
+      took_ms: number
+      timed_out: boolean
+      error: string | null
+      logs: string[]
+    }
+    ScriptVersion: {
+      version: number
+      checksum: string
+      status: components['schemas']['ScriptStatus']
+      created_by: components['schemas']['CreatedBy']
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      published_at: string | null
+    }
+    RoutingScriptPage: {
+      data: components['schemas']['RoutingScript'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    ScriptVersionPage: {
+      data: components['schemas']['ScriptVersion'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    /** @description A live client SMPP bind. */
+    Session: {
+      /** Format: uuid */
+      account_id: string
+      bind_id: string
+      bind_type: components['schemas']['BindType']
+      /** @description The SMPP server pod holding the bind. */
+      pod_addr: string
+      /** Format: date-time */
+      connected_at: string
+      remote_addr: string
+    }
+    SessionPage: {
+      data: components['schemas']['Session'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    /** @enum {string} */
+    AntispamRuleType: 'velocity' | 'content_blacklist' | 'duplicate' | 'category_mismatch'
+    AntispamRule: {
+      /** Format: uuid */
+      id: string
+      rule_type: components['schemas']['AntispamRuleType']
+      scope: components['schemas']['AntispamScope']
+      /** Format: uuid */
+      scope_id: string | null
+      config_json: {
+        [key: string]: unknown
+      }
+      action: components['schemas']['AntispamVerdict']
+      status: components['schemas']['ActiveStatus']
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      updated_at: string
+    }
+    AntispamRuleCreate: {
+      rule_type: components['schemas']['AntispamRuleType']
+      scope: components['schemas']['AntispamScope']
+      /** Format: uuid */
+      scope_id?: string | null
+      /**
+       * @description Per rule type; a pattern is RE2, at most 1024 characters. `category_mismatch`, every field optional: `otp_code_min_digits` (4) and
+       *     `otp_code_max_digits` (8, at most 32) bound the code an otp message must carry;
+       *     `otp_max_length` (160) bounds its body, which holds no link; `promo_markers` ([]) are the
+       *     case-insensitive words a transactional message must not contain.
+       */
+      config_json?: {
+        [key: string]: unknown
+      }
+      /** @default flag */
+      action: components['schemas']['AntispamVerdict']
+    }
+    AntispamRuleUpdate: {
+      config_json?: {
+        [key: string]: unknown
+      }
+      action?: components['schemas']['AntispamVerdict']
+      status?: components['schemas']['ActiveStatus']
+    }
+    AntispamRulePage: {
+      data: components['schemas']['AntispamRule'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    Suppression: {
+      /** Format: uuid */
+      id: string
+      scope: components['schemas']['SuppressionScope']
+      /** Format: uuid */
+      scope_id: string | null
+      msisdn: components['schemas']['Msisdn']
+      source: components['schemas']['SuppressionSource']
+      reason: string | null
+      /** Format: date-time */
+      created_at: string
+    }
+    SuppressionCreate: {
+      scope: components['schemas']['SuppressionScope']
+      /** Format: uuid */
+      scope_id?: string | null
+      msisdn: components['schemas']['MsisdnInput']
+      source: components['schemas']['SuppressionSource']
+      reason?: string | null
+    }
+    SuppressionSearch: {
+      scope?: components['schemas']['SuppressionScope']
+      /** Format: uuid */
+      scope_id?: string
+      msisdn?: components['schemas']['MsisdnInput']
+    }
+    SuppressionImport: {
+      scope: components['schemas']['SuppressionScope']
+      /** Format: uuid */
+      scope_id?: string | null
+      source: components['schemas']['SuppressionSource']
+      msisdns: components['schemas']['MsisdnInput'][]
+    }
+    SuppressionCheck: {
+      msisdn: components['schemas']['MsisdnInput']
+      sender_addr?: string | null
+      /** Format: uuid */
+      account_id?: string | null
+    }
+    SuppressionCheckResult: {
+      blocked: boolean
+      matched_scopes: {
+        scope: components['schemas']['SuppressionScope']
+        /** Format: uuid */
+        scope_id: string | null
+      }[]
+    }
+    SuppressionPage: {
+      data: components['schemas']['Suppression'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    /** @description A STOP keyword of the reference country; a match records an opt-out. */
+    OptOutKeyword: {
+      /** Format: uuid */
+      id: string
+      keyword: string
+      /** @enum {string} */
+      match_type: 'exact' | 'prefix'
+      status: components['schemas']['ActiveStatus']
+    }
+    OptOutKeywordCreate: {
+      keyword: string
+      /**
+       * @default exact
+       * @enum {string}
+       */
+      match_type: 'exact' | 'prefix'
+    }
+    OptOutKeywordUpdate: {
+      keyword?: string
+      /** @enum {string} */
+      match_type?: 'exact' | 'prefix'
+      status?: components['schemas']['ActiveStatus']
+    }
+    OptOutKeywordPage: {
+      data: components['schemas']['OptOutKeyword'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    InboundNumber: {
+      /** Format: uuid */
+      id: string
+      address: string
+      /** @enum {string} */
+      number_type: 'shortcode' | 'longcode' | 'alphanumeric'
+      mccmnc: string | null
+      /** Format: uuid */
+      connector_id: string | null
+      /**
+       * Format: uuid
+       * @description Dedicated account; null for a shared number.
+       */
+      account_id: string | null
+      /**
+       * Format: uuid
+       * @description Receives a shared number's MO that matches no keyword.
+       */
+      fallback_account_id: string | null
+      status: components['schemas']['ActiveStatus']
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      updated_at: string
+    }
+    InboundNumberCreate: {
+      address: string
+      /** @enum {string} */
+      number_type: 'shortcode' | 'longcode' | 'alphanumeric'
+      mccmnc?: string | null
+      /** Format: uuid */
+      connector_id?: string | null
+      /** Format: uuid */
+      account_id?: string | null
+      /** Format: uuid */
+      fallback_account_id?: string | null
+    }
+    InboundNumberUpdate: {
+      /** @enum {string} */
+      number_type?: 'shortcode' | 'longcode' | 'alphanumeric'
+      mccmnc?: string | null
+      /** Format: uuid */
+      connector_id?: string | null
+      /** Format: uuid */
+      fallback_account_id?: string | null
+      status?: components['schemas']['ActiveStatus']
+    }
+    InboundNumberAssign: {
+      /** Format: uuid */
+      account_id: string | null
+    }
+    InboundNumberPage: {
+      data: components['schemas']['InboundNumber'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    InboundKeyword: {
+      /** Format: uuid */
+      id: string
+      /** Format: uuid */
+      inbound_number_id: string
+      /** @description RE2 regex when `match_type` is `regex`. */
+      keyword: string
+      /** @enum {string} */
+      match_type: 'exact' | 'prefix' | 'regex'
+      /** Format: uuid */
+      account_id: string
+      priority: number
+      status: components['schemas']['ActiveStatus']
+    }
+    InboundKeywordCreate: {
+      /** @description RE2 regex when `match_type` is `regex`. */
+      keyword: string
+      /**
+       * @default prefix
+       * @enum {string}
+       */
+      match_type: 'exact' | 'prefix' | 'regex'
+      /** Format: uuid */
+      account_id: string
+      /** @default 0 */
+      priority: number
+    }
+    InboundKeywordUpdate: {
+      keyword?: string
+      /** @enum {string} */
+      match_type?: 'exact' | 'prefix' | 'regex'
+      /** Format: uuid */
+      account_id?: string
+      priority?: number
+      status?: components['schemas']['ActiveStatus']
+    }
+    InboundKeywordPage: {
+      data: components['schemas']['InboundKeyword'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    UnroutedMo: {
+      /** Format: uuid */
+      message_id: string
+      source_addr: components['schemas']['Msisdn']
+      /** @description Inbound number that received the message. */
+      dest_addr: string
+      /** Format: date-time */
+      received_at: string
+    }
+    UnroutedMoPage: {
+      data: components['schemas']['UnroutedMo'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    /** @enum {string} */
+    RewriteType: 'static' | 'fallback_pool' | 'truncate' | 'sanitize'
+    SenderRewriteRule: {
+      /** Format: uuid */
+      id: string
+      scope: components['schemas']['RewriteScope']
+      /** Format: uuid */
+      scope_id: string | null
+      /** @description RE2 regex on the whole submitted sender; null matches any. */
+      match_sender_pattern: string | null
+      /** @description RE2 regex on the whole destination, digits only; null matches any. */
+      match_dest_pattern: string | null
+      rewrite_type: components['schemas']['RewriteType']
+      /** @description Set for `static`. */
+      rewrite_to: string | null
+      /** @description Set for `fallback_pool`; the sender is picked by hashing the message ID. */
+      fallback_pool_json: string[] | null
+      /** @description Set for `truncate`. */
+      max_length: number | null
+      /** @description For `sanitize`: `{"allowed": "<characters kept>"}`; null keeps ASCII letters and digits. */
+      sanitize_charset_json: {
+        [key: string]: string
+      } | null
+      /** @description Lower is evaluated first within a scope. */
+      priority: number
+      reason: string | null
+      status: components['schemas']['ActiveStatus']
+      created_by: components['schemas']['CreatedBy']
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      updated_at: string
+    }
+    SenderRewriteRuleCreate: {
+      scope: components['schemas']['RewriteScope']
+      /** Format: uuid */
+      scope_id?: string | null
+      match_sender_pattern?: string | null
+      match_dest_pattern?: string | null
+      rewrite_type: components['schemas']['RewriteType']
+      rewrite_to?: string | null
+      fallback_pool_json?: string[] | null
+      max_length?: number | null
+      sanitize_charset_json?: {
+        [key: string]: string
+      } | null
+      /** @default 100 */
+      priority: number
+      reason?: string | null
+    }
+    SenderRewriteRuleUpdate: {
+      match_sender_pattern?: string | null
+      match_dest_pattern?: string | null
+      rewrite_type?: components['schemas']['RewriteType']
+      rewrite_to?: string | null
+      fallback_pool_json?: string[] | null
+      max_length?: number | null
+      sanitize_charset_json?: {
+        [key: string]: string
+      } | null
+      priority?: number
+      reason?: string | null
+      status?: components['schemas']['ActiveStatus']
+    }
+    RewriteTestRequest: {
+      /** @description The sender as submitted. */
+      source_addr: string
+      dest_addr: components['schemas']['MsisdnInput']
+      /**
+       * Format: uuid
+       * @description Picks the `fallback_pool` sender as for that message; absent, the nil UUID.
+       */
+      message_id?: string
+    }
+    RewriteTestResult: {
+      matched: boolean
+      rewritten_source: string | null
+    }
+    SenderRewriteRulePage: {
+      data: components['schemas']['SenderRewriteRule'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    /**
+     * @description A customer's billing configuration. Under `balance_scope` `account` there is neither overdraft
+     *     nor hard limit: the floor is 0.
+     */
+    BillingCustomer: {
+      /** Format: uuid */
+      customer_id: string
+      billing_enabled: boolean
+      /** @enum {string} */
+      billing_mode: 'prepaid' | 'postpaid'
+      overdraft_enabled: boolean
+      overdraft_limit: number | null
+      credit_limit: number | null
+      credit_limit_is_hard: boolean
+      charge_on: components['schemas']['ChargeOn']
+      /** Format: uuid */
+      rate_plan_id: string | null
+      mo_billing_floor: number | null
+      balance_scope: components['schemas']['OwnerType']
+      /** Format: date-time */
+      updated_at: string
+    }
+    BillingCustomerUpdate: {
+      charge_on?: components['schemas']['ChargeOn']
+      /** Format: uuid */
+      rate_plan_id?: string | null
+      mo_billing_floor?: number | null
+    }
+    CreditTermsUpdate: {
+      billing_enabled?: boolean
+      /** @enum {string} */
+      billing_mode?: 'prepaid' | 'postpaid'
+      overdraft_enabled?: boolean
+      overdraft_limit?: number | null
+      credit_limit?: number | null
+      credit_limit_is_hard?: boolean
+    }
+    BalanceScopeChange: {
+      balance_scope: components['schemas']['OwnerType']
+    }
+    Owner: {
+      owner_type: components['schemas']['OwnerType']
+      /** Format: uuid */
+      owner_id: string
+    }
+    OwnerPage: {
+      data: components['schemas']['Owner'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    Balance: {
+      owner_type: components['schemas']['OwnerType']
+      /** Format: uuid */
+      owner_id: string
+      /**
+       * Format: int64
+       * @description MT balance, in credits; may be negative.
+       */
+      mt: number
+      /**
+       * Format: int64
+       * @description MO counter, in credits.
+       */
+      mo: number
+    }
+    BalancePage: {
+      data: components['schemas']['Balance'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    Topup: {
+      /** Format: int64 */
+      credits: number
+      direction: components['schemas']['Direction']
+      /**
+       * Format: uuid
+       * @description Required under `balance_scope` `account`, refused otherwise.
+       */
+      account_id?: string | null
+    }
+    Adjust: {
+      /**
+       * Format: int64
+       * @description Signed.
+       */
+      delta: number
+      direction: components['schemas']['Direction']
+      /**
+       * Format: uuid
+       * @description Required under `balance_scope` `account`, refused otherwise.
+       */
+      account_id?: string | null
+    }
+    Transfer: {
+      /** Format: int64 */
+      credits: number
+      /** Format: uuid */
+      from_account_id: string
+      /** Format: uuid */
+      to_account_id: string
+    }
+    LedgerEntry: {
+      /** @enum {string} */
+      entry_type:
+        | 'lease_grant'
+        | 'lease_refund'
+        | 'late_release'
+        | 'charge'
+        | 'mo_charge'
+        | 'topup'
+        | 'transfer'
+        | 'adjustment'
+      direction: components['schemas']['Direction']
+      /**
+       * Format: int64
+       * @description Signed.
+       */
+      credits: number
+      /** Format: date-time */
+      at: string
+    }
+    LedgerPage: {
+      data: components['schemas']['LedgerEntry'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    RatePlan: {
+      /** Format: uuid */
+      id: string
+      name: string
+      /** Format: int64 */
+      readonly version: number
+      /** @description Integer credits per MT segment, by destination and sender type. */
+      credits_per_segment_mt_json: {
+        [key: string]: unknown
+      }
+      credits_per_segment_mo_json: {
+        [key: string]: unknown
+      }
+      /** @enum {string} */
+      billing_mode: 'prepaid' | 'postpaid' | 'either'
+      status: components['schemas']['ActiveStatus']
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      updated_at: string
+    }
+    RatePlanCreate: {
+      name: string
+      credits_per_segment_mt_json: {
+        [key: string]: unknown
+      }
+      credits_per_segment_mo_json: {
+        [key: string]: unknown
+      }
+      /**
+       * @default either
+       * @enum {string}
+       */
+      billing_mode: 'prepaid' | 'postpaid' | 'either'
+    }
+    RatePlanUpdate: {
+      name?: string
+      credits_per_segment_mt_json?: {
+        [key: string]: unknown
+      }
+      credits_per_segment_mo_json?: {
+        [key: string]: unknown
+      }
+      /** @enum {string} */
+      billing_mode?: 'prepaid' | 'postpaid' | 'either'
+      status?: components['schemas']['ActiveStatus']
+    }
+    RatePlanPage: {
+      data: components['schemas']['RatePlan'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    PlatformPolicy: {
+      content_storage: components['schemas']['ContentStorage']
+      /** @description Default 7. */
+      content_retention_days: number
+      /** @description Null disables them. Inside the window, a marketing message is refused at admission (`quiet_hours`). */
+      quiet_hours: components['schemas']['TimeWindow'] | null
+      /** @description Global switch; off, no customer is billed. */
+      billing_enabled: boolean
+    }
+    /** @description The content policy is set by `update-platform-content-policy`, the billing switch by `update-platform-billing-policy`. */
+    PlatformPolicyUpdate: {
+      quiet_hours?: components['schemas']['TimeWindow'] | null
+    }
+    PlatformBillingPolicyUpdate: {
+      billing_enabled: boolean
+    }
+    PlatformContentPolicyUpdate: {
+      content_storage?: components['schemas']['ContentStorage']
+      content_retention_days?: number
+    }
+    /** @description Exactly one of `text` and `octets` is set. */
+    MessageContent: {
+      /** Format: uuid */
+      message_id: string
+      /** @enum {string} */
+      data_coding: 'gsm7' | 'ucs2' | 'binary'
+      /** @description Body when `data_coding` is gsm7 or ucs2. */
+      text: string | null
+      /** @description Body when `data_coding` is binary. */
+      octets: string | null
+    }
+    /** @description `customer_id` for a customer, `msisdn` for a person. */
+    GdprEraseRequest: {
+      /** @enum {string} */
+      subject_type: 'customer' | 'msisdn'
+      /** Format: uuid */
+      customer_id?: string
+      msisdn?: components['schemas']['MsisdnInput']
+    } & (
+      | {
+          /** @constant */
+          subject_type?: 'customer'
+        }
+      | {
+          /** @constant */
+          subject_type?: 'msisdn'
+        }
+    )
+    GdprSubject: {
+      /** @enum {string} */
+      subject_type: 'customer' | 'msisdn'
+      /** Format: uuid */
+      customer_id: string | null
+      msisdn: components['schemas']['Msisdn'] | null
+    }
+    GdprEraseJob: components['schemas']['Job'] &
+      components['schemas']['GdprSubject'] & {
+        /** @description Set once completed. */
+        attestation: components['schemas']['Attestation'] | null
+      }
+    Attestation: {
+      /** @description What was erased, in order, each verified after mutation. */
+      steps: {
+        step: string
+        /** Format: date-time */
+        completed_at: string
+      }[]
+      /** @description What survives the erasure, and for how long. */
+      exclusions: {
+        /** @example audit log */
+        data: string
+        /** @example 365 days */
+        retention: string
+      }[]
+    }
+    AuditEntry: {
+      /** Format: uuid */
+      id: string
+      /** @description The operator's `sub`, `service:<name>` or `breakglass:<name>`. */
+      operator: string
+      operation_id: string
+      /** @description The path of the call, without its query. */
+      target: string
+      request_id: string | null
+      /** @description HTTP status. */
+      status: number
+      /** @description For a body read: `granted`, `unreadable` or `not_found`. */
+      outcome: string | null
+      /**
+       * Format: date-time
+       * @description When the outcome was recorded; an entry is written once.
+       */
+      at: string
+    }
+    AuditEntryPage: {
+      data: components['schemas']['AuditEntry'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    AuditChange: {
+      actor: string
+      table: string
+      pk: string
+      /** @enum {string} */
+      op: 'insert' | 'update' | 'delete'
+      before: {
+        [key: string]: unknown
+      } | null
+      after: {
+        [key: string]: unknown
+      } | null
+      /** Format: date-time */
+      at: string
+    }
+    AuditChangePage: {
+      data: components['schemas']['AuditChange'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    /** @description The folded state of a message. For an MT `source_addr` is the sender ID; for an MO it is the subscriber. */
+    MessageDetail: {
+      /** Format: uuid */
+      message_id: string
+      /** Format: uuid */
+      trace_id: string
+      direction: components['schemas']['Direction']
+      /** Format: uuid */
+      account_id: string
+      /** Format: uuid */
+      customer_id: string
+      status: components['schemas']['MessageStatus']
+      source_addr: components['schemas']['Msisdn']
+      dest_addr: components['schemas']['Msisdn']
+      ingress: components['schemas']['Ingress'] | null
+      traffic_category: components['schemas']['TrafficCategory'] | null
+      /** Format: uuid */
+      route_id: string | null
+      error_code: components['schemas']['ErrorCode'] | null
+      antispam_verdict: components['schemas']['AntispamVerdict'] | null
+      /** Format: uuid */
+      antispam_rule_id: string | null
+      /** @description Empty until routed. */
+      segments: components['schemas']['SegmentState'][]
+      /**
+       * @description `state`: exact. `history`: from the CDR, which may lag.
+       * @enum {string}
+       */
+      source: 'state' | 'history'
+    }
+    SegmentState: {
+      segment_seq: number
+      attempt: number
+      kind: components['schemas']['TransitionKind']
+      /** Format: uuid */
+      connector_id: string | null
+      /** Format: uuid */
+      connector_account_id: string | null
+      /** @description The carrier's message ID. */
+      remote_id: string | null
+      /** @description The sender as sent, after rewriting. */
+      sent_source_addr: string | null
+      error_code: components['schemas']['ErrorCode'] | null
+      raw_dlr_status: string | null
+      /** Format: int64 */
+      credits: number
+      charge_on: components['schemas']['ChargeOn'] | null
+    }
+    MessageTrace: {
+      /** Format: uuid */
+      message_id: string
+      /** Format: uuid */
+      trace_id: string
+      /** @description From `state`: every transition. From `history`: one outcome per segment. */
+      transitions: {
+        kind: components['schemas']['TransitionKind']
+        segment_seq: number
+        attempt: number
+        /** Format: date-time */
+        occurred_at: string
+      }[]
+      /** @enum {string} */
+      source: 'state' | 'history'
+    }
+    /** @description Every filter narrows the result; unknown members are refused. */
+    MessageSearch: {
+      /** Format: uuid */
+      trace_id?: string
+      /** Format: uuid */
+      account_id?: string
+      /** Format: uuid */
+      customer_id?: string
+      /**
+       * Format: uuid
+       * @description Customers currently in the group.
+       */
+      group_id?: string
+      /** Format: uuid */
+      connector_id?: string
+      status?: components['schemas']['MessageStatus']
+      direction?: components['schemas']['Direction']
+      traffic_category?: components['schemas']['TrafficCategory']
+      ingress?: components['schemas']['Ingress']
+      error_code?: components['schemas']['ErrorCode']
+      antispam_verdict?: components['schemas']['AntispamVerdict']
+      /** @description Exact match on either address, never a prefix. */
+      msisdn?: components['schemas']['MsisdnInput']
+      /** Format: date-time */
+      from_date: string
+      /** Format: date-time */
+      to_date: string
+    }
+    /** @description One CDR row, per message and per segment. For an MT `source_addr` is the sender ID; for an MO it is the subscriber. */
+    MessageSummary: {
+      /** Format: uuid */
+      message_id: string
+      /** Format: uuid */
+      trace_id: string
+      segment_seq: number
+      segment_count: number
+      /** Format: uuid */
+      account_id: string
+      /** Format: uuid */
+      customer_id: string
+      direction: components['schemas']['Direction']
+      source_addr: components['schemas']['Msisdn']
+      /** @description The sender as sent, after rewriting. */
+      sent_source_addr: string | null
+      dest_addr: components['schemas']['Msisdn']
+      ingress: components['schemas']['Ingress'] | null
+      traffic_category: components['schemas']['TrafficCategory'] | null
+      /** Format: uuid */
+      connector_id: string | null
+      /** Format: uuid */
+      connector_account_id: string | null
+      /** Format: uuid */
+      route_id: string | null
+      status: components['schemas']['MessageStatus']
+      error_code: components['schemas']['ErrorCode'] | null
+      antispam_verdict: components['schemas']['AntispamVerdict'] | null
+      /** Format: int64 */
+      credits: number
+      charge_on: components['schemas']['ChargeOn'] | null
+      /** @enum {string} */
+      settlement_status: 'not_billable' | 'pending' | 'captured' | 'captured_without_dlr' | 'released'
+      /**
+       * Format: date-time
+       * @description Acceptance time.
+       */
+      submitted_at: string
+      /** Format: date-time */
+      delivered_at: string | null
+      /** @description From acceptance to delivery receipt. */
+      latency_ms: number | null
+    }
+    MessageSummaryPage: {
+      data: components['schemas']['MessageSummary'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    MessageExportRequest: {
+      filters: components['schemas']['MessageSearch']
+    }
+    ExportJob: components['schemas']['Job'] & {
+      /**
+       * Format: uri
+       * @description Set once completed; expires at `expires_at`.
+       */
+      download_url: string | null
+      /** Format: date-time */
+      expires_at: string | null
+    }
+    MetricsSummary: {
+      /** @enum {string} */
+      window: '5m' | '15m' | '30m' | '1h'
+      submitted: number
+      delivered: number
+      /** @description Failed or expired. */
+      failed: number
+      rejected: number
+      mo_received: number
+      e2e_latency_ms_p50: number | null
+      /** @description From acceptance to delivery receipt. */
+      e2e_latency_ms_p99: number | null
+      /** @description Client binds open at read time; null when the registry cannot be read. */
+      active_sessions: number | null
+    }
+    TrafficMetrics: {
+      group_by: components['schemas']['TrafficDimension']
+      /** @enum {string} */
+      window: '5m' | '15m' | '30m' | '1h'
+      series: {
+        /** @description Dimension value: an ID, or `rest` or `smpp` by channel; or the reserved `other`, `ungrouped`, `unknown`. */
+        key: string
+        points: {
+          /** Format: date-time */
+          t: string
+          submitted: number
+          delivered: number
+          failed: number
+          mo_received: number
+        }[]
+      }[]
+    }
+    /** @description Platform-wide counters over the last interval, aggregated by the gateway. */
+    MetricSnapshot: {
+      /** Format: date-time */
+      emitted_at: string
+      interval_seconds: number
+      submitted: number
+      delivered: number
+      failed: number
+      rejected: number
+      mo_received: number
+      active_sessions: number | null
+    }
+    /** @description A client bind opened or closed. Identifiers only. */
+    SessionEvent: {
+      /** Format: date-time */
+      emitted_at: string
+      /** Format: uuid */
+      account_id: string
+      system_id: string
+      /** @enum {string} */
+      state: 'bound' | 'unbound'
+      /** @description The account's live binds after the change; null on `unbound`. */
+      sessions: number | null
+    }
+    ConnectorSnapshot: {
+      /** Format: date-time */
+      emitted_at: string
+      connectors: components['schemas']['ConnectorStatus'][]
+    }
+    DeadLetterGroup: {
+      group: string
+      /** Format: int64 */
+      count: number
+      /** Format: date-time */
+      oldest_at: string | null
+    }
+    DeadLetterGroupPage: {
+      data: components['schemas']['DeadLetterGroup'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    /** @description Position of a record in the dead-letter topic. */
+    DeadLetterPosition: {
+      partition: number
+      /** Format: int64 */
+      offset: number
+    }
+    DeadLetter: {
+      partition: number
+      /** Format: int64 */
+      offset: number
+      /** @description Never a subscriber number or a message body. */
+      dlq_reason: string
+      /** Format: date-time */
+      dlq_at: string
+      source_topic: string
+      source_partition: number
+      /** Format: int64 */
+      source_offset: number
+      /** Format: date-time */
+      origin_ts: string
+      replay_count: number
+      /** Format: uuid */
+      message_id: string | null
+      /** @description Past its maximum age; not replayable. */
+      expired: boolean
+    }
+    DeadLetterPage: {
+      data: components['schemas']['DeadLetter'][]
+      next_cursor: components['schemas']['NextCursor']
+    }
+    ReplayRequest: {
+      records: components['schemas']['DeadLetterPosition'][]
+    }
+    ReplayResult: {
+      results: {
+        partition: number
+        /** Format: int64 */
+        offset: number
+        replayed: boolean
+        /** @description Why the record was not replayed. */
+        error: components['schemas']['Error'] | null
+      }[]
+    }
+  }
+  responses: {
+    /** @description Missing, expired or invalid operator token (`unauthenticated`). */
+    Unauthorized: {
+      headers: {
+        [name: string]: unknown
+      }
+      content: {
+        'application/json': components['schemas']['Error']
+      }
+    }
+    /** @description The token lacks the operation's scope (`forbidden_scope`). */
+    Forbidden: {
+      headers: {
+        [name: string]: unknown
+      }
+      content: {
+        'application/json': components['schemas']['Error']
+      }
+    }
+    /** @description No such resource (`not_found`). */
+    NotFound: {
+      headers: {
+        [name: string]: unknown
+      }
+      content: {
+        'application/json': components['schemas']['Error']
+      }
+    }
+    /** @description The current state forbids the operation (`conflict`); `errors[]` says why. */
+    Conflict: {
+      headers: {
+        [name: string]: unknown
+      }
+      content: {
+        'application/json': components['schemas']['Error']
+      }
+    }
+    /**
+     * @description The `Idempotency-Key` is in flight or was used for another body (`idempotency_conflict`), or the
+     *     current state forbids the operation (`conflict`).
+     */
+    IdempotencyConflict: {
+      headers: {
+        [name: string]: unknown
+      }
+      content: {
+        'application/json': components['schemas']['Error']
+      }
+    }
+    /** @description The source balance, counting its open leases, cannot cover the amount (`insufficient_credit`). */
+    InsufficientCredit: {
+      headers: {
+        [name: string]: unknown
+      }
+      content: {
+        'application/json': components['schemas']['Error']
+      }
+    }
+    /** @description The request body exceeds the accepted size (`payload_too_large`). */
+    PayloadTooLarge: {
+      headers: {
+        [name: string]: unknown
+      }
+      content: {
+        'application/json': components['schemas']['Error']
+      }
+    }
+    /** @description Malformed request (`validation_error`); `errors[]` details each field. */
+    ValidationError: {
+      headers: {
+        [name: string]: unknown
+      }
+      content: {
+        'application/json': components['schemas']['Error']
+      }
+    }
+    /** @description Unexpected error (`internal_error`). */
+    InternalError: {
+      headers: {
+        [name: string]: unknown
+      }
+      content: {
+        'application/json': components['schemas']['Error']
+      }
+    }
+    /** @description A dependency is unreachable (`service_unavailable`); nothing was changed, retry later. */
+    ServiceUnavailable: {
+      headers: {
+        [name: string]: unknown
+      }
+      content: {
+        'application/json': components['schemas']['Error']
+      }
+    }
+  }
+  parameters: {
+    Id: string
+    /** @description Message ID (UUIDv7). */
+    MessageId: string
+    SenderId: string
+    CredentialId: string
+    WebhookId: string
+    KeywordId: string
+    ConnectorAccountId: string
+    BindId: string
+    JobId: string
+    RequestId: string
+    /** @description Consumer group whose dead-letter topic is read. */
+    Group: string
+    /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+    Cursor: string
+    Limit: number
+    Window: '5m' | '15m' | '30m' | '1h'
+    /** @description A retry with the same key applies once. */
+    IdempotencyKey: string
+  }
+  requestBodies: never
+  headers: {
+    /** @description The response must not be cached. */
+    NoStore: 'no-store'
+  }
+  pathItems: never
+}
+export type $defs = Record<string, never>
 export interface operations {
-    "list-customer-groups": {
-        parameters: {
-            query?: {
-                status?: components["schemas"]["CustomerGroupStatus"];
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CustomerGroupPage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "create-customer-group": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CustomerGroupCreate"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CustomerGroup"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "get-customer-group": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CustomerGroup"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "delete-customer-group": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "update-customer-group": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CustomerGroupUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CustomerGroup"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "list-group-customers": {
-        parameters: {
-            query?: {
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CustomerPage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "list-customers": {
-        parameters: {
-            query?: {
-                group_id?: string;
-                status?: components["schemas"]["CustomerStatus"];
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CustomerPage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "create-customer": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CustomerCreate"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Customer"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "get-customer": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Customer"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "delete-customer": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "update-customer": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CustomerUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Customer"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "suspend-customer": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Customer"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "get-customer-suspension-impact": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SuspensionImpact"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "get-customer-content-policy": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CustomerContentPolicy"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "update-customer-content-policy": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CustomerContentPolicyUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CustomerContentPolicy"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "rotate-content-key": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ContentKeyRotated"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "list-sender-ids": {
-        parameters: {
-            query?: {
-                traffic_category?: components["schemas"]["TrafficCategory"];
-                status?: components["schemas"]["SenderIdStatus"];
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SenderIdPage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "create-sender-id": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SenderIdCreate"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SenderId"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "delete-sender-id": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                sender_id: components["parameters"]["SenderId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "update-sender-id": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                sender_id: components["parameters"]["SenderId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SenderIdUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SenderId"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "set-sender-id-rate-limit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                sender_id: components["parameters"]["SenderId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RateLimitSet"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SenderId"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "delete-sender-id-rate-limit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                sender_id: components["parameters"]["SenderId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Removed. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "list-accounts": {
-        parameters: {
-            query?: {
-                customer_id?: string;
-                group_id?: string;
-                status?: components["schemas"]["AccountStatus"];
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AccountPage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "create-account": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AccountCreate"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Account"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "get-account": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Account"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "delete-account": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "update-account": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AccountUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Account"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "suspend-account": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Account"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "set-account-channels": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ChannelsUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Account"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "set-account-session-limits": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SessionLimitsUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Account"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "set-account-smpp-ops": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SmppOpsUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Account"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "set-account-rate-limit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RateLimitSet"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Account"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "delete-account-rate-limit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Removed. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "list-webhooks": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Webhook"][];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "create-webhook": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebhookCreate"];
-            };
-        };
-        responses: {
-            /** @description Created. */
-            201: {
-                headers: {
-                    "Cache-Control": components["headers"]["NoStore"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WebhookWithSecret"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "delete-webhook": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                webhook_id: components["parameters"]["WebhookId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "update-webhook": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                webhook_id: components["parameters"]["WebhookId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebhookUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Webhook"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "rotate-webhook-secret": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                webhook_id: components["parameters"]["WebhookId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Rotated. */
-            200: {
-                headers: {
-                    "Cache-Control": components["headers"]["NoStore"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WebhookWithSecret"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "list-credentials": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Credential"][];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "create-credential": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CredentialCreate"];
-            };
-        };
-        responses: {
-            /** @description Created. */
-            201: {
-                headers: {
-                    "Cache-Control": components["headers"]["NoStore"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CredentialWithSecret"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "revoke-credential": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                credential_id: components["parameters"]["CredentialId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Revoked. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "update-credential-status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                credential_id: components["parameters"]["CredentialId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CredentialStatusUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Credential"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "rotate-credential": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                credential_id: components["parameters"]["CredentialId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["CredentialRotate"];
-            };
-        };
-        responses: {
-            /** @description Rotated. */
-            200: {
-                headers: {
-                    "Cache-Control": components["headers"]["NoStore"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CredentialWithSecret"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "list-connectors": {
-        parameters: {
-            query?: {
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConnectorPage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "create-connector": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConnectorCreate"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Connector"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "get-connector": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Connector"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "delete-connector": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "update-connector": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConnectorUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Connector"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "get-connector-status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConnectorStatus"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "set-connector-reconnect-policy": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ReconnectPolicy"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Connector"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "list-connector-accounts": {
-        parameters: {
-            query?: {
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConnectorAccountPage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "create-connector-account": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConnectorAccountCreate"];
-            };
-        };
-        responses: {
-            /** @description Accepted */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConnectorAccountCreated"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "get-connector-account": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                connector_account_id: components["parameters"]["ConnectorAccountId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConnectorAccount"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "delete-connector-account": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                connector_account_id: components["parameters"]["ConnectorAccountId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "update-connector-account": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                connector_account_id: components["parameters"]["ConnectorAccountId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConnectorAccountUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConnectorAccount"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "rebind-connector-account": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                connector_account_id: components["parameters"]["ConnectorAccountId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Rebind requested. */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "list-routes": {
-        parameters: {
-            query?: {
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoutePage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "create-route": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RouteCreate"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Route"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "reorder-routes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RouteReorder"];
-            };
-        };
-        responses: {
-            /** @description Reordered. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "get-route": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Route"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "delete-route": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "update-route": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RouteUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Route"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "create-exact-route": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ExactRouteCreate"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ExactRoute"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "update-exact-route": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ExactRouteUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ExactRoute"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "delete-exact-route": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MsisdnRequest"];
-            };
-        };
-        responses: {
-            /** @description Deleted. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "lookup-exact-route": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MsisdnRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ExactRoute"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "import-exact-routes": {
-        parameters: {
-            query?: {
-                source?: "mnp_import" | "carrier_feed";
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "text/csv": string;
-            };
-        };
-        responses: {
-            /** @description Accepted */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Job"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            413: components["responses"]["PayloadTooLarge"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "list-routing-scripts": {
-        parameters: {
-            query?: {
-                scope?: components["schemas"]["ScriptScope"];
-                scope_id?: string;
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoutingScriptPage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "create-routing-script": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RoutingScriptCreate"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoutingScript"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "get-routing-script": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoutingScript"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "delete-routing-script": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "update-routing-script": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RoutingScriptUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoutingScript"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "assign-routing-script": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ScriptAssign"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoutingScript"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "validate-routing-script": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScriptValidateResult"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "test-routing-script": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ScriptTestRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScriptTestResult"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "publish-routing-script": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoutingScript"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "rollback-routing-script": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ScriptRollback"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoutingScript"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "list-routing-script-versions": {
-        parameters: {
-            query?: {
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScriptVersionPage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "list-sessions": {
-        parameters: {
-            query?: {
-                account_id?: string;
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SessionPage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "disconnect-session": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                bind_id: components["parameters"]["BindId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Disconnect ordered. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "list-antispam-rules": {
-        parameters: {
-            query?: {
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AntispamRulePage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "create-antispam-rule": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AntispamRuleCreate"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AntispamRule"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "delete-antispam-rule": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "update-antispam-rule": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AntispamRuleUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AntispamRule"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "create-suppression": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SuppressionCreate"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Suppression"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "search-suppressions": {
-        parameters: {
-            query?: {
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SuppressionSearch"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SuppressionPage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "import-suppressions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SuppressionImport"];
-            };
-        };
-        responses: {
-            /** @description Accepted */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Job"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            413: components["responses"]["PayloadTooLarge"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "check-suppression": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SuppressionCheck"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SuppressionCheckResult"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "delete-suppression": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Removed. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "list-opt-out-keywords": {
-        parameters: {
-            query?: {
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OptOutKeywordPage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "create-opt-out-keyword": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OptOutKeywordCreate"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OptOutKeyword"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "delete-opt-out-keyword": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "update-opt-out-keyword": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OptOutKeywordUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OptOutKeyword"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "list-inbound-numbers": {
-        parameters: {
-            query?: {
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InboundNumberPage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "create-inbound-number": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InboundNumberCreate"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InboundNumber"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "delete-inbound-number": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "update-inbound-number": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InboundNumberUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InboundNumber"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "assign-inbound-number": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InboundNumberAssign"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InboundNumber"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "list-inbound-keywords": {
-        parameters: {
-            query?: {
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InboundKeywordPage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "create-inbound-keyword": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InboundKeywordCreate"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InboundKeyword"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "delete-inbound-keyword": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                keyword_id: components["parameters"]["KeywordId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "update-inbound-keyword": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-                keyword_id: components["parameters"]["KeywordId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InboundKeywordUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InboundKeyword"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "list-unrouted-mo": {
-        parameters: {
-            query?: {
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UnroutedMoPage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "list-sender-rewrite-rules": {
-        parameters: {
-            query?: {
-                scope?: components["schemas"]["RewriteScope"];
-                scope_id?: string;
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SenderRewriteRulePage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "create-sender-rewrite-rule": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SenderRewriteRuleCreate"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SenderRewriteRule"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "delete-sender-rewrite-rule": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "update-sender-rewrite-rule": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SenderRewriteRuleUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SenderRewriteRule"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "test-sender-rewrite-rule": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RewriteTestRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RewriteTestResult"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "get-customer-billing": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BillingCustomer"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "update-customer-billing": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BillingCustomerUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BillingCustomer"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "update-customer-credit-terms": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreditTermsUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BillingCustomer"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "get-customer-balances": {
-        parameters: {
-            query?: {
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BalancePage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "topup-balance": {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A retry with the same key applies once. */
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Topup"];
-            };
-        };
-        responses: {
-            /** @description Credited. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["IdempotencyConflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "adjust-balance": {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A retry with the same key applies once. */
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Adjust"];
-            };
-        };
-        responses: {
-            /** @description Adjusted. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["IdempotencyConflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "transfer-balance": {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A retry with the same key applies once. */
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Transfer"];
-            };
-        };
-        responses: {
-            /** @description Transferred. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            402: components["responses"]["InsufficientCredit"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["IdempotencyConflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "change-balance-scope": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BalanceScopeChange"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BillingCustomer"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "get-billing-ledger": {
-        parameters: {
-            query?: {
-                /** @description Required under `balance_scope` `account`. */
-                account_id?: string;
-                direction?: components["schemas"]["Direction"];
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LedgerPage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "list-mo-floor-owners": {
-        parameters: {
-            query?: {
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OwnerPage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "list-rate-plans": {
-        parameters: {
-            query?: {
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RatePlanPage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "create-rate-plan": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RatePlanCreate"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RatePlan"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "delete-rate-plan": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "update-rate-plan": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RatePlanUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RatePlan"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "get-platform-policy": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformPolicy"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "update-platform-policy": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PlatformPolicyUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformPolicy"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "update-platform-content-policy": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PlatformContentPolicyUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformPolicy"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "update-platform-billing-policy": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PlatformBillingPolicyUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformPolicy"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "get-message-content": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Message ID (UUIDv7). */
-                id: components["parameters"]["MessageId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    "Cache-Control": components["headers"]["NoStore"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MessageContent"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "erase-customer-content": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Accepted */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Job"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "gdpr-erase": {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A retry with the same key applies once. */
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GdprEraseRequest"];
-            };
-        };
-        responses: {
-            /** @description Accepted */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GdprEraseJob"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            409: components["responses"]["IdempotencyConflict"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "get-gdpr-erase-job": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                job_id: components["parameters"]["JobId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GdprEraseJob"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "list-audit-log": {
-        parameters: {
-            query?: {
-                /** @description Exact match. */
-                operator?: string;
-                /** @description Inclusive lower bound on `at`. */
-                from_date?: string;
-                /** @description Exclusive upper bound on `at`. */
-                to_date?: string;
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuditEntryPage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "list-audit-changes": {
-        parameters: {
-            query?: {
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path: {
-                request_id: components["parameters"]["RequestId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuditChangePage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "get-message": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Message ID (UUIDv7). */
-                id: components["parameters"]["MessageId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MessageDetail"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "get-message-trace": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Message ID (UUIDv7). */
-                id: components["parameters"]["MessageId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MessageTrace"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "search-messages": {
-        parameters: {
-            query?: {
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MessageSearch"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MessageSummaryPage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "create-message-export": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MessageExportRequest"];
-            };
-        };
-        responses: {
-            /** @description Accepted */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ExportJob"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "get-message-export": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                job_id: components["parameters"]["JobId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    "Cache-Control": components["headers"]["NoStore"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ExportJob"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "get-metrics-summary": {
-        parameters: {
-            query?: {
-                window?: components["parameters"]["Window"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MetricsSummary"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "get-traffic-metrics": {
-        parameters: {
-            query?: {
-                group_by?: components["schemas"]["TrafficDimension"];
-                window?: components["parameters"]["Window"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TrafficMetrics"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "stream-metrics": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Switching Protocols. */
-            101: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "stream-sessions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Switching Protocols. */
-            101: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "stream-connectors": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Switching Protocols. */
-            101: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    "list-dead-letter-groups": {
-        parameters: {
-            query?: {
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeadLetterGroupPage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "list-dead-letters": {
-        parameters: {
-            query?: {
-                /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path: {
-                /** @description Consumer group whose dead-letter topic is read. */
-                group: components["parameters"]["Group"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeadLetterPage"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "replay-dead-letter": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Consumer group whose dead-letter topic is read. */
-                group: components["parameters"]["Group"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ReplayRequest"];
-            };
-        };
-        responses: {
-            /** @description One result per record, in request order. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReplayResult"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    "get-job": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                job_id: components["parameters"]["JobId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Job"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
+  'list-customer-groups': {
+    parameters: {
+      query?: {
+        status?: components['schemas']['CustomerGroupStatus']
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CustomerGroupPage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'create-customer-group': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CustomerGroupCreate']
+      }
+    }
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CustomerGroup']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'get-customer-group': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CustomerGroup']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'delete-customer-group': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'update-customer-group': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CustomerGroupUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CustomerGroup']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'list-group-customers': {
+    parameters: {
+      query?: {
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CustomerPage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'list-customers': {
+    parameters: {
+      query?: {
+        group_id?: string
+        status?: components['schemas']['CustomerStatus']
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CustomerPage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'create-customer': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CustomerCreate']
+      }
+    }
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Customer']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'get-customer': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Customer']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'delete-customer': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'update-customer': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CustomerUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Customer']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'suspend-customer': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Customer']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'get-customer-suspension-impact': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SuspensionImpact']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'get-customer-content-policy': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CustomerContentPolicy']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'update-customer-content-policy': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CustomerContentPolicyUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CustomerContentPolicy']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'rotate-content-key': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ContentKeyRotated']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'list-sender-ids': {
+    parameters: {
+      query?: {
+        traffic_category?: components['schemas']['TrafficCategory']
+        status?: components['schemas']['SenderIdStatus']
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SenderIdPage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'create-sender-id': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SenderIdCreate']
+      }
+    }
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SenderId']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'delete-sender-id': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        sender_id: components['parameters']['SenderId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'update-sender-id': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        sender_id: components['parameters']['SenderId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SenderIdUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SenderId']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'set-sender-id-rate-limit': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        sender_id: components['parameters']['SenderId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RateLimitSet']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SenderId']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'delete-sender-id-rate-limit': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        sender_id: components['parameters']['SenderId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Removed. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'list-accounts': {
+    parameters: {
+      query?: {
+        customer_id?: string
+        group_id?: string
+        status?: components['schemas']['AccountStatus']
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AccountPage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'create-account': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AccountCreate']
+      }
+    }
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Account']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'get-account': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Account']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'delete-account': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'update-account': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AccountUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Account']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'suspend-account': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Account']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'set-account-channels': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ChannelsUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Account']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'set-account-session-limits': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SessionLimitsUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Account']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'set-account-smpp-ops': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SmppOpsUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Account']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'set-account-rate-limit': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RateLimitSet']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Account']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'delete-account-rate-limit': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Removed. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'list-webhooks': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Webhook'][]
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'create-webhook': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WebhookCreate']
+      }
+    }
+    responses: {
+      /** @description Created. */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WebhookWithSecret']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'delete-webhook': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        webhook_id: components['parameters']['WebhookId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'update-webhook': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        webhook_id: components['parameters']['WebhookId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WebhookUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Webhook']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'rotate-webhook-secret': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        webhook_id: components['parameters']['WebhookId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Rotated. */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WebhookWithSecret']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'list-credentials': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Credential'][]
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'create-credential': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CredentialCreate']
+      }
+    }
+    responses: {
+      /** @description Created. */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CredentialWithSecret']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'revoke-credential': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        credential_id: components['parameters']['CredentialId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Revoked. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'update-credential-status': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        credential_id: components['parameters']['CredentialId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CredentialStatusUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Credential']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'rotate-credential': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        credential_id: components['parameters']['CredentialId']
+      }
+      cookie?: never
+    }
+    requestBody?: {
+      content: {
+        'application/json': components['schemas']['CredentialRotate']
+      }
+    }
+    responses: {
+      /** @description Rotated. */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CredentialWithSecret']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'list-connectors': {
+    parameters: {
+      query?: {
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ConnectorPage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'create-connector': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ConnectorCreate']
+      }
+    }
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Connector']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'get-connector': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Connector']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'delete-connector': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'update-connector': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ConnectorUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Connector']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'get-connector-status': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ConnectorStatus']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'set-connector-reconnect-policy': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ReconnectPolicy']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Connector']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'list-connector-accounts': {
+    parameters: {
+      query?: {
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ConnectorAccountPage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'create-connector-account': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ConnectorAccountCreate']
+      }
+    }
+    responses: {
+      /** @description Accepted */
+      202: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ConnectorAccountCreated']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'get-connector-account': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        connector_account_id: components['parameters']['ConnectorAccountId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ConnectorAccount']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'delete-connector-account': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        connector_account_id: components['parameters']['ConnectorAccountId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'update-connector-account': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        connector_account_id: components['parameters']['ConnectorAccountId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ConnectorAccountUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ConnectorAccount']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'rebind-connector-account': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        connector_account_id: components['parameters']['ConnectorAccountId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Rebind requested. */
+      202: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'list-routes': {
+    parameters: {
+      query?: {
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RoutePage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'create-route': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RouteCreate']
+      }
+    }
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Route']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'reorder-routes': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RouteReorder']
+      }
+    }
+    responses: {
+      /** @description Reordered. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'get-route': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Route']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'delete-route': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'update-route': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RouteUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Route']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'create-exact-route': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ExactRouteCreate']
+      }
+    }
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ExactRoute']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'update-exact-route': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ExactRouteUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ExactRoute']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'delete-exact-route': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MsisdnRequest']
+      }
+    }
+    responses: {
+      /** @description Deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'lookup-exact-route': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MsisdnRequest']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ExactRoute']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'import-exact-routes': {
+    parameters: {
+      query?: {
+        source?: 'mnp_import' | 'carrier_feed'
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'text/csv': string
+      }
+    }
+    responses: {
+      /** @description Accepted */
+      202: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Job']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      413: components['responses']['PayloadTooLarge']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'list-routing-scripts': {
+    parameters: {
+      query?: {
+        scope?: components['schemas']['ScriptScope']
+        scope_id?: string
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RoutingScriptPage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'create-routing-script': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RoutingScriptCreate']
+      }
+    }
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RoutingScript']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'get-routing-script': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RoutingScript']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'delete-routing-script': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'update-routing-script': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RoutingScriptUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RoutingScript']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'assign-routing-script': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ScriptAssign']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RoutingScript']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'validate-routing-script': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ScriptValidateResult']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'test-routing-script': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ScriptTestRequest']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ScriptTestResult']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'publish-routing-script': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RoutingScript']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'rollback-routing-script': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ScriptRollback']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RoutingScript']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'list-routing-script-versions': {
+    parameters: {
+      query?: {
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ScriptVersionPage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'list-sessions': {
+    parameters: {
+      query?: {
+        account_id?: string
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SessionPage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'disconnect-session': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        bind_id: components['parameters']['BindId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Disconnect ordered. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'list-antispam-rules': {
+    parameters: {
+      query?: {
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AntispamRulePage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'create-antispam-rule': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AntispamRuleCreate']
+      }
+    }
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AntispamRule']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'delete-antispam-rule': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'update-antispam-rule': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AntispamRuleUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AntispamRule']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'create-suppression': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SuppressionCreate']
+      }
+    }
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Suppression']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'search-suppressions': {
+    parameters: {
+      query?: {
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SuppressionSearch']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SuppressionPage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'import-suppressions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SuppressionImport']
+      }
+    }
+    responses: {
+      /** @description Accepted */
+      202: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Job']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      413: components['responses']['PayloadTooLarge']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'check-suppression': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SuppressionCheck']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SuppressionCheckResult']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'delete-suppression': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Removed. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'list-opt-out-keywords': {
+    parameters: {
+      query?: {
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OptOutKeywordPage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'create-opt-out-keyword': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['OptOutKeywordCreate']
+      }
+    }
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OptOutKeyword']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'delete-opt-out-keyword': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'update-opt-out-keyword': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['OptOutKeywordUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OptOutKeyword']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'list-inbound-numbers': {
+    parameters: {
+      query?: {
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['InboundNumberPage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'create-inbound-number': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['InboundNumberCreate']
+      }
+    }
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['InboundNumber']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'delete-inbound-number': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'update-inbound-number': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['InboundNumberUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['InboundNumber']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'assign-inbound-number': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['InboundNumberAssign']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['InboundNumber']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'list-inbound-keywords': {
+    parameters: {
+      query?: {
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['InboundKeywordPage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'create-inbound-keyword': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['InboundKeywordCreate']
+      }
+    }
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['InboundKeyword']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'delete-inbound-keyword': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        keyword_id: components['parameters']['KeywordId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'update-inbound-keyword': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+        keyword_id: components['parameters']['KeywordId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['InboundKeywordUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['InboundKeyword']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'list-unrouted-mo': {
+    parameters: {
+      query?: {
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['UnroutedMoPage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'list-sender-rewrite-rules': {
+    parameters: {
+      query?: {
+        scope?: components['schemas']['RewriteScope']
+        scope_id?: string
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SenderRewriteRulePage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'create-sender-rewrite-rule': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SenderRewriteRuleCreate']
+      }
+    }
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SenderRewriteRule']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'delete-sender-rewrite-rule': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'update-sender-rewrite-rule': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SenderRewriteRuleUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SenderRewriteRule']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'test-sender-rewrite-rule': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RewriteTestRequest']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RewriteTestResult']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'get-customer-billing': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BillingCustomer']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'update-customer-billing': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BillingCustomerUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BillingCustomer']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'update-customer-credit-terms': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreditTermsUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BillingCustomer']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'get-customer-balances': {
+    parameters: {
+      query?: {
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BalancePage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'topup-balance': {
+    parameters: {
+      query?: never
+      header: {
+        /** @description A retry with the same key applies once. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+      }
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['Topup']
+      }
+    }
+    responses: {
+      /** @description Credited. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['IdempotencyConflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'adjust-balance': {
+    parameters: {
+      query?: never
+      header: {
+        /** @description A retry with the same key applies once. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+      }
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['Adjust']
+      }
+    }
+    responses: {
+      /** @description Adjusted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['IdempotencyConflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'transfer-balance': {
+    parameters: {
+      query?: never
+      header: {
+        /** @description A retry with the same key applies once. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+      }
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['Transfer']
+      }
+    }
+    responses: {
+      /** @description Transferred. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      402: components['responses']['InsufficientCredit']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['IdempotencyConflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'change-balance-scope': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BalanceScopeChange']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BillingCustomer']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'get-billing-ledger': {
+    parameters: {
+      query?: {
+        /** @description Required under `balance_scope` `account`. */
+        account_id?: string
+        direction?: components['schemas']['Direction']
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['LedgerPage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'list-mo-floor-owners': {
+    parameters: {
+      query?: {
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OwnerPage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'list-rate-plans': {
+    parameters: {
+      query?: {
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RatePlanPage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'create-rate-plan': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RatePlanCreate']
+      }
+    }
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RatePlan']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'delete-rate-plan': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'update-rate-plan': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RatePlanUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RatePlan']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'get-platform-policy': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PlatformPolicy']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      500: components['responses']['InternalError']
+    }
+  }
+  'update-platform-policy': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PlatformPolicyUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PlatformPolicy']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'update-platform-content-policy': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PlatformContentPolicyUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PlatformPolicy']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'update-platform-billing-policy': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PlatformBillingPolicyUpdate']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PlatformPolicy']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'get-message-content': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Message ID (UUIDv7). */
+        id: components['parameters']['MessageId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MessageContent']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'erase-customer-content': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['Id']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Accepted */
+      202: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Job']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'gdpr-erase': {
+    parameters: {
+      query?: never
+      header: {
+        /** @description A retry with the same key applies once. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['GdprEraseRequest']
+      }
+    }
+    responses: {
+      /** @description Accepted */
+      202: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['GdprEraseJob']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      409: components['responses']['IdempotencyConflict']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'get-gdpr-erase-job': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        job_id: components['parameters']['JobId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['GdprEraseJob']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'list-audit-log': {
+    parameters: {
+      query?: {
+        /** @description Exact match. */
+        operator?: string
+        /** @description Inclusive lower bound on `at`. */
+        from_date?: string
+        /** @description Exclusive upper bound on `at`. */
+        to_date?: string
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AuditEntryPage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'list-audit-changes': {
+    parameters: {
+      query?: {
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path: {
+        request_id: components['parameters']['RequestId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AuditChangePage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'get-message': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Message ID (UUIDv7). */
+        id: components['parameters']['MessageId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MessageDetail']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'get-message-trace': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Message ID (UUIDv7). */
+        id: components['parameters']['MessageId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MessageTrace']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'search-messages': {
+    parameters: {
+      query?: {
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MessageSearch']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MessageSummaryPage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'create-message-export': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MessageExportRequest']
+      }
+    }
+    responses: {
+      /** @description Accepted */
+      202: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ExportJob']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'get-message-export': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        job_id: components['parameters']['JobId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ExportJob']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
+  'get-metrics-summary': {
+    parameters: {
+      query?: {
+        window?: components['parameters']['Window']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MetricsSummary']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'get-traffic-metrics': {
+    parameters: {
+      query?: {
+        group_by?: components['schemas']['TrafficDimension']
+        window?: components['parameters']['Window']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TrafficMetrics']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'stream-metrics': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Switching Protocols. */
+      101: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      500: components['responses']['InternalError']
+    }
+  }
+  'stream-sessions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Switching Protocols. */
+      101: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      500: components['responses']['InternalError']
+    }
+  }
+  'stream-connectors': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Switching Protocols. */
+      101: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      500: components['responses']['InternalError']
+    }
+  }
+  'list-dead-letter-groups': {
+    parameters: {
+      query?: {
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['DeadLetterGroupPage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'list-dead-letters': {
+    parameters: {
+      query?: {
+        /** @description Opaque cursor from a previous page's `next_cursor`. It never carries a subscriber number or a filter value in clear. */
+        cursor?: components['parameters']['Cursor']
+        limit?: components['parameters']['Limit']
+      }
+      header?: never
+      path: {
+        /** @description Consumer group whose dead-letter topic is read. */
+        group: components['parameters']['Group']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['DeadLetterPage']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'replay-dead-letter': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Consumer group whose dead-letter topic is read. */
+        group: components['parameters']['Group']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ReplayRequest']
+      }
+    }
+    responses: {
+      /** @description One result per record, in request order. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ReplayResult']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+      503: components['responses']['ServiceUnavailable']
+    }
+  }
+  'get-job': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        job_id: components['parameters']['JobId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Job']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationError']
+      500: components['responses']['InternalError']
+    }
+  }
 }
