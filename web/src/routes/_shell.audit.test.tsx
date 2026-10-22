@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
-import { json, me, renderAt, stubFetch, violations } from '../test'
+import { json, me, once, renderAt, stubFetch, violations } from '../test'
 
 const auditor = { ...me, permissions: ['audit:read'] }
 const ada = '01a159b0-0000-7000-8000-00000000000a'
@@ -353,7 +353,9 @@ test('the filters shown follow the address, back to today when the tab is opened
     'GET /api/audit/operators': directory,
   })
   renderAt(`/audit/control-plane?operator=${ada}&from=2026-10-01`)
-  await waitFor(() => expect((screen.getByRole('combobox', { name: 'Opérateur' }) as HTMLInputElement).value).toBe('Ada'))
+  await waitFor(() =>
+    expect((screen.getByRole('combobox', { name: 'Opérateur' }) as HTMLInputElement).value).toBe('Ada'),
+  )
   expect((screen.getByLabelText('Depuis') as HTMLInputElement).value).toBe('2026-10-01')
   await userEvent.setup().click(screen.getByRole('link', { name: 'Administration de la passerelle' }))
   await waitFor(() => expect((screen.getByLabelText('Depuis') as HTMLInputElement).value).toBe(today))
@@ -399,10 +401,101 @@ test('the changes of a request are paged, and two changes of one row both show',
   const dialog = await screen.findByRole('dialog', { name: 'Modifications de la requête r-write' })
   await waitFor(() => expect(within(dialog).getAllByRole('heading', { name: 'routes' }).length).toBe(2))
   expect(errors.mock.calls.some((c) => String(c[0]).includes('same key'))).toBe(false)
+  const inserted = within(dialog).getAllByText('name')[0]?.closest('div') as HTMLElement
+  expect(inserted.className).toContain('changed')
+  expect(inserted.textContent).toBe('name—"a"')
   expect(within(dialog).queryByRole('button', { name: 'Précédent' })).toBeNull()
   await user.click(within(dialog).getByRole('button', { name: 'Suivant' }))
   expect(await within(dialog).findByRole('heading', { name: 'customers' })).toBeDefined()
   expect(new URL(calls.at(-1)?.url ?? '').searchParams.get('cursor')).toBe('c2')
   await user.click(within(dialog).getByRole('button', { name: 'Précédent' }))
   await waitFor(() => expect(within(dialog).getAllByRole('heading', { name: 'routes' }).length).toBe(2))
+})
+
+test('a session gone while reading either journal or the changes sends to the login', async () => {
+  for (const [path, at] of [
+    ['GET /api/gw/admin/audit-log', '/audit/control-plane'],
+    ['GET /api/access-log', '/audit/access'],
+  ]) {
+    stubFetch({
+      'GET /api/auth/me': once(() => json(200, auditor)),
+      'GET /api/audit/operators': directory,
+      [path as string]: () => json(401, { code: 'unauthenticated', message: 'Aucune session ouverte.' }),
+    })
+    const { router, unmount } = renderAt(at as string)
+    await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
+    expect(router.state.location.search).toEqual({ notice: 'session-closed' })
+    unmount()
+  }
+  stubFetch({
+    'GET /api/auth/me': once(() => json(200, auditor)),
+    'GET /api/gw/admin/audit-log': () => page([refused]),
+    'GET /api/gw/admin/audit-log/r-write/changes': () =>
+      json(401, { code: 'unauthenticated', message: 'Aucune session ouverte.' }),
+  })
+  const { router } = renderAt('/audit/control-plane')
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Modifications' }))
+  await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
+})
+
+test('the changes that cannot be read are told, with a retry', async () => {
+  let down = true
+  stubFetch({
+    'GET /api/auth/me': () => json(200, auditor),
+    'GET /api/gw/admin/audit-log': () => page([refused]),
+    'GET /api/gw/admin/audit-log/r-write/changes': () =>
+      down ? json(503, { code: 'service_unavailable', message: 'interne' }) : page([]),
+  })
+  renderAt('/audit/control-plane')
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('button', { name: 'Modifications' }))
+  const dialog = await screen.findByRole('dialog')
+  const alert = await within(dialog).findByRole('alert')
+  expect(alert.textContent).toContain('Les modifications n’ont pas pu être chargées')
+  expect(alert.textContent).toContain('Le service ne répond pas ; réessayez.')
+  down = false
+  await user.click(within(alert).getByRole('button', { name: 'Réessayer' }))
+  expect(await within(dialog).findByText('Aucune modification enregistrée')).toBeDefined()
+})
+
+test('a row tells its date in French, its outcome beside its status, and a call without request no changes', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, auditor),
+    'GET /api/gw/admin/audit-log': () =>
+      page([
+        { ...refused, outcome: 'forbidden_scope' },
+        { ...entry, request_id: null },
+      ]),
+  })
+  renderAt('/audit/control-plane')
+  await screen.findByText('create-route')
+  expect(cells('create-route')[3]).toBe('403 forbidden_scope')
+  const plain = screen.getByText('list-audit-log').closest('tr') as HTMLElement
+  expect(within(plain).queryByRole('button', { name: 'Modifications' })).toBeNull()
+  const date = within(plain).getByRole('rowheader').textContent ?? ''
+  expect(date).toMatch(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/)
+})
+
+test('the target of a dashboard fact is named from the directory', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, auditor),
+    'GET /api/audit/operators': directory,
+    'GET /api/access-log': () =>
+      json(200, {
+        data: [{ id: 'a1', at: entry.at, actor: null, event: 'roles_changed', target: ada, outcome: 'success' }],
+        nextCursor: null,
+      }),
+  })
+  renderAt('/audit/access')
+  await waitFor(() => expect(cells('Rôles modifiés')).toEqual(['—', 'Rôles modifiés', 'Adaada@example.test', 'Réussi']))
+})
+
+test('a trail the address cannot carry offers no way back', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, auditor),
+    'GET /api/gw/admin/audit-log': () => page([entry]),
+  })
+  renderAt('/audit/control-plane?trail=%5B1%5D')
+  await screen.findByText('list-audit-log')
+  expect(screen.queryByRole('button', { name: 'Précédent' })).toBeNull()
 })

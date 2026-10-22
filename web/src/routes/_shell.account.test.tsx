@@ -515,6 +515,22 @@ test('a personal token carries the scopes checked, among those it may carry', as
   expect(await posted?.text()).toBe('{"scopes":["accounts:read"]}')
 })
 
+test('the scopes of a personal token are sent sorted, whatever the order they were checked in', async () => {
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, issuer),
+    'POST /api/gateway-token': () => json(200, token),
+  })
+  renderAt('/account')
+  const user = userEvent.setup()
+  const picker = await screen.findByRole('group', { name: 'Scopes du jeton' })
+  await user.click(within(picker).getByRole('checkbox', { name: /accounts:read/ }))
+  await user.click(within(picker).getByRole('checkbox', { name: /accounts:read/ }))
+  await user.click(screen.getByRole('button', { name: 'Délivrer' }))
+  await screen.findByRole('dialog')
+  const posted = calls.find((c) => c.url.endsWith('/api/gateway-token'))
+  expect(await posted?.text()).toBe('{"scopes":["accounts:read","traffic:read"]}')
+})
+
 test('a personal token with no scope checked is refused before it is asked', async () => {
   const calls = stubFetch({ 'GET /api/auth/me': () => json(200, issuer) })
   renderAt('/account')
