@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { api } from '../api'
 import type { components } from '../api.gen'
-import { at, Failure, useClosedOn, useOperatorName } from '../audit'
+import { AuditFilters, at, auditSearch, Failure, period, useClosedOn, useOperatorName } from '../audit'
 import { read } from '../queries'
 import { useShellMe } from '../session'
 import { Button, DataTable, EmptyState, LoadingState, Toolbar } from '../ui'
@@ -29,49 +29,59 @@ const events: Record<Entry['event'], string> = {
   session_refused: 'Session refusée',
 }
 
-export const Route = createFileRoute('/_shell/audit/access')({
-  validateSearch: (s: Record<string, unknown>): { cursor?: string } => ({
-    cursor: typeof s.cursor === 'string' && s.cursor !== '' ? s.cursor : undefined,
-  }),
-  component: Access,
-})
+export const Route = createFileRoute('/_shell/audit/access')({ validateSearch: auditSearch, component: Access })
 
 function Access() {
-  const { cursor } = Route.useSearch()
+  const search = Route.useSearch()
   const navigate = Route.useNavigate()
   const name = useOperatorName(useShellMe().data?.permissions ?? [])
+  const { from, to } = period(search)
   const log = useQuery({
-    queryKey: ['audit', 'access', cursor],
-    queryFn: () => read(api.GET('/access-log', { params: { query: { cursor } } }), 'access-log'),
+    queryKey: ['audit', 'access', search, from, to],
+    queryFn: () =>
+      read(
+        api.GET('/access-log', {
+          params: { query: { actor: search.operator, fromDate: from, toDate: to, cursor: search.cursor } },
+        }),
+        'access-log',
+      ),
   })
   useClosedOn(log.error)
 
-  return log.isPending ? (
-    <LoadingState label="Chargement du journal…" rows={3} />
-  ) : log.error ? (
-    <Failure title="Le journal d’accès n’a pas pu être chargé" error={log.error} retry={() => void log.refetch()} />
-  ) : log.data.data.length === 0 ? (
-    <EmptyState title="Aucune entrée" />
-  ) : (
+  return (
     <>
-      <DataTable<Entry>
-        caption="Journal d’accès au tableau de bord"
-        rows={log.data.data}
-        rowKey={(e) => e.id}
-        columns={[
-          { header: 'Date', cell: (e) => at(e.at) },
-          { header: 'Acteur', cell: (e) => name(e.actor) },
-          { header: 'Événement', cell: (e) => events[e.event] },
-          { header: 'Cible', cell: (e) => name(e.target) },
-          { header: 'Résultat', cell: (e) => (e.outcome === 'success' ? 'Réussi' : 'Échec') },
-        ]}
-      />
-      {log.data.nextCursor && (
-        <Toolbar>
-          <Button size="sm" onClick={() => void navigate({ search: { cursor: log.data.nextCursor ?? undefined } })}>
-            Suivant
-          </Button>
-        </Toolbar>
+      <AuditFilters search={search} onFilter={(next) => void navigate({ search: next })} />
+      {log.isPending ? (
+        <LoadingState label="Chargement du journal…" rows={3} />
+      ) : log.error ? (
+        <Failure title="Le journal d’accès n’a pas pu être chargé" error={log.error} retry={() => void log.refetch()} />
+      ) : log.data.data.length === 0 ? (
+        <EmptyState title="Aucune entrée" />
+      ) : (
+        <>
+          <DataTable<Entry>
+            caption="Journal d’accès au tableau de bord"
+            rows={log.data.data}
+            rowKey={(e) => e.id}
+            columns={[
+              { header: 'Date', cell: (e) => at(e.at) },
+              { header: 'Acteur', cell: (e) => name(e.actor) },
+              { header: 'Événement', cell: (e) => events[e.event] },
+              { header: 'Cible', cell: (e) => name(e.target) },
+              { header: 'Résultat', cell: (e) => (e.outcome === 'success' ? 'Réussi' : 'Échec') },
+            ]}
+          />
+          {log.data.nextCursor && (
+            <Toolbar>
+              <Button
+                size="sm"
+                onClick={() => void navigate({ search: { ...search, cursor: log.data.nextCursor ?? undefined } })}
+              >
+                Suivant
+              </Button>
+            </Toolbar>
+          )}
+        </>
       )}
     </>
   )

@@ -1,29 +1,18 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { type FormEvent, useState } from 'react'
+import { useState } from 'react'
 import type { components } from '../admin.gen'
-import { at, Failure, useClosedOn, useOperatorName } from '../audit'
+import { AuditFilters, at, auditSearch, Failure, period, useClosedOn, useOperatorName } from '../audit'
 import { gw } from '../gw'
 import { read } from '../queries'
 import { useShellMe } from '../session'
-import { Button, DataTable, EmptyState, Field, LoadingState, Modal, Toolbar } from '../ui'
+import { Button, DataTable, EmptyState, LoadingState, Modal, Toolbar } from '../ui'
 
 type Entry = components['schemas']['AuditEntry']
-type Search = { operator?: string; from?: string; to?: string; cursor?: string }
-
-const text = (v: unknown) => (typeof v === 'string' && v !== '' ? v : undefined)
-
 export const Route = createFileRoute('/_shell/audit/control-plane')({
-  validateSearch: (s: Record<string, unknown>): Search => ({
-    operator: text(s.operator),
-    from: text(s.from),
-    to: text(s.to),
-    cursor: text(s.cursor),
-  }),
+  validateSearch: auditSearch,
   component: ControlPlane,
 })
-
-const instant = (local: FormDataEntryValue | null) => (text(local) ? new Date(String(local)).toISOString() : undefined)
 
 function ControlPlane() {
   const search = Route.useSearch()
@@ -31,38 +20,22 @@ function ControlPlane() {
   const held = useShellMe().data?.permissions ?? []
   const name = useOperatorName(held)
   const [changes, setChanges] = useState<string>()
+  const { from, to } = period(search)
   const log = useQuery({
-    queryKey: ['audit', 'control-plane', search],
+    queryKey: ['audit', 'control-plane', search, from, to],
     queryFn: () =>
       read(
         gw.GET('/admin/audit-log', {
-          params: {
-            query: { operator: search.operator, from_date: search.from, to_date: search.to, cursor: search.cursor },
-          },
+          params: { query: { operator: search.operator, from_date: from, to_date: to, cursor: search.cursor } },
         }),
         'audit-log',
       ),
   })
   useClosedOn(log.error)
 
-  const filter = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const form = new FormData(event.currentTarget)
-    void navigate({
-      search: { operator: text(form.get('operator')), from: instant(form.get('from')), to: instant(form.get('to')) },
-    })
-  }
-
   return (
     <>
-      <form className="audit-filters" aria-label="Filtres du journal" onSubmit={filter}>
-        <Field label="Opérateur" name="operator" defaultValue={search.operator} />
-        <Field label="Depuis" name="from" type="datetime-local" />
-        <Field label="Jusqu’à" name="to" type="datetime-local" />
-        <Button type="submit" size="sm">
-          Filtrer
-        </Button>
-      </form>
+      <AuditFilters search={search} onFilter={(next) => void navigate({ search: next })} />
       {log.isPending ? (
         <LoadingState label="Chargement du journal…" rows={3} />
       ) : log.error ? (

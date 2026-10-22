@@ -79,6 +79,24 @@ test('an operator is named when operators:read is held, and only then', async ()
   await waitFor(() => expect(cells('list-audit-log')[0]).toBe(`Ada${ada}`))
 })
 
+const local = (day: string) => new Date(`${day}T00:00`).toISOString()
+const today = new Date().toLocaleDateString('sv-SE')
+const tomorrow = new Date(Date.now() + 86_400_000).toLocaleDateString('sv-SE')
+
+test('the period defaults to today, from its start to its end', async () => {
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, auditor),
+    'GET /api/gw/admin/audit-log': () => page([entry]),
+  })
+  renderAt('/audit/control-plane')
+  await screen.findByText('list-audit-log')
+  const q = new URL(calls.at(-1)?.url ?? '').searchParams
+  expect([q.get('from_date'), q.get('to_date')]).toEqual([local(today), local(tomorrow)])
+  expect((screen.getByLabelText('Depuis') as HTMLInputElement).value).toBe(today)
+  expect((screen.getByLabelText('Jusqu’à') as HTMLInputElement).value).toBe(today)
+  expect((screen.getByLabelText('Depuis') as HTMLInputElement).type).toBe('date')
+})
+
 test('the filters and the cursor travel in the request', async () => {
   const calls = stubFetch({
     'GET /api/auth/me': () => json(200, auditor),
@@ -93,14 +111,17 @@ test('the filters and the cursor travel in the request', async () => {
   expect(new URL(calls.at(-1)?.url ?? '').searchParams.get('cursor')).toBe('next-1')
 
   await user.type(screen.getByLabelText('Opérateur'), ada)
-  await user.type(screen.getByLabelText('Depuis'), '2026-10-21T10:00')
+  await user.clear(screen.getByLabelText('Depuis'))
+  await user.type(screen.getByLabelText('Depuis'), '2026-10-20')
+  await user.clear(screen.getByLabelText('Jusqu’à'))
+  await user.type(screen.getByLabelText('Jusqu’à'), '2026-10-21')
   await user.click(screen.getByRole('button', { name: 'Filtrer' }))
   await waitFor(() => {
     const q = new URL(calls.at(-1)?.url ?? '').searchParams
     expect([q.get('operator'), q.get('from_date'), q.get('to_date'), q.get('cursor')]).toEqual([
       ada,
-      new Date('2026-10-21T10:00').toISOString(),
-      null,
+      local('2026-10-20'),
+      local('2026-10-22'),
       null,
     ])
   })
@@ -183,6 +204,26 @@ test('without audit:read the screen says why and asks nothing', async () => {
   renderAt('/audit/access')
   expect(await screen.findByText('Il faut la permission audit:read pour lire les journaux d’audit.')).toBeDefined()
   expect(calls.map((r) => new URL(r.url).pathname)).toEqual(['/api/auth/me'])
+})
+
+test('the access tab is filtered by operator and period like the other', async () => {
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, auditor),
+    'GET /api/access-log': () => json(200, { data: [], nextCursor: null }),
+  })
+  renderAt('/audit/access')
+  const user = userEvent.setup()
+  await screen.findByText('Aucune entrée')
+  let q = new URL(calls.at(-1)?.url ?? '').searchParams
+  expect([q.get('actor'), q.get('fromDate'), q.get('toDate')]).toEqual([null, local(today), local(tomorrow)])
+  await user.type(screen.getByLabelText('Opérateur'), ada)
+  await user.clear(screen.getByLabelText('Depuis'))
+  await user.type(screen.getByLabelText('Depuis'), '2026-10-20')
+  await user.click(screen.getByRole('button', { name: 'Filtrer' }))
+  await waitFor(() => {
+    q = new URL(calls.at(-1)?.url ?? '').searchParams
+    expect([q.get('actor'), q.get('fromDate'), q.get('toDate')]).toEqual([ada, local('2026-10-20'), local(tomorrow)])
+  })
 })
 
 test('the access tab lists the dashboard journal in French, on its own', async () => {
