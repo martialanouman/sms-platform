@@ -91,6 +91,12 @@ Second retour, même jour :
      équivalent, `DataTable`, `EmptyState`, `LoadingState`, `Toolbar`, `PageHeader`, `Icon` et les onglets d'Audit
      (des liens de route) restent du balisage. Un composant neuf naît du besoin d'un écran (humain). Le texte libre de
      277 disparaît : le filtre ne choisit que dans l'annuaire.
+279. **« Précédent »** (humain) : les curseurs des deux journaux ne vont que vers l'avant ; l'URL garde la pile des
+     curseurs parcourus (`trail`, `-` pour la première page), « Suivant » l'empile, « Précédent » la dépile et
+     n'apparaît que si elle n'est pas vide. Filtrer la vide.
+280. **Nom de l'onglet** (humain, révise la spec 08 l.109) : « Plan de contrôle » devient « Administration de la
+     passerelle » ; « Accès passerelle », proposé, se confondrait avec les accès des clients SMS (SMPP, REST). Le
+     chemin `/audit/control-plane` reste, identifiant de code.
 
 ## Design arrêté
 
