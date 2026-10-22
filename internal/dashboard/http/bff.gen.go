@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for AccessLinkKind.
@@ -710,6 +711,15 @@ type ValidationError = Error
 
 // ListAccessLogParams defines parameters for ListAccessLog.
 type ListAccessLogParams struct {
+	// Actor The operator ID; exact match.
+	Actor *openapi_types.UUID `form:"actor,omitempty" json:"actor,omitempty"`
+
+	// FromDate Inclusive lower bound on `at`.
+	FromDate *time.Time `form:"fromDate,omitempty" json:"fromDate,omitempty"`
+
+	// ToDate Exclusive upper bound on `at`.
+	ToDate *time.Time `form:"toDate,omitempty" json:"toDate,omitempty"`
+
 	// Cursor Opaque; the `nextCursor` of the previous page.
 	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
@@ -846,6 +856,45 @@ func (siw *ServerInterfaceWrapper) ListAccessLog(w http.ResponseWriter, r *http.
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params ListAccessLogParams
+
+	// ------------- Optional query parameter "actor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "actor", r.URL.Query(), &params.Actor, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "actor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "actor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "fromDate" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "fromDate", r.URL.Query(), &params.FromDate, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "fromDate"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "fromDate", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "toDate" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "toDate", r.URL.Query(), &params.ToDate, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "toDate"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "toDate", Err: err})
+		}
+		return
+	}
 
 	// ------------- Optional query parameter "cursor" -------------
 

@@ -545,7 +545,11 @@ paths:
       description: The facts of the BFF only; the control-plane audit log is on the Admin API.
       operationId: listAccessLog
       security: [{ session: ['audit:read'] }]
-      parameters: [{ $ref: '#/components/parameters/Cursor' }]
+      parameters:
+        - { name: actor, in: query, description: The operator ID; exact match., schema: { type: string, format: uuid } }
+        - { name: fromDate, in: query, description: 'Inclusive lower bound on `at`.', schema: { type: string, format: date-time } }
+        - { name: toDate, in: query, description: 'Exclusive upper bound on `at`.', schema: { type: string, format: date-time } }
+        - $ref: '#/components/parameters/Cursor'
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/AccessLogPage' } } } }
         '401': { $ref: '#/components/responses/Unauthorized' }

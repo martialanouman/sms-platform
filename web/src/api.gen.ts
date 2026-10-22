@@ -1940,6 +1940,12 @@ export interface operations {
     listAccessLog: {
         parameters: {
             query?: {
+                /** @description The operator ID; exact match. */
+                actor?: string;
+                /** @description Inclusive lower bound on `at`. */
+                fromDate?: string;
+                /** @description Exclusive upper bound on `at`. */
+                toDate?: string;
                 /** @description Opaque; the `nextCursor` of the previous page. */
                 cursor?: components["parameters"]["Cursor"];
             };
