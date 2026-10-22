@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/martialanouman/sms-platform/internal/dashboard"
 	"github.com/martialanouman/sms-platform/internal/openapi"
 )
 
@@ -54,7 +55,7 @@ func run(root, gen, ts string) []error {
 			}
 		}
 		if ts != "" {
-			if err := os.WriteFile(ts, openapi.TS(scopes, permissions), 0o600); err != nil {
+			if err := os.WriteFile(ts, openapi.TS(scopes, permissions, dashboard.PersonalExcluded), 0o600); err != nil {
 				return []error{err}
 			}
 		}

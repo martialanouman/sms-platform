@@ -17,6 +17,7 @@ import {
   Forbidden,
   LoadingState,
   Modal,
+  OperatorCell,
   PageHeader,
   Toolbar,
   useSubmission,
@@ -114,12 +115,7 @@ function Operators() {
                 columns={[
                   {
                     header: 'Opérateur',
-                    cell: (o) => (
-                      <span className="operator-cell">
-                        <span>{o.displayName}</span>
-                        <span className="operator-cell__email">{o.email}</span>
-                      </span>
-                    ),
+                    cell: (o) => <OperatorCell name={o.displayName} email={o.email} />,
                   },
                   { header: 'Statut', cell: status },
                   {

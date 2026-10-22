@@ -2,6 +2,7 @@ package http_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/netip"
 	"strings"
@@ -81,10 +82,16 @@ func TestTheAuditDirectoryNamesEveryOperatorAndNothingMore(t *testing.T) {
 	if got.status != 200 {
 		t.Fatalf("an Audit session: %d %s", got.status, got.raw)
 	}
-	for _, want := range []string{`{"displayName":"Ada","email":"ada@example.test","id":"`, `","status":"disabled"}`, `"email":"owner@example.test"`} {
-		if !strings.Contains(got.raw, want) {
-			t.Errorf("directory %s lacks %s", got.raw, want)
-		}
+	var listed []map[string]any
+	if err := json.Unmarshal([]byte(got.raw), &listed); err != nil {
+		t.Fatal(err)
+	}
+	status := map[string]any{}
+	for _, o := range listed {
+		status[fmt.Sprint(o["email"], " ", o["displayName"])] = o["status"]
+	}
+	if fmt.Sprint(status) != "map[ada@example.test Ada:disabled owner@example.test owner@example.test:active]" {
+		t.Errorf("directory %s", got.raw)
 	}
 	for _, leak := range []string{"roles", "accessLink", "secondFactorEnrolled"} {
 		if strings.Contains(got.raw, leak) {

@@ -19,7 +19,8 @@ const (
 	operatorLifetime = 5 * time.Minute
 )
 
-var personalExcluded = []string{"content:read", "content:erase", "gdpr:erase"}
+// PersonalExcluded are the scopes a personal token never carries, whatever the roles of its operator.
+var PersonalExcluded = []string{"content:read", "content:erase", "gdpr:erase"}
 
 // ErrSignerUnavailable is a signer that did not answer, or refused.
 var ErrSignerUnavailable = errors.New("signer unavailable")
@@ -55,7 +56,7 @@ type PersonalToken struct {
 
 func personalScopes(held, requested []string) ([]string, error) {
 	allowed := slices.DeleteFunc(slices.Clone(held), func(p string) bool {
-		return !slices.Contains(scopes.All, p) || slices.Contains(personalExcluded, p)
+		return !slices.Contains(scopes.All, p) || slices.Contains(PersonalExcluded, p)
 	})
 	if requested == nil {
 		requested = allowed

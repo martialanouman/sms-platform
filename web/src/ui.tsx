@@ -276,6 +276,15 @@ export function EmptyState({
   )
 }
 
+export function OperatorCell({ name, email }: { name: string; email: string }) {
+  return (
+    <span className="operator-cell">
+      <span>{name}</span>
+      <span className="operator-cell__email">{email}</span>
+    </span>
+  )
+}
+
 export function Forbidden({
   title,
   about,

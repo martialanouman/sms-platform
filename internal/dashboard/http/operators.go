@@ -64,8 +64,10 @@ func (s server) ListAuditOperators(ctx context.Context, _ ListAuditOperatorsRequ
 	all, err := s.Service.Operators(ctx)
 	out := make(ListAuditOperators200JSONResponse, len(all))
 	for i, o := range all {
-		d := operatorDTO(o)
-		out[i] = OperatorRef{Id: d.Id, Email: d.Email, DisplayName: d.DisplayName, Status: OperatorRefStatus(d.Status)}
+		out[i] = OperatorRef{Id: o.ID, Email: o.Email, DisplayName: o.DisplayName, Status: OperatorRefStatusDisabled}
+		if o.Active {
+			out[i].Status = OperatorRefStatusActive
+		}
 	}
 	return out, err
 }

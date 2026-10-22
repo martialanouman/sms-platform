@@ -4,7 +4,7 @@ import { unreachable } from './api'
 import type { components } from './api.gen'
 import { auditOperatorsQuery } from './queries'
 import { Refused, Unauthenticated, useSessionClosed } from './session'
-import { Button, Combobox, ErrorState, Field, Toolbar } from './ui'
+import { Button, Combobox, ErrorState, Field, OperatorCell, Toolbar } from './ui'
 
 const when = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'medium' })
 
@@ -18,10 +18,7 @@ export function useOperatorName() {
     }
     const known = operators.data?.find((o) => o.id === id)
     return known ? (
-      <span className="operator-cell">
-        <span>{known.displayName}</span>
-        <span className="operator-cell__email">{known.email}</span>
-      </span>
+      <OperatorCell name={known.displayName} email={known.email} />
     ) : (
       <span className="audit-id">{id}</span>
     )

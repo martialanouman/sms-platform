@@ -5,7 +5,7 @@ import { api, json } from '../api'
 import type { components } from '../api.gen'
 import { CopyButton, PasskeySection, TotpReplacement } from '../factor'
 import { PermissionPicker } from '../picker'
-import { adminScopes } from '../scopes.gen'
+import { adminScopes, personalExcluded } from '../scopes.gen'
 import { meQuery, useShellMe } from '../session'
 import { Button, Modal, PageHeader, useSubmission } from '../ui'
 
@@ -39,8 +39,6 @@ function Account() {
 }
 
 const expiry = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' })
-
-const personalExcluded = ['content:read', 'content:erase', 'gdpr:erase']
 
 function PersonalToken({ held }: { held: string[] }) {
   const id = useId()
