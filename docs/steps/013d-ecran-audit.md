@@ -159,3 +159,30 @@ release.
    l'onglet « Accès au dashboard » et l'annuaire restent servis. Réplique rendue, rôle `Propriétaire` rendu.
 4. **Sans session** : `GET /api/access-log?actor=x` 422 `validation_error` placé sur `actor` ; `GET /api/audit/operators`
    401.
+
+## Correctifs de revue, tour 1
+
+Trois revues en lecture seule : correction et sécurité, tests creux, code en trop.
+
+1. **Filtres affichés figés** (moyenne) : le formulaire, non contrôlé, gardait l'opérateur et les jours d'un filtrage
+   précédent quand l'adresse changeait sans lui (onglet rouvert, Retour) ; il se remonte sur l'opérateur et les jours
+   de l'adresse.
+2. **Modifications tronquées en silence** (moyenne) : la liste des changements d'une requête est paginée par la
+   passerelle (50) ; la modale porte « Suivant » et « Précédent », comme les journaux.
+3. **Jour invalide dans l'adresse** (basse) : `2026-13-01` cassait l'écran, `2026-02-30` glissait au 2 mars ; un jour
+   qui ne se relit pas à l'identique retombe sur aujourd'hui.
+4. **Clés en double dans la modale** (basse) : deux changements d'une même ligne dans une requête ; la clé porte l'index.
+5. **Tests creux** : session fermée sur 401 (deux journaux et modifications), statut et `outcome`, cible nommée,
+   absence de « Modifications » sans `request_id`, `trail` invalide, date en français, « — » d'une insertion, tri des
+   scopes du jeton, échec et reprise des modifications ; l'annuaire testé opérateur par opérateur (un mutant du statut
+   survivait à une recherche de sous-chaîne). Onze mutants survivants, tous tombés.
+6. **Code en trop** : les scopes exclus du jeton personnel sont générés dans `scopes.gen.ts` depuis
+   `dashboard.PersonalExcluded`, plus recopiés en TS ; `OperatorCell` partagé par l'écran Opérateurs et l'audit ;
+   l'annuaire construit `OperatorRef` sans passer par le DTO complet.
+7. **Gardés** :
+   - `useClosedOn` et `Failure` restent dans `audit.tsx`, et les deux journaux ne fusionnent pas : leur adoption par
+     Opérateurs et Rôles, ou un composant `Journal`, sortent du périmètre pour un gain modéré.
+   - `Combobox` et `Choices` restent des briques du kit (278) : les écrans n'importent pas Base UI.
+   - La restauration du focus de `Modal` reste : son mutant tombe, `finalFocus` ne joue pas au démontage.
+   - `malformed` sans `InvalidParamFormatError` (paramètre requis manquant) n'a pas de test : aucune opération du
+     contrat BFF n'a de paramètre de requête requis.
