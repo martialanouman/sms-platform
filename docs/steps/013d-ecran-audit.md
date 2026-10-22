@@ -116,3 +116,46 @@ Second retour, même jour :
   **`internal/dashboard/postgres`** (requête), **`internal/dashboard/http`** (handler).
 - **Tests** Vitest par écran (cas de 261 à 275) ; test Go de `tools/openapi` pour `AdminScope` ; journal d'accès filtré
   contre Postgres réel et par HTTP. Mutation manuelle.
+
+## Écarts au design, constatés à l'implémentation
+
+- **Validation des champs** : `Field` passe sur les parties `Field` de Base UI, mais garde la validation native du
+  formulaire (`onInvalid`, messages en français, focus au premier champ invalide) ; celle de Base UI suppose son
+  `Form`, que les écrans n'emploient pas.
+- **Focus rendu au démontage** : la modale est montée par l'écran tant qu'elle est ouverte, et démontée aussitôt fermée,
+  sans transition ; `finalFocus` n'y joue pas, le focus revient à l'ouvreur au démontage, comme avant.
+- **Bulle d'un bouton bloqué** : ouverte sans délai et gardée au clic (`closeOnClick` faux) ; Échap la ferme d'abord, la
+  modale ensuite.
+- **`--anchor-width`** : seule variable CSS hors des tokens, posée par les positionneurs de Base UI ; le test des tokens
+  la nomme.
+- **Biome** : `noLabelWithoutControl` reconnaît `CheckboxRoot`, alias de `Checkbox.Root` (la règle refuse un nom
+  pointé).
+- **Simulation de `<dialog>`** retirée des tests : plus aucun `<dialog>` natif.
+- **Le filtre par défaut du `Combobox`** compare par `Intl.Collator`, qui ignore la ponctuation : `matches` filtre sur le
+  nom et l'e-mail, et le test tape une part d'e-mail absente du nom.
+
+## Mutations
+
+À la main, par le script de 013a, puis par un script de copie, mutation et restauration (`cmp`) sur la SPA. Les
+premières unités (types, écran, #165, filtres par jour, journal d'accès filtré) ont été mutées à l'écriture, sans
+compte consigné. Ensuite : paramètre mal formé en 422 2/2 ; annuaire `audit/operators` 2/2 (statut, scope du contrat) ;
+filtre par liste (`<datalist>`) 5/5 après un test creux remplacé ; `Combobox` 8/8 (un test creux renforcé) ; `Modal`,
+`Button` et sa bulle 5/5 ; `AlertDialog` 1/1 ; `Field` 2/2 ; cases 4/4 ; « Précédent » 6/6 ; `Forbidden` 5/5. Le
+survol des onglets (CSS) n'a pas de test : jsdom n'applique pas la cascade, la preuve navigateur le couvre.
+
+## Preuve sur `contabo169`
+
+Jouée le 2026-10-22 depuis la branche, sur le cluster en v0.27.0 : images `dashboard` construites localement,
+importées sous `proof-013d-2` à `proof-013d-7` au fil des retours ; timer suspendu, puis réarmé, qui ramène la
+release.
+
+1. **Navigateur, humain** : les deux onglets, filtres par jour au jour courant, opérateur choisi dans la liste par nom
+   ou e-mail, « Suivant » et « Précédent », « Modifications » et son diff, jeton personnel par scopes et copie au
+   pied, modales, confirmations, cases et bulles sur Base UI, sans erreur de CSP. Retours 272 à 281 traités sur place.
+2. **Rôle `Reporting` seul** : « Audit » absent du rail ; `/audit`, `/operators` et `/roles` montrent l'écran refusé de
+   281, sans appel aux journaux. Un redéploiement pendant l'essai a rendu `Propriétaire` à l'opérateur d'amorçage
+   (`Bootstrap`, voulu ; `roles_changed` sans acteur au journal d'accès) ; le rôle a été réduit à nouveau.
+3. **`admin-api-svc` à zéro réplique** : l'onglet « Administration de la passerelle » dit l'échec avec « Réessayer » ;
+   l'onglet « Accès au dashboard » et l'annuaire restent servis. Réplique rendue, rôle `Propriétaire` rendu.
+4. **Sans session** : `GET /api/access-log?actor=x` 422 `validation_error` placé sur `actor` ; `GET /api/audit/operators`
+   401.
