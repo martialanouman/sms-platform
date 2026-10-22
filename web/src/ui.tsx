@@ -2,6 +2,7 @@ import { AlertDialog } from '@base-ui/react/alert-dialog'
 import { Button as BaseButton } from '@base-ui/react/button'
 import { Combobox as BaseCombobox } from '@base-ui/react/combobox'
 import { Dialog } from '@base-ui/react/dialog'
+import { Field as BaseField } from '@base-ui/react/field'
 import { Tooltip } from '@base-ui/react/tooltip'
 import { type QueryKey, useQueryClient } from '@tanstack/react-query'
 import {
@@ -38,19 +39,13 @@ function invalidity(validity: ValidityState) {
 }
 
 export function Field({ label, ...input }: { label: string } & ComponentProps<'input'>) {
-  const id = useId()
   const [error, setError] = useState('')
   return (
-    <div className="ui-field">
-      <label className="ui-field__label" htmlFor={id}>
-        {label}
-      </label>
-      <input
-        id={id}
+    <BaseField.Root className="ui-field" invalid={error !== ''}>
+      <BaseField.Label className="ui-field__label">{label}</BaseField.Label>
+      <BaseField.Control
         className="ui-input"
         {...input}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={[error && `${id}-error`, input['aria-describedby']].filter(Boolean).join(' ') || undefined}
         onInvalid={(e) => {
           e.preventDefault()
           setError(invalidity(e.currentTarget.validity))
@@ -64,13 +59,11 @@ export function Field({ label, ...input }: { label: string } & ComponentProps<'i
           }
         }}
       />
-      {error && (
-        <p className="ui-field__error" id={`${id}-error`} role="alert">
-          <Icon name="bang" />
-          {error}
-        </p>
-      )}
-    </div>
+      <BaseField.Error className="ui-field__error" role="alert" match={error !== ''}>
+        <Icon name="bang" />
+        {error}
+      </BaseField.Error>
+    </BaseField.Root>
   )
 }
 
