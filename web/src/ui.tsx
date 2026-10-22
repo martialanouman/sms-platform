@@ -1,3 +1,4 @@
+import { AlertDialog } from '@base-ui/react/alert-dialog'
 import { Button as BaseButton } from '@base-ui/react/button'
 import { Combobox as BaseCombobox } from '@base-ui/react/combobox'
 import { Dialog } from '@base-ui/react/dialog'
@@ -386,34 +387,37 @@ export function DataTable<Row>({
 export function Modal({
   title,
   wide,
+  alert,
   onClose,
   footer,
   children,
 }: {
   title: string
   wide?: boolean
+  alert?: boolean
   onClose: () => void
   footer: ReactNode
   children: ReactNode
 }) {
   const [opener] = useState(() => document.activeElement as HTMLElement | null)
   useEffect(() => () => opener?.focus(), [opener])
+  const Kind = alert ? AlertDialog : Dialog
   return (
-    <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
-      <Dialog.Portal>
-        <Dialog.Backdrop className="ui-modal__backdrop" />
-        <Dialog.Popup className={wide ? 'ui-modal ui-modal--wide' : 'ui-modal'}>
+    <Kind.Root open onOpenChange={(open) => !open && onClose()}>
+      <Kind.Portal>
+        <Kind.Backdrop className="ui-modal__backdrop" />
+        <Kind.Popup className={wide ? 'ui-modal ui-modal--wide' : 'ui-modal'}>
           <header className="ui-modal__head">
-            <Dialog.Title className="ui-modal__title">{title}</Dialog.Title>
-            <Dialog.Close className="ui-modal__close" aria-label="Fermer">
+            <Kind.Title className="ui-modal__title">{title}</Kind.Title>
+            <Kind.Close className="ui-modal__close" aria-label="Fermer">
               <Icon name="times" />
-            </Dialog.Close>
+            </Kind.Close>
           </header>
           <div className="ui-modal__body">{children}</div>
           <div className="ui-modal__foot">{footer}</div>
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
+        </Kind.Popup>
+      </Kind.Portal>
+    </Kind.Root>
   )
 }
 
@@ -451,6 +455,7 @@ export function Confirmation({
 
   return (
     <Modal
+      alert
       title={title}
       onClose={onClose}
       footer={
