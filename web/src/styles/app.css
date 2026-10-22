@@ -885,6 +885,11 @@
   text-decoration: none;
 }
 
+.audit-tabs__tab:hover {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
 .audit-tabs__tab[aria-current="page"] {
   border-bottom-color: var(--action-primary-border);
   color: var(--text-primary);
