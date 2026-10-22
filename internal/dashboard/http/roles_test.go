@@ -64,3 +64,36 @@ func TestASessionNotElevatedReachesOnlyAuthWhenItsRolesRequireMFA(t *testing.T) 
 		t.Errorf("access log once elevated: %d %s", got.status, got.raw)
 	}
 }
+
+func TestTheAuditDirectoryNamesEveryOperatorAndNothingMore(t *testing.T) {
+	a := newAPI(t, netip.MustParsePrefix("127.0.0.0/8"))
+	a.activate(t)
+	c := a.elevated(t)
+	if got := a.do(t, call{method: "POST", path: "/api/operators", cookie: c, body: `{"email":"ada@example.test","displayName":"Ada"}`}); got.status != 201 {
+		t.Fatalf("create: %d %s", got.status, got.raw)
+	}
+	if _, err := a.owner.Exec(context.Background(), `UPDATE dashboard.operators SET status = 'disabled' WHERE email = 'ada@example.test'`); err != nil {
+		t.Fatal(err)
+	}
+
+	a.holdOnly(t, "Audit")
+	got := a.do(t, call{method: "GET", path: "/api/audit/operators", cookie: c})
+	if got.status != 200 {
+		t.Fatalf("an Audit session: %d %s", got.status, got.raw)
+	}
+	for _, want := range []string{`{"displayName":"Ada","email":"ada@example.test","id":"`, `","status":"disabled"}`, `"email":"owner@example.test"`} {
+		if !strings.Contains(got.raw, want) {
+			t.Errorf("directory %s lacks %s", got.raw, want)
+		}
+	}
+	for _, leak := range []string{"roles", "accessLink", "secondFactorEnrolled"} {
+		if strings.Contains(got.raw, leak) {
+			t.Errorf("directory %s leaks %s", got.raw, leak)
+		}
+	}
+
+	a.holdOnly(t, "Reporting")
+	if got := a.do(t, call{method: "GET", path: "/api/audit/operators", cookie: c}); got.status != 403 || got.code() != "forbidden_scope" {
+		t.Errorf("a Reporting session: %d %s", got.status, got.raw)
+	}
+}

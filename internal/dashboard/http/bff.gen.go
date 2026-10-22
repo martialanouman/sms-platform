@@ -283,6 +283,24 @@ func (e OperatorStatus) Valid() bool {
 	}
 }
 
+// Defines values for OperatorRefStatus.
+const (
+	OperatorRefStatusActive   OperatorRefStatus = "active"
+	OperatorRefStatusDisabled OperatorRefStatus = "disabled"
+)
+
+// Valid indicates whether the value is a known member of the OperatorRefStatus enum.
+func (e OperatorRefStatus) Valid() bool {
+	switch e {
+	case OperatorRefStatusActive:
+		return true
+	case OperatorRefStatusDisabled:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for OperatorUpdateStatus.
 const (
 	OperatorUpdateStatusActive   OperatorUpdateStatus = "active"
@@ -501,6 +519,17 @@ type OperatorCreate struct {
 	DisplayName string `json:"displayName"`
 	Email       string `json:"email"`
 }
+
+// OperatorRef defines model for OperatorRef.
+type OperatorRef struct {
+	DisplayName string            `json:"displayName"`
+	Email       string            `json:"email"`
+	Id          string            `json:"id"`
+	Status      OperatorRefStatus `json:"status"`
+}
+
+// OperatorRefStatus defines model for OperatorRef.Status.
+type OperatorRefStatus string
 
 // OperatorRoles defines model for OperatorRoles.
 type OperatorRoles struct {
@@ -765,6 +794,9 @@ type ServerInterface interface {
 	// ListAccessLog List the dashboard access log, newest first
 	// (GET /access-log)
 	ListAccessLog(w http.ResponseWriter, r *http.Request, params ListAccessLogParams)
+	// ListAuditOperators List every operator by name, to read the audit logs
+	// (GET /audit/operators)
+	ListAuditOperators(w http.ResponseWriter, r *http.Request)
 	// SetPasswordFromAccessLink Set a password with a single-use access link
 	// (POST /auth/access-link)
 	SetPasswordFromAccessLink(w http.ResponseWriter, r *http.Request)
@@ -911,6 +943,20 @@ func (siw *ServerInterfaceWrapper) ListAccessLog(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListAccessLog(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAuditOperators operation middleware
+func (siw *ServerInterfaceWrapper) ListAuditOperators(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAuditOperators(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1473,6 +1519,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/roles/{roleId}", wrapper.DeleteRole)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/roles/{roleId}", wrapper.UpdateRole)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/access-log", wrapper.ListAccessLog)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/audit/operators", wrapper.ListAuditOperators)
 
 	return m
 }
@@ -1573,6 +1620,69 @@ func (response ListAccessLog422JSONResponse) VisitListAccessLogResponse(w http.R
 type ListAccessLog500JSONResponse struct{ InternalErrorJSONResponse }
 
 func (response ListAccessLog500JSONResponse) VisitListAccessLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuditOperatorsRequestObject struct {
+}
+
+type ListAuditOperatorsResponseObject interface {
+	VisitListAuditOperatorsResponse(w http.ResponseWriter) error
+}
+
+type ListAuditOperators200JSONResponse []OperatorRef
+
+func (response ListAuditOperators200JSONResponse) VisitListAuditOperatorsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuditOperators401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListAuditOperators401JSONResponse) VisitListAuditOperatorsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuditOperators403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListAuditOperators403JSONResponse) VisitListAuditOperatorsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuditOperators500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListAuditOperators500JSONResponse) VisitListAuditOperatorsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -4082,6 +4192,9 @@ type StrictServerInterface interface {
 	// ListAccessLog List the dashboard access log, newest first
 	// (GET /access-log)
 	ListAccessLog(ctx context.Context, request ListAccessLogRequestObject) (ListAccessLogResponseObject, error)
+	// ListAuditOperators List every operator by name, to read the audit logs
+	// (GET /audit/operators)
+	ListAuditOperators(ctx context.Context, request ListAuditOperatorsRequestObject) (ListAuditOperatorsResponseObject, error)
 	// SetPasswordFromAccessLink Set a password with a single-use access link
 	// (POST /auth/access-link)
 	SetPasswordFromAccessLink(ctx context.Context, request SetPasswordFromAccessLinkRequestObject) (SetPasswordFromAccessLinkResponseObject, error)
@@ -4214,6 +4327,30 @@ func (sh *strictHandler) ListAccessLog(w http.ResponseWriter, r *http.Request, p
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListAccessLogResponseObject); ok {
 		if err := validResponse.VisitListAccessLogResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAuditOperators operation middleware
+func (sh *strictHandler) ListAuditOperators(w http.ResponseWriter, r *http.Request) {
+	var request ListAuditOperatorsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAuditOperators(ctx, request.(ListAuditOperatorsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAuditOperators")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAuditOperatorsResponseObject); ok {
+		if err := validResponse.VisitListAuditOperatorsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

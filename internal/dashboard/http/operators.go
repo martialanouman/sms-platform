@@ -60,6 +60,16 @@ func (s server) ListOperators(ctx context.Context, _ ListOperatorsRequestObject)
 	return out, err
 }
 
+func (s server) ListAuditOperators(ctx context.Context, _ ListAuditOperatorsRequestObject) (ListAuditOperatorsResponseObject, error) {
+	all, err := s.Service.Operators(ctx)
+	out := make(ListAuditOperators200JSONResponse, len(all))
+	for i, o := range all {
+		d := operatorDTO(o)
+		out[i] = OperatorRef{Id: d.Id, Email: d.Email, DisplayName: d.DisplayName, Status: OperatorRefStatus(d.Status)}
+	}
+	return out, err
+}
+
 func (s server) CreateOperator(ctx context.Context, request CreateOperatorRequestObject) (CreateOperatorResponseObject, error) {
 	created, err := s.Service.CreateOperator(ctx, actor(ctx), request.Body.Email, request.Body.DisplayName)
 	if refused, ok := invalid(err); ok {
