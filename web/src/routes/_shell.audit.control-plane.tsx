@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import type { components } from '../admin.gen'
-import { AuditFilters, at, auditSearch, Failure, Pager, period, useClosedOn, useOperatorName } from '../audit'
+import { AuditFilters, type AuditSearch, at, auditSearch, Failure, Pager, period, useClosedOn, useOperatorName } from '../audit'
 import { gw } from '../gw'
 import { read } from '../queries'
 import { Button, DataTable, EmptyState, LoadingState, Modal } from '../ui'
@@ -76,11 +76,14 @@ function ControlPlane() {
 }
 
 function Changes({ requestId, onClose }: { requestId: string; onClose: () => void }) {
+  const [position, setPosition] = useState<AuditSearch>({})
   const list = useQuery({
-    queryKey: ['audit', 'changes', requestId],
+    queryKey: ['audit', 'changes', requestId, position.cursor],
     queryFn: () =>
       read(
-        gw.GET('/admin/audit-log/{request_id}/changes', { params: { path: { request_id: requestId } } }),
+        gw.GET('/admin/audit-log/{request_id}/changes', {
+          params: { path: { request_id: requestId }, query: { cursor: position.cursor } },
+        }),
         'audit-changes',
       ),
   })
@@ -98,10 +101,10 @@ function Changes({ requestId, onClose }: { requestId: string; onClose: () => voi
       ) : list.data.data.length === 0 ? (
         <EmptyState title="Aucune modification enregistrée" />
       ) : (
-        list.data.data.map((c) => {
+        list.data.data.map((c, i) => {
           const columns = [...new Set([...Object.keys(c.before ?? {}), ...Object.keys(c.after ?? {})])]
           return (
-            <section className="audit-change" key={`${c.table}${c.pk}${c.at}`}>
+            <section className="audit-change" key={`${i}${c.table}${c.pk}`}>
               <h3 className="audit-change__table">{c.table}</h3>
               <p className="audit-change__meta">
                 <span className="audit-id">{c.pk}</span> · {c.op} · <span className="audit-id">{c.actor}</span> ·{' '}
@@ -127,6 +130,7 @@ function Changes({ requestId, onClose }: { requestId: string; onClose: () => voi
           )
         })
       )}
+      {list.data && <Pager search={position} next={list.data.next_cursor} go={setPosition} />}
     </Modal>
   )
 }

@@ -48,7 +48,8 @@ export function Failure({ title, error, retry }: { title: string; error: unknown
 export type AuditSearch = { operator?: string; from?: string; to?: string; cursor?: string; trail?: string[] }
 
 const text = (v: unknown) => (typeof v === 'string' && v !== '' ? v : undefined)
-const day = (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined)
+const day = (v: unknown) =>
+  typeof v === 'string' && new Date(`${v}T00:00`).toLocaleDateString('sv-SE') === v ? v : undefined
 
 export const auditSearch = (s: Record<string, unknown>): AuditSearch => ({
   operator: text(s.operator),
@@ -123,9 +124,13 @@ export function AuditFilters({ search, onFilter }: { search: AuditSearch; onFilt
     onFilter({ operator: text(form.get('operator')), from: day(form.get('from')), to: day(form.get('to')) })
   }
   return (
-    <form className="audit-filters" aria-label="Filtres du journal" onSubmit={filter}>
+    <form
+      key={[operators.length, search.operator, search.from, search.to].join('|')}
+      className="audit-filters"
+      aria-label="Filtres du journal"
+      onSubmit={filter}
+    >
       <Combobox
-        key={operators.length}
         label="Opérateur"
         name="operator"
         items={operators}

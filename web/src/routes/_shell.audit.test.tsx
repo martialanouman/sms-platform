@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 import { json, me, renderAt, stubFetch, violations } from '../test'
 
 const auditor = { ...me, permissions: ['audit:read'] }
@@ -344,4 +344,65 @@ test('the access tab lists the dashboard journal in French, on its own', async (
   expect(new URL(calls.at(-1)?.url ?? '').searchParams.get('cursor')).toBeNull()
   expect(calls.some((r) => new URL(r.url).pathname.startsWith('/api/gw/'))).toBe(false)
   expect(await violations(container)).toEqual([])
+})
+
+test('the filters shown follow the address, back to today when the tab is opened again', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, auditor),
+    'GET /api/gw/admin/audit-log': () => page([entry]),
+    'GET /api/audit/operators': directory,
+  })
+  renderAt(`/audit/control-plane?operator=${ada}&from=2026-10-01`)
+  await waitFor(() => expect((screen.getByRole('combobox', { name: 'Opérateur' }) as HTMLInputElement).value).toBe('Ada'))
+  expect((screen.getByLabelText('Depuis') as HTMLInputElement).value).toBe('2026-10-01')
+  await userEvent.setup().click(screen.getByRole('link', { name: 'Administration de la passerelle' }))
+  await waitFor(() => expect((screen.getByLabelText('Depuis') as HTMLInputElement).value).toBe(today))
+  expect((screen.getByRole('combobox', { name: 'Opérateur' }) as HTMLInputElement).value).toBe('')
+})
+
+test('a day the address cannot carry falls back to today, the screen standing', async () => {
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, auditor),
+    'GET /api/access-log': () => json(200, { data: [], nextCursor: null }),
+    'GET /api/audit/operators': directory,
+  })
+  renderAt('/audit/access?from=2026-13-01&to=2026-02-30')
+  await screen.findByText('Aucune entrée')
+  const q = new URL(calls.at(-1)?.url ?? '').searchParams
+  expect([q.get('fromDate'), q.get('toDate')]).toEqual([local(today), local(tomorrow)])
+  expect((screen.getByLabelText('Depuis') as HTMLInputElement).value).toBe(today)
+  expect((screen.getByLabelText('Jusqu’à') as HTMLInputElement).value).toBe(today)
+})
+
+test('the changes of a request are paged, and two changes of one row both show', async () => {
+  const change = {
+    actor: ada,
+    table: 'routes',
+    pk: '{"id": 7}',
+    op: 'insert',
+    before: null,
+    after: { name: 'a' },
+    at: entry.at,
+  }
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, auditor),
+    'GET /api/gw/admin/audit-log': () => page([refused]),
+    'GET /api/gw/admin/audit-log/r-write/changes': (r) =>
+      new URL(r.url).searchParams.get('cursor') === 'c2'
+        ? page([{ ...change, table: 'customers' }])
+        : page([change, { ...change, op: 'update', before: { name: 'a' }, after: { name: 'b' } }], 'c2'),
+  })
+  const errors = vi.spyOn(console, 'error')
+  renderAt('/audit/control-plane')
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('button', { name: 'Modifications' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Modifications de la requête r-write' })
+  await waitFor(() => expect(within(dialog).getAllByRole('heading', { name: 'routes' }).length).toBe(2))
+  expect(errors.mock.calls.some((c) => String(c[0]).includes('same key'))).toBe(false)
+  expect(within(dialog).queryByRole('button', { name: 'Précédent' })).toBeNull()
+  await user.click(within(dialog).getByRole('button', { name: 'Suivant' }))
+  expect(await within(dialog).findByRole('heading', { name: 'customers' })).toBeDefined()
+  expect(new URL(calls.at(-1)?.url ?? '').searchParams.get('cursor')).toBe('c2')
+  await user.click(within(dialog).getByRole('button', { name: 'Précédent' }))
+  await waitFor(() => expect(within(dialog).getAllByRole('heading', { name: 'routes' }).length).toBe(2))
 })
