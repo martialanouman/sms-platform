@@ -59,6 +59,17 @@ Fable, 2026-10-22, sauf mention.
 271. **Dettes** : #169 (`go-live`, décision humaine) — le diff d'audit rendrait un MSISDN en clair ; ouverte, sans effet
      en 013d (aucune table à numéro). #165 soldée.
 
+Retours humains de la preuve navigateur, 2026-10-22 :
+
+272. **Recherche par nom ou e-mail** : reportée (humain), issue #170 ; le filtre reste l'identifiant exact.
+273. **Dates sans heure** : « Depuis » et « Jusqu'à » sont des jours ; « Depuis » vaut le début du jour local, « Jusqu'à »
+     sa fin, envoyée comme le début du lendemain (borne exclusive des contrats). Par défaut, le jour courant pour les deux
+     bornes. L'URL porte les jours (`AAAA-MM-JJ`).
+274. **Bouton « Filtrer »** à la hauteur des champs, aligné sur eux, libellé exclu.
+275. **Journal d'accès filtrable** : `listAccessLog` gagne `actor` (identifiant exact), `fromDate` (incluse) et `toDate`
+     (exclue) au contrat BFF, d'abord ; le port, la requête SQL et le handler suivent ; l'onglet reprend les champs et le
+     défaut de 273.
+
 ## Design arrêté
 
 - **`contracts/openapi-admin.yaml`** : prose de `AuditEntry.target` (260).
@@ -66,4 +77,7 @@ Fable, 2026-10-22, sauf mention.
 - **`web/src/gw.ts`** ; **`web/src/api.ts`** (intercepteur partagé).
 - **`web/src/routes/_shell.audit*.tsx`** ; **`web/src/routes/_shell.tsx`** (rail) ; **`web/src/routes/_shell.account.tsx`**
   (#165) ; **`web/src/routes/_shell.roles.tsx`** (sélecteur sorti) ; **`web/src/styles/app.css`**.
-- **Tests** Vitest par écran (cas de 261 à 269) ; test Go de `tools/openapi` pour `AdminScope`. Mutation manuelle.
+- **`contracts/openapi-bff.yaml`** (275) ; **`internal/dashboard`** (port, filtre du journal),
+  **`internal/dashboard/postgres`** (requête), **`internal/dashboard/http`** (handler).
+- **Tests** Vitest par écran (cas de 261 à 275) ; test Go de `tools/openapi` pour `AdminScope` ; journal d'accès filtré
+  contre Postgres réel et par HTTP. Mutation manuelle.
