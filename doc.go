@@ -8,5 +8,6 @@ package smsplatform
 //go:generate go tool sqlc generate
 //go:generate go tool oapi-codegen -config internal/dashboard/http/oapi-codegen.yaml contracts/openapi-bff.yaml
 //go:generate pnpm -C web exec openapi-typescript ../contracts/openapi-bff.yaml -o src/api.gen.ts
+//go:generate pnpm -C web exec openapi-typescript ../contracts/openapi-admin.yaml -o src/admin.gen.ts
 //go:generate pnpm -C web exec tsr generate
 //go:generate go run ./tools/netpol

@@ -3991,7 +3991,7 @@ components:
         id: { type: string, format: uuid }
         operator: { type: string, description: 'The operator''s `sub`, `service:<name>` or `breakglass:<name>`.' }
         operation_id: { type: string }
-        target: { type: string, description: 'A subscriber number in it is masked unless the caller holds `msisdn:reveal`.' }
+        target: { type: string, description: 'The path of the call, without its query.' }
         request_id: { type: [string, "null"] }
         status: { type: integer, description: HTTP status. }
         outcome: { type: [string, "null"], description: 'For a body read: `granted`, `unreadable` or `not_found`.' }
