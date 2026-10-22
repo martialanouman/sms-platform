@@ -4,6 +4,7 @@ import { type FormEvent, useEffect, useId, useRef, useState } from 'react'
 import { api, json, unreachable } from '../api'
 import type { components } from '../api.gen'
 import { permissionLabel } from '../permissions'
+import { PermissionPicker } from '../picker'
 import { rolesQuery } from '../queries'
 import { meQuery, Refused, Unauthenticated, useSessionClosed, useShellMe } from '../session'
 import {
@@ -189,7 +190,6 @@ function Editor({ role, catalog, onClose }: { role?: Role; catalog: string[]; on
   const [permissions, setPermissions] = useState(role?.permissions ?? [])
   const form = useId()
   const keys = [...catalog].sort()
-  const resources = [...new Set(keys.map((key) => key.split(':')[0] ?? key))]
 
   async function save(event: FormEvent) {
     event.preventDefault()
@@ -251,27 +251,7 @@ function Editor({ role, catalog, onClose }: { role?: Role; catalog: string[]; on
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
-        <div className="permission-picker">
-          {resources.map((resource) => (
-            <fieldset className="role-choice" key={resource}>
-              <legend>{permissionLabel(`${resource}:`).resource ?? resource}</legend>
-              {keys
-                .filter((key) => key.startsWith(`${resource}:`))
-                .map((key) => (
-                  <label className="role-choice__option" key={key}>
-                    <input
-                      type="checkbox"
-                      checked={permissions.includes(key)}
-                      onChange={(e) =>
-                        setPermissions(e.target.checked ? [...permissions, key] : permissions.filter((p) => p !== key))
-                      }
-                    />
-                    {permissionLabel(key).action} <span className="role-keys__key">{key}</span>
-                  </label>
-                ))}
-            </fieldset>
-          ))}
-        </div>
+        <PermissionPicker keys={keys} chosen={permissions} onChange={setPermissions} />
       </form>
     </Modal>
   )

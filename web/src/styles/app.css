@@ -911,3 +911,16 @@
   background: var(--surface-sunken);
   color: var(--text-primary);
 }
+
+.token-scopes {
+  display: grid;
+  gap: var(--sp-4);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.token-scopes > legend {
+  padding: 0;
+  font: var(--text-card-title);
+}

@@ -90,13 +90,13 @@ test('the filters and the cursor travel in the request', async () => {
   await screen.findByText('list-audit-log')
   await user.click(screen.getByRole('button', { name: 'Suivant' }))
   expect(await screen.findByText('create-route')).toBeDefined()
-  expect(new URL(calls.at(-1)!.url).searchParams.get('cursor')).toBe('next-1')
+  expect(new URL(calls.at(-1)?.url ?? '').searchParams.get('cursor')).toBe('next-1')
 
   await user.type(screen.getByLabelText('Opérateur'), ada)
   await user.type(screen.getByLabelText('Depuis'), '2026-10-21T10:00')
   await user.click(screen.getByRole('button', { name: 'Filtrer' }))
   await waitFor(() => {
-    const q = new URL(calls.at(-1)!.url).searchParams
+    const q = new URL(calls.at(-1)?.url ?? '').searchParams
     expect([q.get('operator'), q.get('from_date'), q.get('to_date'), q.get('cursor')]).toEqual([
       ada,
       new Date('2026-10-21T10:00').toISOString(),

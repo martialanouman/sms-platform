@@ -456,9 +456,14 @@ const token = {
   expiresAt: '2026-10-21T13:00:00Z',
 }
 
+const issuer = {
+  ...me,
+  permissions: ['gateway:personal_token', 'traffic:read', 'accounts:read', 'content:read', 'roles:read'],
+}
+
 test('a personal token is shown once, copied, and gone once closed', async () => {
   const calls = stubFetch({
-    'GET /api/auth/me': () => json(200, { ...me, permissions: ['gateway:personal_token'] }),
+    'GET /api/auth/me': () => json(200, issuer),
     'POST /api/gateway-token': () => json(200, token),
   })
   const { container } = renderAt('/account')
@@ -472,6 +477,7 @@ test('a personal token is shown once, copied, and gone once closed', async () =>
   expect(screen.getByText(/expire une heure après sa délivrance/)).toBeDefined()
   expect(dialog.textContent).toContain('accounts:read, traffic:read')
   expect(await violations(container)).toEqual([])
+  expect(within(dialog).getByRole('button', { name: 'Copier le secret' }).closest('.ui-modal__foot')).not.toBeNull()
   await user.click(within(dialog).getByRole('button', { name: 'Copier le secret' }))
   expect(await navigator.clipboard.readText()).toBe('eyJ.jeton-de-preuve.sig')
   await user.click(within(dialog).getByRole('button', { name: 'J’ai copié le secret' }))
@@ -485,13 +491,51 @@ test('a personal token is shown once, copied, and gone once closed', async () =>
   expect(document.body.textContent).not.toContain('eyJ.jeton-de-preuve.sig')
   const posted = calls.find((c) => c.url.endsWith('/api/gateway-token'))
   expect(posted?.headers.get('Content-Type')).toBe('application/json')
-  expect(await posted?.text()).toBe('')
+  expect(await posted?.text()).toBe('{"scopes":["accounts:read","traffic:read"]}')
+})
+
+test('a personal token carries the scopes checked, among those it may carry', async () => {
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, issuer),
+    'POST /api/gateway-token': () => json(200, token),
+  })
+  renderAt('/account')
+  const user = userEvent.setup()
+  const picker = await screen.findByRole('group', { name: 'Scopes du jeton' })
+  const boxes = within(picker).getAllByRole('checkbox')
+  expect(boxes.map((b) => (b.closest('label') as HTMLElement).textContent)).toEqual([
+    expect.stringContaining('accounts:read'),
+    expect.stringContaining('traffic:read'),
+  ])
+  expect(boxes.every((b) => (b as HTMLInputElement).checked)).toBe(true)
+  await user.click(within(picker).getByRole('checkbox', { name: /traffic:read/ }))
+  await user.click(screen.getByRole('button', { name: 'Délivrer' }))
+  await screen.findByRole('dialog')
+  const posted = calls.find((c) => c.url.endsWith('/api/gateway-token'))
+  expect(await posted?.text()).toBe('{"scopes":["accounts:read"]}')
+})
+
+test('a personal token with no scope checked is refused before it is asked', async () => {
+  const calls = stubFetch({ 'GET /api/auth/me': () => json(200, issuer) })
+  renderAt('/account')
+  const user = userEvent.setup()
+  const picker = await screen.findByRole('group', { name: 'Scopes du jeton' })
+  for (const box of within(picker).getAllByRole('checkbox')) {
+    await user.click(box)
+  }
+  const issue = screen.getByRole('button', { name: 'Délivrer' })
+  expect(issue.getAttribute('aria-disabled')).toBe('true')
+  expect(document.getElementById(issue.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+    'Cochez au moins un scope.',
+  )
+  await user.click(issue)
+  expect(calls.some((c) => c.url.endsWith('/api/gateway-token'))).toBe(false)
 })
 
 test('a personal token refused or unavailable is told, without retry', async () => {
   let sent = 0
   stubFetch({
-    'GET /api/auth/me': () => json(200, { ...me, permissions: ['gateway:personal_token'] }),
+    'GET /api/auth/me': () => json(200, issuer),
     'POST /api/gateway-token': () => {
       sent++
       return json(503, { code: 'service_unavailable', message: 'Le signataire des jetons est indisponible (serveur).' })
