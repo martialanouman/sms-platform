@@ -184,5 +184,5 @@ Trois revues en lecture seule : correction et sécurité, tests creux, code en t
      Opérateurs et Rôles, ou un composant `Journal`, sortent du périmètre pour un gain modéré.
    - `Combobox` et `Choices` restent des briques du kit (278) : les écrans n'importent pas Base UI.
    - La restauration du focus de `Modal` reste : son mutant tombe, `finalFocus` ne joue pas au démontage.
-   - `malformed` sans `InvalidParamFormatError` (paramètre requis manquant) n'a pas de test : aucune opération du
-     contrat BFF n'a de paramètre de requête requis.
+   - `malformed` sans `InvalidParamFormatError` n'a pas de test : les quatre `RequiredParamError` générés portent sur
+     les paramètres optionnels de `listAccessLog`, et la liaison d'un paramètre optionnel ne rend jamais cette erreur.
