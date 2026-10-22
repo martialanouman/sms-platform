@@ -1,4 +1,7 @@
+import { Button as BaseButton } from '@base-ui/react/button'
 import { Combobox as BaseCombobox } from '@base-ui/react/combobox'
+import { Dialog } from '@base-ui/react/dialog'
+import { Tooltip } from '@base-ui/react/tooltip'
 import { type QueryKey, useQueryClient } from '@tanstack/react-query'
 import {
   type ComponentProps,
@@ -259,24 +262,9 @@ export function Button({
   blockedReason?: string
 } & Omit<ComponentProps<'button'>, 'className'>) {
   const reason = useId()
-  const [dismissed, setDismissed] = useState(false)
-  const [shown, setShown] = useState(false)
-  useEffect(() => {
-    if (!shown || dismissed) {
-      return
-    }
-    const dismiss = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        setDismissed(true)
-      }
-    }
-    window.addEventListener('keydown', dismiss)
-    return () => window.removeEventListener('keydown', dismiss)
-  }, [shown, dismissed])
   const inert = loading || blockedReason !== undefined
   const button = (
-    <button
+    <BaseButton
       {...rest}
       type={type}
       className={`ui-button ui-button--${variant}${size ? ` ui-button--${size}` : ''}`}
@@ -284,31 +272,26 @@ export function Button({
       aria-disabled={inert || undefined}
       aria-describedby={blockedReason === undefined ? undefined : reason}
       onClick={inert ? (event) => event.preventDefault() : onClick}
-      onFocus={() => setShown(blockedReason !== undefined)}
-      onMouseEnter={() => setShown(blockedReason !== undefined)}
-      onBlur={() => {
-        setShown(false)
-        setDismissed(false)
-      }}
-      onMouseLeave={() => {
-        setShown(false)
-        setDismissed(false)
-      }}
     >
       {loading && <span className="ui-button__spinner" aria-hidden="true" />}
       {children}
-    </button>
+    </BaseButton>
   )
   if (blockedReason === undefined) {
     return button
   }
   return (
-    <span className={`ui-blocked${dismissed ? ' ui-blocked--dismissed' : ''}`}>
-      {button}
-      <span className="ui-tooltip" id={reason}>
+    <Tooltip.Root>
+      <Tooltip.Trigger delay={0} closeOnClick={false} render={button} />
+      <span className="ui-visually-hidden" id={reason}>
         {blockedReason}
       </span>
-    </span>
+      <Tooltip.Portal>
+        <Tooltip.Positioner className="ui-tooltip__positioner" side="bottom" align="end" sideOffset={6}>
+          <Tooltip.Popup className="ui-tooltip">{blockedReason}</Tooltip.Popup>
+        </Tooltip.Positioner>
+      </Tooltip.Portal>
+    </Tooltip.Root>
   )
 }
 
@@ -413,41 +396,24 @@ export function Modal({
   footer: ReactNode
   children: ReactNode
 }) {
-  const dialog = useRef<HTMLDialogElement>(null)
-  const heading = useId()
   const [opener] = useState(() => document.activeElement as HTMLElement | null)
-  const pressed = useRef<EventTarget>(null)
-
-  useEffect(() => {
-    if (!dialog.current?.open) {
-      dialog.current?.showModal()
-    }
-    return () => opener?.focus()
-  }, [opener])
-
+  useEffect(() => () => opener?.focus(), [opener])
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: le clic ne vise que le voile ; au clavier, Échap ferme nativement.
-    <dialog
-      ref={dialog}
-      className={wide ? 'ui-modal ui-modal--wide' : 'ui-modal'}
-      aria-labelledby={heading}
-      onClose={onClose}
-      onMouseDown={(event) => {
-        pressed.current = event.target
-      }}
-      onClick={(event) => pressed.current === event.currentTarget && dialog.current?.close()}
-    >
-      <header className="ui-modal__head">
-        <h2 className="ui-modal__title" id={heading}>
-          {title}
-        </h2>
-        <button className="ui-modal__close" type="button" aria-label="Fermer" onClick={onClose}>
-          <Icon name="times" />
-        </button>
-      </header>
-      <div className="ui-modal__body">{children}</div>
-      <div className="ui-modal__foot">{footer}</div>
-    </dialog>
+    <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
+      <Dialog.Portal>
+        <Dialog.Backdrop className="ui-modal__backdrop" />
+        <Dialog.Popup className={wide ? 'ui-modal ui-modal--wide' : 'ui-modal'}>
+          <header className="ui-modal__head">
+            <Dialog.Title className="ui-modal__title">{title}</Dialog.Title>
+            <Dialog.Close className="ui-modal__close" aria-label="Fermer">
+              <Icon name="times" />
+            </Dialog.Close>
+          </header>
+          <div className="ui-modal__body">{children}</div>
+          <div className="ui-modal__foot">{footer}</div>
+        </Dialog.Popup>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }
 
