@@ -73,7 +73,14 @@ test('an operator is named from the audit directory, with audit:read alone', asy
   await waitFor(() => expect(cells('list-audit-log')[0]).toBe('Adaada@example.test'))
 })
 
-test('the operator is chosen by email among every operator and sent by its id', async () => {
+async function choose(user: ReturnType<typeof userEvent.setup>, typed: string, name: string) {
+  const box = await screen.findByRole('combobox', { name: 'Opérateur' })
+  await user.click(box)
+  await user.type(box, typed)
+  await user.click(await screen.findByRole('option', { name: new RegExp(`^${name}`) }))
+}
+
+test('the operator is chosen among every operator, by name or email, and sent by its id', async () => {
   const calls = stubFetch({
     'GET /api/auth/me': () => json(200, auditor),
     'GET /api/gw/admin/audit-log': () => page([entry]),
@@ -82,26 +89,35 @@ test('the operator is chosen by email among every operator and sent by its id', 
   const { container } = renderAt('/audit/control-plane')
   const user = userEvent.setup()
   await waitFor(() => expect(cells('list-audit-log')[0]).toBe('Adaada@example.test'))
-  const field = screen.getByLabelText('Opérateur') as HTMLInputElement
-  const options = [...(field.list?.options ?? [])].map((o) => [o.value, o.textContent])
-  expect(options).toEqual([
-    ['ada@example.test', 'Ada'],
-    ['bob@example.test', 'Bob (désactivé)'],
+  const box = screen.getByRole('combobox', { name: 'Opérateur' })
+  await user.click(box)
+  expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual([
+    'Adaada@example.test',
+    'Bob (désactivé)bob@example.test',
   ])
-  await user.type(field, 'ada@example.test')
+  await user.type(box, 'BOB@EX')
+  await waitFor(() =>
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Bob (désactivé)bob@example.test']),
+  )
+  await user.clear(box)
+  await user.type(box, 'ad')
+  await waitFor(() => expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Adaada@example.test']))
+  await user.click(screen.getByRole('option', { name: /^Ada/ }))
+  expect(await violations(container)).toEqual([])
   await user.click(screen.getByRole('button', { name: 'Filtrer' }))
   await waitFor(() => expect(new URL(calls.at(-1)?.url ?? '').searchParams.get('operator')).toBe(ada))
-  expect(await violations(container)).toEqual([])
 })
 
-test('an operator carried by the address shows by its email once the directory is read', async () => {
+test('an operator carried by the address shows by its name once the directory is read', async () => {
   stubFetch({
     'GET /api/auth/me': () => json(200, auditor),
     'GET /api/access-log': () => json(200, { data: [], nextCursor: null }),
     'GET /api/audit/operators': directory,
   })
   renderAt(`/audit/access?operator=${ada}`)
-  await waitFor(() => expect((screen.getByLabelText('Opérateur') as HTMLInputElement).value).toBe('ada@example.test'))
+  await waitFor(() =>
+    expect((screen.getByRole('combobox', { name: 'Opérateur' }) as HTMLInputElement).value).toBe('Ada'),
+  )
 })
 
 const local = (day: string) => new Date(`${day}T00:00`).toISOString()
@@ -127,6 +143,7 @@ test('the filters and the cursor travel in the request', async () => {
     'GET /api/auth/me': () => json(200, auditor),
     'GET /api/gw/admin/audit-log': (r) =>
       new URL(r.url).searchParams.get('cursor') ? page([refused]) : page([entry], 'next-1'),
+    'GET /api/audit/operators': directory,
   })
   renderAt('/audit/control-plane')
   const user = userEvent.setup()
@@ -135,7 +152,7 @@ test('the filters and the cursor travel in the request', async () => {
   expect(await screen.findByText('create-route')).toBeDefined()
   expect(new URL(calls.at(-1)?.url ?? '').searchParams.get('cursor')).toBe('next-1')
 
-  await user.type(screen.getByLabelText('Opérateur'), ada)
+  await choose(user, 'ada', 'Ada')
   await user.clear(screen.getByLabelText('Depuis'))
   await user.type(screen.getByLabelText('Depuis'), '2026-10-20')
   await user.clear(screen.getByLabelText('Jusqu’à'))
@@ -235,13 +252,14 @@ test('the access tab is filtered by operator and period like the other', async (
   const calls = stubFetch({
     'GET /api/auth/me': () => json(200, auditor),
     'GET /api/access-log': () => json(200, { data: [], nextCursor: null }),
+    'GET /api/audit/operators': directory,
   })
   renderAt('/audit/access')
   const user = userEvent.setup()
   await screen.findByText('Aucune entrée')
   let q = new URL(calls.at(-1)?.url ?? '').searchParams
   expect([q.get('actor'), q.get('fromDate'), q.get('toDate')]).toEqual([null, local(today), local(tomorrow)])
-  await user.type(screen.getByLabelText('Opérateur'), ada)
+  await choose(user, 'ada', 'Ada')
   await user.clear(screen.getByLabelText('Depuis'))
   await user.type(screen.getByLabelText('Depuis'), '2026-10-20')
   await user.click(screen.getByRole('button', { name: 'Filtrer' }))

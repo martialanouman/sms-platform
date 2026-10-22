@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { type FormEvent, useEffect, useId } from 'react'
+import { type FormEvent, useEffect } from 'react'
 import { unreachable } from './api'
+import type { components } from './api.gen'
 import { auditOperatorsQuery } from './queries'
 import { Refused, Unauthenticated, useSessionClosed } from './session'
-import { Button, ErrorState, Field } from './ui'
+import { Button, Combobox, ErrorState, Field } from './ui'
 
 const when = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'medium' })
 
@@ -64,36 +65,34 @@ export function period(search: AuditSearch) {
   return { from: new Date(`${search.from ?? today()}T00:00`).toISOString(), to: end.toISOString() }
 }
 
+type Operator = components['schemas']['OperatorRef']
+
+const named = (o: Operator) => (o.status === 'disabled' ? `${o.displayName} (désactivé)` : o.displayName)
+
+const sought = (o: Operator, query: string) =>
+  [o.displayName, o.email].some((t) => t.toLocaleLowerCase('fr').includes(query.toLocaleLowerCase('fr')))
+
 export function AuditFilters({ search, onFilter }: { search: AuditSearch; onFilter: (next: AuditSearch) => void }) {
-  const operators = useQuery(auditOperatorsQuery).data
-  const list = useId()
+  const operators = useQuery(auditOperatorsQuery).data ?? []
   const filter = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
-    const typed = text(form.get('operator'))
-    onFilter({
-      operator: operators?.find((o) => o.email === typed)?.id ?? typed,
-      from: day(form.get('from')),
-      to: day(form.get('to')),
-    })
+    onFilter({ operator: text(form.get('operator')), from: day(form.get('from')), to: day(form.get('to')) })
   }
   return (
     <form className="audit-filters" aria-label="Filtres du journal" onSubmit={filter}>
-      <Field
-        key={operators ? 'named' : 'raw'}
+      <Combobox
+        key={operators.length}
         label="Opérateur"
         name="operator"
-        list={list}
-        autoComplete="off"
-        defaultValue={operators?.find((o) => o.id === search.operator)?.email ?? search.operator}
+        items={operators}
+        defaultValue={operators.find((o) => o.id === search.operator) ?? null}
+        itemLabel={named}
+        itemValue={(o) => o.id}
+        itemDetail={(o) => o.email}
+        matches={sought}
+        empty="Aucun opérateur"
       />
-      <datalist id={list}>
-        {operators?.map((o) => (
-          <option key={o.id} value={o.email}>
-            {o.status === 'disabled' ? `${o.displayName} (désactivé)` : o.displayName}
-          </option>
-        ))}
-      </datalist>
       <Field label="Depuis" name="from" type="date" defaultValue={search.from ?? today()} />
       <Field label="Jusqu’à" name="to" type="date" defaultValue={search.to ?? today()} />
       <Button type="submit">Filtrer</Button>

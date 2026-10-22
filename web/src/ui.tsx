@@ -1,3 +1,4 @@
+import { Combobox as BaseCombobox } from '@base-ui/react/combobox'
 import { type QueryKey, useQueryClient } from '@tanstack/react-query'
 import {
   type ComponentProps,
@@ -66,6 +67,62 @@ export function Field({ label, ...input }: { label: string } & ComponentProps<'i
         </p>
       )}
     </div>
+  )
+}
+
+export function Combobox<Item>({
+  label,
+  name,
+  items,
+  defaultValue,
+  itemLabel,
+  itemValue,
+  itemDetail,
+  matches,
+  empty,
+}: {
+  label: string
+  name: string
+  items: Item[]
+  defaultValue?: Item | null
+  itemLabel: (item: Item) => string
+  itemValue: (item: Item) => string
+  itemDetail: (item: Item) => ReactNode
+  matches: (item: Item, query: string) => boolean
+  empty: string
+}) {
+  const id = useId()
+  return (
+    <BaseCombobox.Root
+      items={items}
+      name={name}
+      defaultValue={defaultValue}
+      itemToStringLabel={itemLabel}
+      itemToStringValue={itemValue}
+      filter={matches}
+    >
+      <div className="ui-field">
+        <label className="ui-field__label" htmlFor={id}>
+          {label}
+        </label>
+        <BaseCombobox.Input id={id} className="ui-input" />
+      </div>
+      <BaseCombobox.Portal>
+        <BaseCombobox.Positioner className="ui-combobox__positioner" sideOffset={4}>
+          <BaseCombobox.Popup className="ui-combobox__popup">
+            <BaseCombobox.Empty className="ui-combobox__empty">{empty}</BaseCombobox.Empty>
+            <BaseCombobox.List>
+              {(item: Item) => (
+                <BaseCombobox.Item key={itemValue(item)} value={item} className="ui-combobox__item">
+                  <span>{itemLabel(item)}</span>
+                  <span className="ui-combobox__detail">{itemDetail(item)}</span>
+                </BaseCombobox.Item>
+              )}
+            </BaseCombobox.List>
+          </BaseCombobox.Popup>
+        </BaseCombobox.Positioner>
+      </BaseCombobox.Portal>
+    </BaseCombobox.Root>
   )
 }
 

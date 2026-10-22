@@ -924,3 +924,49 @@
   padding: 0;
   font: var(--text-card-title);
 }
+
+.ui-combobox__positioner {
+  z-index: calc(var(--z-modal) + 1);
+  min-width: var(--anchor-width);
+}
+
+.ui-combobox__popup {
+  overflow: auto;
+  max-height: 18rem;
+  padding: var(--sp-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-card);
+  background: var(--surface-card);
+  box-shadow: var(--elevation-popover);
+}
+
+.ui-combobox__item {
+  display: flex;
+  flex-direction: column;
+  padding: var(--sp-4) var(--sp-5);
+  border-radius: var(--r-field);
+  color: var(--text-secondary);
+  font-size: var(--fs-13);
+  cursor: pointer;
+}
+
+.ui-combobox__item[data-highlighted] {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.ui-combobox__item[data-selected] {
+  background: var(--tint-teal);
+  color: var(--text-accent);
+}
+
+.ui-combobox__detail {
+  color: var(--text-muted);
+  font: var(--text-caption);
+}
+
+.ui-combobox__empty:not(:empty) {
+  padding: var(--sp-4) var(--sp-5);
+  color: var(--text-muted);
+  font-size: var(--fs-13);
+}
