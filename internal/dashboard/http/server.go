@@ -184,7 +184,11 @@ func (s server) ListAccessLog(ctx context.Context, request ListAccessLogRequestO
 	if request.Params.Cursor != nil {
 		cursor = *request.Params.Cursor
 	}
-	entries, next, err := s.Service.AccessLog(ctx, cursor)
+	f := dashboard.AccessLogFilter{From: request.Params.FromDate, To: request.Params.ToDate}
+	if request.Params.Actor != nil {
+		f.Actor = new(request.Params.Actor.String())
+	}
+	entries, next, err := s.Service.AccessLog(ctx, f, cursor)
 	switch {
 	case errors.Is(err, dashboard.ErrBadCursor):
 		return ListAccessLog422JSONResponse{ValidationErrorJSONResponse{Code: ErrorCodeValidationError, Message: "La requête est mal formée.",

@@ -13,14 +13,20 @@ import (
 const accessLog = `-- name: AccessLog :many
 SELECT id::text, at, coalesce(actor::text, '')::text AS actor, event, coalesce(target, '')::text AS target, outcome = 'success' AS success
 FROM dashboard.access_log
-WHERE $1::timestamptz IS NULL OR (at, id) < ($1::timestamptz, $2::uuid)
+WHERE ($1::timestamptz IS NULL OR (at, id) < ($1::timestamptz, $2::uuid))
+  AND ($3::uuid IS NULL OR actor = $3::uuid)
+  AND ($4::timestamptz IS NULL OR at >= $4::timestamptz)
+  AND ($5::timestamptz IS NULL OR at < $5::timestamptz)
 ORDER BY at DESC, id DESC
-LIMIT $3::bigint
+LIMIT $6::bigint
 `
 
 type AccessLogParams struct {
 	BeforeAt *time.Time
 	BeforeID *string
+	Actor    *string
+	FromDate *time.Time
+	ToDate   *time.Time
 	PageSize int64
 }
 
@@ -34,7 +40,14 @@ type AccessLogRow struct {
 }
 
 func (q *Queries) AccessLog(ctx context.Context, db DBTX, arg AccessLogParams) ([]AccessLogRow, error) {
-	rows, err := db.Query(ctx, accessLog, arg.BeforeAt, arg.BeforeID, arg.PageSize)
+	rows, err := db.Query(ctx, accessLog,
+		arg.BeforeAt,
+		arg.BeforeID,
+		arg.Actor,
+		arg.FromDate,
+		arg.ToDate,
+		arg.PageSize,
+	)
 	if err != nil {
 		return nil, err
 	}

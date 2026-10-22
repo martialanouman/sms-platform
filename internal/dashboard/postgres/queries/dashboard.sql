@@ -108,7 +108,10 @@ VALUES (sqlc.narg(actor)::uuid, @event, sqlc.narg(target), CASE WHEN @success::b
 -- name: AccessLog :many
 SELECT id::text, at, coalesce(actor::text, '')::text AS actor, event, coalesce(target, '')::text AS target, outcome = 'success' AS success
 FROM dashboard.access_log
-WHERE sqlc.narg(before_at)::timestamptz IS NULL OR (at, id) < (sqlc.narg(before_at)::timestamptz, sqlc.narg(before_id)::uuid)
+WHERE (sqlc.narg(before_at)::timestamptz IS NULL OR (at, id) < (sqlc.narg(before_at)::timestamptz, sqlc.narg(before_id)::uuid))
+  AND (sqlc.narg(actor)::uuid IS NULL OR actor = sqlc.narg(actor)::uuid)
+  AND (sqlc.narg(from_date)::timestamptz IS NULL OR at >= sqlc.narg(from_date)::timestamptz)
+  AND (sqlc.narg(to_date)::timestamptz IS NULL OR at < sqlc.narg(to_date)::timestamptz)
 ORDER BY at DESC, id DESC
 LIMIT @page_size::bigint;
 
