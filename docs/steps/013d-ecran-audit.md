@@ -83,12 +83,21 @@ Second retour, même jour :
      `breakglass:<nom>` du journal de la passerelle). Les identifiants sont les mêmes des deux côtés : `sub` du jeton
      émis par le BFF = identifiant de l'opérateur. Plafond : Safari ne filtre que par préfixe ; combobox ARIA si un
      auditeur y bute. Solde #170, qui remplace 272.
+278. **Kit sur Base UI** (humain ; révise 102 et 184) : la liste native n'obéit pas à la charte (le système la peint) ;
+     `@base-ui/react` 1.8.0 (1.9.0 sous l'âge minimal de pnpm), la bibliothèque de l'ancienne SPA, devient la base de
+     tout composant du kit qui a un équivalent, dans cette PR (humain) : `Field`, `Button`, `Modal` et `Confirmation`
+     (`Dialog`, `AlertDialog`), les cases du sélecteur de permissions (`Checkbox`), et le filtre « Opérateur », un
+     `Combobox` (remplace le `<datalist>` de 277 : valeur l'identifiant, filtre sur le nom et l'e-mail). Sans
+     équivalent, `DataTable`, `EmptyState`, `LoadingState`, `Toolbar`, `PageHeader`, `Icon` et les onglets d'Audit
+     (des liens de route) restent du balisage. Un composant neuf naît du besoin d'un écran (humain). Le texte libre de
+     277 disparaît : le filtre ne choisit que dans l'annuaire.
 
 ## Design arrêté
 
 - **`contracts/openapi-admin.yaml`** : prose de `AuditEntry.target` (260).
 - **`doc.go`**, **`web/src/admin.gen.ts`**, **`tools/openapi`** (`AdminScope`), **`web/src/scopes.gen.ts`**.
 - **`web/src/gw.ts`** ; **`web/src/api.ts`** (intercepteur partagé).
+- **`web/package.json`** (`@base-ui/react`, 278) ; **`web/src/ui.tsx`** et **`web/src/picker.tsx`** (278).
 - **`web/src/routes/_shell.audit*.tsx`** ; **`web/src/routes/_shell.tsx`** (rail) ; **`web/src/routes/_shell.account.tsx`**
   (#165) ; **`web/src/routes/_shell.roles.tsx`** (sélecteur sorti) ; **`web/src/styles/app.css`**.
 - **`contracts/openapi-bff.yaml`** (275, 277) ; **`internal/dashboard/http`** (276, 277) ; **`internal/dashboard`** (port, filtre du journal),
