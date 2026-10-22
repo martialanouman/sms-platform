@@ -70,6 +70,20 @@ Retours humains de la preuve navigateur, 2026-10-22 :
      (exclue) au contrat BFF, d'abord ; le port, la requête SQL et le handler suivent ; l'onglet reprend les champs et le
      défaut de 273.
 
+Second retour, même jour :
+
+276. **Paramètre mal formé** : un `actor` qui n'est pas un UUID passait le validateur (kin-openapi n'impose pas le format
+     `uuid`) et tombait au décodage généré, qui répondait `400 text/plain` hors contrat ; le SPA le prenait pour une
+     panne. Le BFF répond désormais `422 validation_error`, le paramètre placé.
+277. **Opérateur choisi dans une liste** (humain ; source arbitrée par Fable) : annuaire `GET /api/audit/operators` sous
+     `audit:read` (`id`, `email`, `displayName`, `status`, actifs et désactivés), pas `/operators` élargi, qui livrerait
+     rôles, second facteur et lien d'accès à un rôle `Audit` qui n'a que `audit:read`. Il nomme aussi les opérateurs des
+     deux tables, sans `operators:read`. Le champ est un `<input list>` + `<datalist>` natif filtrable, valeur l'e-mail
+     (unique), résolu en identifiant à la soumission ; un texte inconnu part tel quel (`service:<nom>`,
+     `breakglass:<nom>` du journal de la passerelle). Les identifiants sont les mêmes des deux côtés : `sub` du jeton
+     émis par le BFF = identifiant de l'opérateur. Plafond : Safari ne filtre que par préfixe ; combobox ARIA si un
+     auditeur y bute. Solde #170, qui remplace 272.
+
 ## Design arrêté
 
 - **`contracts/openapi-admin.yaml`** : prose de `AuditEntry.target` (260).
@@ -77,7 +91,7 @@ Retours humains de la preuve navigateur, 2026-10-22 :
 - **`web/src/gw.ts`** ; **`web/src/api.ts`** (intercepteur partagé).
 - **`web/src/routes/_shell.audit*.tsx`** ; **`web/src/routes/_shell.tsx`** (rail) ; **`web/src/routes/_shell.account.tsx`**
   (#165) ; **`web/src/routes/_shell.roles.tsx`** (sélecteur sorti) ; **`web/src/styles/app.css`**.
-- **`contracts/openapi-bff.yaml`** (275) ; **`internal/dashboard`** (port, filtre du journal),
+- **`contracts/openapi-bff.yaml`** (275, 277) ; **`internal/dashboard/http`** (276, 277) ; **`internal/dashboard`** (port, filtre du journal),
   **`internal/dashboard/postgres`** (requête), **`internal/dashboard/http`** (handler).
 - **Tests** Vitest par écran (cas de 261 à 275) ; test Go de `tools/openapi` pour `AdminScope` ; journal d'accès filtré
   contre Postgres réel et par HTTP. Mutation manuelle.
