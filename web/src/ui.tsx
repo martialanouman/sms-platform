@@ -143,14 +143,16 @@ export function Choices({
   )
 }
 
+const CheckboxRoot = Checkbox.Root
+
 export function Choice({ value, children }: { value: string; children: ReactNode }) {
   return (
     <label className="role-choice__option">
-      <Checkbox.Root value={value} className="ui-check">
+      <CheckboxRoot value={value} className="ui-check">
         <Checkbox.Indicator className="ui-check__mark">
           <Icon name="check" />
         </Checkbox.Indicator>
-      </Checkbox.Root>
+      </CheckboxRoot>
       {children}
     </label>
   )

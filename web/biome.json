@@ -18,6 +18,14 @@
     "rules": {
       "suspicious": {
         "noConsole": "error"
+      },
+      "a11y": {
+        "noLabelWithoutControl": {
+          "level": "error",
+          "options": {
+            "inputComponents": ["CheckboxRoot"]
+          }
+        }
       }
     }
   }
