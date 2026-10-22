@@ -78,7 +78,7 @@ func New(c Config) (http.Handler, error) {
 		return nil, err
 	}
 	root := http.NewServeMux()
-	root.Handle("/api/", noStore(c.guard(validate(HandlerWithOptions(strict, StdHTTPServerOptions{BaseURL: "/api", BaseRouter: mux})))))
+	root.Handle("/api/", noStore(c.guard(validate(HandlerWithOptions(strict, StdHTTPServerOptions{BaseURL: "/api", BaseRouter: mux, ErrorHandlerFunc: malformed})))))
 	root.Handle("/api/gw/", noStore(gw))
 	root.Handle("/", spa(c.Assets))
 	return secured(root), nil
@@ -184,6 +184,15 @@ func refuse(_ context.Context, err error, w http.ResponseWriter, _ *http.Request
 	default:
 		write(w, http.StatusInternalServerError, ErrorCodeInternalError, "Erreur interne.", nil)
 	}
+}
+
+func malformed(w http.ResponseWriter, _ *http.Request, err error) {
+	var param *InvalidParamFormatError
+	var placed []fieldError
+	if errors.As(err, &param) {
+		placed = []fieldError{{Field: param.ParamName, Message: "valeur refusée"}}
+	}
+	write(w, http.StatusUnprocessableEntity, ErrorCodeValidationError, "La requête est mal formée.", placed)
 }
 
 var located = regexp.MustCompile(`^error at "/([^"]+)": (?:at '[^']*': )?(.+)$`)
