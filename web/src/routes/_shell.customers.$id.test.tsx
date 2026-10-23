@@ -84,7 +84,6 @@ test('the page of a customer shows who it is, its group and its ages', async () 
     ['Supprimer', true],
   ])
   expect(container.textContent).not.toContain(acme.id)
-  expect(container.textContent).not.toMatch(/Comptes : \d/)
   expect(await violations(container)).toEqual([])
 })
 
@@ -401,6 +400,7 @@ test('the page of a customer lists its accounts, with their effective status, an
   )
   expect(within(section).getByRole('button', { name: 'Nouveau compte' }).className).toContain('ui-button--primary')
   expect(section.classList.contains('ui-card--flush')).toBe(true)
+  expect(container.textContent).not.toMatch(/Comptes : \d/)
   expect(new URL(calls.find((r) => r.url.includes('/admin/accounts'))?.url ?? '').search).toBe(
     `?customer_id=${acme.id}`,
   )
@@ -557,4 +557,12 @@ test('without customers:read the breadcrumb names Clients without linking to it'
   const crumbs = await within(await screen.findByRole('banner')).findByRole('navigation', { name: 'Fil d’Ariane' })
   await waitFor(() => expect(crumbs.textContent).toBe('ClientsClient'))
   expect(within(crumbs).queryByRole('link')).toBeNull()
+})
+
+test('a reader of a closed customer is told the permission first', async () => {
+  stub({ ...acme, status: 'closed' }, {}, reader)
+  renderAt(`/customers/${acme.id}`)
+  expect(explained(await screen.findByRole('button', { name: 'Modifier' }))).toBe(
+    'Cette action demande Clients : modifier customers:write.',
+  )
 })

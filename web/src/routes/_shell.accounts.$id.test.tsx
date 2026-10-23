@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
-import { empty, explained, json, me, renderAt, stubFetch, violations } from '../test'
+import { empty, explained, json, me, renderAt, stubFetch, toasted, violations } from '../test'
 
 const writer = { ...me, permissions: ['accounts:read', 'accounts:write'] }
 const acme = { id: '01a16026-0000-7000-8000-0000000000c1' }
@@ -290,4 +290,15 @@ test('without accounts:read the breadcrumb names Comptes without linking to it',
   const crumbs = await within(await screen.findByRole('banner')).findByRole('navigation', { name: 'Fil d’Ariane' })
   await waitFor(() => expect(crumbs.textContent).toBe('ComptesCompte'))
   expect(within(crumbs).queryByRole('link')).toBeNull()
+})
+
+test('a rename that succeeds is told in a toast', async () => {
+  stub(api, { [`PATCH ${path}`]: () => json(200, { ...api, name: 'web' }) })
+  const { user, dialog } = await editBlock('Identité')
+  const name = within(dialog).getByRole('textbox', { name: 'Nom' })
+  await user.clear(name)
+  await user.type(name, 'web')
+  await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  expect(await toasted()).toEqual(['Compte web renommé.'])
 })

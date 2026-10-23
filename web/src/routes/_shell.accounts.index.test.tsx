@@ -34,20 +34,18 @@ const account = (name: string, status: string, customer = acme) => ({
   updated_at: '2026-10-23T08:00:00Z',
 })
 
-function stub(who = reader) {
+const three = [
+  account('api', 'active'),
+  { ...account('held', 'suspended'), smpp_enabled: false },
+  { ...account('old', 'closed'), rest_enabled: false },
+]
+
+function stub(who = reader, accounts: unknown[] = three) {
   return stubFetch({
     'GET /api/auth/me': () => json(200, who),
     'GET /api/gw/admin/customer-groups': () => json(200, { data: [banks], next_cursor: null }),
     [`GET /api/gw/admin/customers/${acme.id}`]: () => json(200, { ...acme, group_id: null }),
-    'GET /api/gw/admin/accounts': () =>
-      json(200, {
-        data: [
-          account('api', 'active'),
-          { ...account('held', 'suspended'), smpp_enabled: false },
-          { ...account('old', 'closed'), rest_enabled: false },
-        ],
-        next_cursor: null,
-      }),
+    'GET /api/gw/admin/accounts': () => json(200, { data: accounts, next_cursor: null }),
   })
 }
 
@@ -89,11 +87,7 @@ test('the accounts list names their customer, their effective status in a pill a
 })
 
 test('no account at all says where one is created', async () => {
-  stubFetch({
-    'GET /api/auth/me': () => json(200, reader),
-    'GET /api/gw/admin/customer-groups': () => json(200, { data: [banks], next_cursor: null }),
-    'GET /api/gw/admin/accounts': () => json(200, { data: [], next_cursor: null }),
-  })
+  stub(reader, [])
   renderAt('/accounts')
   expect(await screen.findByText('Aucun compte')).toBeDefined()
   expect(screen.getByText('Un compte se crée depuis la fiche de son client.')).toBeDefined()
@@ -101,12 +95,7 @@ test('no account at all says where one is created', async () => {
 })
 
 test('no account under any filter asks to widen them, and clears them all', async () => {
-  stubFetch({
-    'GET /api/auth/me': () => json(200, reader),
-    'GET /api/gw/admin/customer-groups': () => json(200, { data: [banks], next_cursor: null }),
-    [`GET /api/gw/admin/customers/${acme.id}`]: () => json(200, { ...acme, group_id: null }),
-    'GET /api/gw/admin/accounts': () => json(200, { data: [], next_cursor: null }),
-  })
+  stub(reader, [])
   for (const search of [`customer_id=${acme.id}`, 'status=closed', `group_id=${banks.id}`]) {
     const { router, container, unmount } = renderAt(`/accounts?${search}`)
     expect(await screen.findByText('Aucun résultat')).toBeDefined()

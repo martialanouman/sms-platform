@@ -80,9 +80,9 @@ test('toasts speak through their polite region, at most three stand, and each le
   const standing = () => [...region.querySelectorAll('.ui-toast:not([data-limited])')].map((t) => t.textContent)
   expect(standing().sort()).toEqual(['Avis 2.', 'Avis 3.', 'Avis 4.'])
   expect(region.querySelectorAll('[role="status"]')).toHaveLength(0)
-  act(() => vi.advanceTimersByTime(4900))
+  act(() => vi.advanceTimersByTime(4999))
   expect(standing()).toHaveLength(3)
-  await act(async () => vi.advanceTimersByTime(200))
+  await act(async () => vi.advanceTimersByTime(1))
   expect(region.querySelectorAll('.ui-toast')).toHaveLength(0)
 })
 

@@ -49,6 +49,7 @@ test('the control plane tab lists the gateway journal, newest first', async () =
   })
   const { container } = renderAt('/audit')
   expect(await screen.findByRole('table', { name: 'Journal d’administration de la passerelle' })).toBeDefined()
+  expect(screen.getByText('2 entrées affichées')).toBeDefined()
   expect(document.title).toBe('Journal d’audit — Tableau de bord')
   expect(screen.getByRole('link', { name: 'Administration de la passerelle' }).getAttribute('aria-current')).toBe(
     'page',
@@ -333,6 +334,7 @@ test('the access tab lists the dashboard journal in French, on its own', async (
   })
   const { container } = renderAt('/audit/access')
   expect(await screen.findByRole('table', { name: 'Journal d’accès au tableau de bord' })).toBeDefined()
+  expect(screen.getByText('1 entrée affichée')).toBeDefined()
   expect(screen.getByRole('link', { name: 'Accès au dashboard' }).getAttribute('aria-current')).toBe('page')
   expect(cells('Jeton personnel délivré')).toEqual([ada, 'Jeton personnel délivré', '—', 'Réussi'])
   const user = userEvent.setup()
@@ -400,6 +402,7 @@ test('the changes of a request are paged, and two changes of one row both show',
   await user.click(await screen.findByRole('button', { name: 'Modifications' }))
   const dialog = await screen.findByRole('dialog', { name: 'Modifications de la requête r-write' })
   await waitFor(() => expect(within(dialog).getAllByRole('heading', { name: 'routes' }).length).toBe(2))
+  expect(within(dialog).getByText('2 modifications affichées')).toBeDefined()
   expect(errors.mock.calls.some((c) => String(c[0]).includes('same key'))).toBe(false)
   const inserted = within(dialog).getAllByText('name')[0]?.closest('div') as HTMLElement
   expect(inserted.className).toContain('changed')
@@ -498,4 +501,20 @@ test('a trail the address cannot carry offers no way back', async () => {
   renderAt('/audit/control-plane?trail=%5B1%5D')
   await screen.findByText('list-audit-log')
   expect(screen.getByRole('button', { name: 'Précédent' }).getAttribute('aria-disabled')).toBe('true')
+})
+
+test('the access tab counts the entries it shows', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, auditor),
+    'GET /api/access-log': () =>
+      json(200, {
+        data: [
+          { id: 'a1', at: entry.at, actor: null, event: 'login', target: null, outcome: 'success' },
+          { id: 'a2', at: entry.at, actor: null, event: 'login', target: null, outcome: 'failure' },
+        ],
+        nextCursor: null,
+      }),
+  })
+  renderAt('/audit/access')
+  expect(await screen.findByText('2 entrées affichées')).toBeDefined()
 })

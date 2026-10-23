@@ -30,11 +30,12 @@ const acme = {
 const solo = { ...acme, id: '01a16026-0000-7000-8000-0000000000c2', name: 'Solo', status: 'suspended', group_id: null }
 const page = (data: unknown[], next: string | null = null) => json(200, { data, next_cursor: next })
 
+async function row(name: string) {
+  return within((await screen.findByRole('rowheader', { name })).closest('tr') as HTMLTableRowElement)
+}
+
 async function cells(name: string) {
-  const row = (await screen.findByRole('rowheader', { name })).closest('tr') as HTMLTableRowElement
-  return within(row)
-    .getAllByRole('cell')
-    .map((c) => c.textContent)
+  return (await row(name)).getAllByRole('cell').map((c) => c.textContent)
 }
 
 test('the rail offers Clients before Groupes', async () => {
@@ -74,8 +75,7 @@ test('the customers are listed with their status in a pill and their group named
   expect(atMinute(acme.created_at)).toMatch(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/)
   expect(await cells('Solo')).toEqual(['Suspendu', 'Aucun', atMinute(solo.created_at)])
   expect(await cells('Gone')).toEqual(['Fermé', 'Anciens (archivé)', atMinute(gone.created_at)])
-  const pill = async (name: string, label: string) =>
-    within((await screen.findByRole('rowheader', { name })).closest('tr') as HTMLElement).getByText(label).className
+  const pill = async (name: string, label: string) => (await row(name)).getByText(label).className
   expect(await pill('Acme', 'Actif')).toBe('ui-pill ui-pill--ok')
   expect(await pill('Solo', 'Suspendu')).toBe('ui-pill ui-pill--warn')
   expect(await pill('Gone', 'Fermé')).toBe('ui-pill ui-pill--neutral')
@@ -247,7 +247,9 @@ test('without customers:write the creation is blocked and explained', async () =
     'GET /api/gw/admin/customer-groups': directory,
   })
   renderAt('/customers')
-  expect((await screen.findByRole('button', { name: 'Nouveau client' })).getAttribute('aria-disabled')).toBe('true')
+  const create = await screen.findByRole('button', { name: 'Nouveau client' })
+  expect(create.getAttribute('aria-disabled')).toBe('true')
+  expect(explained(create)).toBe('Cette action demande Clients : modifier customers:write.')
 })
 
 test('a session gone while listing sends to the login', async () => {
@@ -369,4 +371,23 @@ test('without customer-groups:read the group of a customer is said unreadable, n
   expect((await cells('Solo'))[1]).toBe('Aucun')
   expect(table.textContent).not.toContain(banks.id)
   expect(await violations(container)).toEqual([])
+})
+
+test('a creation the gateway fails keeps the dialog open with the refusal, and toasts nothing', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, writer),
+    'GET /api/gw/admin/customers': () => page([]),
+    'GET /api/gw/admin/customer-groups': directory,
+    'POST /api/gw/admin/customers': () => json(503, { code: 'service_unavailable', message: 'down' }),
+  })
+  const user = userEvent.setup()
+  renderAt('/customers')
+  await user.click(await screen.findByRole('button', { name: 'Nouveau client' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Nouveau client' })
+  expect(await violations(document.body)).toEqual([])
+  await user.type(within(dialog).getByLabelText('Nom'), 'Acme')
+  await user.click(within(dialog).getByRole('button', { name: 'Créer le client' }))
+  expect(await within(dialog).findByRole('alert')).toBeDefined()
+  expect(screen.getByRole('dialog', { name: 'Nouveau client' })).toBe(dialog)
+  expect(screen.getByRole('region', { name: 'Notifications' }).querySelectorAll('.ui-toast')).toHaveLength(0)
 })

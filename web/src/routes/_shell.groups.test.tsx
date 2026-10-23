@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
 import { atMinute } from '../audit'
-import { empty, json, me, once, renderAt, stubFetch, violations } from '../test'
+import { empty, explained, json, me, once, renderAt, stubFetch, violations } from '../test'
 
 const reader = { ...me, permissions: ['customer-groups:read'] }
 const writer = { ...me, permissions: ['customer-groups:read', 'customer-groups:write'] }
@@ -292,9 +292,14 @@ test('without customer-groups:write every change is blocked and explained', asyn
     'GET /api/gw/admin/customer-groups': () => page([banks]),
   })
   renderAt('/groups')
-  expect((await screen.findByRole('button', { name: 'Nouveau groupe' })).getAttribute('aria-disabled')).toBe('true')
+  const reason = 'Cette action demande Groupes de clients : modifier customer-groups:write.'
+  const create = await screen.findByRole('button', { name: 'Nouveau groupe' })
+  expect(create.getAttribute('aria-disabled')).toBe('true')
+  expect(explained(create)).toBe(reason)
   for (const name of ['Modifier', 'Archiver', 'Supprimer']) {
-    expect((await row('Banques')).getByRole('button', { name }).getAttribute('aria-disabled')).toBe('true')
+    const button = (await row('Banques')).getByRole('button', { name })
+    expect(button.getAttribute('aria-disabled')).toBe('true')
+    expect(explained(button)).toBe(reason)
   }
 })
 

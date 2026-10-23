@@ -58,7 +58,7 @@ export function empty(status: number) {
 
 export async function violations(container: Element) {
   const result = await axeCore.run(container, { rules: { 'color-contrast': { enabled: false } } })
-  return [...result.violations.map((v) => v.id), ...(container.querySelector('[title]') ? ['title'] : [])]
+  return [...result.violations.map((v) => v.id), ...(document.body.querySelector('[title]') ? ['title'] : [])]
 }
 
 export const me = {
