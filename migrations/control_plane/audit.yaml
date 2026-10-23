@@ -3,3 +3,4 @@ audit_changes: {audit: exempt, reason: le journal lui-même}
 customer_groups: {audit: diff}
 customers: {audit: diff}
 accounts: {audit: diff}
+credentials: {audit: diff}

@@ -3,11 +3,11 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useId, useState } from 'react'
 import { api, json } from '../api'
 import type { components } from '../api.gen'
-import { CopyButton, PasskeySection, TotpReplacement } from '../factor'
+import { PasskeySection, TotpReplacement } from '../factor'
 import { PermissionPicker } from '../picker'
 import { adminScopes, personalExcluded } from '../scopes.gen'
 import { meQuery, useShellMe } from '../session'
-import { Button, Modal, PageHeader, useSubmission } from '../ui'
+import { Button, PageHeader, SecretOnce, useSubmission } from '../ui'
 
 export const Route = createFileRoute('/_shell/account')({ component: Account })
 
@@ -88,24 +88,12 @@ function PersonalToken({ held }: { held: string[] }) {
         </Button>
       </div>
       {issued && (
-        <Modal
-          title="Jeton d’API personnel"
-          onClose={() => setIssued(undefined)}
-          footer={
-            <>
-              <CopyButton label="Copier le secret" value={issued.token} />
-              <Button variant="primary" onClick={() => setIssued(undefined)}>
-                J’ai copié le secret
-              </Button>
-            </>
-          }
-        >
+        <SecretOnce title="Jeton d’API personnel" secret={issued.token} onClose={() => setIssued(undefined)}>
           <p>
             Ce jeton ne sera plus jamais affiché. Il expire à {expiry.format(new Date(issued.expiresAt))} et ouvre :{' '}
             {issued.scopes.join(', ')}.
           </p>
-          <code className="auth__secret">{issued.token}</code>
-        </Modal>
+        </SecretOnce>
       )}
     </section>
   )

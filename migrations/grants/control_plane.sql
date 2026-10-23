@@ -28,6 +28,7 @@ GRANT USAGE ON SCHEMA control_plane TO admin_api_svc;
 GRANT select, insert, update, delete ON control_plane.accounts TO admin_api_svc;
 GRANT select, delete ON control_plane.audit_changes TO admin_api_svc;
 GRANT select, insert, delete ON control_plane.audit_log TO admin_api_svc;
+GRANT select, insert, update, delete ON control_plane.credentials TO admin_api_svc;
 GRANT select, insert, update, delete ON control_plane.customer_groups TO admin_api_svc;
 GRANT select, insert, update, delete ON control_plane.customers TO admin_api_svc;
 

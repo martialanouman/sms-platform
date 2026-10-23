@@ -3,6 +3,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { type ComponentProps, type FormEvent, type ReactNode, useId, useState } from 'react'
 import { type Account, AccountForm, accountsKey, effective } from '../accounts'
 import { at } from '../audit'
+import { Credentials } from '../credentials'
 import { gw } from '../gw'
 import { Failure, useClosedOn } from '../list'
 import { read } from '../queries'
@@ -149,6 +150,7 @@ function Loaded({ account, writes }: { account: Account; writes: boolean }) {
         <dt>cancel_sm</dt>
         <dd>{onOff(account.cancel_sm_enabled)}</dd>
       </Block>
+      <Credentials account={account} />
       {pending === 'rename' && <AccountForm customerId={account.customer_id} account={account} onClose={close} />}
       {pending === 'channels' && (
         <Settings

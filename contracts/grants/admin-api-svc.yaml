@@ -4,3 +4,4 @@ control_plane:
   customer_groups: [select, insert, update, delete]
   customers: [select, insert, update, delete]
   accounts: [select, insert, update, delete]
+  credentials: [select, insert, update, delete]
