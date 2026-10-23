@@ -25,12 +25,12 @@ RETURNING id;
 UPDATE control_plane.accounts SET
   name = coalesce(sqlc.narg(name), name),
   status = coalesce(sqlc.narg(status), status),
-  smpp_enabled = coalesce(sqlc.narg(smpp_enabled)::boolean, smpp_enabled),
-  rest_enabled = coalesce(sqlc.narg(rest_enabled)::boolean, rest_enabled),
-  query_sm_enabled = coalesce(sqlc.narg(query_sm_enabled)::boolean, query_sm_enabled),
-  cancel_sm_enabled = coalesce(sqlc.narg(cancel_sm_enabled)::boolean, cancel_sm_enabled),
-  allowed_bind_types = coalesce(sqlc.narg(allowed_bind_types)::text[], allowed_bind_types),
-  max_sessions = coalesce(sqlc.narg(max_sessions)::integer, max_sessions)
+  smpp_enabled = coalesce(sqlc.narg(smpp_enabled), smpp_enabled),
+  rest_enabled = coalesce(sqlc.narg(rest_enabled), rest_enabled),
+  query_sm_enabled = coalesce(sqlc.narg(query_sm_enabled), query_sm_enabled),
+  cancel_sm_enabled = coalesce(sqlc.narg(cancel_sm_enabled), cancel_sm_enabled),
+  allowed_bind_types = coalesce(sqlc.narg(allowed_bind_types), allowed_bind_types),
+  max_sessions = coalesce(sqlc.narg(max_sessions), max_sessions)
 WHERE id = sqlc.arg(id)
 RETURNING id;
 

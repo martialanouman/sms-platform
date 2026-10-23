@@ -70,6 +70,20 @@ func TestAnAccountIsCreatedWithItsDefaultsAndReadBackWithItsCustomer(t *testing.
 		*set.MaxSessions != 4 {
 		t.Fatalf("set = %+v", set)
 	}
+	crossed := g.createAccount(t, `{"customer_id": "`+c.ID+`", "name": "crossed", "rest_enabled": false, "query_sm_enabled": false}`)
+	if flags(crossed) != [4]bool{true, false, false, true} {
+		t.Fatalf("crossed = %+v", crossed)
+	}
+	for _, body := range []string{
+		`{"customer_id": "` + c.ID + `", "name": "x", "allowed_bind_types": null}`,
+		`{"customer_id": "` + c.ID + `", "name": "x", "max_sessions": 2147483648}`,
+		`{"customer_id": "` + c.ID + `", "name": "x", "allowed_bind_types": ["bogus"]}`,
+		`{"customer_id": "` + c.ID + `", "name": "x", "allowed_bind_types": []}`,
+	} {
+		if rec := g.send(t, http.MethodPost, "/admin/accounts", "accounts:write", body); rec.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("%s: %d %s", body, rec.Code, rec.Body)
+		}
+	}
 	lines := g.lines(t)
 	if n := g.count(t, `SELECT count(*) FROM control_plane.audit_changes WHERE table_name = 'accounts' AND op = 'insert'
 		AND actor = '`+operator+`' AND request_id = '`+lines[1].RequestID+`'`); n != 1 {
@@ -132,7 +146,7 @@ func TestAccountsAreFilteredByCustomerGroupAndStatusAndPaged(t *testing.T) {
 		for range 6 {
 			p := as[accountPage](t, g.send(t, http.MethodGet, path+"&limit=1&cursor="+cursor, "accounts:read", ""), http.StatusOK)
 			for _, a := range p.Data {
-				out = append(out, a.Name+"@"+a.CustomerName)
+				out = append(out, a.Name+"@"+a.CustomerName+":"+a.Status+"/"+a.CustomerStatus)
 			}
 			if p.NextCursor == nil {
 				return out
@@ -143,12 +157,13 @@ func TestAccountsAreFilteredByCustomerGroupAndStatusAndPaged(t *testing.T) {
 		return nil
 	}
 	for path, want := range map[string][]string{
-		"/admin/accounts?":                                          {"s1@Solo", "b1@Bolt", "a2@Acme", "a1@Acme"},
-		"/admin/accounts?customer_id=" + acme.ID:                    {"a2@Acme", "a1@Acme"},
-		"/admin/accounts?group_id=" + banks.ID:                      {"b1@Bolt", "a2@Acme", "a1@Acme"},
-		"/admin/accounts?status=suspended":                          {"a2@Acme"},
-		"/admin/accounts?group_id=" + banks.ID + "&status=active":   {"b1@Bolt", "a1@Acme"},
-		"/admin/accounts?customer_id=" + solo.ID + "&status=active": {"s1@Solo"},
+		"/admin/accounts?": {"s1@Solo:active/active", "b1@Bolt:active/active", "a2@Acme:suspended/active",
+			"a1@Acme:active/active"},
+		"/admin/accounts?customer_id=" + acme.ID:                    {"a2@Acme:suspended/active", "a1@Acme:active/active"},
+		"/admin/accounts?group_id=" + banks.ID:                      {"b1@Bolt:active/active", "a2@Acme:suspended/active", "a1@Acme:active/active"},
+		"/admin/accounts?status=suspended":                          {"a2@Acme:suspended/active"},
+		"/admin/accounts?group_id=" + banks.ID + "&status=active":   {"b1@Bolt:active/active", "a1@Acme:active/active"},
+		"/admin/accounts?customer_id=" + solo.ID + "&status=active": {"s1@Solo:active/active"},
 	} {
 		if got := names(path); !slices.Equal(got, want) {
 			t.Errorf("%s: %v, want %v", path, got, want)
@@ -186,8 +201,14 @@ func TestTheAccountSettingsAreEachSetByTheirOperation(t *testing.T) {
 	}
 	ops := as[accountBody](t, g.send(t, http.MethodPatch, path+"/smpp-ops", "accounts:write", `{"cancel_sm_enabled": false}`),
 		http.StatusOK)
-	if flags(ops) != [4]bool{false, true, true, false} {
+	if flags(ops) != [4]bool{false, true, true, false} || *ops.MaxSessions != 0 ||
+		!slices.Equal(ops.AllowedBindTypes, []string{"receiver", "transmitter"}) {
 		t.Fatalf("ops = %+v", ops)
+	}
+	for _, body := range []string{`{"max_sessions": 1, "allowed_bind_types": null}`, `{"max_sessions": 2147483648, "allowed_bind_types": ["receiver"]}`} {
+		if rec := g.send(t, http.MethodPatch, path+"/session-limits", "accounts:write", body); rec.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("session-limits %s: %d %s", body, rec.Code, rec.Body)
+		}
 	}
 	for _, body := range []string{`{}`, `{"query_sm_enabled": null}`} {
 		if rec := g.send(t, http.MethodPatch, path+"/smpp-ops", "accounts:write", body); rec.Code != http.StatusUnprocessableEntity {
@@ -223,6 +244,9 @@ func TestAnAccountIsSuspendedReactivatedAndClosedForGood(t *testing.T) {
 		if s := as[accountBody](t, g.send(t, http.MethodPost, path+"/suspend", "accounts:write", ""), http.StatusOK); s.Status != "suspended" {
 			t.Fatalf("suspended = %+v", s)
 		}
+	}
+	if renamed := as[accountBody](t, g.send(t, http.MethodPatch, path, "accounts:write", `{"name": "web"}`), http.StatusOK); renamed.Status != "suspended" {
+		t.Fatalf("a rename changed the status: %+v", renamed)
 	}
 	g.send(t, http.MethodPost, "/admin/customers/"+c.ID+"/suspend", "customers:write", "")
 	r := as[accountBody](t, g.send(t, http.MethodPatch, path, "accounts:write", `{"status": "active"}`), http.StatusOK)

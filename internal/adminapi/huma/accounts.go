@@ -40,14 +40,14 @@ type listAccountsInput struct {
 
 type createAccountInput struct {
 	Body struct {
-		CustomerID       string   `json:"customer_id" format:"uuid"`
-		Name             string   `json:"name" minLength:"1" maxLength:"200"`
-		SmppEnabled      *bool    `json:"smpp_enabled,omitempty" default:"true"`
-		RestEnabled      *bool    `json:"rest_enabled,omitempty" default:"true"`
-		QuerySmEnabled   *bool    `json:"query_sm_enabled,omitempty" default:"true"`
-		CancelSmEnabled  *bool    `json:"cancel_sm_enabled,omitempty" default:"true"`
-		AllowedBindTypes []string `json:"allowed_bind_types,omitempty" minItems:"1" uniqueItems:"true" enum:"transmitter,receiver,transceiver" default:"[\"transceiver\"]"`
-		MaxSessions      *int     `json:"max_sessions,omitempty" minimum:"0" default:"1"`
+		CustomerID       string          `json:"customer_id" format:"uuid"`
+		Name             string          `json:"name" minLength:"1" maxLength:"200"`
+		SmppEnabled      *bool           `json:"smpp_enabled,omitempty" default:"true"`
+		RestEnabled      *bool           `json:"rest_enabled,omitempty" default:"true"`
+		QuerySmEnabled   *bool           `json:"query_sm_enabled,omitempty" default:"true"`
+		CancelSmEnabled  *bool           `json:"cancel_sm_enabled,omitempty" default:"true"`
+		AllowedBindTypes value[[]string] `json:"allowed_bind_types,omitempty" minItems:"1" uniqueItems:"true" enum:"transmitter,receiver,transceiver"`
+		MaxSessions      *int            `json:"max_sessions,omitempty" minimum:"0" maximum:"2147483647" default:"1"`
 	}
 }
 
@@ -70,8 +70,8 @@ type channelsInput struct {
 type sessionLimitsInput struct {
 	ID   string `path:"id" format:"uuid"`
 	Body struct {
-		MaxSessions      int      `json:"max_sessions" minimum:"0"`
-		AllowedBindTypes []string `json:"allowed_bind_types" minItems:"1" uniqueItems:"true" enum:"transmitter,receiver,transceiver"`
+		MaxSessions      int      `json:"max_sessions" minimum:"0" maximum:"2147483647"`
+		AllowedBindTypes []string `json:"allowed_bind_types" nullable:"false" minItems:"1" uniqueItems:"true" enum:"transmitter,receiver,transceiver"`
 	}
 }
 
@@ -118,9 +118,13 @@ func registerAccounts(api huma.API) {
 		Tags: tags, Security: security("accounts:write"), DefaultStatus: http.StatusCreated, Errors: []int{401, 403, 409, 422}},
 		func(ctx context.Context, in *createAccountInput) (*accountOutput, error) {
 			b := in.Body
+			types := []string{"transceiver"}
+			if b.AllowedBindTypes.Value != nil {
+				types = *b.AllowedBindTypes.Value
+			}
 			return out(adminapi.TxFrom(ctx).CreateAccount(ctx, adminapi.Account{CustomerID: b.CustomerID, Name: b.Name,
 				SmppEnabled: *b.SmppEnabled, RestEnabled: *b.RestEnabled, QuerySmEnabled: *b.QuerySmEnabled,
-				CancelSmEnabled: *b.CancelSmEnabled, AllowedBindTypes: b.AllowedBindTypes, MaxSessions: *b.MaxSessions}))
+				CancelSmEnabled: *b.CancelSmEnabled, AllowedBindTypes: types, MaxSessions: *b.MaxSessions}))
 		})
 	huma.Register(api, huma.Operation{OperationID: "get-account", Method: http.MethodGet, Path: "/admin/accounts/{id}",
 		Tags: tags, Security: security("accounts:read"), Errors: []int{401, 403, 404, 422}},

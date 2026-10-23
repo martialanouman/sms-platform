@@ -186,12 +186,12 @@ const updateAccount = `-- name: UpdateAccount :one
 UPDATE control_plane.accounts SET
   name = coalesce($1, name),
   status = coalesce($2, status),
-  smpp_enabled = coalesce($3::boolean, smpp_enabled),
-  rest_enabled = coalesce($4::boolean, rest_enabled),
-  query_sm_enabled = coalesce($5::boolean, query_sm_enabled),
-  cancel_sm_enabled = coalesce($6::boolean, cancel_sm_enabled),
-  allowed_bind_types = coalesce($7::text[], allowed_bind_types),
-  max_sessions = coalesce($8::integer, max_sessions)
+  smpp_enabled = coalesce($3, smpp_enabled),
+  rest_enabled = coalesce($4, rest_enabled),
+  query_sm_enabled = coalesce($5, query_sm_enabled),
+  cancel_sm_enabled = coalesce($6, cancel_sm_enabled),
+  allowed_bind_types = coalesce($7, allowed_bind_types),
+  max_sessions = coalesce($8, max_sessions)
 WHERE id = $9
 RETURNING id
 `
