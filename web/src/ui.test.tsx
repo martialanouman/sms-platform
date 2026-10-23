@@ -84,7 +84,7 @@ test('a toast is a status, at most three stand, and each leaves after five secon
   expect(region.querySelectorAll('[role="status"]')).toHaveLength(0)
 })
 
-test('tabs are links marking the current one, and a frozen tab stays shown, explained and inert', async () => {
+test('tabs are links marking the current one', async () => {
   const root = createRootRoute({
     component: () => (
       <>
@@ -92,7 +92,7 @@ test('tabs are links marking the current one, and a frozen tab stays shown, expl
           label="Journaux"
           tabs={[
             { to: '/audit/control-plane', label: 'Administration' },
-            { to: '/audit/access', label: 'Accès', blockedReason: needs('audit:read') },
+            { to: '/audit/access', label: 'Accès' },
           ]}
         />
         <Outlet />
@@ -109,11 +109,8 @@ test('tabs are links marking the current one, and a frozen tab stays shown, expl
   const current = await screen.findByRole('link', { name: 'Administration' })
   await waitFor(() => expect(current.getAttribute('aria-current')).toBe('page'))
   expect(nav.className).toBe('ui-tabs')
-  const frozen = screen.getByRole('link', { name: 'Accès' })
-  expect(frozen.getAttribute('aria-disabled')).toBe('true')
-  expect(explained(frozen)).toBe('Cette action demande Journal d’audit : lire audit:read.')
-  await userEvent.setup().click(frozen)
-  expect(router.state.location.pathname).toBe('/audit/control-plane')
+  await userEvent.setup().click(screen.getByRole('link', { name: 'Accès' }))
+  await waitFor(() => expect(router.state.location.pathname).toBe('/audit/access'))
 })
 
 test('a free button carries no reason and opens no bubble, even focused', async () => {

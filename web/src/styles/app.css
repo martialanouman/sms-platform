@@ -956,11 +956,6 @@
   color: var(--text-primary);
 }
 
-.ui-tabs__tab[aria-disabled="true"] {
-  color: var(--text-faint);
-  cursor: not-allowed;
-}
-
 .audit-filters {
   display: flex;
   flex-wrap: wrap;
@@ -1195,11 +1190,6 @@
 .ui-pill--warn {
   background: var(--tint-amber);
   color: var(--text-warning);
-}
-
-.ui-pill--bad {
-  background: var(--tint-red);
-  color: var(--text-danger-on-tint);
 }
 
 .ui-pill--neutral {

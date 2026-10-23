@@ -389,35 +389,19 @@ export function useToast() {
   return (text: string) => void add({ description: text })
 }
 
-export function Tabs({
-  tabs,
-  label,
-}: {
-  tabs: { to: LinkProps['to']; label: string; blockedReason?: ReactNode }[]
-  label: string
-}) {
+export function Tabs({ tabs, label }: { tabs: { to: LinkProps['to']; label: string }[]; label: string }) {
   return (
     <nav className="ui-tabs" aria-label={label}>
       {tabs.map((tab) => (
-        <Explained
-          key={tab.label}
-          reason={tab.blockedReason}
-          render={
-            <Link
-              className="ui-tabs__tab"
-              to={tab.to}
-              onClick={tab.blockedReason === undefined ? undefined : (event) => event.preventDefault()}
-            >
-              {tab.label}
-            </Link>
-          }
-        />
+        <Link key={tab.label} className="ui-tabs__tab" to={tab.to}>
+          {tab.label}
+        </Link>
       ))}
     </nav>
   )
 }
 
-export type Tone = 'ok' | 'warn' | 'bad' | 'neutral'
+export type Tone = 'ok' | 'warn' | 'neutral'
 
 export function StatusPill({ tone, children }: { tone: Tone; children: ReactNode }) {
   return <span className={`ui-pill ui-pill--${tone}`}>{children}</span>
