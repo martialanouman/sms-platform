@@ -204,3 +204,18 @@ l'annuaire échoue ou ne contient pas le groupe (au-delà de 500).
 `pnpm audit` a signalé GHSA-mrhx-c7xc-m3w5 (`zod` < 4.6.6, sévérité élevée), tiré par l'outillage du routeur. Le
 correctif avait 12 jours, sous la quarantaine de 14 jours de `minimumReleaseAge`. Décision humaine : exempter
 `zod@4.6.6` seul et le forcer par `overrides` ; dette #179 (retrait le 2026-10-25).
+
+## Preuve dans le navigateur
+
+Sur contabo169, `Propriétaire` (compte de preuve), image du dashboard construite depuis la branche, fenêtre
+1440 × 960. Captures dans `docs/steps/014c-1/`.
+
+- liste Clients : pastilles « Actif » (vert), « Suspendu » (ambre), « Fermé » (neutre), « 3 clients affichés » ;
+  filtres Groupe et Statut portés par l'URL ; croisés sans résultat, « Aucun résultat » et « Retirer les filtres »,
+  qui vide l'URL et rend le focus au titre ;
+- fiche client : fil d'Ariane, titre et pastille, dates, actions, cartes Identité, Âges maximaux et Comptes ;
+  « Réactiver » figé, son explication « Déjà actif. » s'ouvre au focus clavier ; aucun attribut `title` dans la page ;
+- « Suspendre » au clavier, confirmé : pastille ambre, toast « Client Arolitec suspendu. », le focus reste sur
+  « Suspendre », désormais figé (« Déjà suspendu. ») ; réactivé ensuite, focus sur « Réactiver » ;
+- liste Comptes : colonne Client en lien, « Suspendu par son client » ; liste Groupes inchangée dans le kit ;
+- axe (WCAG 2.1 AA) sur les quatre écrans : aucune violation.
