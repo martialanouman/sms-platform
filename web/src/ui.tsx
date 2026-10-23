@@ -5,6 +5,7 @@ import { CheckboxGroup } from '@base-ui/react/checkbox-group'
 import { Combobox as BaseCombobox } from '@base-ui/react/combobox'
 import { Dialog } from '@base-ui/react/dialog'
 import { Field as BaseField } from '@base-ui/react/field'
+import { Select as BaseSelect } from '@base-ui/react/select'
 import { Tooltip } from '@base-ui/react/tooltip'
 import { type QueryKey, useQueryClient } from '@tanstack/react-query'
 import {
@@ -126,6 +127,45 @@ export function Combobox<Item>({
   )
 }
 
+export function Select({
+  label,
+  items,
+  value,
+  onChange,
+}: {
+  label: string
+  items: { value: string; label: string }[]
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <BaseSelect.Root items={items} value={value} onValueChange={(next) => onChange(next ?? '')}>
+      <div className="ui-field">
+        <BaseSelect.Label className="ui-field__label">{label}</BaseSelect.Label>
+        <BaseSelect.Trigger className="ui-input ui-select">
+          <BaseSelect.Value />
+          <BaseSelect.Icon className="ui-select__icon">
+            <Icon name="chevron" />
+          </BaseSelect.Icon>
+        </BaseSelect.Trigger>
+      </div>
+      <BaseSelect.Portal>
+        <BaseSelect.Positioner className="ui-combobox__positioner" sideOffset={4} alignItemWithTrigger={false}>
+          <BaseSelect.Popup className="ui-combobox__popup">
+            <BaseSelect.List>
+              {items.map((item) => (
+                <BaseSelect.Item key={item.value} value={item.value} className="ui-combobox__item">
+                  <BaseSelect.ItemText>{item.label}</BaseSelect.ItemText>
+                </BaseSelect.Item>
+              ))}
+            </BaseSelect.List>
+          </BaseSelect.Popup>
+        </BaseSelect.Positioner>
+      </BaseSelect.Portal>
+    </BaseSelect.Root>
+  )
+}
+
 export function Choices({
   value,
   onChange,
@@ -210,6 +250,7 @@ const glyphs = {
     </>
   ),
   check: <path d="M3.4 8.6 6.4 11.6 12.6 4.9" />,
+  chevron: <path d="M4 6.2 8 10.2 12 6.2" />,
 }
 
 export function Icon({ name }: { name: keyof typeof glyphs }) {

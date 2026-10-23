@@ -964,6 +964,21 @@
   min-width: var(--anchor-width);
 }
 
+.ui-select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.ui-select__icon {
+  display: flex;
+  color: var(--text-muted);
+}
+
 .ui-combobox__popup {
   overflow: auto;
   max-height: 18rem;
