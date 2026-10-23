@@ -4,13 +4,25 @@ import { type Account, accountsKey } from './accounts'
 import type { components } from './admin.gen'
 import { at } from './audit'
 import { gw } from './gw'
+import { Failure } from './list'
 import { read } from './queries'
 import { useShellMe } from './session'
-import { Button, Confirmation, DataTable, Field, Modal, SecretOnce, Select, Toolbar, useSubmission } from './ui'
+import {
+  Button,
+  Confirmation,
+  DataTable,
+  Field,
+  LoadingState,
+  Modal,
+  SecretOnce,
+  Select,
+  Toolbar,
+  useSubmission,
+} from './ui'
 
 type Credential = components['schemas']['Credential']
 type Kind = Credential['type']
-type Shown = { credential: Credential; secret: string }
+type Shown = components['schemas']['CredentialWithSecret']
 
 const revokedOnly = 'Révoqué : seule une rotation le ravive.'
 
@@ -63,7 +75,9 @@ export function Credentials({ account }: { account: Account }) {
   const list = credentials.data ?? []
   const free = (Object.keys(kinds) as Kind[]).filter((k) => !list.some((c) => c.type === k))
   const path = (c: Credential) => ({ params: { path: { id: account.id, credential_id: c.id } } })
+  const queryClient = useQueryClient()
   const reveal = (s: Shown) => {
+    void queryClient.invalidateQueries({ queryKey: key })
     setPending(undefined)
     setShown(s)
   }
@@ -84,8 +98,16 @@ export function Credentials({ account }: { account: Account }) {
               Nouvel identifiant
             </Button>
           </Toolbar>
-          {list.length === 0 ? (
-            <p>{credentials.isPending ? 'Chargement des identifiants…' : 'Aucun identifiant.'}</p>
+          {credentials.isPending ? (
+            <LoadingState label="Chargement des identifiants…" rows={2} />
+          ) : credentials.error ? (
+            <Failure
+              title="Les identifiants n’ont pas pu être chargés"
+              error={credentials.error}
+              retry={() => void credentials.refetch()}
+            />
+          ) : list.length === 0 ? (
+            <p>Aucun identifiant.</p>
           ) : (
             <DataTable<Credential>
               caption="Identifiants du compte"
@@ -168,7 +190,7 @@ export function Credentials({ account }: { account: Account }) {
         </Confirmation>
       )}
       {shown && (
-        <SecretOnce title={named(shown.credential)} secret={shown.secret} onClose={() => setShown(undefined)}>
+        <SecretOnce title={named(shown)} secret={shown.secret} onClose={() => setShown(undefined)}>
           <p>Ce secret ne sera plus jamais affiché.</p>
         </SecretOnce>
       )}
@@ -187,7 +209,6 @@ function CreateForm({
   onClose: () => void
   onCreated: (s: Shown) => void
 }) {
-  const queryClient = useQueryClient()
   const { submit, waiting, refusal, fail, describedBy } = useSubmission()
   const [kind, setKind] = useState<Kind>(free.includes('smpp_bind') ? 'smpp_bind' : 'api_key')
   const [systemId, setSystemId] = useState('')
@@ -210,9 +231,7 @@ function CreateForm({
       return
     }
     if ('data' in outcome) {
-      const { secret, ...credential } = outcome.data
-      void queryClient.invalidateQueries({ queryKey: [...accountsKey, accountId, 'credentials'] })
-      onCreated({ credential, secret })
+      onCreated(outcome.data)
     }
   }
 
@@ -266,7 +285,6 @@ function RotateForm({
   onClose: () => void
   onRotated: (s: Shown) => void
 }) {
-  const queryClient = useQueryClient()
   const { submit, waiting, refusal } = useSubmission()
   const [seconds, setSeconds] = useState('0')
   const form = useId()
@@ -281,9 +299,7 @@ function RotateForm({
       }),
     )
     if ('data' in outcome) {
-      const { secret, ...rotated } = outcome.data
-      void queryClient.invalidateQueries({ queryKey: [...accountsKey, accountId, 'credentials'] })
-      onRotated({ credential: rotated, secret })
+      onRotated(outcome.data)
     }
   }
 

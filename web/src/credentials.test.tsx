@@ -38,7 +38,7 @@ const bind = {
   id: '01a16026-0000-7000-8000-0000000000e2',
   type: 'smpp_bind',
   system_id: 'acme01',
-  grace_expires_at: '2026-10-24T08:00:00Z',
+  grace_expires_at: '2099-10-24T08:00:00Z',
   rotated_at: '2026-10-23T08:00:00Z',
 }
 
@@ -69,7 +69,8 @@ test('the credentials of an account show their status, grace and rotation, never
   expect(within(keyRow).getByText('Actif')).toBeDefined()
   const bindRow = await row(/Bind SMPP/)
   expect(within(bindRow).getByText('acme01', { exact: false })).toBeDefined()
-  expect(bindRow.textContent).toContain('jusqu’au 24/10/2026')
+  expect(bindRow.textContent).toContain('jusqu’au 24/10/2099')
+  expect(bindRow.textContent).toContain('23/10/2026')
   expect(explained(within(await block()).getByRole('button', { name: 'Nouvel identifiant' }))).toBe(
     'Un identifiant de chaque type au plus.',
   )
@@ -97,6 +98,7 @@ test('a new SMPP bind shows its password once, then nothing is left of it', asyn
   await user.click(within(once).getByRole('button', { name: 'J’ai copié le secret' }))
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   expect(document.body.textContent).not.toContain('Ab3dEf7h')
+  expect(calls.filter((r) => r.method === 'GET' && new URL(r.url).pathname === path).length).toBe(2)
 })
 
 test('a new API key needs no system_id', async () => {
@@ -143,6 +145,8 @@ test('a rotation sends its grace and shows the new secret once', async () => {
   expect(dialog.textContent).toContain('Sans grâce, les binds ouverts sont déconnectés.')
   await user.click(within(dialog).getByRole('combobox', { name: 'Grâce' }))
   await user.click(await screen.findByRole('option', { name: '24 h' }))
+  expect(dialog.textContent).not.toContain('Sans grâce')
+  expect(dialog.textContent).not.toContain('L’identifiant reste désactivé.')
   await user.click(within(dialog).getByRole('button', { name: 'Tourner le secret' }))
   expect(within(await screen.findByRole('dialog', { name: 'Bind SMPP acme01' })).getByText('Zz9yXx8w')).toBeDefined()
   expect(await calls.find((r) => r.method === 'POST' && r.url.includes('/credentials'))?.json()).toEqual({
@@ -236,8 +240,44 @@ test('a disabled credential is enabled, and an expired grace says so', async () 
   renderAt(`/accounts/${api.id}`)
   const keyRow = await row(/Clé d’API/)
   expect(keyRow.textContent).toContain('expirée le 02/01/2026')
+  expect(within(keyRow).getByText('Désactivé')).toBeDefined()
   await user.click(within(keyRow).getByRole('button', { name: 'Activer' }))
   await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Activer' }))
   await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
   expect(await calls.find((r) => r.method === 'PATCH')?.json()).toEqual({ status: 'active' })
+})
+
+test('a type taken meanwhile is said in French', async () => {
+  stub([bind], { [`POST ${path}`]: () => json(409, { code: 'conflict', message: 'taken', errors: [] }) })
+  const user = userEvent.setup()
+  renderAt(`/accounts/${api.id}`)
+  await user.click(within(await block()).getByRole('button', { name: 'Nouvel identifiant' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Nouvel identifiant' })
+  await user.click(within(dialog).getByRole('button', { name: 'Créer' }))
+  expect(await within(dialog).findByText('Ce compte a déjà un identifiant de ce type.')).toBeDefined()
+})
+
+test('a revoked credential rotates without grace, and revoking or disabling a bind says what it does', async () => {
+  stub([{ ...key, status: 'revoked' }, bind])
+  const user = userEvent.setup()
+  renderAt(`/accounts/${api.id}`)
+  await user.click(within(await row(/Clé d’API/)).getByRole('button', { name: 'Rotation' }))
+  const rotation = await screen.findByRole('dialog')
+  expect(rotation.textContent).toContain('Révoqué : il redevient actif avec un secret neuf, sans grâce.')
+  expect(within(rotation).queryByRole('combobox', { name: 'Grâce' })).toBeNull()
+  await user.click(within(rotation).getByRole('button', { name: 'Annuler' }))
+  await user.click(within(await row(/Bind SMPP/)).getByRole('button', { name: 'Révoquer' }))
+  expect((await screen.findByRole('alertdialog')).textContent).toContain(
+    'Le system_id acme01 reste réservé à ce compte.',
+  )
+  await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Annuler' }))
+  await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+  await user.click(within(await row(/Bind SMPP/)).getByRole('button', { name: 'Désactiver' }))
+  expect((await screen.findByRole('alertdialog')).textContent).toContain('Ses binds ouverts sont déconnectés.')
+})
+
+test('credentials that cannot be read are said, with a retry', async () => {
+  stub([], { [`GET ${path}`]: () => json(500, { code: 'internal', message: 'boom', errors: [] }) })
+  renderAt(`/accounts/${api.id}`)
+  expect(await within(await block()).findByText('Les identifiants n’ont pas pu être chargés')).toBeDefined()
 })
