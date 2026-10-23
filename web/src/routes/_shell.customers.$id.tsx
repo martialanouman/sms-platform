@@ -220,7 +220,7 @@ function Loaded({ customer, writes }: { customer: Customer; writes: boolean }) {
           onClose={close}
           onDone={() => {
             notify(`Client ${customer.name} supprimé.`)
-            void navigate({ to: '/customers' })
+            void navigate({ to: '/customers' }).then(() => document.querySelector<HTMLElement>('#contenu h1')?.focus())
           }}
           refusals={{ 409: 'Ce client a des comptes : suspendez-le ou clôturez-le.' }}
           call={() => gw.DELETE('/admin/customers/{id}', { params: { path: { id: customer.id } } })}

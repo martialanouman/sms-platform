@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { type FormEvent, useId, useState } from 'react'
+import { type FormEvent, useId, useRef, useState } from 'react'
 import { atMinute } from '../audit'
 import { type Group, groupsKey } from '../customers'
 import { gw } from '../gw'
@@ -57,6 +57,8 @@ function Groups() {
   const blocked = held.includes('customer-groups:write') ? undefined : needs('customer-groups:write')
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
+  const title = useRef<HTMLHeadingElement>(null)
+  const clear = () => void navigate({ search: {} }).then(() => title.current?.focus())
   const list = useQuery({
     queryKey: [...groupsKey, search],
     queryFn: () =>
@@ -74,6 +76,7 @@ function Groups() {
     <>
       <PageHeader
         crumbs={['Groupes de clients']}
+        titleRef={title}
         title="Groupes de clients"
         meta={readable && about}
         actions={
@@ -107,7 +110,7 @@ function Groups() {
               />
             ) : list.data.data.length === 0 ? (
               search.status ? (
-                <NoResults clear={() => void navigate({ search: {} })} />
+                <NoResults clear={clear} />
               ) : (
                 <EmptyState title="Aucun groupe">
                   <p>Créez le premier groupe avec « Nouveau groupe ».</p>

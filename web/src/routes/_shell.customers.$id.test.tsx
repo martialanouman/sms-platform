@@ -216,6 +216,7 @@ test('a deleted customer leads back to the list', async () => {
   await confirm('Supprimer')
   await waitFor(() => expect(router.state.location.pathname).toBe('/customers'))
   expect(await toasted()).toEqual(['Client Acme supprimé.'])
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1, name: 'Clients' })))
   expect(calls.filter((r) => r.method === 'DELETE').map((r) => new URL(r.url).pathname)).toEqual([path])
 })
 

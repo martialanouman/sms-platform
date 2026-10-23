@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { atMinute } from '../audit'
 import {
   type Customer,
@@ -36,6 +36,8 @@ function Customers() {
   const readable = held.includes('customers:read')
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
+  const title = useRef<HTMLHeadingElement>(null)
+  const clear = () => void navigate({ search: {} }).then(() => title.current?.focus())
   const list = useQuery({
     queryKey: [...customersKey, search],
     queryFn: () =>
@@ -57,6 +59,7 @@ function Customers() {
     <>
       <PageHeader
         crumbs={['Clients']}
+        titleRef={title}
         title="Clients"
         meta={
           readable &&
@@ -97,7 +100,7 @@ function Customers() {
               />
             ) : list.data.data.length === 0 ? (
               filtered ? (
-                <NoResults clear={() => void navigate({ search: {} })} />
+                <NoResults clear={clear} />
               ) : (
                 <EmptyState title="Aucun client">
                   <p>Créez le premier client avec « Nouveau client ».</p>

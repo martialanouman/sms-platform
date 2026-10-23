@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { useRef } from 'react'
 import { type Account, accountsKey, channels, EffectiveStatus } from '../accounts'
 import { atMinute } from '../audit'
 import { customersKey, GroupFilter, statusFilters, statusOf } from '../customers'
@@ -28,6 +29,8 @@ function Accounts() {
   const readable = held.includes('accounts:read')
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
+  const title = useRef<HTMLHeadingElement>(null)
+  const clear = () => void navigate({ search: {} }).then(() => title.current?.focus())
   const list = useQuery({
     queryKey: [...accountsKey, search],
     queryFn: () =>
@@ -48,7 +51,7 @@ function Accounts() {
   })
   useClosedOn(list.error)
   const filter = (next: Partial<AccountsSearch>) =>
-    void navigate({
+    navigate({
       search: { customer_id: search.customer_id, group_id: search.group_id, status: search.status, ...next },
     })
   const filtered = search.customer_id !== undefined || search.group_id !== undefined || search.status !== undefined
@@ -57,6 +60,7 @@ function Accounts() {
     <>
       <PageHeader
         crumbs={['Comptes']}
+        titleRef={title}
         title="Comptes"
         meta={
           readable && 'Les comptes SMPP et REST de tous les clients. Un compte se crée depuis la fiche de son client.'
@@ -70,7 +74,7 @@ function Accounts() {
                 <CustomerFilter
                   id={search.customer_id}
                   listed={list.data?.data[0]?.customer_name}
-                  remove={() => filter({ customer_id: undefined })}
+                  remove={() => void filter({ customer_id: undefined }).then(() => title.current?.focus())}
                 />
               )}
               <GroupFilter value={search.group_id} onChange={(id) => filter({ group_id: id })} />
@@ -91,7 +95,7 @@ function Accounts() {
               />
             ) : list.data.data.length === 0 ? (
               filtered ? (
-                <NoResults clear={() => void navigate({ search: {} })} />
+                <NoResults clear={clear} />
               ) : (
                 <EmptyState title="Aucun compte">
                   <p>Un compte se crée depuis la fiche de son client.</p>

@@ -114,6 +114,7 @@ test('no account under any filter asks to widen them, and clears them all', asyn
     expect(await violations(container)).toEqual([])
     await userEvent.setup().click(screen.getByRole('button', { name: 'Retirer les filtres' }))
     await waitFor(() => expect(router.state.location.search).toEqual({}))
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1, name: 'Comptes' })))
     unmount()
   }
 })
@@ -141,6 +142,7 @@ test('a customer filter from the address is shown with its name and can be remov
   expect(remove.textContent).toBe('')
   await user.click(remove)
   await waitFor(() => expect(listed(calls).at(-1)).toBe(''))
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1, name: 'Comptes' })))
   expect(screen.queryByText('Client : Acme')).toBeNull()
 })
 

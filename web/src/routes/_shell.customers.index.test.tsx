@@ -131,6 +131,7 @@ test('no customer under either filter asks to widen them, and clears them', asyn
     expect(screen.queryByText('Aucun client')).toBeNull()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Retirer les filtres' }))
     await waitFor(() => expect(router.state.location.search).toEqual({}))
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1, name: 'Clients' })))
     unmount()
   }
 })
