@@ -191,3 +191,32 @@ Une revue des correctifs du tour 1. Aucun défaut fonctionnel.
    contenu du diff ; corrigé ci-dessus.
 2. **Gardé** : un `null` refusé sort avec `field: "body"` et non `body.name` ; l'erreur vient du décodage, pas du
    validateur. Statut et code justes, et l'écran n'envoie jamais ce `null`.
+
+## Preuve sur `contabo169`
+
+Jouée le 2026-10-23 depuis la branche, sur le cluster en v0.29.0 : images `migrate`, `catalog-apply`, `admin-api-svc`
+et `dashboard` construites localement (même `Dockerfile` que GoReleaser), importées sous `proof-014a-1`, puis
+`dashboard` sous `proof-014a-1-2` (retour 310) et `proof-014a-1-3` (correctif ci-dessous) ; timer suspendu. `migrate`
+a appliqué la migration 4, `catalog-apply` les GRANT d'`admin_api_svc` sur les trois tables. Navigateur humain, puis
+Chromium (`agent-browser`) par tunnel SSH vers `port-forward`, sur `localhost:8080`, compte de test `ada.preuve` passé
+`Propriétaire` par l'humain, mot de passe et TOTP posés par un lien de réinitialisation :
+
+1. Rail « Clients › Groupes » ; filtre « Statut : Tous » à gauche, « Nouveau groupe » à droite, même hauteur
+   ([capture](014a-1/liste.png)).
+2. Création d'« Assurances » avec sa description ([capture](014a-1/creation.png)) ; un nom pris dit « Un groupe porte
+   déjà ce nom. » dans la modale ([capture](014a-1/nom-pris.png)).
+3. Description vidée : la colonne dit « — » (`null` envoyé). Archivage confirmé ; « Statut : Archivés » porte
+   `?status=archived` et ne liste que le groupe archivé ([capture](014a-1/archives.png)) ; « Réactiver ».
+4. Suppression : « Ses clients (0) sont détachés du groupe, pas supprimés. » ([capture](014a-1/suppression.png)).
+   **Défaut trouvé** : le `DELETE` partait sans `Content-Type`, refusé en 415 par le garde CSRF du BFF (« La requête
+   doit être en application/json. ») ; les tests ne le voyaient pas, le double de `fetch` ignorant ce garde. Corrigé :
+   le client `gw` pose `application/json` sur toute écriture, et `stubFetch` rend 415 comme le BFF ; rejouée, la
+   suppression passe.
+5. Audit : chaque mutation a sa ligne sous Ada (`create`, `update` ×5, `delete`), le `DELETE` refusé par le BFF n'en a
+   pas ; « Modifications » de la suppression montre la ligne de `customer_groups`, `created_by` égal à l'acteur
+   ([capture](014a-1/audit-diff.png)).
+6. axe (WCAG 2.1 AA) : aucune violation sur la liste ni sur la modale ; un `aria-hidden-focus` « à revoir » sur les
+   gardes de focus de Base UI, commun à toutes les modales du kit.
+
+L'écran refusé sans `customer-groups:read` est prouvé par Vitest, pas rejoué dans le navigateur. Le cluster reste sur
+`proof-014a-1-3`, timer suspendu ; il se réarme au merge.
