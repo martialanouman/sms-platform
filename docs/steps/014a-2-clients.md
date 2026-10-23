@@ -124,3 +124,18 @@ Sur contabo169, `Propriétaire` (compte de preuve, mot de passe et TOTP).
 1. **Aperçu de suspension** (constaté par la preuve) : un compte déjà suspendu figurait parmi « N comptes seront
    suspendus », alors que la cascade ne le touche pas. `accounts_to_suspend` ne retient plus que les comptes actifs ; un
    compte suspendu n'apparaît dans aucune des deux listes.
+
+Joué ensuite, captures dans `docs/steps/014a-2/` :
+
+- création de « Banque Exemple » dans le groupe Banque (OTP 300 s) et de « Commerce Exemple » sans groupe ; le filtre
+  « Groupe : Banque » ne garde que le premier, l'adresse porte `group_id` ;
+- modification : OTP vidé (« Plafond de la plateforme »), transactionnel 7200 s ;
+- trois comptes insérés en base (actif, suspendu, clos ; 014a-3 n'a pas encore d'écran) ; l'aperçu annonce « 1 compte sera
+  suspendu : compte-actif. 1 compte clos le reste : compte-clos. » ; la suspension suspend le seul compte actif ;
+- réactivation : le client redevient actif, ses comptes restent suspendus ; « Statut : Suspendus » vide, « Statut :
+  Actifs » montre les deux clients ;
+- suppression refusée : « Ce client a des comptes : suspendez-le ou clôturez-le. » (409 dans l'audit) ;
+- clôture : les deux comptes non clos passent clos ; Modifier, Suspendre, Réactiver et Clôturer figés, Supprimer ouvert ;
+- audit : sept opérations sous l'opérateur, douze lignes de diff, la cascade sous le même acteur que l'opération ;
+- axe (WCAG 2.1 AA) sur la liste, la fiche et une confirmation : aucune violation ; un « à revoir » `aria-hidden-focus`
+  dans la modale, porté par les sentinelles de focus de Base UI.
