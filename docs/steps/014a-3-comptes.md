@@ -82,3 +82,32 @@ Fable, 2026-10-23, sauf mention. Les décisions humaines du même jour sont marq
   `_shell.accounts.index.tsx`, `_shell.accounts.$id.tsx` ; section Comptes de `_shell.customers.$id.tsx` ; rail.
 - **Tests** : Postgres réel sous `admin_api_svc`, chaque opération, filtres, défauts, refus (409, 422), statut effectif
   servi, audit ; Vitest des écrans avec `axe`. Mutation manuelle, consignée ; preuve sur contabo169.
+
+## Écarts au design, constatés à l'implémentation
+
+- **La fiche compte ne lit pas le client** (révise 328) : `Account` porte `customer_name` et `customer_status` (325), qui
+  suffisent au lien de remontée « ← {client} » et au statut effectif ; aucun `get-customer`, aucun cas sans
+  `customers:read`.
+- **`--default-non-nullable=false`** pour le contrat Admin (`doc.go`) : `openapi-typescript` 7 rendait obligatoire tout
+  champ à défaut, y compris dans un corps de requête ; la création n'aurait pu envoyer le nom seul (326).
+- **Clé `accountsKey` sous `customersKey`** : une mutation d'un client (renommage, suspension et clôture en cascade)
+  recharge les comptes affichés sans câblage ; une mutation d'un compte ne recharge que les comptes.
+- **Création : la conversion en `Account` complet est faite par huma** (défauts posés par les tags) ; le port prend un
+  `Account` plutôt qu'un patch.
+- **`closedConflict`** partagé par `SuspendCustomer` et `SuspendAccount`, sans condition de champ : une suspension ne peut
+  être refusée que sur le statut.
+- **`FOR SHARE` dans le trigger `customer_is_closed`** : une création concurrente d'une clôture du client attend sa fin
+  et voit le client clos ; sans le verrou, le compte naissait actif sous un client clos, après la cascade.
+- **Le 422 des canaux n'est pas traduit** (révise 330) : la phrase « Au moins un canal reste activé. » est affichée en
+  permanence sous les cases ; la répéter en refus doublait le texte. Le 422 garde le message de la passerelle.
+- **`Choice.disabled`** au kit, `Toolbar.children` facultatif, `.ui-filter` pour le jeton « Client : … ».
+- **Un PATCH `{}` réécrit la ligne** (`updated_at`), audité comme toute mise à jour, comme pour un client.
+
+## Mutations
+
+À la main, par le script de copie, mutation et restauration (`cmp`). SQL généré 14/14 ; traduction 3/3 ; adaptateur
+2/2 ; cœur 2/2 (le survivant de `closedConflict` a fait retirer la condition de champ) ; migration 2/2 (le survivant
+`FOR SHARE` a fait écrire le test de course) ; huma 8/8 (défauts compris). SPA : module partagé 6/6 après deux tests de
+rechargement et un cas « suspendu sous suspendu » ; liste 6/7, le survivant équivalent de 014a-2 (`validateSearch`) ;
+fiche 13/13 après trois tests et le retrait du 422 doublé ; section de la fiche client 6/6 après deux tests ;
+`Choice.disabled` 1/1.
