@@ -298,7 +298,11 @@ test('without customer-groups:read the group of the form is blocked and explaine
   await user.click(await screen.findByRole('button', { name: 'Modifier' }))
   const dialog = await screen.findByRole('dialog', { name: 'Modifier le client Acme' })
   const group = within(dialog).getByRole('combobox', { name: 'Groupe' })
-  expect(group.hasAttribute('disabled') || group.getAttribute('aria-disabled') === 'true').toBe(true)
+  expect(group.hasAttribute('disabled')).toBe(false)
+  expect(group.getAttribute('tabindex')).not.toBe('-1')
+  expect(group.getAttribute('aria-disabled')).toBe('true')
+  await userEvent.setup().click(group)
+  await expect(screen.findByRole('option', {}, { timeout: 300 })).rejects.toThrow()
   expect(document.getElementById(group.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
     'Le groupe demande customer-groups:read.',
   )

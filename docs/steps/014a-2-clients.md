@@ -107,3 +107,12 @@ Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloq
    une boucle de conversion dupliquée, un commentaire qui répétait 311.
 5. **Gardé** : le squelette « lisible ? barre et liste : refus » des trois écrans reste écrit trois fois ; un composant
    commun prendrait plus de paramètres qu'il n'économise de lignes.
+
+## Correctifs de revue, tour 2
+
+Une revue des correctifs du tour 1. Aucun bloquant.
+
+1. **`Select` bloqué inatteignable au clavier** (basse à moyenne) : `disabled` le sortait de la tabulation. Il reste
+   focalisable, `aria-disabled`, décrit par sa raison, et son menu est tenu fermé, comme `Button.blockedReason`.
+2. **Filtre actif invisible sans `customer-groups:read`** (basse) : le déclencheur montre la valeur brute (l'identifiant du
+   groupe) quand aucun libellé ne la nomme ; même chose dans le formulaire.

@@ -235,9 +235,14 @@ test('without customer-groups:read the group filter is blocked and explained', a
     'GET /api/auth/me': () => json(200, { ...me, permissions: ['customers:read'] }),
     'GET /api/gw/admin/customers': () => page([acme]),
   })
-  renderAt('/customers')
+  renderAt(`/customers?group_id=${banks.id}`)
   const group = await screen.findByRole('combobox', { name: 'Groupe' })
-  expect(group.hasAttribute('disabled') || group.getAttribute('aria-disabled') === 'true').toBe(true)
+  expect(group.textContent).toBe(`Groupe : ${banks.id}`)
+  expect(group.hasAttribute('disabled')).toBe(false)
+  expect(group.getAttribute('tabindex')).not.toBe('-1')
+  expect(group.getAttribute('aria-disabled')).toBe('true')
+  await userEvent.setup().click(group)
+  await expect(screen.findByRole('option', {}, { timeout: 300 })).rejects.toThrow()
   expect(document.getElementById(group.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
     'Le groupe demande customer-groups:read.',
   )

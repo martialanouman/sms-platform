@@ -146,7 +146,7 @@ export function Select({
       items={items}
       value={value}
       onValueChange={(next) => onChange(next ?? '')}
-      disabled={blockedReason !== undefined}
+      open={blockedReason === undefined ? undefined : false}
     >
       {blockedReason !== undefined && (
         <span className="ui-visually-hidden" id={reason}>
@@ -157,9 +157,10 @@ export function Select({
         className="ui-input ui-select"
         aria-label={label}
         aria-describedby={blockedReason === undefined ? undefined : reason}
+        aria-disabled={blockedReason !== undefined || undefined}
         title={blockedReason}
       >
-        {label} : {items.find((item) => item.value === value)?.label}
+        {label} : {items.find((item) => item.value === value)?.label ?? value}
         <BaseSelect.Icon className="ui-select__icon">
           <Icon name="chevron" />
         </BaseSelect.Icon>
