@@ -1,10 +1,17 @@
 -- +goose Up
+-- +goose StatementBegin
+CREATE FUNCTION control_plane.actor_operator() RETURNS uuid LANGUAGE sql STABLE AS $$
+  SELECT CASE WHEN a ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN a::uuid END
+  FROM current_setting('app.actor', true) AS a
+$$;
+-- +goose StatementEnd
+
 CREATE TABLE control_plane.customer_groups (
   id          uuid PRIMARY KEY DEFAULT uuidv7(),
   name        text NOT NULL UNIQUE,
   description text,
   status      text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
-  created_by  uuid,
+  created_by  uuid DEFAULT control_plane.actor_operator(),
   created_at  timestamptz NOT NULL DEFAULT now(),
   updated_at  timestamptz NOT NULL DEFAULT now()
 );
@@ -85,3 +92,4 @@ DROP TABLE control_plane.customers;
 DROP TABLE control_plane.customer_groups;
 DROP FUNCTION control_plane.touch_updated_at();
 DROP FUNCTION control_plane.closed_is_final();
+DROP FUNCTION control_plane.actor_operator();

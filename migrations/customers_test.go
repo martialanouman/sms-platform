@@ -115,3 +115,31 @@ func TestCustomerTablesHoldTheirRules(t *testing.T) {
 		}
 	})
 }
+
+func TestAGroupIsCreatedByTheOperatorOfItsActorAndByNoOneUnderBreakGlass(t *testing.T) {
+	conn := connect(t, pgtest.ControlPlane(t).As("migrator"))
+	const operator = "0199f0a2-7c1e-7000-8000-000000000001"
+	exec(t, conn,
+		`SET app.actor = '`+operator+`'`,
+		`INSERT INTO control_plane.customer_groups (name) VALUES ('operator')`,
+		`SET app.actor = 'breakglass:alice'`,
+		`INSERT INTO control_plane.customer_groups (name) VALUES ('breakglass')`,
+		`SET app.actor = 'service:x'`,
+		`INSERT INTO control_plane.customer_groups (name) VALUES ('service')`,
+	)
+	rows, err := conn.Query(context.Background(), `SELECT name, coalesce(created_by::text, '') FROM control_plane.customer_groups`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for rows.Next() {
+		var name, by string
+		if err := rows.Scan(&name, &by); err != nil {
+			t.Fatal(err)
+		}
+		got[name] = by
+	}
+	if got["operator"] != operator || got["breakglass"] != "" || got["service"] != "" || len(got) != 3 {
+		t.Fatalf("created_by = %v", got)
+	}
+}
