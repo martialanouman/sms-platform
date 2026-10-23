@@ -7,10 +7,10 @@ import {
   CustomerForm,
   customersKey,
   GroupFilter,
+  GroupName,
   Status,
   statusFilters,
   statusOf,
-  useGroups,
 } from '../customers'
 import { gw } from '../gw'
 import { Failure, NoResults, type Paged, Pager, paged, text, useClosedOn } from '../list'
@@ -36,7 +36,6 @@ function Customers() {
   const readable = held.includes('customers:read')
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
-  const groups = useGroups()
   const list = useQuery({
     queryKey: [...customersKey, search],
     queryFn: () =>
@@ -134,14 +133,7 @@ function Customers() {
                     {
                       header: 'Groupe',
                       cell: (c) =>
-                        c.group_id === null ? (
-                          <span className="ui-muted">Aucun</span>
-                        ) : (
-                          <>
-                            {groups.name(c.group_id)}
-                            {groups.archived(c.group_id) && <span className="ui-muted"> (archivé)</span>}
-                          </>
-                        ),
+                        c.group_id === null ? <span className="ui-muted">Aucun</span> : <GroupName id={c.group_id} />,
                     },
                     {
                       header: 'Créé le',

@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { type FormEvent, useId, useState } from 'react'
 import type { components } from './admin.gen'
 import { gw } from './gw'
@@ -60,6 +61,26 @@ export function useGroups() {
   const name = (id: string | null) => (id ? (list.find((g) => g.id === id)?.name ?? id) : '—')
   const archived = (id: string) => list.find((g) => g.id === id)?.status === 'archived'
   return { list, name, archived, blocked: readable ? undefined : groupsBlocked }
+}
+
+export function GroupName({ id, link }: { id: string; link?: boolean }) {
+  const groups = useGroups()
+  if (groups.blocked) {
+    return <span className="ui-muted">non lisible</span>
+  }
+  const name = (
+    <>
+      {groups.name(id)}
+      {groups.archived(id) && <span className="ui-muted"> (archivé)</span>}
+    </>
+  )
+  return link ? (
+    <Link to="/customers" search={{ group_id: id }}>
+      {name}
+    </Link>
+  ) : (
+    name
+  )
 }
 
 export const groupLabel = (g: Group) => (g.status === 'archived' ? `${g.name} (archivé)` : g.name)

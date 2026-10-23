@@ -535,3 +535,15 @@ test('suspending by the keyboard leaves the focus on Suspendre, now blocked', as
   await waitFor(() => expect(explained(screen.getByRole('button', { name: 'Suspendre' }))).toBe('Déjà suspendu.'))
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Suspendre' }))
 })
+
+test('without customer-groups:read the group of the customer is said unreadable', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, { ...me, permissions: ['customers:read'] }),
+    [`GET ${path}`]: () => json(200, acme),
+  })
+  const { container } = renderAt(`/customers/${acme.id}`)
+  const identity = await screen.findByRole('region', { name: 'Identité' })
+  expect(within(identity).getByText('Groupe').nextElementSibling?.textContent).toBe('non lisible')
+  expect(container.textContent).not.toContain(banks.id)
+  expect(await violations(container)).toEqual([])
+})

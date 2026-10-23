@@ -356,3 +356,16 @@ test('an active status from the address filters, and Tous on the group leaves th
   await user.click(await screen.findByRole('option', { name: 'Tous' }))
   await waitFor(() => expect(router.state.location.href).toBe('/customers?status=active'))
 })
+
+test('without customer-groups:read the group of a customer is said unreadable, never its identifier', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, { ...me, permissions: ['customers:read'] }),
+    'GET /api/gw/admin/customers': () => page([acme, solo]),
+  })
+  const { container } = renderAt('/customers')
+  const table = await screen.findByRole('table', { name: 'Clients' })
+  expect((await cells('Acme'))[1]).toBe('non lisible')
+  expect((await cells('Solo'))[1]).toBe('Aucun')
+  expect(table.textContent).not.toContain(banks.id)
+  expect(await violations(container)).toEqual([])
+})

@@ -3,7 +3,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { type Account, AccountForm, accountsKey, channels, EffectiveStatus } from '../accounts'
 import { atMinute } from '../audit'
-import { ageFields, type Customer, CustomerForm, customersKey, Status, useGroups } from '../customers'
+import { ageFields, type Customer, CustomerForm, customersKey, GroupName, Status } from '../customers'
 import { gw } from '../gw'
 import { Failure, useClosedOn } from '../list'
 import { read } from '../queries'
@@ -75,7 +75,6 @@ function CustomerPage() {
 }
 
 function Loaded({ customer, writes }: { customer: Customer; writes: boolean }) {
-  const groups = useGroups()
   const navigate = useNavigate()
   const [pending, setPending] = useState<Pending>()
   const close = () => setPending(undefined)
@@ -137,9 +136,7 @@ function Loaded({ customer, writes }: { customer: Customer; writes: boolean }) {
                 {
                   label: 'Groupe',
                   value: customer.group_id ? (
-                    <Link to="/customers" search={{ group_id: customer.group_id }}>
-                      {groups.name(customer.group_id)}
-                    </Link>
+                    <GroupName id={customer.group_id} link />
                   ) : (
                     <span className="ui-muted">Aucun</span>
                   ),
