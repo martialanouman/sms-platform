@@ -105,3 +105,25 @@ Fable, 2026-10-23, sauf mention. Un brouillon de l'implémenteur a été relu, c
 avant rotation) ; traduction 1/1 ; migration 4/4 ; adaptateur gRPC 3/3 ; huma 2/4, deux équivalents : le motif d'URL à
 la création et l'`enum` du statut au PATCH, que les CHECK de la base refusent aussi en 422 ; SPA 18/18 après un test
 (rechargement après modification).
+
+## Correctifs de revue, tour 1
+
+Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloquant.
+
+1. **Motif d'URL ignoré par le navigateur** (moyenne) : l'attribut `pattern` se compile sous le drapeau `v`, où un `/`
+   non échappé dans une classe est une erreur ; le navigateur jetait la contrainte en silence, une URL `http://` partait
+   et son 422 se disait « compte clos ». Le `/` est échappé ; le test lit `validity.patternMismatch` sous jsdom, qui
+   compile de même.
+2. **`CONTENT_KEY_ADDR=":7002"` acceptée** (basse) : `validate` exige un hôte. L'adaptateur ne pose plus `ServerName`
+   lui-même : gRPC le prend de l'autorité et `credentials.NewTLS` clone la configuration (révise l'écart du clone).
+3. **Câblage réel prouvé** : un boot de `admin-api-svc` crée un webhook sans `content-key-svc` joignable → 503 sous le
+   délai, et la ligne d'erreur ; `WaitForReady` prouvé par un serveur qui démarre après l'appel.
+4. **Tests ajoutés** : webhook actif modifiable et désactivable sur compte clos ; 404 avant 503 à la création ; filtre
+   de la liste ; référence de clé après rotation (double à compteur) ; `updated_at` ; CHECK d'URL de la base par une
+   écriture directe ; côté SPA, options d'événement, liste vide, corps d'un PATCH d'URL, rechargement après suppression,
+   attributs du champ URL.
+5. **Code en trop retiré** : la conversion écrite à la main (`url` renommé `URL` par sqlc, `adminapi.Webhook(r)`
+   direct) ; l'entrée de traduction `webhooks_url_check`, inatteignable (huma est plus strict que la base) ; le nom de
+   contrainte, que Postgres donne seul ; la règle du 503 écrite deux fois (`sealNew`) ; des libellés de statut en double.
+6. **Gardé** : `opts ...grpc.DialOption` (le résolveur du test) ; le filtre de compte de l'`UPDATE` de rotation,
+   redondant avec la lecture préalable, comme en 014b-1.
