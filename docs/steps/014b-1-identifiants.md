@@ -121,3 +121,25 @@ traduction 3/3 ; adaptateur 2/2 ; cœur 7/7, le contrôle de `system_id` retiré
 la borne `{1,15}` du motif (huma borne à 15 avant la base, qui la garde en filet) ; huma 6/6 après un test (`status:
 revoked` refusé au PATCH). Un premier passage filtrait les tests par un `-run` qui omettait celui de la rotation : les
 mutants de la rotation ont été rejoués. SPA 16/16 après deux tests (activation, grâce expirée).
+
+## Correctifs de revue, tour 1
+
+Trois revues (correction et sécurité ; tests creux ; code en trop).
+
+1. **Un compte clos ranimait un identifiant par l'API** (moyenne, prouvé contre Postgres) : rotation ou activation
+   rendaient un secret neuf ou un statut actif sur un compte clos ; seul l'écran figeait. La base refuse désormais,
+   sous le même verrou : trigger `account_is_closed_revival` `BEFORE UPDATE`, quand le haché change pour un nouveau ou
+   que le statut devient `active` → 409 (révise 351 pour ces deux chemins). Révoquer et désactiver restent permis.
+2. **Bombe à retardement** : une échéance de grâce de test au 24/10/2026, comparée à l'horloge réelle ; portée en 2099.
+3. **Filtres de compte prouvés** : l'`UPDATE` de statut rend la ligne entière (plus de relecture qui masquait son
+   filtre), la rotation ne filtre plus que par sa lecture préalable ; PATCH et révocation par un autre compte → 404,
+   testés.
+4. **Tests ajoutés** : compte suspendu accepté, grâce négative refusée, deux mots de passe de bind distincts, ordre de
+   la liste, préfixe et clé trop longue refusés par `argon2id` ; côté SPA, rechargement après création, date de
+   rotation, type pris, rotation d'un révoqué, phrases conditionnelles, statut désactivé, liste en échec.
+5. **Identifiants illisibles** : le bloc montre `Failure` et « Réessayer », plus « Aucun identifiant. ».
+6. **Code en trop retiré** : l'entrée de traduction `credentials_revoked_check` (le 409 passe par `closedConflict`),
+   l'export de `newSecret` et sa constante, la déstructuration du secret (le type `CredentialWithSecret` du contrat
+   suffit), une invalidation écrite deux fois.
+7. **Gardé** : la grâce en `time.Duration` dans le cœur ; `Dummy` sans preuve de coût (défaut antérieur à 014b, un test
+   de temps serait fragile) ; « Ses binds ouverts sont déconnectés. » suit le contrat, comme en 014a-3 (#173).
