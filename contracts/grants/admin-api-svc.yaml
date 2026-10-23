@@ -1,3 +1,6 @@
 control_plane:
   audit_log: [select, insert, delete]
   audit_changes: [select, delete]
+  customer_groups: [select, insert, update, delete]
+  customers: [select, insert, update, delete]
+  accounts: [select, insert, update, delete]

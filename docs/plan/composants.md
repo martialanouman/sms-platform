@@ -181,10 +181,13 @@ arrive avec son service (017 → 022, 020 → 029b).
 
 - **014a — Clients, groupes, comptes** : navigation à deux niveaux, suspension en cascade, canaux,
   `max_sessions`, `query_sm` / `cancel_sm`.
+  Coupée en trois (humain, 2026-10-23) : schéma et groupes ; clients ; comptes
+  (`docs/steps/014a-1-schema-et-groupes.md`).
 - **014b — Identifiants, webhooks** : clé d'API et bind hachés (rotation avec grâce, révocation, I2),
   webhooks au secret scellé.
 - **015 — Plateforme, sender IDs, débits** : `platform_policy` (quiet hours, politique de contenu,
   `billing_enabled`), sender IDs et catégories, `rate_limits`.
+  `sender_ids.customer_id` en `ON DELETE RESTRICT` : un client qui a envoyé ne se supprime pas (014a-1, 296).
 - **016 — Connecteurs, comptes opérateur, réécriture** : formulaire progressif, identifiants scellés,
   débit et binds, extension de partition (job) ; règles de réécriture à leurs quatre portées et
   `test-sender-rewrite-rule`. L'état en direct vient en 026.

@@ -964,6 +964,34 @@
   min-width: var(--anchor-width);
 }
 
+.ui-toolbar__filters {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  margin-right: auto;
+}
+
+.ui-toolbar .ui-select {
+  width: auto;
+  height: var(--control-height-sm);
+  font-size: var(--fs-12);
+}
+
+.ui-select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.ui-select__icon {
+  display: flex;
+  color: var(--text-muted);
+}
+
 .ui-combobox__popup {
   overflow: auto;
   max-height: 18rem;

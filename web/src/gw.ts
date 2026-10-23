@@ -7,4 +7,11 @@ export const gw = createClient<paths>({
   fetch: (request) => globalThis.fetch(request),
 })
 
-gw.use(mfaInterceptor)
+gw.use(mfaInterceptor, {
+  onRequest({ request }) {
+    if (request.method !== 'GET') {
+      request.headers.set('Content-Type', 'application/json')
+    }
+    return request
+  },
+})

@@ -54,6 +54,7 @@ type Tx interface {
 	AuditLog(ctx context.Context, f Filter, after *Key, limit int) ([]Entry, error)
 	Changes(ctx context.Context, requestID string, after *Key, limit int) ([]Change, error)
 	Requested(ctx context.Context, requestID string) (bool, error)
+	Groups
 }
 
 // Store opens the transactions of the control plane.
@@ -71,46 +72,40 @@ func Audited(method, scope string) bool {
 
 // AuditLogPage is a page of the audit log, newest first, and the cursor of the next one, empty on the last page.
 func AuditLogPage(ctx context.Context, tx Tx, f Filter, cursor string, limit int) ([]Entry, string, error) {
-	after, err := parse(cursor)
-	if err != nil {
-		return nil, "", err
-	}
-	page, err := tx.AuditLog(ctx, f, after, limit+1)
-	if err != nil || len(page) <= limit {
-		return page, "", err
-	}
-	return page[:limit], keyset.Encode(page[limit-1].At, page[limit-1].ID), nil
+	return page(cursor, limit, func(e Entry) Key { return Key{e.At, e.ID} }, func(after *Key, n int) ([]Entry, error) {
+		return tx.AuditLog(ctx, f, after, n)
+	})
 }
 
 // ChangesPage is a page of the row changes of requestID, oldest first, and the cursor of the next one.
 func ChangesPage(ctx context.Context, tx Tx, requestID, cursor string, limit int) ([]Change, string, error) {
-	after, err := parse(cursor)
-	if err != nil {
-		return nil, "", err
-	}
-	requested, err := tx.Requested(ctx, requestID)
-	if err != nil {
-		return nil, "", err
-	}
-	if !requested {
-		return nil, "", errs.ErrNotFound
-	}
-	page, err := tx.Changes(ctx, requestID, after, limit+1)
-	if err != nil || len(page) <= limit {
-		return page, "", err
-	}
-	return page[:limit], keyset.Encode(page[limit-1].At, page[limit-1].ID), nil
+	return page(cursor, limit, func(c Change) Key { return Key{c.At, c.ID} }, func(after *Key, n int) ([]Change, error) {
+		requested, err := tx.Requested(ctx, requestID)
+		if err != nil {
+			return nil, err
+		}
+		if !requested {
+			return nil, errs.ErrNotFound
+		}
+		return tx.Changes(ctx, requestID, after, n)
+	})
 }
 
-func parse(cursor string) (*Key, error) {
-	if cursor == "" {
-		return nil, nil
+func page[T any](cursor string, limit int, key func(T) Key, fetch func(after *Key, n int) ([]T, error)) ([]T, string, error) {
+	var after *Key
+	if cursor != "" {
+		at, id, ok := keyset.Parse(cursor)
+		if !ok {
+			return nil, "", errs.ErrValidation
+		}
+		after = &Key{At: at, ID: id}
 	}
-	at, id, ok := keyset.Parse(cursor)
-	if !ok {
-		return nil, errs.ErrValidation
+	rows, err := fetch(after, limit+1)
+	if err != nil || len(rows) <= limit {
+		return rows, "", err
 	}
-	return &Key{At: at, ID: id}, nil
+	last := key(rows[limit-1])
+	return rows[:limit], keyset.Encode(last.At, last.ID), nil
 }
 
 type txKey struct{}

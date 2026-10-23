@@ -37,6 +37,7 @@ func New(c Config) (http.Handler, huma.API) {
 	api := humago.New(mux, cfg)
 	api.UseMiddleware(authorize(api, c))
 	registerAudit(api)
+	registerCustomerGroups(api)
 	return audit{mux: mux, uncommitted: c.Uncommitted}, api
 }
 
