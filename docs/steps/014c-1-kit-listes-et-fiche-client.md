@@ -113,8 +113,13 @@ Fable, 2026-10-23, sauf mention. Les décisions humaines du même jour sont marq
   `aria-current="page"` par `PageHeader`.
 - **`Pager({ count, noun: [singulier, pluriel] })`** : l'accord le demande (« 1 client affiché », « entrées
   affichées »). Les journaux d'audit et la modale des modifications l'adoptent aussi.
-- **`useToast()` rend `notify`** directement. La racine du toast est `role="status"` et perd l'`aria-modal` que Base UI
-  pose (axe le refuse sur `status`) : retiré par la prop `render`.
+- **`useToast()` rend `notify`** directement. Le toast parle par la région polie de Base UI (« Notifications ») ; sa
+  racine perd le `role="dialog"` et l'`aria-modal` que Base UI pose (correctif de revue 7).
+- **Teinte `bad` et onglet figé de `Tabs`** : retirés, faute de consommateur dans cette PR (102) ; ils reviennent avec
+  014c-2 et 014c-3 (correctif de revue 8).
+- **`effective()`** (392) : inline dans `EffectiveStatus`, son seul usage, même table de vérité (correctif de revue 9).
+- **Groupe non lisible** : texte muet « non lisible », sans bulle ; biome refuse un `span` focalisable, seul déclencheur
+  possible d'une bulle sur une valeur (correctif de revue 4).
 - **Filtres hors de la sous-barre** : une rangée `.ui-filters` dans le contenu, et l'action principale dans l'en-tête
   (Clients, Groupes, Opérateurs, Rôles), comme la maquette. `Toolbar` perd sa prop `filters`, et les règles mortes
   `.ui-filter` et `.ui-toolbar .ui-select` tombent ; l'avertissement CSS préexistant de biome disparaît avec elles.
@@ -154,3 +159,36 @@ Fable, 2026-10-23, sauf mention. Les décisions humaines du même jour sont marq
 **Équivalents nommés** : `customer === 'suspended'` → `customer !== 'active'` dans `effective` (un compte actif sous un
 client fermé n'existe pas, la clôture cascade) ; une mutation de motif ambigu a touché la `key` React d'un
 `Select.Item`, changement de clé seul, sans effet observable.
+
+## Correctifs de revue, tour 1
+
+1. **Moyenne** : `Explained` démontait le contrôle quand sa raison apparaissait ; après Suspendre au clavier, le focus
+   tombait sur `body`. L'arborescence est désormais fixe (`Tooltip.Root disabled`, attributs et raison conditionnels).
+   Tests : focus conservé après suspension au clavier ; bouton libre sans `aria-describedby` ni bulle ; bouton en
+   chargement inerte.
+2. **Basse** : le focus va au `h1` quand le contrôle cliqué disparaît : croix de la puce Client, « Retirer les
+   filtres » des trois listes (`titleRef`), suppression d'un client (titre de la liste atteinte).
+3. **Basse** : la puce « Client : … » se nomme d'après le premier compte listé avant de retomber sur l'identifiant.
+4. **Basse** : sans `customer-groups:read`, le groupe d'un client (liste et fiche) est « non lisible », jamais son UUID.
+5. **Basse** : une miette ancêtre n'est un lien que si sa destination est lisible (fiche client, fiche compte).
+6. **Basse** : dates à la minute (`atMinute`) dans les listes et la fiche client ; l'Audit garde les secondes.
+7. **Basse** : plus de `role="status"` par toast, la région polie de Base UI annonce seule ; `toasted()` lit la région.
+8. **Code en trop** : teinte `bad` et onglet figé de `Tabs` retirés.
+9. **Code en trop** : `effective()` inline dans `EffectiveStatus`.
+10. **Code en trop** : `customerStatus` privé.
+11. **Code en trop** : `NoResults({ clear })` partagé dans `list.tsx`.
+12. **Code en trop** : `GroupFilter` et `statusOf` partagés dans `customers.tsx` ; la conversion `'' → undefined` du
+    filtre, équivalente à la validation de l'adresse (mutant survivant), est retirée.
+13. **Code en trop** : table `{ label, tone }` des groupes.
+14. **Code en trop** : constante « Fermé définitivement. » dans la fiche client.
+15. **Tests** : `stub()` des comptes paramétré par la liste, `row()` partagé dans le test de la liste Clients.
+16. à 24. **Tests creux** comblés, chacun vu tuer sa mutation : raison de « Nouveau client » ; raisons des actions des
+    groupes ; toast de renommage ; aucun toast d'erreur sur un 503 ; `[title]` cherché dans `document.body` et axe avec
+    la modale ouverte ; délai des toasts à 4 999 ms puis 1 ms ; compteurs des journaux (« 1 entrée affichée »,
+    « 2 entrées affichées », « 2 modifications affichées ») ; raison de permission avant la fermeture ; assertion
+    « Comptes : N » déplacée dans le test qui lit les comptes.
+
+**Mutations du tour** : 47 tuées ; survivants au premier passage comblés par un test (statut `active` lu depuis
+l'adresse, pluriel du journal d'accès, lien de la miette quand la fiche lisible échoue) ou retirés (conversion du
+filtre de groupe) ; un équivalent nommé : l'ordre `customer.data?.name ?? listed` de la puce, les deux sources donnant
+le nom courant du même client.
