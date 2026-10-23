@@ -14,15 +14,27 @@ import (
 
 var fields = map[string]string{
 	"customer_groups_name_key": "name",
+	"customers_group_id_fkey":  "group_id",
+	"closed_is_final":          "status",
 }
 
 func refused(err error) error {
 	var pg *pgconn.PgError
-	switch {
-	case errors.Is(err, pgx.ErrNoRows):
+	if errors.Is(err, pgx.ErrNoRows) {
 		return errs.ErrNotFound
-	case errors.As(err, &pg) && pg.Code == "23505":
+	}
+	if !errors.As(err, &pg) {
+		return err
+	}
+	switch pg.Code {
+	case "23505":
 		return adminapi.Refused{Code: errs.ErrConflict, Field: fields[pg.ConstraintName], Message: "already taken"}
+	case "23503":
+		return adminapi.Refused{Code: errs.ErrValidation, Field: fields[pg.ConstraintName], Message: "unknown reference"}
+	case "23514":
+		return adminapi.Refused{Code: errs.ErrValidation, Field: fields[pg.ConstraintName], Message: "not allowed"}
+	case "23001":
+		return adminapi.Refused{Code: errs.ErrConflict, Message: "still referenced"}
 	}
 	return err
 }
@@ -73,18 +85,69 @@ func (t tx) DeleteGroup(ctx context.Context, id string) error {
 	return err
 }
 
-func (t tx) GroupCustomers(ctx context.Context, id string, after *adminapi.Key, limit int) ([]adminapi.Customer, error) {
-	p := sqlc.GroupCustomersParams{GroupID: &id, Lim: int64(limit)}
+func (t tx) Customers(ctx context.Context, f adminapi.CustomerFilter, after *adminapi.Key, limit int) ([]adminapi.Customer, error) {
+	p := sqlc.CustomersParams{GroupID: f.GroupID, Status: f.Status, Lim: int64(limit)}
 	if after != nil {
 		p.AfterAt, p.AfterID = &after.At, &after.ID
 	}
-	rows, err := queries.GroupCustomers(ctx, t.db, p)
+	rows, err := queries.Customers(ctx, t.db, p)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]adminapi.Customer, len(rows))
 	for i, r := range rows {
 		out[i] = customer(r)
+	}
+	return out, nil
+}
+
+func (t tx) Customer(ctx context.Context, id string) (adminapi.Customer, error) {
+	r, err := queries.Customer(ctx, t.db, id)
+	return customer(r), refused(err)
+}
+
+func (t tx) CreateCustomer(ctx context.Context, name string, groupID *string, age adminapi.MaxAge) (adminapi.Customer, error) {
+	id, err := queries.CreateCustomer(ctx, t.db, sqlc.CreateCustomerParams{Name: name, GroupID: groupID, MaxAgeOtp: age.OTP,
+		MaxAgeTransactional: age.Transactional, MaxAgeMarketing: age.Marketing})
+	if err != nil {
+		return adminapi.Customer{}, refused(err)
+	}
+	return t.Customer(ctx, id)
+}
+
+func (t tx) UpdateCustomer(ctx context.Context, id string, p adminapi.CustomerPatch) (adminapi.Customer, error) {
+	params := sqlc.UpdateCustomerParams{ID: id, Name: p.Name, Status: p.Status, SetGroup: p.GroupID.Set, GroupID: p.GroupID.Value}
+	if p.MaxAge != nil {
+		params.SetMaxAge, params.MaxAgeOtp, params.MaxAgeTransactional, params.MaxAgeMarketing =
+			true, p.MaxAge.OTP, p.MaxAge.Transactional, p.MaxAge.Marketing
+	}
+	id, err := queries.UpdateCustomer(ctx, t.db, params)
+	if err != nil {
+		return adminapi.Customer{}, refused(err)
+	}
+	return t.Customer(ctx, id)
+}
+
+func (t tx) SetAccountsStatus(ctx context.Context, customerID, status string) error {
+	return queries.SetAccountsStatus(ctx, t.db, sqlc.SetAccountsStatusParams{CustomerID: customerID, Status: status})
+}
+
+func (t tx) DeleteCustomer(ctx context.Context, id string) error {
+	n, err := queries.DeleteCustomer(ctx, t.db, id)
+	if err == nil && n == 0 {
+		return errs.ErrNotFound
+	}
+	return refused(err)
+}
+
+func (t tx) CustomerAccounts(ctx context.Context, id string) ([]adminapi.AccountRef, error) {
+	rows, err := queries.CustomerAccounts(ctx, t.db, id)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]adminapi.AccountRef, len(rows))
+	for i, r := range rows {
+		out[i] = adminapi.AccountRef(r)
 	}
 	return out, nil
 }

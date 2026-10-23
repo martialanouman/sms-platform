@@ -55,6 +55,7 @@ type Tx interface {
 	Changes(ctx context.Context, requestID string, after *Key, limit int) ([]Change, error)
 	Requested(ctx context.Context, requestID string) (bool, error)
 	Groups
+	Customers
 }
 
 // Store opens the transactions of the control plane.

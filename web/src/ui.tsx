@@ -132,16 +132,35 @@ export function Select({
   items,
   value,
   onChange,
+  blockedReason,
 }: {
   label: string
   items: { value: string; label: string }[]
   value: string
   onChange: (value: string) => void
+  blockedReason?: string
 }) {
+  const reason = useId()
   return (
-    <BaseSelect.Root items={items} value={value} onValueChange={(next) => onChange(next ?? '')}>
-      <BaseSelect.Trigger className="ui-input ui-select" aria-label={label}>
-        {label} : {items.find((item) => item.value === value)?.label}
+    <BaseSelect.Root
+      items={items}
+      value={value}
+      onValueChange={(next) => onChange(next ?? '')}
+      open={blockedReason === undefined ? undefined : false}
+    >
+      {blockedReason !== undefined && (
+        <span className="ui-visually-hidden" id={reason}>
+          {blockedReason}
+        </span>
+      )}
+      <BaseSelect.Trigger
+        className="ui-input ui-select"
+        aria-label={label}
+        aria-describedby={blockedReason === undefined ? undefined : reason}
+        aria-disabled={blockedReason !== undefined || undefined}
+        title={blockedReason}
+      >
+        {label} : {items.find((item) => item.value === value)?.label ?? value}
         <BaseSelect.Icon className="ui-select__icon">
           <Icon name="chevron" />
         </BaseSelect.Icon>
@@ -532,6 +551,7 @@ export function Confirmation({
   invalidate,
   onClose,
   onDone = onClose,
+  refusals = {},
   children,
 }: {
   title: string
@@ -541,15 +561,20 @@ export function Confirmation({
   invalidate: QueryKey
   onClose: () => void
   onDone?: () => void
+  refusals?: Record<number, string>
   children: ReactNode
 }) {
   const queryClient = useQueryClient()
-  const { submit, waiting, refusal } = useSubmission()
+  const { submit, waiting, refusal, fail } = useSubmission()
 
   async function confirm() {
     const outcome = await submit(call)
     if (answered(outcome.response)) {
       void queryClient.invalidateQueries({ queryKey: invalidate })
+    }
+    const said = outcome.response && refusals[outcome.response.status]
+    if (said) {
+      fail(said)
     }
     if (outcome.failure === undefined) {
       onDone()

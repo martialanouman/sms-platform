@@ -10,6 +10,33 @@ import (
 	"time"
 )
 
+const createCustomer = `-- name: CreateCustomer :one
+INSERT INTO control_plane.customers (name, group_id, max_age_otp, max_age_transactional, max_age_marketing)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id
+`
+
+type CreateCustomerParams struct {
+	Name                string
+	GroupID             *string
+	MaxAgeOtp           *int
+	MaxAgeTransactional *int
+	MaxAgeMarketing     *int
+}
+
+func (q *Queries) CreateCustomer(ctx context.Context, db DBTX, arg CreateCustomerParams) (string, error) {
+	row := db.QueryRow(ctx, createCustomer,
+		arg.Name,
+		arg.GroupID,
+		arg.MaxAgeOtp,
+		arg.MaxAgeTransactional,
+		arg.MaxAgeMarketing,
+	)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
 const createGroup = `-- name: CreateGroup :one
 INSERT INTO control_plane.customer_groups (name, description) VALUES ($1, $2) RETURNING id
 `
@@ -24,6 +51,125 @@ func (q *Queries) CreateGroup(ctx context.Context, db DBTX, arg CreateGroupParam
 	var id string
 	err := row.Scan(&id)
 	return id, err
+}
+
+const customer = `-- name: Customer :one
+SELECT id, name, status, group_id, max_age_otp, max_age_transactional, max_age_marketing, created_at, updated_at
+FROM control_plane.customers
+WHERE id = $1
+`
+
+func (q *Queries) Customer(ctx context.Context, db DBTX, id string) (ControlPlaneCustomer, error) {
+	row := db.QueryRow(ctx, customer, id)
+	var i ControlPlaneCustomer
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Status,
+		&i.GroupID,
+		&i.MaxAgeOtp,
+		&i.MaxAgeTransactional,
+		&i.MaxAgeMarketing,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const customerAccounts = `-- name: CustomerAccounts :many
+SELECT id, name, status FROM control_plane.accounts WHERE customer_id = $1 ORDER BY name, id
+`
+
+type CustomerAccountsRow struct {
+	ID     string
+	Name   string
+	Status string
+}
+
+func (q *Queries) CustomerAccounts(ctx context.Context, db DBTX, customerID string) ([]CustomerAccountsRow, error) {
+	rows, err := db.Query(ctx, customerAccounts, customerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CustomerAccountsRow
+	for rows.Next() {
+		var i CustomerAccountsRow
+		if err := rows.Scan(&i.ID, &i.Name, &i.Status); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const customers = `-- name: Customers :many
+SELECT id, name, status, group_id, max_age_otp, max_age_transactional, max_age_marketing, created_at, updated_at
+FROM control_plane.customers
+WHERE ($1::uuid IS NULL OR group_id = $1)
+  AND ($2::text IS NULL OR status = $2)
+  AND ($3::timestamptz IS NULL OR (created_at, id) < ($3, $4::uuid))
+ORDER BY created_at DESC, id DESC
+LIMIT $5::bigint
+`
+
+type CustomersParams struct {
+	GroupID *string
+	Status  *string
+	AfterAt *time.Time
+	AfterID *string
+	Lim     int64
+}
+
+func (q *Queries) Customers(ctx context.Context, db DBTX, arg CustomersParams) ([]ControlPlaneCustomer, error) {
+	rows, err := db.Query(ctx, customers,
+		arg.GroupID,
+		arg.Status,
+		arg.AfterAt,
+		arg.AfterID,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ControlPlaneCustomer
+	for rows.Next() {
+		var i ControlPlaneCustomer
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Status,
+			&i.GroupID,
+			&i.MaxAgeOtp,
+			&i.MaxAgeTransactional,
+			&i.MaxAgeMarketing,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const deleteCustomer = `-- name: DeleteCustomer :execrows
+DELETE FROM control_plane.customers WHERE id = $1
+`
+
+func (q *Queries) DeleteCustomer(ctx context.Context, db DBTX, id string) (int64, error) {
+	result, err := db.Exec(ctx, deleteCustomer, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const deleteGroup = `-- name: DeleteGroup :execrows
@@ -70,57 +216,6 @@ func (q *Queries) Group(ctx context.Context, db DBTX, id string) (GroupRow, erro
 		&i.MemberCount,
 	)
 	return i, err
-}
-
-const groupCustomers = `-- name: GroupCustomers :many
-SELECT id, name, status, group_id, max_age_otp, max_age_transactional, max_age_marketing, created_at, updated_at
-FROM control_plane.customers
-WHERE group_id = $1
-  AND ($2::timestamptz IS NULL OR (created_at, id) < ($2, $3::uuid))
-ORDER BY created_at DESC, id DESC
-LIMIT $4::bigint
-`
-
-type GroupCustomersParams struct {
-	GroupID *string
-	AfterAt *time.Time
-	AfterID *string
-	Lim     int64
-}
-
-func (q *Queries) GroupCustomers(ctx context.Context, db DBTX, arg GroupCustomersParams) ([]ControlPlaneCustomer, error) {
-	rows, err := db.Query(ctx, groupCustomers,
-		arg.GroupID,
-		arg.AfterAt,
-		arg.AfterID,
-		arg.Lim,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ControlPlaneCustomer
-	for rows.Next() {
-		var i ControlPlaneCustomer
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Status,
-			&i.GroupID,
-			&i.MaxAgeOtp,
-			&i.MaxAgeTransactional,
-			&i.MaxAgeMarketing,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const groups = `-- name: Groups :many
@@ -183,6 +278,61 @@ func (q *Queries) Groups(ctx context.Context, db DBTX, arg GroupsParams) ([]Grou
 		return nil, err
 	}
 	return items, nil
+}
+
+const setAccountsStatus = `-- name: SetAccountsStatus :exec
+UPDATE control_plane.accounts SET status = $1 WHERE customer_id = $2 AND status NOT IN ('closed', $1)
+`
+
+type SetAccountsStatusParams struct {
+	Status     string
+	CustomerID string
+}
+
+func (q *Queries) SetAccountsStatus(ctx context.Context, db DBTX, arg SetAccountsStatusParams) error {
+	_, err := db.Exec(ctx, setAccountsStatus, arg.Status, arg.CustomerID)
+	return err
+}
+
+const updateCustomer = `-- name: UpdateCustomer :one
+UPDATE control_plane.customers SET
+  name = coalesce($1, name),
+  status = coalesce($2, status),
+  group_id = CASE WHEN $3::bool THEN $4::uuid ELSE group_id END,
+  max_age_otp = CASE WHEN $5::bool THEN $6::integer ELSE max_age_otp END,
+  max_age_transactional = CASE WHEN $5::bool THEN $7::integer ELSE max_age_transactional END,
+  max_age_marketing = CASE WHEN $5::bool THEN $8::integer ELSE max_age_marketing END
+WHERE id = $9
+RETURNING id
+`
+
+type UpdateCustomerParams struct {
+	Name                *string
+	Status              *string
+	SetGroup            bool
+	GroupID             *string
+	SetMaxAge           bool
+	MaxAgeOtp           *int
+	MaxAgeTransactional *int
+	MaxAgeMarketing     *int
+	ID                  string
+}
+
+func (q *Queries) UpdateCustomer(ctx context.Context, db DBTX, arg UpdateCustomerParams) (string, error) {
+	row := db.QueryRow(ctx, updateCustomer,
+		arg.Name,
+		arg.Status,
+		arg.SetGroup,
+		arg.GroupID,
+		arg.SetMaxAge,
+		arg.MaxAgeOtp,
+		arg.MaxAgeTransactional,
+		arg.MaxAgeMarketing,
+		arg.ID,
+	)
+	var id string
+	err := row.Scan(&id)
+	return id, err
 }
 
 const updateGroup = `-- name: UpdateGroup :one
