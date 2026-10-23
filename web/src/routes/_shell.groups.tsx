@@ -66,10 +66,86 @@ function Groups() {
   const [pending, setPending] = useState<Pending>()
   const close = () => setPending(undefined)
 
-  if (!readable) {
-    return (
-      <>
-        <PageHeader title="Groupes de clients" />
+  return (
+    <>
+      <PageHeader title="Groupes de clients" />
+      {readable ? (
+        <>
+          <Toolbar>
+            <Select
+              label="Statut"
+              items={filters}
+              value={search.status ?? ''}
+              onChange={(status) =>
+                void navigate({ search: { status: status === '' ? undefined : (status as Status) } })
+              }
+            />
+            <Button size="sm" variant="primary" blockedReason={blocked} onClick={() => setPending({ kind: 'create' })}>
+              Nouveau groupe
+            </Button>
+          </Toolbar>
+          <section className="page">
+            {list.isPending ? (
+              <LoadingState label="Chargement des groupes…" rows={3} />
+            ) : list.error ? (
+              <Failure
+                title="Les groupes n’ont pas pu être chargés"
+                error={list.error}
+                retry={() => void list.refetch()}
+              />
+            ) : list.data.data.length === 0 ? (
+              <EmptyState title="Aucun groupe" />
+            ) : (
+              <>
+                <DataTable<Group>
+                  caption="Groupes de clients"
+                  rows={list.data.data}
+                  rowKey={(g) => g.id}
+                  columns={[
+                    { header: 'Nom', cell: (g) => g.name },
+                    { header: 'Description', cell: (g) => g.description ?? '—' },
+                    { header: 'Statut', cell: (g) => statusLabel[g.status] },
+                    { header: 'Clients', cell: (g) => g.member_count },
+                    {
+                      header: 'Actions',
+                      cell: (g) => (
+                        <div className="row-actions">
+                          <Button
+                            size="sm"
+                            blockedReason={blocked}
+                            onClick={() => setPending({ kind: 'edit', group: g })}
+                          >
+                            Modifier
+                          </Button>
+                          <Button
+                            size="sm"
+                            blockedReason={blocked}
+                            onClick={() => setPending({ kind: 'status', group: g })}
+                          >
+                            {g.status === 'active' ? 'Archiver' : 'Réactiver'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            blockedReason={blocked}
+                            onClick={() => setPending({ kind: 'delete', group: g })}
+                          >
+                            Supprimer
+                          </Button>
+                        </div>
+                      ),
+                    },
+                  ]}
+                />
+                <Pager search={search} next={list.data.next_cursor} go={(next) => void navigate({ search: next })} />
+              </>
+            )}
+            {pending?.kind === 'create' && <GroupForm onClose={close} />}
+            {pending?.kind === 'edit' && <GroupForm group={pending.group} onClose={close} />}
+            {pending?.kind === 'status' && <StatusChange group={pending.group} onClose={close} />}
+            {pending?.kind === 'delete' && <Deletion group={pending.group} onClose={close} />}
+          </section>
+        </>
+      ) : (
         <section className="page">
           <Forbidden
             title="Accès aux groupes de clients non accordé"
@@ -78,76 +154,7 @@ function Groups() {
             grantedBy="Exploitation"
           />
         </section>
-      </>
-    )
-  }
-
-  return (
-    <>
-      <PageHeader title="Groupes de clients" />
-      <Toolbar>
-        <Select
-          label="Statut"
-          items={filters}
-          value={search.status ?? ''}
-          onChange={(status) => void navigate({ search: { status: status === '' ? undefined : (status as Status) } })}
-        />
-        <Button size="sm" variant="primary" blockedReason={blocked} onClick={() => setPending({ kind: 'create' })}>
-          Nouveau groupe
-        </Button>
-      </Toolbar>
-      <section className="page">
-        {list.isPending ? (
-          <LoadingState label="Chargement des groupes…" rows={3} />
-        ) : list.error ? (
-          <Failure title="Les groupes n’ont pas pu être chargés" error={list.error} retry={() => void list.refetch()} />
-        ) : list.data.data.length === 0 ? (
-          <EmptyState title="Aucun groupe" />
-        ) : (
-          <>
-            <DataTable<Group>
-              caption="Groupes de clients"
-              rows={list.data.data}
-              rowKey={(g) => g.id}
-              columns={[
-                { header: 'Nom', cell: (g) => g.name },
-                { header: 'Description', cell: (g) => g.description ?? '—' },
-                { header: 'Statut', cell: (g) => statusLabel[g.status] },
-                { header: 'Clients', cell: (g) => g.member_count },
-                {
-                  header: 'Actions',
-                  cell: (g) => (
-                    <div className="row-actions">
-                      <Button size="sm" blockedReason={blocked} onClick={() => setPending({ kind: 'edit', group: g })}>
-                        Modifier
-                      </Button>
-                      <Button
-                        size="sm"
-                        blockedReason={blocked}
-                        onClick={() => setPending({ kind: 'status', group: g })}
-                      >
-                        {g.status === 'active' ? 'Archiver' : 'Réactiver'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        blockedReason={blocked}
-                        onClick={() => setPending({ kind: 'delete', group: g })}
-                      >
-                        Supprimer
-                      </Button>
-                    </div>
-                  ),
-                },
-              ]}
-            />
-            <Pager search={search} next={list.data.next_cursor} go={(next) => void navigate({ search: next })} />
-          </>
-        )}
-        {pending?.kind === 'create' && <GroupForm onClose={close} />}
-        {pending?.kind === 'edit' && <GroupForm group={pending.group} onClose={close} />}
-        {pending?.kind === 'status' && <StatusChange group={pending.group} onClose={close} />}
-        {pending?.kind === 'delete' && <Deletion group={pending.group} onClose={close} />}
-      </section>
+      )}
     </>
   )
 }

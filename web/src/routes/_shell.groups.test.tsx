@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
-import { empty, json, me, renderAt, stubFetch, violations } from '../test'
+import { empty, json, me, once, renderAt, stubFetch, violations } from '../test'
 
 const reader = { ...me, permissions: ['customer-groups:read'] }
 const writer = { ...me, permissions: ['customer-groups:read', 'customer-groups:write'] }
@@ -106,7 +106,7 @@ test('a group is created with its name, and an empty description is not sent', a
   await user.type(within(dialog).getByLabelText('Nom'), 'Banques')
   await user.click(within(dialog).getByRole('button', { name: 'Créer le groupe' }))
 
-  await screen.findByText('Banques')
+  await screen.findByRole('rowheader', { name: 'Banques' })
   const post = calls.find((r) => r.method === 'POST' && r.url.endsWith('/admin/customer-groups'))
   expect(await post?.json()).toEqual({ name: 'Banques' })
   expect(screen.queryByRole('dialog')).toBeNull()
@@ -199,6 +199,9 @@ test('archiving and reactivating set the status', async () => {
 
   const patches = calls.filter((r) => r.method === 'PATCH')
   expect(await Promise.all(patches.map((r) => r.json()))).toEqual([{ status: 'archived' }, { status: 'active' }])
+  await waitFor(() =>
+    expect(calls.filter((r) => r.method === 'GET' && r.url.includes('customer-groups')).length).toBe(3),
+  )
   expect(patches.map((r) => new URL(r.url).pathname.split('/').at(-1))).toEqual([banks.id, telcos.id])
 })
 
@@ -214,7 +217,13 @@ test('deleting a group says its customers are detached, then deletes it', async 
   const dialog = await screen.findByRole('alertdialog', { name: 'Supprimer le groupe Banques' })
   expect(dialog.textContent).toContain('Ses clients (3) sont détachés du groupe, pas supprimés.')
   await user.click(within(dialog).getByRole('button', { name: 'Supprimer' }))
-  await waitFor(() => expect(calls.some((r) => r.method === 'DELETE')).toBe(true))
+  await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+  expect(calls.filter((r) => r.method === 'DELETE').map((r) => new URL(r.url).pathname)).toEqual([
+    `/api/gw/admin/customer-groups/${banks.id}`,
+  ])
+  await waitFor(() =>
+    expect(calls.filter((r) => r.method === 'GET' && r.url.includes('customer-groups')).length).toBe(2),
+  )
 })
 
 test('without customer-groups:write every change is blocked and explained', async () => {
@@ -237,4 +246,53 @@ test('a gateway that does not answer offers to retry', async () => {
   renderAt('/groups')
   expect(await screen.findByRole('heading', { name: 'Les groupes n’ont pas pu être chargés' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Réessayer' })).toBeDefined()
+})
+
+test('a group is created with the description typed', async () => {
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, writer),
+    'GET /api/gw/admin/customer-groups': () => page([]),
+    'POST /api/gw/admin/customer-groups': () => json(201, banks),
+  })
+  const user = userEvent.setup()
+  renderAt('/groups')
+  await user.click(await screen.findByRole('button', { name: 'Nouveau groupe' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Nouveau groupe' })
+  await user.type(within(dialog).getByLabelText('Nom'), 'Banques')
+  await user.type(within(dialog).getByLabelText('Description'), 'Établissements')
+  await user.click(within(dialog).getByRole('button', { name: 'Créer le groupe' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  const post = calls.find((r) => r.method === 'POST' && r.url.endsWith('/admin/customer-groups'))
+  expect(await post?.json()).toEqual({ name: 'Banques', description: 'Établissements' })
+})
+
+test('a session gone while listing sends to the login', async () => {
+  stubFetch({
+    'GET /api/auth/me': once(() => json(200, reader)),
+    'GET /api/gw/admin/customer-groups': () =>
+      json(401, { code: 'unauthenticated', message: 'Aucune session ouverte.' }),
+  })
+  const { router } = renderAt('/groups')
+  await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
+})
+
+test('a refusal of the gateway is told as it comes', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, reader),
+    'GET /api/gw/admin/customer-groups': () =>
+      json(403, { code: 'forbidden_scope', message: 'the operator token lacks customer-groups:read' }),
+  })
+  renderAt('/groups')
+  expect(await screen.findByText('the operator token lacks customer-groups:read')).toBeDefined()
+})
+
+test('a status the address does not know is dropped', async () => {
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, reader),
+    'GET /api/gw/admin/customer-groups': () => page([banks]),
+  })
+  renderAt('/groups?status=gone')
+  await screen.findByRole('rowheader', { name: 'Banques' })
+  const list = calls.find((r) => r.url.includes('customer-groups'))
+  expect(new URL(list?.url ?? '').searchParams.has('status')).toBe(false)
 })
