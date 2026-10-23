@@ -128,3 +128,51 @@ Fable, 2026-10-23, sauf mention. Les décisions humaines du même jour sont marq
   409, 404, curseur, `member_count`, clients d'un groupe, suppression qui détache, instantané (303), corps illisible
   422 ; garde de contrat et complément de scope étendus d'office ; contraintes de la migration (canal, bornes, clos
   définitif, cardinalité, `RESTRICT`) ; Vitest de l'écran avec `axe`. Mutation manuelle, consignée.
+
+## Écarts au design, constatés à l'implémentation
+
+- **`created_by` posé par la base** : défaut `control_plane.actor_operator()`, l'acteur s'il est un UUID, NULL sous
+  `breakglass:` ou `service:` ; le secours (§7.6) le tient sans code, et `authorize` ne pose pas de `Principal` dans le
+  contexte (302 révisé).
+- **FK en `RESTRICT`** : la suppression refusée lève 23001 (`restrict_violation`), pas 23503 ; la traduction de 014a-2 lit
+  ce code.
+- **Traduction des SQLSTATE réduite** à ce que les groupes atteignent : 23505 → 409 sur le champ, ligne absente → 404.
+  Les autres cas de 297 viennent avec les opérations qui les atteignent (014a-2, 014a-3).
+- **`null` sur un champ non nullable** (`name`, `status`) : huma ignore tout `null` d'un champ facultatif à la validation ;
+  un type `value[T]` le refuse au décodage, 422 (correctif de revue).
+- **`MaxBodyBytes`** : le défaut d'huma (1 Mio) reste ; 64 Kio n'apportait rien de prouvable. Le 413 sort
+  `payload_too_large`, et le 400 de huma sort 422.
+- **Pagination partagée** : `page` du cœur sert l'audit, les groupes et les clients d'un groupe ; ordre `(created_at,
+  id)` décroissant.
+- **SPA** : `Select` du kit sur Base UI (filtre de statut, 278) ; `Pager`, `Failure`, `useClosedOn` sortis
+  d'`audit.tsx` vers `list.tsx`. Un 409 de création ou de renommage dit « Un groupe porte déjà ce nom. ».
+
+## Mutations
+
+À la main, par un script de copie, mutation, test et restauration (`cmp`). Migration 15/15, puis `created_by` 2/3 ;
+couche huma (erreurs, trois états, câblage) 6/7 ; adaptateur 3/3 ; cœur 1/1 ; SQL généré 11/11 après un test renforcé
+(`member_count` d'une lecture) ; écran 19/20 après trois tests ajoutés (nom seul, refus gardé dans la modale, « Tous ») ;
+`Select` 2/2 ; rail 1/1. Équivalents gardés : l'ancre `$` de `actor_operator` (aucun acteur n'est un UUID suivi
+d'autre chose : le `sub` est vérifié, 231) ; `'' → undefined` du filtre de statut, que `validateSearch` normalise déjà.
+Retiré parce qu'équivalent : `Nullable = true` du schéma du champ à trois états (huma ignore le `null` d'un champ
+facultatif). Un survivant venait d'un filtre `-run` trop étroit : rejoué, tué.
+
+## Correctifs de revue, tour 1
+
+Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloquant.
+
+1. **`null` sur `name` ou `status` rendait 200** (moyenne) : refusé au décodage par `value[T]`, 422 ; `minLength` et
+   `enum` restent appliqués à travers le type (mutations tuées).
+2. **Tests creux** : pagination à égalité de `created_at` (lignes d'un même `INSERT`), diff et acteur de l'`update` et du
+   `delete` avec leur ligne, `message` du refus, planchers des trois âges ; à l'écran, chemin de la suppression,
+   description envoyée à la création, liste rafraîchie après archivage et suppression, session close sur un 401, refus de
+   la passerelle affiché, statut inconnu de l'adresse écarté. Les huit mutants de la revue sont tués.
+3. **Code en trop retiré** : `widen` (override sqlc en `*int`), `toGroup` et le recopiage de `maxAge` (conversions
+   directes), `optional`, le `PageHeader` rendu deux fois.
+4. **Gardés, avec raison** :
+   - le schéma servi du champ à trois états n'est pas nullable : sans effet sur une requête (huma admet le `null` d'un
+     champ facultatif), et la garde de contrat ne compare pas les schémas ;
+   - un octet NUL dans un nom rend 500 générique, sans fuite ; l'écran ne le produit pas ;
+   - `MaxBodyBytes` reste au défaut d'huma (écart ci-dessus) ;
+   - `Cursor` et `Limit` restent écrits dans chaque entrée : un type embarqué pour huit lignes ;
+   - le port `Groups` reste nommé : 014a-2 et 014a-3 y ajoutent `Customers` et `Accounts`.
