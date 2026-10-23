@@ -224,3 +224,83 @@ test('an unknown customer is told', async () => {
   renderAt(`/customers/${acme.id}`)
   expect(await screen.findByRole('heading', { name: 'Ce client n’a pas pu être chargé' })).toBeDefined()
 })
+
+test('reactivating or closing a customer closed meanwhile is said in French', async () => {
+  for (const [start, action] of [
+    [{ ...acme, status: 'suspended' }, 'Réactiver'],
+    [acme, 'Clôturer'],
+  ] as const) {
+    stub(start, { [`PATCH ${path}`]: () => json(422, { code: 'validation_error', message: 'not allowed' }) })
+    const { unmount } = renderAt(`/customers/${acme.id}`)
+    await userEvent.setup().click(await screen.findByRole('button', { name: action }))
+    const dialog = await confirm(action)
+    expect((await within(dialog).findByRole('alert')).textContent).toBe('Ce client est clos définitivement.')
+    unmount()
+  }
+})
+
+test('an edit refused because the group is gone is said in French', async () => {
+  stub(acme, {
+    [`PATCH ${path}`]: () => json(422, { code: 'validation_error', message: 'unknown reference' }),
+  })
+  const user = userEvent.setup()
+  renderAt(`/customers/${acme.id}`)
+  await user.click(await screen.findByRole('button', { name: 'Modifier' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Modifier le client Acme' })
+  await user.type(within(dialog).getByLabelText('Nom'), ' SA')
+  await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
+  expect((await within(dialog).findByRole('alert')).textContent).toBe('Ce groupe n’existe plus.')
+})
+
+test('the archived group a customer is in is still offered when editing it', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, writer),
+    'GET /api/gw/admin/customer-groups': () =>
+      json(200, { data: [{ ...banks, status: 'archived' }], next_cursor: null }),
+    [`GET ${path}`]: () => json(200, acme),
+  })
+  const user = userEvent.setup()
+  renderAt(`/customers/${acme.id}`)
+  await user.click(await screen.findByRole('button', { name: 'Modifier' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Modifier le client Acme' })
+  await waitFor(() =>
+    expect(within(dialog).getByRole('combobox', { name: 'Groupe' }).textContent).toBe('Groupe : Banques (archivé)'),
+  )
+})
+
+test('a suspension that suspends no account says so', async () => {
+  stub(acme, {
+    [`GET ${path}/suspension-impact`]: () =>
+      json(200, { accounts_to_suspend: [], accounts_closed: [], binds_to_disconnect: [] }),
+  })
+  renderAt(`/customers/${acme.id}`)
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Suspendre' }))
+  const dialog = await screen.findByRole('alertdialog')
+  await waitFor(() => expect(dialog.textContent).toContain('Aucun compte à suspendre.'))
+})
+
+test('a reader cannot reactivate a suspended customer', async () => {
+  stub({ ...acme, status: 'suspended' }, {}, reader)
+  renderAt(`/customers/${acme.id}`)
+  const reactivate = await screen.findByRole('button', { name: 'Réactiver' })
+  expect(document.getElementById(reactivate.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+    'Cette action demande customers:write.',
+  )
+})
+
+test('without customer-groups:read the group of the form is blocked and explained', async () => {
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, { ...me, permissions: ['customers:read', 'customers:write'] }),
+    [`GET ${path}`]: () => json(200, acme),
+  })
+  const user = userEvent.setup()
+  renderAt(`/customers/${acme.id}`)
+  await user.click(await screen.findByRole('button', { name: 'Modifier' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Modifier le client Acme' })
+  const group = within(dialog).getByRole('combobox', { name: 'Groupe' })
+  expect(group.hasAttribute('disabled') || group.getAttribute('aria-disabled') === 'true').toBe(true)
+  expect(document.getElementById(group.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+    'Le groupe demande customer-groups:read.',
+  )
+  expect(calls.some((r) => r.url.includes('customer-groups'))).toBe(false)
+})

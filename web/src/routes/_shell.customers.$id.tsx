@@ -95,7 +95,7 @@ function Loaded({ customer, writes }: { customer: Customer; writes: boolean }) {
       </Toolbar>
       <section aria-labelledby={identity}>
         <h2 id={identity}>Identité</h2>
-        <dl className="identity">
+        <dl>
           <dt>Statut</dt>
           <dd>{customerStatus[customer.status]}</dd>
           <dt>Groupe</dt>

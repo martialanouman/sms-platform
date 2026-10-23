@@ -132,15 +132,33 @@ export function Select({
   items,
   value,
   onChange,
+  blockedReason,
 }: {
   label: string
   items: { value: string; label: string }[]
   value: string
   onChange: (value: string) => void
+  blockedReason?: string
 }) {
+  const reason = useId()
   return (
-    <BaseSelect.Root items={items} value={value} onValueChange={(next) => onChange(next ?? '')}>
-      <BaseSelect.Trigger className="ui-input ui-select" aria-label={label}>
+    <BaseSelect.Root
+      items={items}
+      value={value}
+      onValueChange={(next) => onChange(next ?? '')}
+      disabled={blockedReason !== undefined}
+    >
+      {blockedReason !== undefined && (
+        <span className="ui-visually-hidden" id={reason}>
+          {blockedReason}
+        </span>
+      )}
+      <BaseSelect.Trigger
+        className="ui-input ui-select"
+        aria-label={label}
+        aria-describedby={blockedReason === undefined ? undefined : reason}
+        title={blockedReason}
+      >
         {label} : {items.find((item) => item.value === value)?.label}
         <BaseSelect.Icon className="ui-select__icon">
           <Icon name="chevron" />
@@ -556,7 +574,6 @@ export function Confirmation({
     const said = outcome.response && refusals[outcome.response.status]
     if (said) {
       fail(said)
-      return
     }
     if (outcome.failure === undefined) {
       onDone()

@@ -67,6 +67,7 @@ function Customers() {
                   ]}
                   value={search.group_id ?? ''}
                   onChange={(id) => filter({ group_id: id === '' ? undefined : id })}
+                  blockedReason={groups.blocked}
                 />
                 <Select
                   label="Statut"

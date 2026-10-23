@@ -215,3 +215,30 @@ test('a group given in the address filters the list from the start', async () =>
   expect(new URL(list?.url ?? '').searchParams.get('group_id')).toBe(banks.id)
   await waitFor(() => expect(screen.getByRole('combobox', { name: 'Groupe' }).textContent).toBe('Groupe : Banques'))
 })
+
+test('the next page is asked with its cursor', async () => {
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, reader),
+    'GET /api/gw/admin/customers': (r) =>
+      new URL(r.url).searchParams.get('cursor') ? page([solo]) : page([acme], 'c1'),
+    'GET /api/gw/admin/customer-groups': directory,
+  })
+  renderAt('/customers')
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Suivant' }))
+  await screen.findByRole('rowheader', { name: 'Solo' })
+  const last = new URL(calls.filter((r) => r.url.includes('/admin/customers')).at(-1)?.url ?? '')
+  expect(last.searchParams.get('cursor')).toBe('c1')
+})
+
+test('without customer-groups:read the group filter is blocked and explained', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, { ...me, permissions: ['customers:read'] }),
+    'GET /api/gw/admin/customers': () => page([acme]),
+  })
+  renderAt('/customers')
+  const group = await screen.findByRole('combobox', { name: 'Groupe' })
+  expect(group.hasAttribute('disabled') || group.getAttribute('aria-disabled') === 'true').toBe(true)
+  expect(document.getElementById(group.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+    'Le groupe demande customer-groups:read.',
+  )
+})

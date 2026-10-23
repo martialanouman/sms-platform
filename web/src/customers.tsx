@@ -7,10 +7,14 @@ import { useShellMe } from './session'
 import { Button, Field, Modal, Select, useSubmission } from './ui'
 
 export type Customer = components['schemas']['Customer']
-type Group = components['schemas']['CustomerGroup']
+export type Group = components['schemas']['CustomerGroup']
 type Ages = components['schemas']['MaxAgeOverride']
 
 export const customersKey = ['customers']
+
+export const groupsKey = ['customer-groups']
+
+export const groupsBlocked = 'Le groupe demande customer-groups:read.'
 
 export const customerStatus: Record<Customer['status'], string> = {
   active: 'Actif',
@@ -20,15 +24,15 @@ export const customerStatus: Record<Customer['status'], string> = {
 
 export function useGroups() {
   const me = useShellMe()
+  const readable = (me.data?.permissions ?? []).includes('customer-groups:read')
   const groups = useQuery({
-    queryKey: ['customer-groups', 'directory'],
+    queryKey: [...groupsKey, 'directory'],
     queryFn: () => read(gw.GET('/admin/customer-groups', { params: { query: { limit: 500 } } }), 'customer-groups'),
-    enabled: (me.data?.permissions ?? []).includes('customer-groups:read'),
+    enabled: readable,
   })
-  // ponytail: one page of 500 groups; past it the filter becomes a Combobox (arbitrage 311).
   const list = [...(groups.data?.data ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'fr'))
   const name = (id: string | null) => (id ? (list.find((g) => g.id === id)?.name ?? id) : '—')
-  return { list, name }
+  return { list, name, blocked: readable ? undefined : groupsBlocked }
 }
 
 export const groupLabel = (g: Group) => (g.status === 'archived' ? `${g.name} (archivé)` : g.name)
@@ -43,7 +47,7 @@ const none: Ages = { otp: null, transactional: null, marketing: null }
 
 export function CustomerForm({ customer, onClose }: { customer?: Customer; onClose: () => void }) {
   const queryClient = useQueryClient()
-  const { list } = useGroups()
+  const { list, blocked } = useGroups()
   const { submit, waiting, refusal, fail, describedBy } = useSubmission()
   const [name, setName] = useState(customer?.name ?? '')
   const [group, setGroup] = useState(customer?.group_id ?? '')
@@ -120,6 +124,7 @@ export function CustomerForm({ customer, onClose }: { customer?: Customer; onClo
           items={[{ value: '', label: 'Aucun groupe' }, ...offered.map((g) => ({ value: g.id, label: groupLabel(g) }))]}
           value={group}
           onChange={setGroup}
+          blockedReason={blocked}
         />
         <p>
           Âge maximal d’un message, en secondes ; vide, le plafond de la plateforme s’applique (10 min, 24 h, 72 h). Il

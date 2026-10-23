@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { type FormEvent, useId, useState } from 'react'
-import type { components } from '../admin.gen'
+import { type Group, groupsKey } from '../customers'
 import { gw } from '../gw'
 import { Failure, type Paged, Pager, paged, useClosedOn } from '../list'
 import { read } from '../queries'
@@ -21,7 +21,6 @@ import {
   useSubmission,
 } from '../ui'
 
-type Group = components['schemas']['CustomerGroup']
 type Status = Group['status']
 type GroupsSearch = Paged & { status?: Status }
 
@@ -32,8 +31,6 @@ export const Route = createFileRoute('/_shell/groups')({
   }),
   component: Groups,
 })
-
-const groupsKey = ['customer-groups']
 
 const statusLabel: Record<Status, string> = { active: 'Actif', archived: 'Archivé' }
 

@@ -60,6 +60,7 @@ test('the groups are listed with their status and member count', async () => {
   expect(await screen.findByRole('table', { name: 'Groupes de clients' })).toBeDefined()
   expect(document.title).toBe('Groupes de clients — Tableau de bord')
   expect((await cells('Banques')).slice(0, 3)).toEqual(['Établissements financiers', 'Actif', '3'])
+  expect(screen.getByRole('link', { name: '3' }).getAttribute('href')).toBe(`/customers?group_id=${banks.id}`)
   expect((await cells('Télécoms')).slice(0, 3)).toEqual(['—', 'Archivé', '0'])
   expect(await violations(container)).toEqual([])
 })
