@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
-import { at } from '../audit'
+import { atMinute } from '../audit'
 import { json, me, renderAt, stubFetch, violations } from '../test'
 
 const reader = { ...me, permissions: ['accounts:read', 'customers:read', 'customer-groups:read'] }
@@ -78,7 +78,8 @@ test('the accounts list names their customer, their effective status in a pill a
   const old = within(table).getByRole('row', { name: /old/ })
   expect(within(old).getByText('Fermé').className).toBe('ui-pill ui-pill--neutral')
   expect(within(old).getByText('smpp')).toBeDefined()
-  expect(within(old).getByText(at(account('old', '').created_at)).className).toContain('ui-mono')
+  expect(atMinute(account('old', '').created_at)).toMatch(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/)
+  expect(within(old).getByText(atMinute(account('old', '').created_at)).className).toContain('ui-mono')
   expect(screen.getByText('3 comptes affichés').closest('.ui-card')).toBe(table.closest('.ui-card'))
   expect(screen.queryByRole('button', { name: 'Nouveau compte' })).toBeNull()
   expect(

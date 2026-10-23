@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { type FormEvent, useId, useState } from 'react'
-import { at } from '../audit'
+import { atMinute } from '../audit'
 import { type Group, groupsKey } from '../customers'
 import { gw } from '../gw'
 import { Failure, NoResults, type Paged, Pager, paged, useClosedOn } from '../list'
@@ -147,7 +147,10 @@ function Groups() {
                         </Link>
                       ),
                     },
-                    { header: 'Créé le', cell: (g) => <span className="ui-mono ui-muted">{at(g.created_at)}</span> },
+                    {
+                      header: 'Créé le',
+                      cell: (g) => <span className="ui-mono ui-muted">{atMinute(g.created_at)}</span>,
+                    },
                     {
                       header: 'Actions',
                       cell: (g) => (

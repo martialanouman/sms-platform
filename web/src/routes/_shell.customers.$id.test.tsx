@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
-import { at } from '../audit'
+import { atMinute } from '../audit'
 import { empty, explained, json, me, renderAt, stubFetch, toasted, violations } from '../test'
 
 const writer = { ...me, permissions: ['customers:read', 'customers:write', 'customer-groups:read'] }
@@ -68,9 +68,10 @@ test('the page of a customer shows who it is, its group and its ages', async () 
   expect(age('Marketing').textContent).toBe(`${(3600).toLocaleString('fr')} s`)
   const header = screen.getByRole('heading', { level: 1, name: 'Acme' }).closest('.page-header') as HTMLElement
   expect(within(header).getByText('Actif').className).toBe('ui-pill ui-pill--ok')
-  expect(header.textContent).toContain(`Créé le ${at(acme.created_at)} · modifié le ${at(acme.updated_at)}`)
-  expect(within(header).getByText(at(acme.created_at)).className).toBe('ui-mono')
-  expect(within(header).getByText(at(acme.updated_at)).className).toBe('ui-mono')
+  expect(header.textContent).toContain(`Créé le ${atMinute(acme.created_at)} · modifié le ${atMinute(acme.updated_at)}`)
+  expect(within(header).getByText(atMinute(acme.created_at)).className).toBe('ui-mono')
+  expect(atMinute(acme.updated_at)).toMatch(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/)
+  expect(within(header).getByText(atMinute(acme.updated_at)).className).toBe('ui-mono')
   expect(
     within(header)
       .getAllByRole('button')
@@ -386,7 +387,7 @@ test('the page of a customer lists its accounts, with their effective status, an
   expect(within(row).getByText('Suspendu').className).toBe('ui-pill ui-pill--warn')
   expect(within(row).getByText('par son client')).toBeDefined()
   expect(within(row).getByText('smpp · rest').className).toBe('ui-mono')
-  expect(within(row).getByText(at(accountOf('api', '').created_at)).className).toContain('ui-mono')
+  expect(within(row).getByText(atMinute(accountOf('api', '').created_at)).className).toContain('ui-mono')
   expect(
     within(section)
       .getAllByRole('columnheader')

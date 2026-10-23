@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
-import { at } from '../audit'
+import { atMinute } from '../audit'
 import { explained, json, me, once, renderAt, stubFetch, toasted, violations } from '../test'
 
 const reader = { ...me, permissions: ['customers:read', 'customer-groups:read'] }
@@ -70,15 +70,16 @@ test('the customers are listed with their status in a pill and their group named
   expect(await screen.findByRole('table', { name: 'Clients' })).toBeDefined()
   expect(document.title).toBe('Clients — Tableau de bord')
   expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Nom', 'Statut', 'Groupe', 'Créé le'])
-  await waitFor(async () => expect(await cells('Acme')).toEqual(['Actif', 'Banques', at(acme.created_at)]))
-  expect(await cells('Solo')).toEqual(['Suspendu', 'Aucun', at(solo.created_at)])
-  expect(await cells('Gone')).toEqual(['Fermé', 'Anciens (archivé)', at(gone.created_at)])
+  await waitFor(async () => expect(await cells('Acme')).toEqual(['Actif', 'Banques', atMinute(acme.created_at)]))
+  expect(atMinute(acme.created_at)).toMatch(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/)
+  expect(await cells('Solo')).toEqual(['Suspendu', 'Aucun', atMinute(solo.created_at)])
+  expect(await cells('Gone')).toEqual(['Fermé', 'Anciens (archivé)', atMinute(gone.created_at)])
   const pill = async (name: string, label: string) =>
     within((await screen.findByRole('rowheader', { name })).closest('tr') as HTMLElement).getByText(label).className
   expect(await pill('Acme', 'Actif')).toBe('ui-pill ui-pill--ok')
   expect(await pill('Solo', 'Suspendu')).toBe('ui-pill ui-pill--warn')
   expect(await pill('Gone', 'Fermé')).toBe('ui-pill ui-pill--neutral')
-  expect(await pill('Acme', at(acme.created_at))).toContain('ui-mono')
+  expect(await pill('Acme', atMinute(acme.created_at))).toContain('ui-mono')
   expect(screen.getByRole('link', { name: 'Acme' }).getAttribute('href')).toBe(`/customers/${acme.id}`)
   const groups = calls.find((r) => r.url.includes('customer-groups'))
   expect(new URL(groups?.url ?? '').searchParams.get('limit')).toBe('500')

@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
-import { at } from '../audit'
+import { atMinute } from '../audit'
 import { empty, json, me, once, renderAt, stubFetch, violations } from '../test'
 
 const reader = { ...me, permissions: ['customer-groups:read'] }
@@ -72,13 +72,14 @@ test('the groups are listed with their status and member count', async () => {
     'Établissements financiers',
     'Actif',
     '3',
-    at(banks.created_at),
+    atMinute(banks.created_at),
   ])
   expect(screen.getByRole('link', { name: '3' }).getAttribute('href')).toBe(`/customers?group_id=${banks.id}`)
   expect((await cells('Télécoms')).slice(0, 3)).toEqual(['—', 'Archivé', '0'])
   expect((await row('Banques')).getByText('Actif').className).toBe('ui-pill ui-pill--ok')
   expect((await row('Télécoms')).getByText('Archivé').className).toBe('ui-pill ui-pill--neutral')
-  expect((await row('Banques')).getByText(at(banks.created_at)).className).toContain('ui-mono')
+  expect((await row('Banques')).getByText(atMinute(banks.created_at)).className).toContain('ui-mono')
+  expect(atMinute(banks.created_at)).toMatch(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/)
   expect((await row('Banques')).getByRole('button', { name: 'Supprimer' }).className).toContain('ui-button--danger')
   expect((await row('Banques')).getByRole('button', { name: 'Modifier' }).closest('.row-actions')).not.toBeNull()
   const table = screen.getByRole('table', { name: 'Groupes de clients' })

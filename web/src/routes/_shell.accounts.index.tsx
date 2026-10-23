@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { type Account, accountsKey, channels, EffectiveStatus } from '../accounts'
-import { at } from '../audit'
+import { atMinute } from '../audit'
 import { customersKey, GroupFilter, statusFilters, statusOf } from '../customers'
 import { gw } from '../gw'
 import { Failure, NoResults, type Paged, Pager, paged, text, useClosedOn } from '../list'
@@ -132,7 +132,10 @@ function Accounts() {
                       cell: (a) => <EffectiveStatus status={a.status} customer={a.customer_status} />,
                     },
                     { header: 'Canaux', cell: (a) => <span className="ui-mono">{channels(a)}</span> },
-                    { header: 'Créé le', cell: (a) => <span className="ui-mono ui-muted">{at(a.created_at)}</span> },
+                    {
+                      header: 'Créé le',
+                      cell: (a) => <span className="ui-mono ui-muted">{atMinute(a.created_at)}</span>,
+                    },
                   ]}
                 />
               </Card>

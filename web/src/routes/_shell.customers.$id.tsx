@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { type Account, AccountForm, accountsKey, channels, EffectiveStatus } from '../accounts'
-import { at } from '../audit'
+import { atMinute } from '../audit'
 import { ageFields, type Customer, CustomerForm, customersKey, Status, useGroups } from '../customers'
 import { gw } from '../gw'
 import { Failure, useClosedOn } from '../list'
@@ -97,8 +97,8 @@ function Loaded({ customer, writes }: { customer: Customer; writes: boolean }) {
         status={<Status status={customer.status} />}
         meta={
           <>
-            Créé le <span className="ui-mono">{at(customer.created_at)}</span> · modifié le{' '}
-            <span className="ui-mono">{at(customer.updated_at)}</span>
+            Créé le <span className="ui-mono">{atMinute(customer.created_at)}</span> · modifié le{' '}
+            <span className="ui-mono">{atMinute(customer.updated_at)}</span>
           </>
         }
         actions={
@@ -330,7 +330,7 @@ function Accounts({ customer }: { customer: Customer }) {
             },
             { header: 'Statut', cell: (a) => <EffectiveStatus status={a.status} customer={customer.status} /> },
             { header: 'Canaux', cell: (a) => <span className="ui-mono">{channels(a)}</span> },
-            { header: 'Créé le', cell: (a) => <span className="ui-mono ui-muted">{at(a.created_at)}</span> },
+            { header: 'Créé le', cell: (a) => <span className="ui-mono ui-muted">{atMinute(a.created_at)}</span> },
           ]}
         />
       )}

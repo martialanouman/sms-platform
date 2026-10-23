@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState } from 'react'
-import { at } from '../audit'
+import { atMinute } from '../audit'
 import {
   type Customer,
   CustomerForm,
@@ -143,7 +143,10 @@ function Customers() {
                           </>
                         ),
                     },
-                    { header: 'Créé le', cell: (c) => <span className="ui-mono ui-muted">{at(c.created_at)}</span> },
+                    {
+                      header: 'Créé le',
+                      cell: (c) => <span className="ui-mono ui-muted">{atMinute(c.created_at)}</span>,
+                    },
                   ]}
                 />
               </Card>
