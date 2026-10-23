@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Liste Comptes</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#0c0f14}
+a{color:#2dd4bf;text-decoration:none}a:hover{color:#5eead4;text-decoration:underline}
+.sg{font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:13px;line-height:1.5;color:#e6edf3;background:#0c0f14;font-variant-numeric:tabular-nums}
+.sg .mono{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px}
+.sg .rail{flex:0 0 236px;background:#0a0d12;border-right:1px solid #1c242f;padding:16px 12px;box-sizing:border-box}
+.sg .logo{display:flex;align-items:center;gap:10px;padding:4px 8px 20px;font-weight:600;font-size:14px}
+.sg .tile{width:28px;height:28px;border-radius:7px;background:linear-gradient(140deg,#5eead4,#0f766e);color:#0a0d12;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
+.sg .navh{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8b95a3;padding:16px 8px 6px}
+.sg .nav a{display:block;padding:7px 8px;border-radius:7px;color:#c4ccd6}
+.sg .nav a:hover{background:#151b24;text-decoration:none;color:#e6edf3}
+.sg .nav a.on{background:rgba(45,212,191,.14);color:#2dd4bf}
+.sg .main{flex:999 1 560px;min-width:0}
+.sg .top{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:1px solid #1c242f;background:#0a0d12;box-sizing:border-box}
+.sg .crumb{font-size:12px;color:#8b95a3}
+.sg .content{padding:24px 40px 40px;max-width:1600px;box-sizing:border-box}
+.sg h1{font-size:28px;font-weight:600;margin:0;line-height:1.2}
+.sg .sub{color:#8b95a3;font-size:12px;margin-top:4px}
+.sg .card{background:#11161e;border:1px solid #232b36;border-radius:12px}
+.sg .btn{height:28px;padding:0 12px;border-radius:7px;border:1px solid #2c3542;background:transparent;color:#e6edf3;font:inherit;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.sg .btn[aria-disabled=true]{background:#0c1017;border-color:#1c242f;color:#6b7684;cursor:not-allowed}
+.sg .select{height:28px;padding:0 10px;border-radius:7px;border:1px solid #2c3542;background:#0c1017;color:#e6edf3;font:inherit;font-size:12px;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.sg .select span{color:#8b95a3}
+.sg .chip{height:28px;padding:0 4px 0 10px;border-radius:20px;border:1px solid #2dd4bf;background:rgba(45,212,191,.14);color:#2dd4bf;font-size:12px;display:inline-flex;align-items:center;gap:6px}
+.sg .chip button{width:22px;height:22px;border-radius:50%;border:0;background:transparent;color:#2dd4bf;cursor:pointer;font:inherit}
+.sg .tbl{width:100%;border-collapse:collapse}
+.sg .tbl th{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8b95a3;text-align:left;padding:8px 12px;border-bottom:1px solid #232b36}
+.sg .tbl td{padding:8px 12px;border-bottom:1px solid #1c242f;height:22px}
+.sg .tbl tr:hover td{background:#141a23}
+.sg .pill{display:inline-flex;align-items:center;gap:6px;padding:1px 10px;border-radius:20px;font-size:12px;white-space:nowrap}
+.sg .pill i{width:6px;height:6px;border-radius:50%;background:currentColor}
+.sg .ok{background:rgba(47,209,138,.14);color:#2fd18a}
+.sg .warn{background:rgba(240,184,74,.14);color:#f0b84a}
+.sg .neutral{background:rgba(139,149,163,.14);color:#aab3bf}
+.sg .muted{color:#8b95a3}
+.sg .pager{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;font-size:12px;color:#8b95a3}
+</style>
+</helmet>
+<div class="sg" style="display: flex; flex-wrap: wrap; min-height: 960px">
+<nav class="rail" aria-label="Navigation principale">
+<div class="logo"><span class="tile">SG</span>SMS Gateway</div>
+<div class="nav">
+<div class="navh">Clients</div>
+<a href="Main.dc.html">Clients</a>
+<a class="on" href="ComptesListe.dc.html" aria-current="page">Comptes</a>
+<a href="#">Groupes</a>
+<div class="navh">Administration</div>
+<a href="#">Opérateurs</a>
+<a href="#">Rôles</a>
+<a href="#">Journal d’audit</a>
+</div>
+</nav>
+<div class="main">
+<header class="top">
+<div class="crumb">Comptes</div>
+<div class="crumb">A. Kouadio · Propriétaire</div>
+</header>
+<main class="content" style="display: flex; flex-direction: column; gap: 24px">
+<div>
+<h1>Comptes</h1>
+<div class="sub">Les comptes SMPP et REST de tous les clients. Un compte se crée depuis la fiche de son client.</div>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+<span class="chip">Client : Banque Exemple <button type="button" aria-label="Retirer le filtre Client">×</button></span>
+<button class="select" type="button" aria-label="Groupe">Groupe : Tous <span>▾</span></button>
+<button class="select" type="button" aria-label="Statut">Statut : Tous <span>▾</span></button>
+</div>
+<section class="card" aria-label="Comptes">
+<div style="overflow-x: auto">
+<table class="tbl">
+<thead><tr><th scope="col">Nom</th><th scope="col">Client</th><th scope="col">Statut</th><th scope="col">Canaux</th><th scope="col">Créé le</th></tr></thead>
+<tbody>
+<tr><td><a class="mono" href="CompteIdentifiants.dc.html">rest-campagnes</a></td><td><a href="ClientFiche.dc.html">Banque Exemple</a></td><td><span class="pill ok"><i></i>Actif</span></td><td class="mono">rest</td><td class="mono muted">18/10/2026 10:44</td></tr>
+<tr><td><a class="mono" href="CompteIdentifiants.dc.html">smpp-banque-02</a></td><td><a href="ClientFiche.dc.html">Banque Exemple</a></td><td><span class="pill warn"><i></i>Suspendu</span></td><td class="mono">smpp</td><td class="mono muted">14/10/2026 15:02</td></tr>
+<tr><td><a class="mono" href="CompteIdentifiants.dc.html">api-banque</a></td><td><a href="ClientFiche.dc.html">Banque Exemple</a></td><td><span class="pill ok"><i></i>Actif</span></td><td class="mono">smpp · rest</td><td class="mono muted">12/10/2026 09:20</td></tr>
+</tbody>
+</table>
+</div>
+<div class="pager"><span>3 comptes affichés</span><span style="display: flex; gap: 8px"><button class="btn" type="button" aria-disabled="true">Précédent</button><button class="btn" type="button" aria-disabled="true">Suivant</button></span></div>
+</section>
+<section class="card" aria-label="Exemple sans filtre client" style="opacity: .92">
+<div style="padding: 10px 16px; font-size: 12px; color: #8b95a3; border-bottom: 1px solid #1c242f">Sans filtre client : un compte d’un client suspendu montre son statut effectif.</div>
+<div style="overflow-x: auto">
+<table class="tbl">
+<thead><tr><th scope="col">Nom</th><th scope="col">Client</th><th scope="col">Statut</th><th scope="col">Canaux</th><th scope="col">Créé le</th></tr></thead>
+<tbody>
+<tr><td><a class="mono" href="CompteIdentifiants.dc.html">boutique-sms</a></td><td><a href="ClientFiche.dc.html">Commerce Exemple</a></td><td><span class="pill warn"><i></i>Suspendu</span> <span class="muted" style="font-size: 12px">par son client</span></td><td class="mono">smpp</td><td class="mono muted">09/10/2026 12:01</td></tr>
+<tr><td><a class="mono" href="CompteIdentifiants.dc.html">ancien-bind</a></td><td><a href="ClientFiche.dc.html">Ancien Client Exemple</a></td><td><span class="pill neutral"><i></i>Fermé</span></td><td class="mono">smpp</td><td class="mono muted">02/09/2026 10:10</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

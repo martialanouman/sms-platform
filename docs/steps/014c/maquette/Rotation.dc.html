@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Rotation puis secret montré une fois</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#06080b}
+a{color:#2dd4bf;text-decoration:none}a:hover{color:#5eead4;text-decoration:underline}
+.sg{font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:13px;line-height:1.5;color:#e6edf3;background:rgba(6,8,11,.92);font-variant-numeric:tabular-nums}
+.sg .mono{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px}
+.sg .modal{width:480px;max-width:100%;background:#11161e;border:1px solid #232b36;border-radius:12px;box-shadow:0 24px 64px rgba(0,0,0,.6)}
+.sg .mh{display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #1c242f}
+.sg .mh h2{font-size:15px;font-weight:600;margin:0}
+.sg .x{width:28px;height:28px;border-radius:7px;border:0;background:transparent;color:#8b95a3;font:inherit;font-size:16px;cursor:pointer}
+.sg .mb{padding:16px;display:flex;flex-direction:column;gap:16px}
+.sg .mf{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid #1c242f}
+.sg .btn{height:34px;padding:0 14px;border-radius:7px;border:1px solid #2c3542;background:transparent;color:#e6edf3;font:inherit;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.sg .btn.primary{border-color:#2dd4bf;background:rgba(45,212,191,.14);color:#2dd4bf}
+.sg .btn.danger{border-color:#e5484d;color:#ff8589}
+.sg .banner{border:1px solid rgba(240,184,74,.4);background:rgba(240,184,74,.14);color:#f0b84a;border-radius:12px;padding:10px 12px;font-size:12.5px}
+.sg .lbl{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8b95a3;display:block;margin-bottom:6px}
+.sg .select{height:34px;width:100%;box-sizing:border-box;padding:0 10px;border-radius:7px;border:1px solid #2c3542;background:#0c1017;color:#e6edf3;font:inherit;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.sg .why{font-size:11.5px;color:#8b95a3}
+.sg .chk{display:flex;align-items:flex-start;gap:8px}
+.sg .chk input{appearance:none;flex:0 0 16px;width:16px;height:16px;border-radius:4px;border:1px solid #2c3542;background:#0c1017;margin:2px 0 0;position:relative}
+.sg .chk input:checked{background:rgba(45,212,191,.14);border-color:#2dd4bf}
+.sg .chk input:checked::after{content:'';position:absolute;left:4px;top:1px;width:5px;height:9px;border:solid #2dd4bf;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.sg .secret{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:15px;letter-spacing:.06em;background:#0c1017;border:1px solid #232b36;border-radius:7px;padding:12px;word-break:break-all}
+.sg .kv{display:grid;grid-template-columns:110px minmax(0,1fr);gap:8px 12px;margin:0}
+.sg .kv dt{color:#8b95a3;font-size:12px}
+.sg .kv dd{margin:0}
+</style>
+</helmet>
+<div class="sg" style="min-height: 960px; display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-start; justify-content: center; padding: 96px 40px; box-sizing: border-box">
+<section class="modal" role="dialog" aria-modal="true" aria-labelledby="h-rot">
+<div class="mh"><h2 id="h-rot">Rotation du bind SMPP <span class="mono">banque01</span></h2><a class="x" href="CompteIdentifiants.dc.html" aria-label="Fermer">×</a></div>
+<div class="mb">
+<div class="banner">Sans grâce, l’ancien mot de passe cesse aussitôt d’être accepté et les binds ouverts du compte sont déconnectés.</div>
+<div><span class="lbl" id="l-grace">Fenêtre de grâce</span><button class="select" type="button" aria-labelledby="l-grace">Aucune <span style="color: #8b95a3">▾</span></button><div class="why" style="margin-top: 6px">Aucune · 1 h · 24 h · 7 jours. Pendant la grâce, l’ancien secret reste accepté.</div></div>
+<label class="chk"><input type="checkbox" checked>Je comprends que le nouveau secret ne sera affiché qu’une seule fois.</label>
+<div class="why">L’action est enregistrée dans le journal d’audit.</div>
+</div>
+<div class="mf"><a class="btn" href="CompteIdentifiants.dc.html" style="text-decoration: none">Annuler</a><button class="btn danger" type="button">Effectuer la rotation</button></div>
+</section>
+<section class="modal" role="dialog" aria-modal="true" aria-labelledby="h-once">
+<div class="mh"><h2 id="h-once">Nouveau mot de passe</h2><a class="x" href="CompteIdentifiants.dc.html" aria-label="Fermer">×</a></div>
+<div class="mb">
+<dl class="kv">
+<dt>Compte</dt><dd class="mono">api-banque</dd>
+<dt>system_id</dt><dd class="mono">banque01</dd>
+</dl>
+<div class="secret" aria-label="Mot de passe">Zz9yXx8w</div>
+<div class="why">Ce secret ne sera plus jamais affiché. Fermer cette fenêtre l’efface de l’écran.</div>
+</div>
+<div class="mf"><button class="btn" type="button">Copier le secret</button><a class="btn primary" href="CompteIdentifiants.dc.html" style="text-decoration: none">J’ai copié le secret</a></div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
