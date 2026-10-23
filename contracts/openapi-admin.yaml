@@ -2864,7 +2864,7 @@ components:
         query_sm_enabled: { type: boolean }
         cancel_sm_enabled: { type: boolean }
         allowed_bind_types: { type: array, uniqueItems: true, items: { $ref: '#/components/schemas/BindType' } }
-        max_sessions: { type: integer, minimum: 0 }
+        max_sessions: { type: integer, minimum: 0, maximum: 2147483647 }
         rate_limit:
           oneOf:
             - $ref: '#/components/schemas/RateLimit'
@@ -2883,7 +2883,7 @@ components:
         query_sm_enabled: { type: boolean, default: true }
         cancel_sm_enabled: { type: boolean, default: true }
         allowed_bind_types: { type: array, minItems: 1, uniqueItems: true, default: [transceiver], items: { $ref: '#/components/schemas/BindType' } }
-        max_sessions: { type: integer, minimum: 0, default: 1 }
+        max_sessions: { type: integer, minimum: 0, maximum: 2147483647, default: 1 }
       required: [customer_id, name]
     AccountUpdate:
       type: object
@@ -2903,7 +2903,7 @@ components:
       type: object
       additionalProperties: false
       properties:
-        max_sessions: { type: integer, minimum: 0 }
+        max_sessions: { type: integer, minimum: 0, maximum: 2147483647 }
         allowed_bind_types: { type: array, minItems: 1, uniqueItems: true, items: { $ref: '#/components/schemas/BindType' } }
       required: [max_sessions, allowed_bind_types]
     SmppOpsUpdate:
