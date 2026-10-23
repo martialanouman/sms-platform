@@ -185,6 +185,7 @@ arrive avec son service (017 → 022, 020 → 029b).
   (`docs/steps/014a-1-schema-et-groupes.md`). 014a-2 mergée (#174), 014a-3 : `docs/steps/014a-3-comptes.md`.
 - **014b — Identifiants, webhooks** : clé d'API et bind hachés (rotation avec grâce, révocation, I2),
   webhooks au secret scellé.
+  Coupée en deux (humain, 2026-10-23) : identifiants ; webhooks (`docs/steps/014b-1-identifiants.md`).
 - **015 — Plateforme, sender IDs, débits** : `platform_policy` (quiet hours, politique de contenu,
   `billing_enabled`), sender IDs et catégories, `rate_limits`.
   `sender_ids.customer_id` en `ON DELETE RESTRICT` : un client qui a envoyé ne se supprime pas (014a-1, 296).
@@ -207,7 +208,8 @@ mutation est auditée avec son acteur, et un lecteur de l'instantané la voit.
 ## 021 à 025 — Chemin MT
 
 - **021 — `rest-api-svc`** : clé d'API, seaux `redis-state` (sender ID puis compte, fail-closed), quiet
-  hours, idempotence, ACK durable sur `mt.inbound.<cat>` (spec 03 §3.2).
+  hours, idempotence, ACK durable sur `mt.inbound.<cat>` (spec 03 §3.2). Décide l'écrivain de `credentials.last_used_at`, servi `null`
+  jusque-là (014b-1, 353) : écriture espacée sous un GRANT de colonne, ou `redis-state`.
 - **022 — `router-svc`** : la lane MT sur le runtime de 008, assemblant les cœurs de 015 et de 017 à 019
   (I3), segmentation, publication sur `mt.routed.<cat>`, `assignment: broadcast` du runtime, lag par lane et ses règles ; réservation de crédit en no-op jusqu'en 031a.
   Sans statut de compte opérateur, tout message finit `no_route` : le test injecte un record de
