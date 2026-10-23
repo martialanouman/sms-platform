@@ -242,11 +242,11 @@ test('a default role, a held role and a reader without roles:write are refused, 
   })
   await waitFor(() =>
     expect(explained(screen.getByRole('button', { name: 'Nouveau rôle' }))).toBe(
-      'La composition d’un rôle demande roles:write.',
+      'La composition d’un rôle demande Rôles : modifier roles:write.',
     ),
   )
   expect(explained(within(row('Tenu')).getByRole('button', { name: 'Modifier' }))).toBe(
-    'Cette action demande roles:write.',
+    'Cette action demande Rôles : modifier roles:write.',
   )
   expect(
     within(row('Support')).getByRole('button', { name: 'Voir les permissions' }).hasAttribute('aria-disabled'),

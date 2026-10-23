@@ -7,7 +7,7 @@ import { gw } from '../gw'
 import { Failure, type Paged, Pager, paged, text, useClosedOn } from '../list'
 import { read } from '../queries'
 import { useShellMe } from '../session'
-import { Button, DataTable, EmptyState, Forbidden, LoadingState, PageHeader, Select, Toolbar } from '../ui'
+import { Button, DataTable, EmptyState, Forbidden, LoadingState, needs, PageHeader, Select, Toolbar } from '../ui'
 
 type Status = Customer['status']
 type CustomersSearch = Paged & { group_id?: string; status?: Status }
@@ -81,7 +81,7 @@ function Customers() {
             <Button
               size="sm"
               variant="primary"
-              blockedReason={held.includes('customers:write') ? undefined : 'Cette action demande customers:write.'}
+              blockedReason={held.includes('customers:write') ? undefined : needs('customers:write')}
               onClick={() => setCreating(true)}
             >
               Nouveau client

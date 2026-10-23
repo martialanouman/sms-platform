@@ -4,7 +4,7 @@ import type { components } from './admin.gen'
 import { gw } from './gw'
 import { read } from './queries'
 import { useShellMe } from './session'
-import { Button, Field, Modal, Select, useSubmission } from './ui'
+import { Button, Field, Modal, needs, Select, useSubmission } from './ui'
 
 export type Customer = components['schemas']['Customer']
 export type Group = components['schemas']['CustomerGroup']
@@ -14,7 +14,7 @@ export const customersKey = ['customers']
 
 export const groupsKey = ['customer-groups']
 
-export const groupsBlocked = 'Le groupe demande customer-groups:read.'
+export const groupsBlocked = needs('customer-groups:read', 'Le groupe')
 
 export const customerStatus: Record<Customer['status'], string> = {
   active: 'Actif',

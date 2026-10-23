@@ -13,6 +13,7 @@ import {
   Field,
   LoadingState,
   Modal,
+  needs,
   SecretOnce,
   Select,
   Toolbar,
@@ -42,7 +43,7 @@ export function Webhooks({ account }: { account: Account }) {
   const [pending, setPending] = useState<{ action: 'create' | 'edit' | 'rotate' | 'delete'; w?: Webhook }>()
   const [shown, setShown] = useState<Shown>()
   const close = () => setPending(undefined)
-  const write = held.includes('accounts:write') ? undefined : 'Cette action demande accounts:write.'
+  const write = held.includes('accounts:write') ? undefined : needs('accounts:write')
   const frozen = write ?? (account.status === 'closed' ? 'Clos définitivement.' : undefined)
   const list = webhooks.data ?? []
   const free = (Object.keys(events) as Event[]).filter((e) => !list.some((w) => w.event_type === e))

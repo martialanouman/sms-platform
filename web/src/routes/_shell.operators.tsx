@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { type FormEvent, useEffect, useId, useRef, useState } from 'react'
+import { type FormEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import { api, json, unreachable } from '../api'
 import type { components } from '../api.gen'
 import { operatorsQuery, rolesQuery } from '../queries'
@@ -17,6 +17,7 @@ import {
   Forbidden,
   LoadingState,
   Modal,
+  needs,
   OperatorCell,
   PageHeader,
   Toolbar,
@@ -58,7 +59,7 @@ function Operators() {
     }
   }, [operators.error, closed])
   const writes = held.includes('operators:write')
-  const writable = writes ? undefined : 'Cette action demande operators:write.'
+  const writable = writes ? undefined : needs('operators:write')
   const readsRoles = held.includes('roles:read')
   const [pending, setPending] = useState<Pending>()
   const [note, setNote] = useState('')
@@ -85,7 +86,7 @@ function Operators() {
             <Button
               size="sm"
               variant="primary"
-              blockedReason={writes ? undefined : 'La création d’un opérateur demande operators:write.'}
+              blockedReason={writes ? undefined : needs('operators:write', 'La création d’un opérateur')}
               onClick={open({ kind: 'create' })}
             >
               Nouvel opérateur
@@ -133,7 +134,7 @@ function Operators() {
                         <Button
                           size="sm"
                           blockedReason={
-                            writable ?? (readsRoles ? undefined : 'La liste des rôles à attribuer demande roles:read.')
+                            writable ?? (readsRoles ? undefined : needs('roles:read', 'La liste des rôles à attribuer'))
                           }
                           onClick={open({ kind: 'roles', operator: o })}
                         >
@@ -389,7 +390,7 @@ function Status({
   onDisable,
 }: {
   operator: Operator
-  blockedReason?: string
+  blockedReason?: ReactNode
   onDisable: () => void
 }) {
   const queryClient = useQueryClient()

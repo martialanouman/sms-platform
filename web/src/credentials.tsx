@@ -14,6 +14,7 @@ import {
   Field,
   LoadingState,
   Modal,
+  needs,
   SecretOnce,
   Select,
   Toolbar,
@@ -70,7 +71,7 @@ export function Credentials({ account }: { account: Account }) {
   const [shown, setShown] = useState<Shown>()
   const close = () => setPending(undefined)
   const blocked =
-    (held.includes('credentials:write') ? undefined : 'Cette action demande credentials:write.') ??
+    (held.includes('credentials:write') ? undefined : needs('credentials:write')) ??
     (account.status === 'closed' ? 'Clos définitivement.' : undefined)
   const list = credentials.data ?? []
   const free = (Object.keys(kinds) as Kind[]).filter((k) => !list.some((c) => c.type === k))

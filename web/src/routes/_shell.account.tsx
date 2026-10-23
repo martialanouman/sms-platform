@@ -7,7 +7,7 @@ import { PasskeySection, TotpReplacement } from '../factor'
 import { PermissionPicker } from '../picker'
 import { adminScopes, personalExcluded } from '../scopes.gen'
 import { meQuery, useShellMe } from '../session'
-import { Button, PageHeader, SecretOnce, useSubmission } from '../ui'
+import { Button, needs, PageHeader, SecretOnce, useSubmission } from '../ui'
 
 export const Route = createFileRoute('/_shell/account')({ component: Account })
 
@@ -75,11 +75,14 @@ function PersonalToken({ held }: { held: string[] }) {
       <div>
         <Button
           blockedReason={
-            !allowed
-              ? 'Se délivrer un jeton personnel demande gateway:personal_token, que seul le rôle Propriétaire détient par défaut ; un administrateur peut l’accorder.'
-              : chosen.length === 0
-                ? 'Cochez au moins un scope.'
-                : undefined
+            !allowed ? (
+              <>
+                {needs('gateway:personal_token')} Seul le rôle Propriétaire la détient par défaut ; un administrateur
+                peut l’accorder.
+              </>
+            ) : chosen.length === 0 ? (
+              'Cochez au moins un scope.'
+            ) : undefined
           }
           loading={waiting}
           onClick={() => void issue()}

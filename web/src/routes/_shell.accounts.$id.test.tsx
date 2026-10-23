@@ -181,12 +181,14 @@ test('without accounts:write every change is blocked', async () => {
   stub(api, {}, { ...me, permissions: ['accounts:read'] })
   renderAt(`/accounts/${api.id}`)
   for (const name of ['Suspendre', 'Réactiver', 'Clôturer', 'Supprimer']) {
-    expect(explained(await screen.findByRole('button', { name }))).toBe('Cette action demande accounts:write.')
+    expect(explained(await screen.findByRole('button', { name }))).toBe(
+      'Cette action demande Comptes : modifier accounts:write.',
+    )
   }
   for (const block of ['Identité', 'Canaux', 'Sessions', 'Opérations SMPP']) {
     expect(
       explained(within(screen.getByRole('region', { name: block })).getByRole('button', { name: 'Modifier' })),
-    ).toBe('Cette action demande accounts:write.')
+    ).toBe('Cette action demande Comptes : modifier accounts:write.')
   }
 })
 

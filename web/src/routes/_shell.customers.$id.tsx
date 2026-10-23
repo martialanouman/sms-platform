@@ -8,7 +8,7 @@ import { gw } from '../gw'
 import { Failure, useClosedOn } from '../list'
 import { read } from '../queries'
 import { useShellMe } from '../session'
-import { Button, Confirmation, DataTable, Forbidden, LoadingState, PageHeader, Toolbar } from '../ui'
+import { Button, Confirmation, DataTable, Forbidden, LoadingState, needs, PageHeader, Toolbar } from '../ui'
 
 export const Route = createFileRoute('/_shell/customers/$id')({ component: CustomerPage })
 
@@ -62,7 +62,7 @@ function Loaded({ customer, writes }: { customer: Customer; writes: boolean }) {
   const [pending, setPending] = useState<Pending>()
   const close = () => setPending(undefined)
   const identity = useId()
-  const write = writes ? undefined : 'Cette action demande customers:write.'
+  const write = writes ? undefined : needs('customers:write')
   const closed = customer.status === 'closed' ? 'Clos définitivement.' : undefined
   const status = (body: { status: 'active' | 'closed' }) => () =>
     gw.PATCH('/admin/customers/{id}', { params: { path: { id: customer.id } }, body })
@@ -236,7 +236,7 @@ function Accounts({ customer }: { customer: Customer }) {
                   ? customer.status === 'closed'
                     ? 'Clos définitivement.'
                     : undefined
-                  : 'Cette action demande accounts:write.'
+                  : needs('accounts:write')
               }
               onClick={() => setCreating(true)}
             >

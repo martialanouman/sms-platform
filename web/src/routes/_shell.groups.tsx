@@ -15,6 +15,7 @@ import {
   Forbidden,
   LoadingState,
   Modal,
+  needs,
   PageHeader,
   Select,
   Toolbar,
@@ -46,7 +47,7 @@ function Groups() {
   const me = useShellMe()
   const held = me.data?.permissions ?? []
   const readable = held.includes('customer-groups:read')
-  const blocked = held.includes('customer-groups:write') ? undefined : 'Cette action demande customer-groups:write.'
+  const blocked = held.includes('customer-groups:write') ? undefined : needs('customer-groups:write')
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
   const list = useQuery({

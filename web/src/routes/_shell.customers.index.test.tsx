@@ -244,6 +244,6 @@ test('without customer-groups:read the group filter is blocked and explained', a
   await userEvent.setup().click(group)
   await expect(screen.findByRole('option', {}, { timeout: 300 })).rejects.toThrow()
   expect(document.getElementById(group.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
-    'Le groupe demande customer-groups:read.',
+    'Le groupe demande Groupes de clients : lire customer-groups:read.',
   )
 })

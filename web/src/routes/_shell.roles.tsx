@@ -17,6 +17,7 @@ import {
   Forbidden,
   LoadingState,
   Modal,
+  needs,
   PageHeader,
   Toolbar,
   useSubmission,
@@ -42,7 +43,7 @@ function Roles() {
     }
   }, [roles.error, closed])
   const writes = held.includes('roles:write')
-  const writable = writes ? undefined : 'Cette action demande roles:write.'
+  const writable = writes ? undefined : needs('roles:write')
   const [pending, setPending] = useState<Pending>()
   const current = useRef(pending)
   current.current = pending
@@ -68,7 +69,7 @@ function Roles() {
             <Button
               size="sm"
               variant="primary"
-              blockedReason={writes ? undefined : 'La composition d’un rôle demande roles:write.'}
+              blockedReason={writes ? undefined : needs('roles:write', 'La composition d’un rôle')}
               onClick={open({ kind: 'create' })}
             >
               Nouveau rôle

@@ -11,6 +11,7 @@ import { type QueryKey, useQueryClient } from '@tanstack/react-query'
 import {
   type ComponentProps,
   createContext,
+  type ReactElement,
   type ReactNode,
   type Ref,
   useContext,
@@ -138,9 +139,8 @@ export function Select({
   items: { value: string; label: string }[]
   value: string
   onChange: (value: string) => void
-  blockedReason?: string
+  blockedReason?: ReactNode
 }) {
-  const reason = useId()
   return (
     <BaseSelect.Root
       items={items}
@@ -148,23 +148,17 @@ export function Select({
       onValueChange={(next) => onChange(next ?? '')}
       open={blockedReason === undefined ? undefined : false}
     >
-      {blockedReason !== undefined && (
-        <span className="ui-visually-hidden" id={reason}>
-          {blockedReason}
-        </span>
-      )}
-      <BaseSelect.Trigger
-        className="ui-input ui-select"
-        aria-label={label}
-        aria-describedby={blockedReason === undefined ? undefined : reason}
-        aria-disabled={blockedReason !== undefined || undefined}
-        title={blockedReason}
-      >
-        {label} : {items.find((item) => item.value === value)?.label ?? value}
-        <BaseSelect.Icon className="ui-select__icon">
-          <Icon name="chevron" />
-        </BaseSelect.Icon>
-      </BaseSelect.Trigger>
+      <Explained
+        reason={blockedReason}
+        render={
+          <BaseSelect.Trigger className="ui-input ui-select" aria-label={label}>
+            {label} : {items.find((item) => item.value === value)?.label ?? value}
+            <BaseSelect.Icon className="ui-select__icon">
+              <Icon name="chevron" />
+            </BaseSelect.Icon>
+          </BaseSelect.Trigger>
+        }
+      />
       <BaseSelect.Portal>
         <BaseSelect.Positioner className="ui-combobox__positioner" sideOffset={4} alignItemWithTrigger={false}>
           <BaseSelect.Popup className="ui-combobox__popup">
@@ -373,6 +367,36 @@ export function Forbidden({
   )
 }
 
+export function needs(permission: string, subject = 'Cette action') {
+  const { resource, action } = permissionLabel(permission)
+  return (
+    <>
+      {subject} demande {resource} : {action?.toLocaleLowerCase('fr')}{' '}
+      <span className="role-keys__key">{permission}</span>.
+    </>
+  )
+}
+
+export function Explained({ reason, render }: { reason?: ReactNode; render: ReactElement }) {
+  const id = useId()
+  if (reason === undefined) {
+    return render
+  }
+  return (
+    <Tooltip.Root>
+      <Tooltip.Trigger delay={0} closeOnClick={false} render={render} aria-disabled aria-describedby={id} />
+      <span className="ui-visually-hidden" id={id}>
+        {reason}
+      </span>
+      <Tooltip.Portal>
+        <Tooltip.Positioner className="ui-tooltip__positioner" side="bottom" align="end" sideOffset={6}>
+          <Tooltip.Popup className="ui-tooltip">{reason}</Tooltip.Popup>
+        </Tooltip.Positioner>
+      </Tooltip.Portal>
+    </Tooltip.Root>
+  )
+}
+
 export function Button({
   variant = 'secondary',
   size,
@@ -386,40 +410,26 @@ export function Button({
   variant?: 'primary' | 'secondary' | 'danger'
   size?: 'sm'
   loading?: boolean
-  // debt: #160
-  blockedReason?: string
+  blockedReason?: ReactNode
 } & Omit<ComponentProps<'button'>, 'className'>) {
-  const reason = useId()
   const inert = loading || blockedReason !== undefined
-  const button = (
-    <BaseButton
-      {...rest}
-      type={type}
-      className={`ui-button ui-button--${variant}${size ? ` ui-button--${size}` : ''}`}
-      aria-busy={loading || undefined}
-      aria-disabled={inert || undefined}
-      aria-describedby={blockedReason === undefined ? undefined : reason}
-      onClick={inert ? (event) => event.preventDefault() : onClick}
-    >
-      {loading && <span className="ui-button__spinner" aria-hidden="true" />}
-      {children}
-    </BaseButton>
-  )
-  if (blockedReason === undefined) {
-    return button
-  }
   return (
-    <Tooltip.Root>
-      <Tooltip.Trigger delay={0} closeOnClick={false} render={button} />
-      <span className="ui-visually-hidden" id={reason}>
-        {blockedReason}
-      </span>
-      <Tooltip.Portal>
-        <Tooltip.Positioner className="ui-tooltip__positioner" side="bottom" align="end" sideOffset={6}>
-          <Tooltip.Popup className="ui-tooltip">{blockedReason}</Tooltip.Popup>
-        </Tooltip.Positioner>
-      </Tooltip.Portal>
-    </Tooltip.Root>
+    <Explained
+      reason={blockedReason}
+      render={
+        <BaseButton
+          {...rest}
+          type={type}
+          className={`ui-button ui-button--${variant}${size ? ` ui-button--${size}` : ''}`}
+          aria-busy={loading || undefined}
+          aria-disabled={inert || undefined}
+          onClick={inert ? (event) => event.preventDefault() : onClick}
+        >
+          {loading && <span className="ui-button__spinner" aria-hidden="true" />}
+          {children}
+        </BaseButton>
+      }
+    />
   )
 }
 

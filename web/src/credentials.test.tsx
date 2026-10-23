@@ -223,7 +223,7 @@ test('without credentials:write every change is blocked, and without credentials
   stub([key], {}, { ...me, permissions: ['accounts:read', 'credentials:read'] })
   const { unmount } = renderAt(`/accounts/${api.id}`)
   expect(explained(within(await row(/Clé d’API/)).getByRole('button', { name: 'Rotation' }))).toBe(
-    'Cette action demande credentials:write.',
+    'Cette action demande Identifiants : modifier credentials:write.',
   )
   unmount()
   const calls = stub([key], {}, { ...me, permissions: ['accounts:read'] })

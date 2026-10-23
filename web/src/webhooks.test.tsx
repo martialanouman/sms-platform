@@ -210,7 +210,7 @@ test('without accounts:write every change is blocked; an unreadable list is said
   const { unmount } = renderAt(`/accounts/${api.id}`)
   for (const name of ['Modifier', 'Rotation du secret', 'Supprimer']) {
     expect(explained(within(await row(/Messages entrants/)).getByRole('button', { name }))).toBe(
-      'Cette action demande accounts:write.',
+      'Cette action demande Comptes : modifier accounts:write.',
     )
   }
   unmount()

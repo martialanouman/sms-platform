@@ -17,6 +17,7 @@ import {
   Forbidden,
   LoadingState,
   Modal,
+  needs,
   PageHeader,
   Toolbar,
   useSubmission,
@@ -88,7 +89,7 @@ function Loaded({ account, writes }: { account: Account; writes: boolean }) {
   const navigate = useNavigate()
   const [pending, setPending] = useState<Pending>()
   const close = () => setPending(undefined)
-  const write = writes ? undefined : 'Cette action demande accounts:write.'
+  const write = writes ? undefined : needs('accounts:write')
   const frozen = write ?? (account.status === 'closed' ? 'Clos définitivement.' : undefined)
   const path = { params: { path: { id: account.id } } }
   const status = (body: { status: 'active' | 'closed' }) => () => gw.PATCH('/admin/accounts/{id}', { ...path, body })

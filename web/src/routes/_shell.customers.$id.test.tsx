@@ -284,7 +284,7 @@ test('a reader cannot reactivate a suspended customer', async () => {
   renderAt(`/customers/${acme.id}`)
   const reactivate = await screen.findByRole('button', { name: 'Réactiver' })
   expect(document.getElementById(reactivate.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
-    'Cette action demande customers:write.',
+    'Cette action demande Clients : modifier customers:write.',
   )
 })
 
@@ -304,7 +304,7 @@ test('without customer-groups:read the group of the form is blocked and explaine
   await userEvent.setup().click(group)
   await expect(screen.findByRole('option', {}, { timeout: 300 })).rejects.toThrow()
   expect(document.getElementById(group.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
-    'Le groupe demande customer-groups:read.',
+    'Le groupe demande Groupes de clients : lire customer-groups:read.',
   )
   expect(calls.some((r) => r.url.includes('customer-groups'))).toBe(false)
 })
@@ -413,7 +413,7 @@ test('without accounts:write no account is created', async () => {
   renderAt(`/customers/${acme.id}`)
   const section = await screen.findByRole('region', { name: 'Comptes' })
   expect(explained(within(section).getByRole('button', { name: 'Nouveau compte' }))).toBe(
-    'Cette action demande accounts:write.',
+    'Cette action demande Comptes : modifier accounts:write.',
   )
 })
 
