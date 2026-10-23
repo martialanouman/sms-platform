@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/tls"
 	"log/slog"
-	"net"
 	"time"
 
 	"google.golang.org/grpc"
@@ -24,15 +23,9 @@ type Client struct {
 	log  *slog.Logger
 }
 
-// New dials addr lazily, as <service>:<port>, trusting only a server whose certificate names that service.
+// New dials addr lazily, as <service>:<port>; gRPC trusts only a server whose certificate names that service.
 func New(addr string, tlsConfig *tls.Config, log *slog.Logger, opts ...grpc.DialOption) (*Client, error) {
-	host, _, err := net.SplitHostPort(addr)
-	if err != nil {
-		return nil, err
-	}
-	cfg := tlsConfig.Clone()
-	cfg.ServerName = host
-	conn, err := grpc.NewClient(addr, append([]grpc.DialOption{grpc.WithTransportCredentials(credentials.NewTLS(cfg))}, opts...)...)
+	conn, err := grpc.NewClient(addr, append([]grpc.DialOption{grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))}, opts...)...)
 	if err != nil {
 		return nil, err
 	}

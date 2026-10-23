@@ -43,10 +43,15 @@ type Sealer interface {
 	Seal(ctx context.Context, plaintext []byte) (sealed []byte, keyRef string, err error)
 }
 
-func newWebhookSecret() string {
+func sealNew(ctx context.Context, sealer Sealer) (secret string, sealed []byte, keyRef string, err error) {
 	raw := make([]byte, 32)
 	_, _ = rand.Read(raw)
-	return hex.EncodeToString(raw)
+	secret = hex.EncodeToString(raw)
+	sealed, keyRef, err = sealer.Seal(ctx, []byte(secret))
+	if err != nil {
+		return "", nil, "", errs.ErrServiceUnavailable
+	}
+	return secret, sealed, keyRef, nil
 }
 
 // AccountWebhooks is the webhooks of account accountID, which must exist.
@@ -62,10 +67,9 @@ func CreateWebhook(ctx context.Context, tx Tx, sealer Sealer, accountID, eventTy
 	if _, err := tx.Account(ctx, accountID); err != nil {
 		return Webhook{}, "", err
 	}
-	secret := newWebhookSecret()
-	sealed, keyRef, err := sealer.Seal(ctx, []byte(secret))
+	secret, sealed, keyRef, err := sealNew(ctx, sealer)
 	if err != nil {
-		return Webhook{}, "", errs.ErrServiceUnavailable
+		return Webhook{}, "", err
 	}
 	w, err := tx.CreateWebhook(ctx, accountID, eventType, url, sealed, keyRef)
 	return w, secret, err
@@ -83,10 +87,9 @@ func RotateWebhookSecret(ctx context.Context, tx Tx, sealer Sealer, accountID, i
 	if _, err := tx.Webhook(ctx, accountID, id); err != nil {
 		return Webhook{}, "", err
 	}
-	secret := newWebhookSecret()
-	sealed, keyRef, err := sealer.Seal(ctx, []byte(secret))
+	secret, sealed, keyRef, err := sealNew(ctx, sealer)
 	if err != nil {
-		return Webhook{}, "", errs.ErrServiceUnavailable
+		return Webhook{}, "", err
 	}
 	w, err := tx.SealWebhook(ctx, accountID, id, sealed, keyRef)
 	return w, secret, closedConflict(err)

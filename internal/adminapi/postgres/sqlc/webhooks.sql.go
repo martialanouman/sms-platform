@@ -21,7 +21,7 @@ type AccountWebhooksRow struct {
 	ID        string
 	AccountID string
 	EventType string
-	Url       string
+	URL       string
 	Status    string
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -40,7 +40,7 @@ func (q *Queries) AccountWebhooks(ctx context.Context, db DBTX, accountID string
 			&i.ID,
 			&i.AccountID,
 			&i.EventType,
-			&i.Url,
+			&i.URL,
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -64,7 +64,7 @@ RETURNING id, account_id, event_type, url, status, created_at, updated_at
 type CreateWebhookParams struct {
 	AccountID       string
 	EventType       string
-	Url             string
+	URL             string
 	SecretSealed    []byte
 	SecretKmsKeyRef string
 }
@@ -73,7 +73,7 @@ type CreateWebhookRow struct {
 	ID        string
 	AccountID string
 	EventType string
-	Url       string
+	URL       string
 	Status    string
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -83,7 +83,7 @@ func (q *Queries) CreateWebhook(ctx context.Context, db DBTX, arg CreateWebhookP
 	row := db.QueryRow(ctx, createWebhook,
 		arg.AccountID,
 		arg.EventType,
-		arg.Url,
+		arg.URL,
 		arg.SecretSealed,
 		arg.SecretKmsKeyRef,
 	)
@@ -92,7 +92,7 @@ func (q *Queries) CreateWebhook(ctx context.Context, db DBTX, arg CreateWebhookP
 		&i.ID,
 		&i.AccountID,
 		&i.EventType,
-		&i.Url,
+		&i.URL,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -134,7 +134,7 @@ type SealWebhookRow struct {
 	ID        string
 	AccountID string
 	EventType string
-	Url       string
+	URL       string
 	Status    string
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -153,7 +153,7 @@ func (q *Queries) SealWebhook(ctx context.Context, db DBTX, arg SealWebhookParam
 		&i.ID,
 		&i.AccountID,
 		&i.EventType,
-		&i.Url,
+		&i.URL,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -170,7 +170,7 @@ RETURNING id, account_id, event_type, url, status, created_at, updated_at
 `
 
 type UpdateWebhookParams struct {
-	Url       *string
+	URL       *string
 	Status    *string
 	ID        string
 	AccountID string
@@ -180,7 +180,7 @@ type UpdateWebhookRow struct {
 	ID        string
 	AccountID string
 	EventType string
-	Url       string
+	URL       string
 	Status    string
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -188,7 +188,7 @@ type UpdateWebhookRow struct {
 
 func (q *Queries) UpdateWebhook(ctx context.Context, db DBTX, arg UpdateWebhookParams) (UpdateWebhookRow, error) {
 	row := db.QueryRow(ctx, updateWebhook,
-		arg.Url,
+		arg.URL,
 		arg.Status,
 		arg.ID,
 		arg.AccountID,
@@ -198,7 +198,7 @@ func (q *Queries) UpdateWebhook(ctx context.Context, db DBTX, arg UpdateWebhookP
 		&i.ID,
 		&i.AccountID,
 		&i.EventType,
-		&i.Url,
+		&i.URL,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -221,7 +221,7 @@ type WebhookRow struct {
 	ID        string
 	AccountID string
 	EventType string
-	Url       string
+	URL       string
 	Status    string
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -234,7 +234,7 @@ func (q *Queries) Webhook(ctx context.Context, db DBTX, arg WebhookParams) (Webh
 		&i.ID,
 		&i.AccountID,
 		&i.EventType,
-		&i.Url,
+		&i.URL,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,

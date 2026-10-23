@@ -61,19 +61,20 @@ func TestRunRefusesEachFaultBeforeListening(t *testing.T) {
 		change func(*config.Infra)
 		want   string
 	}{
-		"no internal address":     {func(i *config.Infra) { i.InternalAddr = "" }, "INTERNAL_ADDR"},
-		"allowlist beyond":        {func(i *config.Infra) { i.TLSAllowedClients = []string{"dashboard", "router-svc"} }, "TLS_ALLOWED_CLIENTS"},
-		"allowlist short":         {func(i *config.Infra) { i.TLSAllowedClients = nil }, "TLS_ALLOWED_CLIENTS"},
-		"allowlist of another":    {func(i *config.Infra) { i.TLSAllowedClients = []string{"router-svc"} }, "TLS_ALLOWED_CLIENTS"},
-		"no JWKS":                 {func(i *config.Infra) { i.JWKSURL = "" }, "JWKS_URL"},
-		"JWKS in clear":           {func(i *config.Infra) { i.JWKSURL = "http://dashboard:8443/.well-known/jwks.json" }, "JWKS_URL"},
-		"no issuer":               {func(i *config.Infra) { i.PublicURL = "" }, "DASHBOARD_PUBLIC_URL"},
-		"issuer with a path":      {func(i *config.Infra) { i.PublicURL = "https://dashboard.test/app" }, "DASHBOARD_PUBLIC_URL"},
-		"no Postgres":             {func(i *config.Infra) { i.PostgresURL = "" }, "POSTGRES_URL"},
-		"unreadable Postgres URL": {func(i *config.Infra) { i.PostgresURL = "postgres://[" }, "POSTGRES_URL"},
-		"no certificate":          {func(i *config.Infra) { i.TLS.Cert = "" }, "mtls"},
-		"no content key":          {func(i *config.Infra) { i.ContentKeyAddr = "" }, "CONTENT_KEY_ADDR"},
-		"content key unparsed":    {func(i *config.Infra) { i.ContentKeyAddr = "content-key-svc" }, "CONTENT_KEY_ADDR"},
+		"no internal address":      {func(i *config.Infra) { i.InternalAddr = "" }, "INTERNAL_ADDR"},
+		"allowlist beyond":         {func(i *config.Infra) { i.TLSAllowedClients = []string{"dashboard", "router-svc"} }, "TLS_ALLOWED_CLIENTS"},
+		"allowlist short":          {func(i *config.Infra) { i.TLSAllowedClients = nil }, "TLS_ALLOWED_CLIENTS"},
+		"allowlist of another":     {func(i *config.Infra) { i.TLSAllowedClients = []string{"router-svc"} }, "TLS_ALLOWED_CLIENTS"},
+		"no JWKS":                  {func(i *config.Infra) { i.JWKSURL = "" }, "JWKS_URL"},
+		"JWKS in clear":            {func(i *config.Infra) { i.JWKSURL = "http://dashboard:8443/.well-known/jwks.json" }, "JWKS_URL"},
+		"no issuer":                {func(i *config.Infra) { i.PublicURL = "" }, "DASHBOARD_PUBLIC_URL"},
+		"issuer with a path":       {func(i *config.Infra) { i.PublicURL = "https://dashboard.test/app" }, "DASHBOARD_PUBLIC_URL"},
+		"no Postgres":              {func(i *config.Infra) { i.PostgresURL = "" }, "POSTGRES_URL"},
+		"unreadable Postgres URL":  {func(i *config.Infra) { i.PostgresURL = "postgres://[" }, "POSTGRES_URL"},
+		"no certificate":           {func(i *config.Infra) { i.TLS.Cert = "" }, "mtls"},
+		"no content key":           {func(i *config.Infra) { i.ContentKeyAddr = "" }, "CONTENT_KEY_ADDR"},
+		"content key unparsed":     {func(i *config.Infra) { i.ContentKeyAddr = "content-key-svc" }, "CONTENT_KEY_ADDR"},
+		"content key without host": {func(i *config.Infra) { i.ContentKeyAddr = ":7002" }, "CONTENT_KEY_ADDR"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			infra := valid(t, mtlstest.New(t))
@@ -326,4 +327,36 @@ func metricsOf(t *testing.T, g gateway) string {
 	defer func() { _ = resp.Body.Close() }()
 	m, _ := io.ReadAll(resp.Body)
 	return string(m)
+}
+
+func TestTheGatewaySealsThroughItsContentKeyAddressAndAnswersUnavailableWithoutIt(t *testing.T) {
+	var fetches atomic.Int32
+	g := start(t, servedJWKS(t, "localhost", &fetches))
+	var account string
+	if err := g.migrator.QueryRow(context.Background(), `WITH a AS (SELECT set_config('app.actor', 'test', false)),
+		c AS (INSERT INTO control_plane.customers (name) SELECT 'Acme' FROM a RETURNING id)
+		INSERT INTO control_plane.accounts (customer_id, name) SELECT id, 'api' FROM c RETURNING id`).Scan(&account); err != nil {
+		t.Fatal(err)
+	}
+	req, err := http.NewRequest(http.MethodPost, "https://"+g.infra.InternalAddr+"/admin/accounts/"+account+"/webhooks",
+		strings.NewReader(`{"event_type": "mo", "url": "https://hooks.example.com/mo"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+g.keys.Token(t, "v1", "accounts:write"))
+	req.Header.Set("Content-Type", "application/json")
+	c := g.client(t, "dashboard")
+	c.Timeout = 10 * time.Second
+	start := time.Now()
+	resp, err := c.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusServiceUnavailable || time.Since(start) > 8*time.Second {
+		t.Fatalf("create-webhook = %d after %v; logs: %s", resp.StatusCode, time.Since(start), g.logs.String())
+	}
+	if !jsonLine(t, g.logs, "content-key-svc did not seal", "ERROR") {
+		t.Fatalf("no line for the failed seal; logs: %s", g.logs.String())
+	}
 }

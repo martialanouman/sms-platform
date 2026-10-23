@@ -61,7 +61,7 @@ func validate(infra config.Infra) error {
 	case infra.PostgresURL == "":
 		return errors.New("POSTGRES_URL is empty")
 	}
-	if _, _, err := net.SplitHostPort(infra.ContentKeyAddr); err != nil {
+	if host, _, err := net.SplitHostPort(infra.ContentKeyAddr); err != nil || host == "" {
 		return fmt.Errorf("CONTENT_KEY_ADDR %q is not <service>:<port>", infra.ContentKeyAddr)
 	}
 	return nil

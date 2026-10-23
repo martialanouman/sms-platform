@@ -104,3 +104,32 @@ func TestAServerThatIsDownFailsWithinTheDeadline(t *testing.T) {
 		t.Fatalf("took %v", took)
 	}
 }
+
+func TestASealWaitsForAServerThatStartsLate(t *testing.T) {
+	ca := mtlstest.New(t)
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, port, _ := net.SplitHostPort(ln.Addr().String())
+	_ = ln.Close()
+	c := dial(t, ca, "content-key-svc:"+port, slog.New(slog.DiscardHandler))
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		cfg, err := ca.Issue(t, t.TempDir(), "content-key-svc").Server([]string{"admin-api-svc"}, []string{"h2"})
+		if err != nil {
+			return
+		}
+		s := grpc.NewServer(grpc.Creds(credentials.NewTLS(cfg)), grpc.UnaryInterceptor(contentkeygrpc.Authorize))
+		contentkeygrpc.Register(s, keys.ConfigSecrets{KMS: kms{}})
+		late, err := net.Listen("tcp", "127.0.0.1:"+port)
+		if err != nil {
+			return
+		}
+		t.Cleanup(s.Stop)
+		_ = s.Serve(late)
+	}()
+	if _, _, err := c.Seal(t.Context(), []byte("x")); err != nil {
+		t.Fatalf("Seal before the server was up: %v", err)
+	}
+}

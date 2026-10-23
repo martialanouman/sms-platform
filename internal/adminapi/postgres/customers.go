@@ -23,7 +23,6 @@ var fields = map[string]string{
 	"credentials_system_id_key":          "system_id",
 	"credentials_system_id_check":        "system_id",
 	"webhooks_account_id_event_type_key": "event_type",
-	"webhooks_url_check":                 "url",
 }
 
 func refused(err error) error {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -11,13 +12,17 @@ import (
 	"time"
 )
 
-type sealer struct{ err error }
+type sealer struct {
+	err   error
+	calls int
+}
 
 func (s *sealer) Seal(_ context.Context, plaintext []byte) ([]byte, string, error) {
 	if s.err != nil {
 		return nil, "", s.err
 	}
-	return append([]byte("vault:v1:"), plaintext...), "config-secrets", nil
+	s.calls++
+	return append([]byte("vault:v1:"), plaintext...), fmt.Sprintf("config-secrets-%d", s.calls), nil
 }
 
 type webhookBody struct {
@@ -61,7 +66,7 @@ func TestAWebhookIsCreatedWithASecretShownOnceAndStoredSealed(t *testing.T) {
 		mo.CreatedAt == nil || mo.UpdatedAt == nil || !webhookSecret.MatchString(mo.Secret) {
 		t.Fatalf("mo = %+v", mo)
 	}
-	if sealed, ref := g.sealed(t, mo.ID); sealed != "vault:v1:"+mo.Secret || ref != "config-secrets" {
+	if sealed, ref := g.sealed(t, mo.ID); sealed != "vault:v1:"+mo.Secret || ref != "config-secrets-1" {
 		t.Fatalf("sealed = %q %q", sealed, ref)
 	}
 	dlr := g.createWebhook(t, a.ID, `{"event_type": "dlr", "url": "https://hooks.example.com/dlr"}`)
@@ -69,6 +74,7 @@ func TestAWebhookIsCreatedWithASecretShownOnceAndStoredSealed(t *testing.T) {
 		t.Fatal("two webhooks share their secret")
 	}
 
+	g.createWebhook(t, g.account(t).ID, `{"event_type": "mo", "url": "https://hooks.example.com/other"}`)
 	rec := g.send(t, http.MethodGet, "/admin/accounts/"+a.ID+"/webhooks", "accounts:read", "")
 	var listed []map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &listed); err != nil || rec.Code != http.StatusOK || len(listed) != 2 {
@@ -130,7 +136,8 @@ func TestAWebhookIsUpdatedRotatedAndDeleted(t *testing.T) {
 
 	updated := as[webhookBody](t, g.send(t, http.MethodPatch, path, "accounts:write",
 		`{"url": "https://hooks.example.com/v2", "status": "disabled"}`), http.StatusOK)
-	if updated.URL != "https://hooks.example.com/v2" || updated.Status != "disabled" || updated.Secret != "" {
+	if updated.URL != "https://hooks.example.com/v2" || updated.Status != "disabled" || updated.Secret != "" ||
+		!updated.UpdatedAt.After(*w.UpdatedAt) {
 		t.Fatalf("updated = %+v", updated)
 	}
 	if same := as[webhookBody](t, g.send(t, http.MethodPatch, path, "accounts:write", `{}`), http.StatusOK); same.URL != updated.URL || same.Status != "disabled" {
@@ -150,7 +157,7 @@ func TestAWebhookIsUpdatedRotatedAndDeleted(t *testing.T) {
 	if !webhookSecret.MatchString(rotated.Secret) || rotated.Secret == w.Secret || rotated.Status != "disabled" {
 		t.Fatalf("rotated = %+v", rotated)
 	}
-	if sealed, _ := g.sealed(t, w.ID); sealed != "vault:v1:"+rotated.Secret {
+	if sealed, ref := g.sealed(t, w.ID); sealed != "vault:v1:"+rotated.Secret || ref != "config-secrets-2" {
 		t.Fatalf("sealed after rotation = %q", sealed)
 	}
 
@@ -178,11 +185,13 @@ func TestAClosedAccountRevivesNoWebhookButStillEditsAndDeletes(t *testing.T) {
 	a := g.account(t)
 	w := g.createWebhook(t, a.ID, `{"event_type": "mo", "url": "https://hooks.example.com/mo"}`)
 	path := "/admin/accounts/" + a.ID + "/webhooks/" + w.ID
-	g.send(t, http.MethodPatch, path, "accounts:write", `{"status": "disabled"}`)
 	g.send(t, http.MethodPatch, "/admin/accounts/"+a.ID, "accounts:write", `{"status": "closed"}`)
 
 	if c := as[webhookBody](t, g.send(t, http.MethodPatch, path, "accounts:write", `{"url": "https://hooks.example.com/v2"}`), http.StatusOK); c.URL != "https://hooks.example.com/v2" {
 		t.Fatalf("url on a closed account = %+v", c)
+	}
+	if c := as[webhookBody](t, g.send(t, http.MethodPatch, path, "accounts:write", `{"status": "disabled"}`), http.StatusOK); c.Status != "disabled" {
+		t.Fatalf("disable on a closed account = %+v", c)
 	}
 	for _, call := range []struct{ method, path, body string }{
 		{http.MethodPatch, path, `{"status": "active"}`},
@@ -212,6 +221,10 @@ func TestASealThatFailsIsUnavailableAndWritesNothing(t *testing.T) {
 	}
 	as[problem](t, g.send(t, http.MethodPost, "/admin/accounts/"+a.ID+"/webhooks/"+w.ID+"/rotate-secret", "accounts:write", ""),
 		http.StatusServiceUnavailable)
+	if rec := g.send(t, http.MethodPost, "/admin/accounts/00000000-0000-7000-8000-000000000000/webhooks", "accounts:write",
+		`{"event_type": "dlr", "url": "https://hooks.example.com/dlr"}`); rec.Code != http.StatusNotFound {
+		t.Fatalf("unknown account while the KMS is down: %d", rec.Code)
+	}
 	if rec := g.send(t, http.MethodPost, "/admin/accounts/"+g.account(t).ID+"/webhooks/"+w.ID+"/rotate-secret", "accounts:write", ""); rec.Code != http.StatusNotFound {
 		t.Fatalf("another account's webhook while the KMS is down: %d", rec.Code)
 	}
@@ -245,5 +258,17 @@ func TestNoSealedSecretReachesTheAuditAndWebhooksGoWithTheirAccount(t *testing.T
 	}
 	if n := g.count(t, `SELECT count(*) FROM control_plane.webhooks`); n != 0 {
 		t.Fatalf("%d webhooks outlive their account", n)
+	}
+}
+
+func TestTheBaseRefusesAWebhookURLTheContractRefuses(t *testing.T) {
+	g := newGateway(t)
+	a := g.account(t)
+	for _, url := range []string{"http://hooks.example.com", "https://u@hooks.example.com", "https://" + strings.Repeat("a", 2048)} {
+		_, err := g.migrator.Exec(context.Background(), `INSERT INTO control_plane.webhooks
+			(account_id, event_type, url, secret_sealed, secret_kms_key_ref) VALUES ($1, 'mo', $2, 'x', 'k')`, a.ID, url)
+		if err == nil || !strings.Contains(err.Error(), "webhooks_url_check") {
+			t.Errorf("%.24s: %v", url, err)
+		}
 	}
 }

@@ -87,7 +87,7 @@ type ControlPlaneWebhook struct {
 	ID              string
 	AccountID       string
 	EventType       string
-	Url             string
+	URL             string
 	Status          string
 	SecretSealed    []byte
 	SecretKmsKeyRef string
