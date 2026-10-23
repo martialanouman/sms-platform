@@ -1116,3 +1116,50 @@
   display: flex;
   gap: var(--sp-4);
 }
+
+.ui-toasts {
+  position: fixed;
+  z-index: var(--z-toast);
+  right: var(--sp-9);
+  bottom: var(--sp-9);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  width: min(360px, calc(100vw - 2 * var(--sp-9)));
+}
+
+.ui-toast {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  padding: var(--sp-6) var(--sp-7);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-card);
+  background: var(--surface-raised);
+  box-shadow: var(--elevation-popover);
+  color: var(--text-primary);
+  font: var(--text-body);
+}
+
+.ui-toast[data-limited] {
+  display: none;
+}
+
+.ui-toast__text {
+  flex: 1;
+  margin: 0;
+}
+
+.ui-toast__close {
+  display: flex;
+  padding: var(--sp-2);
+  border: 0;
+  border-radius: var(--r-1);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+
+.ui-toast__close:hover {
+  color: var(--text-primary);
+}

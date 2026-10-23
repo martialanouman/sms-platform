@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
-import { explained, json, me, once, renderAt, stubFetch, violations } from '../test'
+import { explained, json, me, once, renderAt, stubFetch, toasted, violations } from '../test'
 
 const reader = { ...me, permissions: ['customers:read', 'customer-groups:read'] }
 const writer = { ...reader, permissions: [...reader.permissions, 'customers:write'] }
@@ -132,6 +132,7 @@ test('a customer is created in an active group with the ages typed', async () =>
     max_age_override: { otp: 60, transactional: null, marketing: null },
   })
   expect(screen.queryByRole('dialog')).toBeNull()
+  expect(await toasted()).toEqual(['Client Acme créé.'])
 })
 
 test('a bare customer is created with its name alone', async () => {

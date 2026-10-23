@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
-import { empty, explained, json, me, renderAt, stubFetch, violations } from '../test'
+import { empty, explained, json, me, renderAt, stubFetch, toasted, violations } from '../test'
 
 const writer = { ...me, permissions: ['customers:read', 'customers:write', 'customer-groups:read'] }
 const reader = { ...me, permissions: ['customers:read', 'customer-groups:read'] }
@@ -85,6 +85,8 @@ test('suspending previews the accounts it suspends, then suspends', async () => 
   await confirm('Suspendre')
   await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
   expect(calls.some((r) => r.method === 'POST' && r.url.endsWith('/suspend'))).toBe(true)
+  expect(await toasted()).toEqual(['Client Acme suspendu.'])
+  expect(await violations(document.body)).toEqual([])
 })
 
 test('an impact that cannot be read does not prevent the suspension', async () => {
@@ -123,10 +125,12 @@ test('reactivating says its accounts stay suspended, and closing is definitive',
   )
   await confirm('Réactiver')
   await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+  expect(await toasted()).toEqual(['Client Acme réactivé.'])
   await user.click(screen.getByRole('button', { name: 'Clôturer' }))
   expect((await screen.findByRole('alertdialog')).textContent).toContain('Définitif')
   await confirm('Clôturer')
   await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+  await waitFor(async () => expect(await toasted()).toContain('Client Acme fermé.'))
   const patches = calls.filter((r) => r.method === 'PATCH')
   expect(await Promise.all(patches.map((r) => r.json()))).toEqual([{ status: 'active' }, { status: 'closed' }])
 })
@@ -178,6 +182,7 @@ test('a deleted customer leads back to the list', async () => {
   await userEvent.setup().click(await screen.findByRole('button', { name: 'Supprimer' }))
   await confirm('Supprimer')
   await waitFor(() => expect(router.state.location.pathname).toBe('/customers'))
+  expect(await toasted()).toEqual(['Client Acme supprimé.'])
   expect(calls.filter((r) => r.method === 'DELETE').map((r) => new URL(r.url).pathname)).toEqual([path])
 })
 
@@ -209,6 +214,7 @@ test('an edit of the name alone sends the name alone', async () => {
   await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   expect(await calls.find((r) => r.method === 'PATCH')?.json()).toEqual({ name: 'Acme SA' })
+  expect(await toasted()).toEqual(['Client Acme SA modifié.'])
 })
 
 test('without customers:write every change is blocked', async () => {
@@ -385,6 +391,7 @@ test('a new account is created for the customer, and a taken name is said in Fre
       .at(-1)
       ?.json(),
   ).toEqual({ customer_id: acme.id, name: 'web' })
+  expect(await toasted()).toEqual(['Compte web créé.'])
   await waitFor(() => expect(calls.filter((r) => r.url.includes('/admin/accounts?')).length).toBe(2))
 })
 

@@ -8,7 +8,7 @@ import { gw } from '../gw'
 import { Failure, useClosedOn } from '../list'
 import { read } from '../queries'
 import { useShellMe } from '../session'
-import { Button, Confirmation, DataTable, Forbidden, LoadingState, needs, PageHeader, Toolbar } from '../ui'
+import { Button, Confirmation, DataTable, Forbidden, LoadingState, needs, PageHeader, Toolbar, useToast } from '../ui'
 
 export const Route = createFileRoute('/_shell/customers/$id')({ component: CustomerPage })
 
@@ -68,6 +68,11 @@ function Loaded({ customer, writes }: { customer: Customer; writes: boolean }) {
   const navigate = useNavigate()
   const [pending, setPending] = useState<Pending>()
   const close = () => setPending(undefined)
+  const notify = useToast()
+  const done = (text: string) => () => {
+    notify(`Client ${customer.name} ${text}.`)
+    close()
+  }
   const identity = useId()
   const write = writes ? undefined : needs('customers:write')
   const closed = customer.status === 'closed' ? 'Clos définitivement.' : undefined
@@ -137,6 +142,7 @@ function Loaded({ customer, writes }: { customer: Customer; writes: boolean }) {
           action="Suspendre"
           invalidate={customersKey}
           onClose={close}
+          onDone={done('suspendu')}
           refusals={{ 409: closedFinal }}
           call={() => gw.POST('/admin/customers/{id}/suspend', { params: { path: { id: customer.id } } })}
         >
@@ -149,6 +155,7 @@ function Loaded({ customer, writes }: { customer: Customer; writes: boolean }) {
           action="Réactiver"
           invalidate={customersKey}
           onClose={close}
+          onDone={done('réactivé')}
           refusals={{ 422: closedFinal }}
           call={status({ status: 'active' })}
         >
@@ -162,6 +169,7 @@ function Loaded({ customer, writes }: { customer: Customer; writes: boolean }) {
           danger
           invalidate={customersKey}
           onClose={close}
+          onDone={done('fermé')}
           refusals={{ 422: closedFinal }}
           call={status({ status: 'closed' })}
         >
@@ -175,7 +183,10 @@ function Loaded({ customer, writes }: { customer: Customer; writes: boolean }) {
           danger
           invalidate={customersKey}
           onClose={close}
-          onDone={() => void navigate({ to: '/customers' })}
+          onDone={() => {
+            notify(`Client ${customer.name} supprimé.`)
+            void navigate({ to: '/customers' })
+          }}
           refusals={{ 409: 'Ce client a des comptes : suspendez-le ou clôturez-le.' }}
           call={() => gw.DELETE('/admin/customers/{id}', { params: { path: { id: customer.id } } })}
         >

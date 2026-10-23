@@ -6,6 +6,7 @@ import { Combobox as BaseCombobox } from '@base-ui/react/combobox'
 import { Dialog } from '@base-ui/react/dialog'
 import { Field as BaseField } from '@base-ui/react/field'
 import { Select as BaseSelect } from '@base-ui/react/select'
+import { Toast } from '@base-ui/react/toast'
 import { Tooltip } from '@base-ui/react/tooltip'
 import { type QueryKey, useQueryClient } from '@tanstack/react-query'
 import {
@@ -348,6 +349,38 @@ export function PageHeader({
       {actions && <div className="page-header__actions">{actions}</div>}
     </div>
   )
+}
+
+export function Toasts({ children }: { children: ReactNode }) {
+  return (
+    <Toast.Provider limit={3} timeout={5000}>
+      {children}
+      <ToastStack />
+    </Toast.Provider>
+  )
+}
+
+function ToastStack() {
+  const { toasts } = Toast.useToastManager()
+  return (
+    <Toast.Portal>
+      <Toast.Viewport className="ui-toasts">
+        {toasts.map((toast) => (
+          <Toast.Root key={toast.id} toast={toast} className="ui-toast" role="status" aria-modal={undefined}>
+            <Toast.Description className="ui-toast__text" />
+            <Toast.Close className="ui-toast__close" aria-label="Fermer">
+              <Icon name="times" />
+            </Toast.Close>
+          </Toast.Root>
+        ))}
+      </Toast.Viewport>
+    </Toast.Portal>
+  )
+}
+
+export function useToast() {
+  const { add } = Toast.useToastManager()
+  return (text: string) => void add({ description: text })
 }
 
 export function EmptyState({

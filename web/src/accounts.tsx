@@ -3,7 +3,7 @@ import { type FormEvent, useId, useState } from 'react'
 import type { components } from './admin.gen'
 import { customerStatus, customersKey } from './customers'
 import { gw } from './gw'
-import { Button, Field, Modal, useSubmission } from './ui'
+import { Button, Field, Modal, useSubmission, useToast } from './ui'
 
 export type Account = components['schemas']['Account']
 type Status = Account['status']
@@ -24,6 +24,7 @@ export function AccountForm({
 }) {
   const queryClient = useQueryClient()
   const { submit, waiting, refusal, fail, describedBy } = useSubmission()
+  const notify = useToast()
   const [name, setName] = useState(account?.name ?? '')
   const form = useId()
 
@@ -42,6 +43,7 @@ export function AccountForm({
     }
     if (outcome.failure === undefined) {
       void queryClient.invalidateQueries({ queryKey: accountsKey })
+      notify(`Compte ${name} ${account ? 'renommé' : 'créé'}.`)
       onClose()
     }
   }

@@ -4,7 +4,7 @@ import type { components } from './admin.gen'
 import { gw } from './gw'
 import { read } from './queries'
 import { useShellMe } from './session'
-import { Button, Field, Modal, needs, Select, useSubmission } from './ui'
+import { Button, Field, Modal, needs, Select, useSubmission, useToast } from './ui'
 
 export type Customer = components['schemas']['Customer']
 export type Group = components['schemas']['CustomerGroup']
@@ -49,6 +49,7 @@ export function CustomerForm({ customer, onClose }: { customer?: Customer; onClo
   const queryClient = useQueryClient()
   const { list, blocked } = useGroups()
   const { submit, waiting, refusal, fail, describedBy } = useSubmission()
+  const notify = useToast()
   const [name, setName] = useState(customer?.name ?? '')
   const [group, setGroup] = useState(customer?.group_id ?? '')
   const loaded = customer?.max_age_override ?? none
@@ -91,6 +92,7 @@ export function CustomerForm({ customer, onClose }: { customer?: Customer; onClo
     }
     if (outcome.failure === undefined) {
       void queryClient.invalidateQueries({ queryKey: customersKey })
+      notify(`Client ${name} ${customer ? 'modifié' : 'créé'}.`)
       onClose()
     }
   }

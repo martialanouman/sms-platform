@@ -1,8 +1,9 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { expect, test } from 'vitest'
+import { useRef } from 'react'
+import { expect, test, vi } from 'vitest'
 import { explained } from './test'
-import { Button, needs, Select } from './ui'
+import { Button, needs, Select, Toasts, useToast } from './ui'
 
 const bubble = () => document.querySelector('.ui-tooltip')?.textContent
 
@@ -44,4 +45,33 @@ test('a permission reason may name its own subject', () => {
   expect(explained(screen.getByRole('button', { name: 'Modifier' }))).toBe(
     'La liste des rôles demande Rôles : lire roles:read.',
   )
+})
+
+function Notifier() {
+  const notify = useToast()
+  const n = useRef(0)
+  return (
+    <button type="button" onClick={() => notify(`Avis ${++n.current}.`)}>
+      Notifier
+    </button>
+  )
+}
+
+test('a toast is a status, at most three stand, and each leaves after five seconds', async () => {
+  vi.useFakeTimers()
+  render(
+    <Toasts>
+      <Notifier />
+    </Toasts>,
+  )
+  const region = screen.getByRole('region', { name: 'Notifications' })
+  for (let i = 0; i < 4; i++) {
+    act(() => fireEvent.click(screen.getByRole('button', { name: 'Notifier' })))
+  }
+  const standing = () => [...region.querySelectorAll('[role="status"]:not([data-limited])')].map((t) => t.textContent)
+  expect(standing().sort()).toEqual(['Avis 2.', 'Avis 3.', 'Avis 4.'])
+  act(() => vi.advanceTimersByTime(4900))
+  expect(standing()).toHaveLength(3)
+  await act(async () => vi.advanceTimersByTime(200))
+  expect(region.querySelectorAll('[role="status"]')).toHaveLength(0)
 })
