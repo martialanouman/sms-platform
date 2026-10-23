@@ -75,6 +75,7 @@ func TestRunRefusesEachFaultBeforeListening(t *testing.T) {
 		"no content key":           {func(i *config.Infra) { i.ContentKeyAddr = "" }, "CONTENT_KEY_ADDR"},
 		"content key unparsed":     {func(i *config.Infra) { i.ContentKeyAddr = "content-key-svc" }, "CONTENT_KEY_ADDR"},
 		"content key without host": {func(i *config.Infra) { i.ContentKeyAddr = ":7002" }, "CONTENT_KEY_ADDR"},
+		"content key without port": {func(i *config.Infra) { i.ContentKeyAddr = "content-key-svc:" }, "CONTENT_KEY_ADDR"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			infra := valid(t, mtlstest.New(t))
@@ -329,7 +330,7 @@ func metricsOf(t *testing.T, g gateway) string {
 	return string(m)
 }
 
-func TestTheGatewaySealsThroughItsContentKeyAddressAndAnswersUnavailableWithoutIt(t *testing.T) {
+func TestTheGatewayAnswersUnavailableWhenContentKeyIsUnreachable(t *testing.T) {
 	var fetches atomic.Int32
 	g := start(t, servedJWKS(t, "localhost", &fetches))
 	var account string
@@ -347,16 +348,20 @@ func TestTheGatewaySealsThroughItsContentKeyAddressAndAnswersUnavailableWithoutI
 	req.Header.Set("Content-Type", "application/json")
 	c := g.client(t, "dashboard")
 	c.Timeout = 10 * time.Second
-	start := time.Now()
+	begin := time.Now()
 	resp, err := c.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
 	_ = resp.Body.Close()
-	if resp.StatusCode != http.StatusServiceUnavailable || time.Since(start) > 8*time.Second {
-		t.Fatalf("create-webhook = %d after %v; logs: %s", resp.StatusCode, time.Since(start), g.logs.String())
+	if resp.StatusCode != http.StatusServiceUnavailable || time.Since(begin) > 8*time.Second {
+		t.Fatalf("create-webhook = %d after %v; logs: %s", resp.StatusCode, time.Since(begin), g.logs.String())
 	}
 	if !jsonLine(t, g.logs, "content-key-svc did not seal", "ERROR") {
 		t.Fatalf("no line for the failed seal; logs: %s", g.logs.String())
+	}
+	var n int
+	if err := g.migrator.QueryRow(context.Background(), `SELECT count(*) FROM control_plane.webhooks`).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("%d webhooks written, %v", n, err)
 	}
 }

@@ -127,3 +127,35 @@ Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloq
    contrainte, que Postgres donne seul ; la règle du 503 écrite deux fois (`sealNew`) ; des libellés de statut en double.
 6. **Gardé** : `opts ...grpc.DialOption` (le résolveur du test) ; le filtre de compte de l'`UPDATE` de rotation,
    redondant avec la lecture préalable, comme en 014b-1.
+
+## Correctifs de revue, tour 2
+
+Une revue des correctifs du tour 1. Aucun bloquant.
+
+1. **`CONTENT_KEY_ADDR` sans port** (`content-key-svc:`) passait `validate` : refusée.
+2. **Le test de boot s'appelle désormais pour ce qu'il prouve** : le `Sealer` est câblé, et un `content-key-svc`
+   injoignable rend 503 sous le délai, sans rien écrire, avec sa ligne d'erreur (corrige le point 3 du tour 1, qui
+   parlait de câblage réel). L'adresse et le TLS réels sont prouvés par la preuve sur contabo169 : un boot de test qui
+   scelle demanderait un résolveur `dns` global truqué, le résolveur de gRPC ne résolvant pas `localhost` dans
+   l'environnement local et `mtlstest` n'émettant que des SAN DNS.
+3. **Test du serveur tardif** : certificat et serveur préparés dans la goroutine du test ; un port repris entre-temps
+   échoue avec sa cause.
+4. **`mtls.Files.Client`** : le commentaire dit que gRPC prend `ServerName` de sa cible.
+
+## Preuve dans le navigateur
+
+Sur contabo169, `Propriétaire` (compte de preuve). Migration 00007 par un Job `migrate`, GRANT vérifiés,
+`CONTENT_KEY_ADDR=content-key-svc:7002` posé sur `admin-api-svc`, `networkpolicies.yaml` de la branche appliqué dans
+`sms` (egress d'`admin-api-svc` vers `content-key-svc:7002`). Captures dans `docs/steps/014b-2/`.
+
+- compte `preuve-014b` : webhook MO créé, **premier `Seal` réel depuis le pod** ; en base, `secret_sealed` commence par
+  `vault:v1:` (Transit d'OpenBao), 133 octets, sans le clair ; `secret_kms_key_ref = config-secrets` ; le secret (64
+  caractères hex) montré une fois, absent du DOM après « J'ai copié le secret » ;
+- webhook DLR créé (l'événement restant seul proposé), « Nouveau webhook » alors figé ; modifié (URL `…/dlr/v2`,
+  « Désactivé ») ; secret du MO tourné (« L'ancien secret cesse immédiatement d'être accepté. ») ; DLR supprimé ;
+- compte clos `preuve-014b-2` : « Nouveau webhook » figé ; par l'API, la création rend 422 ;
+- audit : cinq appels sous l'opérateur ; cinq lignes de diff sur `webhooks`, aucune ne porte `secret_sealed` ni
+  `secret_kms_key_ref` ; aucune ligne « content-key-svc did not seal » dans le journal du pod ;
+- axe (WCAG 2.1 AA) sur la fiche compte : aucune violation.
+- Incident de preuve : un premier `kubectl apply` des politiques réseau a visé le namespace `default` (oubli de
+  `-n sms`) ; les sept objets créés ont été retirés aussitôt, puis appliqués dans `sms` comme le fait `deploy.sh`.

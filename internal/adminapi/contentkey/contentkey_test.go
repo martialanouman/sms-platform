@@ -107,6 +107,13 @@ func TestAServerThatIsDownFailsWithinTheDeadline(t *testing.T) {
 
 func TestASealWaitsForAServerThatStartsLate(t *testing.T) {
 	ca := mtlstest.New(t)
+	cfg, err := ca.Issue(t, t.TempDir(), "content-key-svc").Server([]string{"admin-api-svc"}, []string{"h2"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(cfg)), grpc.UnaryInterceptor(contentkeygrpc.Authorize))
+	contentkeygrpc.Register(s, keys.ConfigSecrets{KMS: kms{}})
+	t.Cleanup(s.Stop)
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -116,17 +123,11 @@ func TestASealWaitsForAServerThatStartsLate(t *testing.T) {
 	c := dial(t, ca, "content-key-svc:"+port, slog.New(slog.DiscardHandler))
 	go func() {
 		time.Sleep(500 * time.Millisecond)
-		cfg, err := ca.Issue(t, t.TempDir(), "content-key-svc").Server([]string{"admin-api-svc"}, []string{"h2"})
-		if err != nil {
-			return
-		}
-		s := grpc.NewServer(grpc.Creds(credentials.NewTLS(cfg)), grpc.UnaryInterceptor(contentkeygrpc.Authorize))
-		contentkeygrpc.Register(s, keys.ConfigSecrets{KMS: kms{}})
 		late, err := net.Listen("tcp", "127.0.0.1:"+port)
 		if err != nil {
+			t.Errorf("port %s taken meanwhile: %v", port, err)
 			return
 		}
-		t.Cleanup(s.Stop)
 		_ = s.Serve(late)
 	}()
 	if _, _, err := c.Seal(t.Context(), []byte("x")); err != nil {
