@@ -18,7 +18,7 @@ type ControlPlaneAccount struct {
 	QuerySmEnabled   bool
 	CancelSmEnabled  bool
 	AllowedBindTypes []string
-	MaxSessions      int32
+	MaxSessions      int
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }
