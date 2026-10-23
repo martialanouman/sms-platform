@@ -259,13 +259,15 @@ func TestTheGatewayVerifiesAgainstTheDashboardJWKSAndAuditsUnderItsOperator(t *t
 
 func jsonLine(t *testing.T, logs *lockedBuffer, msg, level string) bool {
 	t.Helper()
-	for line := range strings.Lines(logs.String()) {
-		var entry struct {
-			Msg   string `json:"msg"`
-			Level string `json:"level"`
-		}
-		if json.Unmarshal([]byte(line), &entry) == nil && strings.Contains(entry.Msg, msg) && entry.Level == level {
-			return true
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
+		for line := range strings.Lines(logs.String()) {
+			var entry struct {
+				Msg   string `json:"msg"`
+				Level string `json:"level"`
+			}
+			if json.Unmarshal([]byte(line), &entry) == nil && strings.Contains(entry.Msg, msg) && entry.Level == level {
+				return true
+			}
 		}
 	}
 	return false
