@@ -13,6 +13,7 @@ import (
 )
 
 type pageTx struct {
+	adminapi.Tx
 	entries   []adminapi.Entry
 	changes   []adminapi.Change
 	filter    adminapi.Filter

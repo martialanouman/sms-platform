@@ -8,6 +8,21 @@ import (
 	"time"
 )
 
+type ControlPlaneAccount struct {
+	ID               string
+	CustomerID       string
+	Name             string
+	Status           string
+	SmppEnabled      bool
+	RestEnabled      bool
+	QuerySmEnabled   bool
+	CancelSmEnabled  bool
+	AllowedBindTypes []string
+	MaxSessions      int32
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
 type ControlPlaneAuditChange struct {
 	ID        string
 	RequestID *string
@@ -29,4 +44,26 @@ type ControlPlaneAuditLog struct {
 	Status      int16
 	Outcome     *string
 	At          time.Time
+}
+
+type ControlPlaneCustomer struct {
+	ID                  string
+	Name                string
+	Status              string
+	GroupID             *string
+	MaxAgeOtp           *int32
+	MaxAgeTransactional *int32
+	MaxAgeMarketing     *int32
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+}
+
+type ControlPlaneCustomerGroup struct {
+	ID          string
+	Name        string
+	Description *string
+	Status      string
+	CreatedBy   *string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }

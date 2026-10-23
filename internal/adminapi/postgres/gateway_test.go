@@ -29,6 +29,7 @@ type gateway struct {
 	k           adminapitest.Keys
 	uncommitted prometheus.Counter
 	migrator    *pgx.Conn
+	pg          pgtest.DB
 }
 
 type line struct {
@@ -84,7 +85,7 @@ func newGateway(t *testing.T) gateway {
 		}) (*struct{}, error) {
 			return nil, nil
 		})
-	return gateway{h: h, k: k, migrator: migrator, uncommitted: uncommitted}
+	return gateway{h: h, k: k, migrator: migrator, uncommitted: uncommitted, pg: pg}
 }
 
 func (g gateway) call(t *testing.T, method, path, scope string) *httptest.ResponseRecorder {

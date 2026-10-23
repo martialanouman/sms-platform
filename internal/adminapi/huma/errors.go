@@ -6,6 +6,8 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/martialanouman/sms-platform/internal/adminapi"
+
 	errs "github.com/martialanouman/sms-platform/internal/platform/errors"
 )
 
@@ -37,6 +39,13 @@ func newError(status int, message string, list ...error) huma.StatusError {
 			c, s := errs.HTTP(code)
 			m.Code, m.status = string(c), s
 		}
+		var refused adminapi.Refused
+		if errors.As(e, &refused) {
+			m.Message = refused.Message
+			if refused.Field != "" {
+				m.Errors = append(m.Errors, fieldError{Field: "body." + refused.Field, Message: refused.Message})
+			}
+		}
 		var detail huma.ErrorDetailer
 		if errors.As(e, &detail) {
 			d := detail.ErrorDetail()
@@ -45,8 +54,10 @@ func newError(status int, message string, list ...error) huma.StatusError {
 	}
 	if m.Code == "" {
 		switch status {
-		case http.StatusUnprocessableEntity:
-			m.Code = string(errs.ErrValidation)
+		case http.StatusBadRequest, http.StatusUnprocessableEntity:
+			m.Code, m.status = string(errs.ErrValidation), http.StatusUnprocessableEntity
+		case http.StatusRequestEntityTooLarge:
+			m.Code = string(errs.ErrPayloadTooLarge)
 		default:
 			m.Code, m.status = string(errs.ErrInternal), http.StatusInternalServerError
 		}

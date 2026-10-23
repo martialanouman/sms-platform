@@ -143,7 +143,7 @@ type memory struct {
 }
 
 func (m *memory) Tx(_ context.Context, _, _ string, fn func(adminapi.Tx) error) error {
-	return fn(memoryTx{m})
+	return fn(memoryTx{m: m})
 }
 
 func (m *memory) Record(_ context.Context, e adminapi.Entry) error {
@@ -153,7 +153,10 @@ func (m *memory) Record(_ context.Context, e adminapi.Entry) error {
 	return nil
 }
 
-type memoryTx struct{ m *memory }
+type memoryTx struct {
+	adminapi.Tx
+	m *memory
+}
 
 func (t memoryTx) Record(ctx context.Context, e adminapi.Entry) error { return t.m.Record(ctx, e) }
 
