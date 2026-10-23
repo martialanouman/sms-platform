@@ -111,3 +111,26 @@ Fable, 2026-10-23, sauf mention. Les décisions humaines du même jour sont marq
 rechargement et un cas « suspendu sous suspendu » ; liste 6/7, le survivant équivalent de 014a-2 (`validateSearch`) ;
 fiche 13/13 après trois tests et le retrait du 422 doublé ; section de la fiche client 6/6 après deux tests ;
 `Choice.disabled` 1/1.
+
+## Correctifs de revue, tour 1
+
+Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloquant.
+
+1. **`allowed_bind_types: null` accepté** (moyenne) : huma rend un tableau nullable et ignore `null` sur un champ
+   facultatif ; `session-limits` répondait 200 sans rien changer, la création posait le défaut. `nullable:"false"` sur
+   `session-limits`, `value[[]string]` à la création (le défaut `[transceiver]` posé par le handler, le tag `default` ne
+   s'applique pas à ce type).
+2. **`max_sessions` au-delà de l'`integer`** (moyenne) : 500 au lieu de 422. Le contrat gagne `maximum: 2147483647` sur
+   les trois schémas, huma l'applique aux entrées, le champ de la SPA porte `max`.
+3. **Le 422 de création** (basse) : traduit à la création seule, « Ce client est clos ou n'existe plus. » (révise 333 :
+   la FK et le trigger tombent tous deux sur `customer_id`) ; un autre 422 au renommage garde le message de la
+   passerelle.
+4. **Groupes de cases sans nom** (basse) : `Choices` gagne `label` et `describedBy`, reliés au refus.
+5. **Tests ajoutés** : statut et statut du client servis par la liste ; écritures partielles qui épargnent les autres
+   champs ; drapeaux croisés à la création et à l'affichage ; canaux envoyés sans croisement ; dernière opération SMPP
+   désactivable ; corps du renommage ; 422 de création, de réactivation et de clôture ; filtre client gardé et curseur
+   retiré au changement de filtre ; « Modifier » figés sans `accounts:write` ; types de bind `[]`, inconnus, `null`.
+6. **Code en trop retiré** : `SessionsForm` refaisait `Settings` (désormais un champ enfant de `Settings`) ; le rang des
+   statuts et « (client clos) », inatteignables (335) ; les casts des `coalesce` ; une constante à un seul usage ; la
+   borne du DTO de réponse, qu'aucune garde ne lit.
+7. **Écart 328 confirmé** par les deux revues : le code suit 325 (humain), la fiche affiche `customer_name`.
