@@ -144,11 +144,12 @@ test('a customer filter from the address is shown with its name and can be remov
   expect(screen.queryByText('Client : Acme')).toBeNull()
 })
 
-test('without customers:read the customer filter shows its identifier', async () => {
+test('without customers:read the customer filter is named after its listed accounts', async () => {
   const calls = stub({ ...me, permissions: ['accounts:read'] })
   renderAt(`/accounts?customer_id=${acme.id}`)
   await screen.findByRole('table', { name: 'Comptes' })
-  expect(screen.getByText(`Client : ${acme.id}`)).toBeDefined()
+  expect(screen.getByText('Client : Acme')).toBeDefined()
+  expect(document.body.textContent).not.toContain(acme.id)
   expect(calls.some((r) => r.url.includes('/admin/customers/'))).toBe(false)
 })
 

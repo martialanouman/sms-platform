@@ -67,7 +67,11 @@ function Accounts() {
           <>
             <div className="ui-filters">
               {search.customer_id && (
-                <CustomerFilter id={search.customer_id} remove={() => filter({ customer_id: undefined })} />
+                <CustomerFilter
+                  id={search.customer_id}
+                  listed={list.data?.data[0]?.customer_name}
+                  remove={() => filter({ customer_id: undefined })}
+                />
               )}
               <GroupFilter value={search.group_id} onChange={(id) => filter({ group_id: id })} />
               <Select
@@ -154,7 +158,7 @@ function Accounts() {
   )
 }
 
-function CustomerFilter({ id, remove }: { id: string; remove: () => void }) {
+function CustomerFilter({ id, listed, remove }: { id: string; listed?: string; remove: () => void }) {
   const me = useShellMe()
   const readable = (me.data?.permissions ?? []).includes('customers:read')
   const customer = useQuery({
@@ -164,7 +168,7 @@ function CustomerFilter({ id, remove }: { id: string; remove: () => void }) {
   })
   return (
     <span className="ui-chip">
-      Client : {customer.data?.name ?? id}
+      Client : {customer.data?.name ?? listed ?? id}
       <button className="ui-chip__remove" type="button" aria-label="Retirer le filtre Client" onClick={remove}>
         <Icon name="times" />
       </button>
