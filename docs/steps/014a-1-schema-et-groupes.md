@@ -163,8 +163,8 @@ Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloq
 
 1. **`null` sur `name` ou `status` rendait 200** (moyenne) : refusé au décodage par `value[T]`, 422 ; `minLength` et
    `enum` restent appliqués à travers le type (mutations tuées).
-2. **Tests creux** : pagination à égalité de `created_at` (lignes d'un même `INSERT`), diff et acteur de l'`update` et du
-   `delete` avec leur ligne, `message` du refus, planchers des trois âges ; à l'écran, chemin de la suppression,
+2. **Tests creux** : pagination à égalité de `created_at` (lignes d'un même `INSERT`), acteur et ligne d'audit de l'`update`
+   et du `delete` (le contenu du diff est prouvé par les tests de capture de 006a), `message` du refus, planchers des trois âges ; à l'écran, chemin de la suppression,
    description envoyée à la création, liste rafraîchie après archivage et suppression, session close sur un 401, refus de
    la passerelle affiché, statut inconnu de l'adresse écarté. Les huit mutants de la revue sont tués.
 3. **Code en trop retiré** : `widen` (override sqlc en `*int`), `toGroup` et le recopiage de `maxAge` (conversions
@@ -176,3 +176,12 @@ Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloq
    - `MaxBodyBytes` reste au défaut d'huma (écart ci-dessus) ;
    - `Cursor` et `Limit` restent écrits dans chaque entrée : un type embarqué pour huit lignes ;
    - le port `Groups` reste nommé : 014a-2 et 014a-3 y ajoutent `Customers` et `Accounts`.
+
+## Correctifs de revue, tour 2
+
+Une revue des correctifs du tour 1. Aucun défaut fonctionnel.
+
+1. **Prose** (basse) : les tests ajoutés prouvent l'acteur et la ligne d'une mise à jour et d'une suppression, pas le
+   contenu du diff ; corrigé ci-dessus.
+2. **Gardé** : un `null` refusé sort avec `field: "body"` et non `body.name` ; l'erreur vient du décodage, pas du
+   validateur. Statut et code justes, et l'écran n'envoie jamais ce `null`.
