@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for AccessLinkKind.
@@ -282,6 +283,24 @@ func (e OperatorStatus) Valid() bool {
 	}
 }
 
+// Defines values for OperatorRefStatus.
+const (
+	OperatorRefStatusActive   OperatorRefStatus = "active"
+	OperatorRefStatusDisabled OperatorRefStatus = "disabled"
+)
+
+// Valid indicates whether the value is a known member of the OperatorRefStatus enum.
+func (e OperatorRefStatus) Valid() bool {
+	switch e {
+	case OperatorRefStatusActive:
+		return true
+	case OperatorRefStatusDisabled:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for OperatorUpdateStatus.
 const (
 	OperatorUpdateStatusActive   OperatorUpdateStatus = "active"
@@ -501,6 +520,17 @@ type OperatorCreate struct {
 	Email       string `json:"email"`
 }
 
+// OperatorRef defines model for OperatorRef.
+type OperatorRef struct {
+	DisplayName string            `json:"displayName"`
+	Email       string            `json:"email"`
+	Id          string            `json:"id"`
+	Status      OperatorRefStatus `json:"status"`
+}
+
+// OperatorRefStatus defines model for OperatorRef.Status.
+type OperatorRefStatus string
+
 // OperatorRoles defines model for OperatorRoles.
 type OperatorRoles struct {
 	RoleIds []string `json:"roleIds"`
@@ -710,6 +740,15 @@ type ValidationError = Error
 
 // ListAccessLogParams defines parameters for ListAccessLog.
 type ListAccessLogParams struct {
+	// Actor The operator ID; exact match.
+	Actor *openapi_types.UUID `form:"actor,omitempty" json:"actor,omitempty"`
+
+	// FromDate Inclusive lower bound on `at`.
+	FromDate *time.Time `form:"fromDate,omitempty" json:"fromDate,omitempty"`
+
+	// ToDate Exclusive upper bound on `at`.
+	ToDate *time.Time `form:"toDate,omitempty" json:"toDate,omitempty"`
+
 	// Cursor Opaque; the `nextCursor` of the previous page.
 	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
@@ -755,6 +794,9 @@ type ServerInterface interface {
 	// ListAccessLog List the dashboard access log, newest first
 	// (GET /access-log)
 	ListAccessLog(w http.ResponseWriter, r *http.Request, params ListAccessLogParams)
+	// ListAuditOperators List every operator by name, to read the audit logs
+	// (GET /audit/operators)
+	ListAuditOperators(w http.ResponseWriter, r *http.Request)
 	// SetPasswordFromAccessLink Set a password with a single-use access link
 	// (POST /auth/access-link)
 	SetPasswordFromAccessLink(w http.ResponseWriter, r *http.Request)
@@ -847,6 +889,45 @@ func (siw *ServerInterfaceWrapper) ListAccessLog(w http.ResponseWriter, r *http.
 	// Parameter object where we will unmarshal all parameters from the context
 	var params ListAccessLogParams
 
+	// ------------- Optional query parameter "actor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "actor", r.URL.Query(), &params.Actor, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "actor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "actor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "fromDate" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "fromDate", r.URL.Query(), &params.FromDate, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "fromDate"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "fromDate", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "toDate" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "toDate", r.URL.Query(), &params.ToDate, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "toDate"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "toDate", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "cursor" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
@@ -862,6 +943,20 @@ func (siw *ServerInterfaceWrapper) ListAccessLog(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListAccessLog(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAuditOperators operation middleware
+func (siw *ServerInterfaceWrapper) ListAuditOperators(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAuditOperators(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1424,6 +1519,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/roles/{roleId}", wrapper.DeleteRole)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/roles/{roleId}", wrapper.UpdateRole)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/access-log", wrapper.ListAccessLog)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/audit/operators", wrapper.ListAuditOperators)
 
 	return m
 }
@@ -1524,6 +1620,69 @@ func (response ListAccessLog422JSONResponse) VisitListAccessLogResponse(w http.R
 type ListAccessLog500JSONResponse struct{ InternalErrorJSONResponse }
 
 func (response ListAccessLog500JSONResponse) VisitListAccessLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuditOperatorsRequestObject struct {
+}
+
+type ListAuditOperatorsResponseObject interface {
+	VisitListAuditOperatorsResponse(w http.ResponseWriter) error
+}
+
+type ListAuditOperators200JSONResponse []OperatorRef
+
+func (response ListAuditOperators200JSONResponse) VisitListAuditOperatorsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuditOperators401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListAuditOperators401JSONResponse) VisitListAuditOperatorsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuditOperators403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListAuditOperators403JSONResponse) VisitListAuditOperatorsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuditOperators500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListAuditOperators500JSONResponse) VisitListAuditOperatorsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -4033,6 +4192,9 @@ type StrictServerInterface interface {
 	// ListAccessLog List the dashboard access log, newest first
 	// (GET /access-log)
 	ListAccessLog(ctx context.Context, request ListAccessLogRequestObject) (ListAccessLogResponseObject, error)
+	// ListAuditOperators List every operator by name, to read the audit logs
+	// (GET /audit/operators)
+	ListAuditOperators(ctx context.Context, request ListAuditOperatorsRequestObject) (ListAuditOperatorsResponseObject, error)
 	// SetPasswordFromAccessLink Set a password with a single-use access link
 	// (POST /auth/access-link)
 	SetPasswordFromAccessLink(ctx context.Context, request SetPasswordFromAccessLinkRequestObject) (SetPasswordFromAccessLinkResponseObject, error)
@@ -4165,6 +4327,30 @@ func (sh *strictHandler) ListAccessLog(w http.ResponseWriter, r *http.Request, p
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListAccessLogResponseObject); ok {
 		if err := validResponse.VisitListAccessLogResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAuditOperators operation middleware
+func (sh *strictHandler) ListAuditOperators(w http.ResponseWriter, r *http.Request) {
+	var request ListAuditOperatorsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAuditOperators(ctx, request.(ListAuditOperatorsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAuditOperators")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAuditOperatorsResponseObject); ok {
+		if err := validResponse.VisitListAuditOperatorsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -378,8 +378,9 @@ func TestA422NamesTheParameterOrTheBody(t *testing.T) {
 		c     call
 		field string
 	}{
-		"cursor too long": {call{method: "GET", path: "/api/access-log?cursor=" + strings.Repeat("a", 257)}, "cursor"},
-		"body not JSON":   {call{method: "POST", path: "/api/auth/login", body: `{"email":`}, "body"},
+		"cursor too long":  {call{method: "GET", path: "/api/access-log?cursor=" + strings.Repeat("a", 257)}, "cursor"},
+		"body not JSON":    {call{method: "POST", path: "/api/auth/login", body: `{"email":`}, "body"},
+		"actor not a UUID": {call{method: "GET", path: "/api/access-log?actor=ada@example.test"}, "actor"},
 	} {
 		got := a.do(t, tc.c)
 		errs, _ := got.body["errors"].([]any)

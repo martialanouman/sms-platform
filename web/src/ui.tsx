@@ -1,3 +1,11 @@
+import { AlertDialog } from '@base-ui/react/alert-dialog'
+import { Button as BaseButton } from '@base-ui/react/button'
+import { Checkbox } from '@base-ui/react/checkbox'
+import { CheckboxGroup } from '@base-ui/react/checkbox-group'
+import { Combobox as BaseCombobox } from '@base-ui/react/combobox'
+import { Dialog } from '@base-ui/react/dialog'
+import { Field as BaseField } from '@base-ui/react/field'
+import { Tooltip } from '@base-ui/react/tooltip'
 import { type QueryKey, useQueryClient } from '@tanstack/react-query'
 import {
   type ComponentProps,
@@ -12,6 +20,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { send } from './api'
+import { permissionLabel } from './permissions'
 
 export function AuthLayout({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -33,19 +42,13 @@ function invalidity(validity: ValidityState) {
 }
 
 export function Field({ label, ...input }: { label: string } & ComponentProps<'input'>) {
-  const id = useId()
   const [error, setError] = useState('')
   return (
-    <div className="ui-field">
-      <label className="ui-field__label" htmlFor={id}>
-        {label}
-      </label>
-      <input
-        id={id}
+    <BaseField.Root className="ui-field" invalid={error !== ''}>
+      <BaseField.Label className="ui-field__label">{label}</BaseField.Label>
+      <BaseField.Control
         className="ui-input"
         {...input}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={[error && `${id}-error`, input['aria-describedby']].filter(Boolean).join(' ') || undefined}
         onInvalid={(e) => {
           e.preventDefault()
           setError(invalidity(e.currentTarget.validity))
@@ -59,13 +62,100 @@ export function Field({ label, ...input }: { label: string } & ComponentProps<'i
           }
         }}
       />
-      {error && (
-        <p className="ui-field__error" id={`${id}-error`} role="alert">
-          <Icon name="bang" />
-          {error}
-        </p>
-      )}
-    </div>
+      <BaseField.Error className="ui-field__error" role="alert" match={error !== ''}>
+        <Icon name="bang" />
+        {error}
+      </BaseField.Error>
+    </BaseField.Root>
+  )
+}
+
+export function Combobox<Item>({
+  label,
+  name,
+  items,
+  defaultValue,
+  itemLabel,
+  itemValue,
+  itemDetail,
+  matches,
+  empty,
+}: {
+  label: string
+  name: string
+  items: Item[]
+  defaultValue?: Item | null
+  itemLabel: (item: Item) => string
+  itemValue: (item: Item) => string
+  itemDetail: (item: Item) => ReactNode
+  matches: (item: Item, query: string) => boolean
+  empty: string
+}) {
+  const id = useId()
+  return (
+    <BaseCombobox.Root
+      items={items}
+      name={name}
+      defaultValue={defaultValue}
+      itemToStringLabel={itemLabel}
+      itemToStringValue={itemValue}
+      filter={matches}
+    >
+      <div className="ui-field">
+        <label className="ui-field__label" htmlFor={id}>
+          {label}
+        </label>
+        <BaseCombobox.Input id={id} className="ui-input" />
+      </div>
+      <BaseCombobox.Portal>
+        <BaseCombobox.Positioner className="ui-combobox__positioner" sideOffset={4}>
+          <BaseCombobox.Popup className="ui-combobox__popup">
+            <BaseCombobox.Empty className="ui-combobox__empty">{empty}</BaseCombobox.Empty>
+            <BaseCombobox.List>
+              {(item: Item) => (
+                <BaseCombobox.Item key={itemValue(item)} value={item} className="ui-combobox__item">
+                  <span>{itemLabel(item)}</span>
+                  <span className="ui-combobox__detail">{itemDetail(item)}</span>
+                </BaseCombobox.Item>
+              )}
+            </BaseCombobox.List>
+          </BaseCombobox.Popup>
+        </BaseCombobox.Positioner>
+      </BaseCombobox.Portal>
+    </BaseCombobox.Root>
+  )
+}
+
+export function Choices({
+  value,
+  onChange,
+  className,
+  children,
+}: {
+  value: string[]
+  onChange: (next: string[]) => void
+  className?: string
+  children: ReactNode
+}) {
+  return (
+    <CheckboxGroup value={value} onValueChange={onChange} className={className}>
+      {children}
+    </CheckboxGroup>
+  )
+}
+
+const CheckboxRoot = Checkbox.Root
+
+export function Choice({ value, children }: { value: string; children: ReactNode }) {
+  return (
+    <label className="role-choice__option">
+      <CheckboxRoot value={value} className="ui-check">
+        <Checkbox.Indicator className="ui-check__mark">
+          <Icon name="check" />
+        </Checkbox.Indicator>
+      </CheckboxRoot>
+      {children}
+    </label>
   )
 }
 
@@ -119,6 +209,7 @@ const glyphs = {
       <path d="M12 4l-8 8" />
     </>
   ),
+  check: <path d="M3.4 8.6 6.4 11.6 12.6 4.9" />,
 }
 
 export function Icon({ name }: { name: keyof typeof glyphs }) {
@@ -171,7 +262,7 @@ export function EmptyState({
   children,
 }: {
   title: string
-  as?: 'h1' | 'p'
+  as?: 'h1' | 'h2' | 'p'
   children?: ReactNode
 }) {
   return (
@@ -182,6 +273,36 @@ export function EmptyState({
       <Title className="ui-empty__title">{title}</Title>
       {children && <div className="ui-empty__text">{children}</div>}
     </div>
+  )
+}
+
+export function OperatorCell({ name, email }: { name: string; email: string }) {
+  return (
+    <span className="operator-cell">
+      <span>{name}</span>
+      <span className="operator-cell__email">{email}</span>
+    </span>
+  )
+}
+
+export function Forbidden({
+  title,
+  about,
+  permission,
+  grantedBy,
+}: {
+  title: string
+  about: string
+  permission: string
+  grantedBy: string
+}) {
+  const { resource, action } = permissionLabel(permission)
+  return (
+    <EmptyState as="h2" title={title}>
+      {about} Cet écran demande la permission {resource} : {action?.toLocaleLowerCase('fr')}{' '}
+      <span className="role-keys__key">{permission}</span>, qu’aucun rôle de ce compte n’accorde. Un opérateur habilité
+      à modifier les rôles des opérateurs peut ajouter le rôle « {grantedBy} » à ce compte.
+    </EmptyState>
   )
 }
 
@@ -202,24 +323,9 @@ export function Button({
   blockedReason?: string
 } & Omit<ComponentProps<'button'>, 'className'>) {
   const reason = useId()
-  const [dismissed, setDismissed] = useState(false)
-  const [shown, setShown] = useState(false)
-  useEffect(() => {
-    if (!shown || dismissed) {
-      return
-    }
-    const dismiss = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        setDismissed(true)
-      }
-    }
-    window.addEventListener('keydown', dismiss)
-    return () => window.removeEventListener('keydown', dismiss)
-  }, [shown, dismissed])
   const inert = loading || blockedReason !== undefined
   const button = (
-    <button
+    <BaseButton
       {...rest}
       type={type}
       className={`ui-button ui-button--${variant}${size ? ` ui-button--${size}` : ''}`}
@@ -227,31 +333,26 @@ export function Button({
       aria-disabled={inert || undefined}
       aria-describedby={blockedReason === undefined ? undefined : reason}
       onClick={inert ? (event) => event.preventDefault() : onClick}
-      onFocus={() => setShown(blockedReason !== undefined)}
-      onMouseEnter={() => setShown(blockedReason !== undefined)}
-      onBlur={() => {
-        setShown(false)
-        setDismissed(false)
-      }}
-      onMouseLeave={() => {
-        setShown(false)
-        setDismissed(false)
-      }}
     >
       {loading && <span className="ui-button__spinner" aria-hidden="true" />}
       {children}
-    </button>
+    </BaseButton>
   )
   if (blockedReason === undefined) {
     return button
   }
   return (
-    <span className={`ui-blocked${dismissed ? ' ui-blocked--dismissed' : ''}`}>
-      {button}
-      <span className="ui-tooltip" id={reason}>
+    <Tooltip.Root>
+      <Tooltip.Trigger delay={0} closeOnClick={false} render={button} />
+      <span className="ui-visually-hidden" id={reason}>
         {blockedReason}
       </span>
-    </span>
+      <Tooltip.Portal>
+        <Tooltip.Positioner className="ui-tooltip__positioner" side="bottom" align="end" sideOffset={6}>
+          <Tooltip.Popup className="ui-tooltip">{blockedReason}</Tooltip.Popup>
+        </Tooltip.Positioner>
+      </Tooltip.Portal>
+    </Tooltip.Root>
   )
 }
 
@@ -346,51 +447,37 @@ export function DataTable<Row>({
 export function Modal({
   title,
   wide,
+  alert,
   onClose,
   footer,
   children,
 }: {
   title: string
   wide?: boolean
+  alert?: boolean
   onClose: () => void
   footer: ReactNode
   children: ReactNode
 }) {
-  const dialog = useRef<HTMLDialogElement>(null)
-  const heading = useId()
   const [opener] = useState(() => document.activeElement as HTMLElement | null)
-  const pressed = useRef<EventTarget>(null)
-
-  useEffect(() => {
-    if (!dialog.current?.open) {
-      dialog.current?.showModal()
-    }
-    return () => opener?.focus()
-  }, [opener])
-
+  useEffect(() => () => opener?.focus(), [opener])
+  const Kind = alert ? AlertDialog : Dialog
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: le clic ne vise que le voile ; au clavier, Échap ferme nativement.
-    <dialog
-      ref={dialog}
-      className={wide ? 'ui-modal ui-modal--wide' : 'ui-modal'}
-      aria-labelledby={heading}
-      onClose={onClose}
-      onMouseDown={(event) => {
-        pressed.current = event.target
-      }}
-      onClick={(event) => pressed.current === event.currentTarget && dialog.current?.close()}
-    >
-      <header className="ui-modal__head">
-        <h2 className="ui-modal__title" id={heading}>
-          {title}
-        </h2>
-        <button className="ui-modal__close" type="button" aria-label="Fermer" onClick={onClose}>
-          <Icon name="times" />
-        </button>
-      </header>
-      <div className="ui-modal__body">{children}</div>
-      <div className="ui-modal__foot">{footer}</div>
-    </dialog>
+    <Kind.Root open onOpenChange={(open) => !open && onClose()}>
+      <Kind.Portal>
+        <Kind.Backdrop className="ui-modal__backdrop" />
+        <Kind.Popup className={wide ? 'ui-modal ui-modal--wide' : 'ui-modal'}>
+          <header className="ui-modal__head">
+            <Kind.Title className="ui-modal__title">{title}</Kind.Title>
+            <Kind.Close className="ui-modal__close" aria-label="Fermer">
+              <Icon name="times" />
+            </Kind.Close>
+          </header>
+          <div className="ui-modal__body">{children}</div>
+          <div className="ui-modal__foot">{footer}</div>
+        </Kind.Popup>
+      </Kind.Portal>
+    </Kind.Root>
   )
 }
 
@@ -428,6 +515,7 @@ export function Confirmation({
 
   return (
     <Modal
+      alert
       title={title}
       onClose={onClose}
       footer={

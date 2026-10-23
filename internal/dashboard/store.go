@@ -145,7 +145,7 @@ type Tx interface {
 	RemovePasskey(ctx context.Context, operatorID, id string) error
 
 	Log(ctx context.Context, e Entry) error
-	AccessLog(ctx context.Context, before *Entry, limit int) ([]Entry, error)
+	AccessLog(ctx context.Context, f AccessLogFilter, before *Entry, limit int) ([]Entry, error)
 }
 
 // Mailer sends one message; its error never carries the body.

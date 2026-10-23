@@ -8,8 +8,10 @@ const names = (css: string) => [...css.matchAll(/(?<![\w-])(--[\w-]+)\s*:/g)].ma
 const roots = (css: string) => [...css.matchAll(/:root\s*\{([^}]*)\}/g)].map((m) => m[1] ?? '').join('')
 const declared = (files: string[]) => new Set(files.flatMap((f) => names(roots(read(f)))))
 
-test('every custom property used is a token', () => {
-  const known = declared(tokens)
+const positioned = ['--anchor-width']
+
+test('every custom property used is a token or set by a Base UI positioner', () => {
+  const known = new Set([...declared(tokens), ...positioned])
   const used = all.flatMap((f) => [...read(f).matchAll(/var\((--[\w-]+)/g)].map((m) => m[1] ?? ''))
   expect(used.length).toBeGreaterThan(0)
   expect(used.filter((v) => !known.has(v))).toEqual([])

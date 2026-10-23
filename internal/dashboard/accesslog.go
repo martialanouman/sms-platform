@@ -2,12 +2,20 @@ package dashboard
 
 import (
 	"context"
+	"time"
 
 	"github.com/martialanouman/sms-platform/internal/platform/keyset"
 )
 
-// AccessLog is a page of the access log, newest first, and the cursor of the next one, empty on the last page.
-func (s Service) AccessLog(ctx context.Context, cursor string) ([]Entry, string, error) {
+// AccessLogFilter narrows the access log to an actor and a period, To excluded.
+type AccessLogFilter struct {
+	Actor *string
+	From  *time.Time
+	To    *time.Time
+}
+
+// AccessLog is a page of the access log under f, newest first, and the cursor of the next one, empty on the last page.
+func (s Service) AccessLog(ctx context.Context, f AccessLogFilter, cursor string) ([]Entry, string, error) {
 	var before *Entry
 	if cursor != "" {
 		at, id, ok := keyset.Parse(cursor)
@@ -18,7 +26,7 @@ func (s Service) AccessLog(ctx context.Context, cursor string) ([]Entry, string,
 	}
 	var page []Entry
 	err := s.Store.Tx(ctx, func(tx Tx) (err error) {
-		page, err = tx.AccessLog(ctx, before, accessLogPage+1)
+		page, err = tx.AccessLog(ctx, f, before, accessLogPage+1)
 		return err
 	})
 	if err != nil || len(page) <= accessLogPage {

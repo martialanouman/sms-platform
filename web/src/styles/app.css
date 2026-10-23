@@ -476,7 +476,7 @@
 
 .ui-table__caption,
 .ui-loading__label,
-.ui-tooltip,
+.ui-visually-hidden,
 .page__note:empty {
   position: absolute;
   overflow: hidden;
@@ -486,27 +486,19 @@
   white-space: nowrap;
 }
 
-.ui-blocked {
-  display: inline-flex;
-  position: relative;
+.ui-tooltip__positioner {
+  z-index: calc(var(--z-modal) + 1);
 }
 
-.ui-blocked:is(:hover, :focus-within):not(.ui-blocked--dismissed) .ui-tooltip {
-  top: 100%;
-  right: 0;
-  z-index: var(--z-nav);
-  width: max-content;
+.ui-tooltip {
   max-width: 320px;
-  height: auto;
   padding: var(--sp-4) var(--sp-6);
   border: 1px solid var(--border-default);
   border-radius: var(--r-field);
   background: var(--surface-raised);
   box-shadow: var(--shadow-3);
-  clip-path: none;
   color: var(--text-primary);
   font: var(--text-caption);
-  white-space: normal;
 }
 
 .page__note {
@@ -648,10 +640,13 @@
 }
 
 .ui-modal {
+  position: fixed;
+  z-index: var(--z-modal);
+  top: 96px;
+  left: 50%;
   width: calc(100% - 2 * var(--sp-9));
   max-width: 520px;
-  margin: 96px auto auto;
-  padding: 0;
+  translate: -50% 0;
   border: 1px solid var(--border-default);
   border-radius: var(--r-card);
   overflow: visible;
@@ -665,13 +660,16 @@
   max-width: 820px;
 }
 
-.ui-modal::backdrop {
+.ui-modal__backdrop {
+  position: fixed;
+  z-index: var(--z-modal);
+  inset: 0;
   background: var(--scrim-modal);
   animation: ui-fade var(--dur-base) var(--ease-entrance);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ui-modal::backdrop {
+  .ui-modal__backdrop {
     animation: none;
   }
 }
@@ -830,13 +828,179 @@
   cursor: pointer;
 }
 
-.role-choice__option input {
-  margin: 0;
-  accent-color: var(--action-primary-fg);
+.ui-check {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-1);
+  background: var(--surface-sunken);
+  color: var(--n-900);
+  transition: var(--transition-control);
+}
+
+.role-choice__option:hover .ui-check {
+  border-color: var(--teal-600);
+}
+
+.ui-check[data-checked] {
+  border-color: var(--teal-500);
+  background: var(--teal-500);
+}
+
+.ui-check:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+.ui-check__mark {
+  display: flex;
+}
+
+.ui-check__mark .ui-icon {
+  width: 12px;
+  height: 12px;
 }
 
 .role-choice__description {
   grid-column: 2;
   color: var(--text-muted);
   font: var(--text-caption);
+}
+
+.audit-tabs {
+  display: flex;
+  gap: var(--sp-5);
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: var(--sp-5);
+}
+
+.audit-tabs__tab {
+  padding: var(--sp-3) 0;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font: var(--text-body);
+  text-decoration: none;
+}
+
+.audit-tabs__tab:hover {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.audit-tabs__tab[aria-current="page"] {
+  border-bottom-color: var(--action-primary-border);
+  color: var(--text-primary);
+}
+
+.audit-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-5);
+}
+
+.audit-id {
+  color: var(--text-muted);
+  font: var(--text-data);
+  overflow-wrap: anywhere;
+}
+
+.audit-change + .audit-change {
+  margin-top: var(--sp-6);
+}
+
+.audit-change__table {
+  font: var(--text-card-title);
+  color: var(--text-primary);
+}
+
+.audit-change__meta {
+  color: var(--text-muted);
+  font: var(--text-caption);
+}
+
+.audit-diff {
+  display: grid;
+  gap: var(--sp-1);
+  margin: var(--sp-4) 0 0;
+}
+
+.audit-diff__row {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) 2fr 2fr;
+  gap: var(--sp-4);
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--r-field);
+}
+
+.audit-diff__row dd {
+  margin: 0;
+}
+
+.audit-diff__row--changed {
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+}
+
+.token-scopes {
+  display: grid;
+  gap: var(--sp-4);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.token-scopes > legend {
+  padding: 0;
+  font: var(--text-card-title);
+}
+
+.ui-combobox__positioner {
+  z-index: calc(var(--z-modal) + 1);
+  min-width: var(--anchor-width);
+}
+
+.ui-combobox__popup {
+  overflow: auto;
+  max-height: 18rem;
+  padding: var(--sp-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-card);
+  background: var(--surface-card);
+  box-shadow: var(--elevation-popover);
+}
+
+.ui-combobox__item {
+  display: flex;
+  flex-direction: column;
+  padding: var(--sp-4) var(--sp-5);
+  border-radius: var(--r-field);
+  color: var(--text-secondary);
+  font-size: var(--fs-13);
+  cursor: pointer;
+}
+
+.ui-combobox__item[data-highlighted] {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.ui-combobox__item[data-selected] {
+  background: var(--tint-teal);
+  color: var(--text-accent);
+}
+
+.ui-combobox__detail {
+  color: var(--text-muted);
+  font: var(--text-caption);
+}
+
+.ui-combobox__empty:not(:empty) {
+  padding: var(--sp-4) var(--sp-5);
+  color: var(--text-muted);
+  font-size: var(--fs-13);
 }

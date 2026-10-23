@@ -516,6 +516,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/audit/operators": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List every operator by name, to read the audit logs
+         * @description Active and disabled; what a log needs to name its actors, nothing more.
+         */
+        get: operations["listAuditOperators"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/notifications": {
         parameters: {
             query?: never;
@@ -744,6 +764,13 @@ export interface components {
         RoleRef: {
             id: string;
             name: string;
+        };
+        OperatorRef: {
+            id: string;
+            email: string;
+            displayName: string;
+            /** @enum {string} */
+            status: "active" | "disabled";
         };
         OperatorCreate: {
             email: string;
@@ -1940,6 +1967,12 @@ export interface operations {
     listAccessLog: {
         parameters: {
             query?: {
+                /** @description The operator ID; exact match. */
+                actor?: string;
+                /** @description Inclusive lower bound on `at`. */
+                fromDate?: string;
+                /** @description Exclusive upper bound on `at`. */
+                toDate?: string;
                 /** @description Opaque; the `nextCursor` of the previous page. */
                 cursor?: components["parameters"]["Cursor"];
             };
@@ -1961,6 +1994,29 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             422: components["responses"]["ValidationError"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listAuditOperators: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorRef"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalError"];
         };
     };

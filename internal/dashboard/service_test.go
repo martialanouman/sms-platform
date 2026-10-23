@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"net/netip"
 	"regexp"
 	"slices"
@@ -127,7 +128,7 @@ func (h *harness) log(t *testing.T) []dashboard.Entry {
 	var all []dashboard.Entry
 	cursor := ""
 	for {
-		page, next, err := h.svc.AccessLog(context.Background(), cursor)
+		page, next, err := h.svc.AccessLog(context.Background(), dashboard.AccessLogFilter{}, cursor)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -599,7 +600,7 @@ func TestTheAccessLogPagesNewestFirst(t *testing.T) {
 		_, _ = h.svc.Login(ctx, "nobody@example.test", "x", h.source())
 		h.exec(t, `DELETE FROM dashboard.login_attempt_counters`)
 	}
-	page, next, err := h.svc.AccessLog(ctx, "")
+	page, next, err := h.svc.AccessLog(ctx, dashboard.AccessLogFilter{}, "")
 	if err != nil || len(page) != 50 || next == "" {
 		t.Fatalf("first page: %d entries, next %q, %v", len(page), next, err)
 	}
@@ -618,7 +619,7 @@ func TestTheAccessLogPagesNewestFirst(t *testing.T) {
 	encode := func(s string) string { return base64.RawURLEncoding.EncodeToString([]byte(s)) }
 	for _, bad := range []string{"x", "eyJ9", strings.Repeat("A", 300), encode("abc " + all[0].ID), encode("123 " + strings.Repeat("z", 36)),
 		encode("123 " + strings.ReplaceAll(all[0].ID, "-", "0")), encode("123 " + all[0].ID + "0"), encode("123 0" + all[0].ID)} {
-		if _, _, err := h.svc.AccessLog(ctx, bad); !errors.Is(err, dashboard.ErrBadCursor) {
+		if _, _, err := h.svc.AccessLog(ctx, dashboard.AccessLogFilter{}, bad); !errors.Is(err, dashboard.ErrBadCursor) {
 			t.Errorf("cursor %q: %v", bad, err)
 		}
 	}
@@ -832,5 +833,43 @@ func TestUndeliverableCountsTheLinksOfActiveAccountsThatGaveUp(t *testing.T) {
 		if got, err := h.svc.Undeliverable(ctx); err != nil || got != want {
 			t.Errorf("after %s: %d, %v; want %d", spoil, got, err, want)
 		}
+	}
+}
+
+func TestTheAccessLogIsFilteredByActorAndPeriod(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	const ada, bob = "0190a000-0000-7000-8000-00000000000a", "0190a000-0000-7000-8000-00000000000b"
+	day := time.Date(2026, 10, 21, 0, 0, 0, 0, time.UTC)
+	for i, actor := range []string{ada, bob, ada, ada} {
+		h.exec(t, `INSERT INTO dashboard.access_log (at, actor, event, target, outcome) VALUES ($1, $2, 'logout', $3, 'success')`,
+			day.Add(time.Duration(i)*time.Hour), actor, fmt.Sprint(i))
+	}
+	targets := func(f dashboard.AccessLogFilter) []string {
+		t.Helper()
+		page, _, err := h.svc.AccessLog(ctx, f, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, e := range page {
+			if e.Event == dashboard.EventLogout {
+				out = append(out, e.Target)
+			}
+		}
+		return out
+	}
+	from, to := day.Add(time.Hour), day.Add(3*time.Hour)
+	if got := targets(dashboard.AccessLogFilter{}); !slices.Equal(got, []string{"3", "2", "1", "0"}) {
+		t.Errorf("unfiltered: %v", got)
+	}
+	if got := targets(dashboard.AccessLogFilter{Actor: new(ada)}); !slices.Equal(got, []string{"3", "2", "0"}) {
+		t.Errorf("ada: %v", got)
+	}
+	if got := targets(dashboard.AccessLogFilter{From: &from, To: &to}); !slices.Equal(got, []string{"2", "1"}) {
+		t.Errorf("[1h, 3h): %v", got)
+	}
+	if got := targets(dashboard.AccessLogFilter{Actor: new(ada), From: &from}); !slices.Equal(got, []string{"3", "2"}) {
+		t.Errorf("ada from 1h: %v", got)
 	}
 }

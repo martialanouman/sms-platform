@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "files": {
-    "includes": ["**", "!dist", "!src/api.gen.ts", "!src/routeTree.gen.ts", "!src/scopes.gen.ts"]
+    "includes": ["**", "!dist", "!src/api.gen.ts", "!src/admin.gen.ts", "!src/routeTree.gen.ts", "!src/scopes.gen.ts"]
   },
   "formatter": {
     "indentStyle": "space",
@@ -18,6 +18,14 @@
     "rules": {
       "suspicious": {
         "noConsole": "error"
+      },
+      "a11y": {
+        "noLabelWithoutControl": {
+          "level": "error",
+          "options": {
+            "inputComponents": ["CheckboxRoot"]
+          }
+        }
       }
     }
   }

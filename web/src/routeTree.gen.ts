@@ -16,8 +16,12 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as MfaRouteImport } from './routes/mfa'
 import { Route as ShellIndexRouteImport } from './routes/_shell.index'
 import { Route as ShellAccountRouteImport } from './routes/_shell.account'
+import { Route as ShellAuditRouteImport } from './routes/_shell.audit'
 import { Route as ShellOperatorsRouteImport } from './routes/_shell.operators'
 import { Route as ShellRolesRouteImport } from './routes/_shell.roles'
+import { Route as ShellAuditIndexRouteImport } from './routes/_shell.audit.index'
+import { Route as ShellAuditAccessRouteImport } from './routes/_shell.audit.access'
+import { Route as ShellAuditControlPlaneRouteImport } from './routes/_shell.audit.control-plane'
 
 const ShellRoute = ShellRouteImport.update({
   id: '/_shell',
@@ -53,6 +57,11 @@ const ShellAccountRoute = ShellAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => ShellRoute,
 } as any)
+const ShellAuditRoute = ShellAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => ShellRoute,
+} as any)
 const ShellOperatorsRoute = ShellOperatorsRouteImport.update({
   id: '/operators',
   path: '/operators',
@@ -63,6 +72,21 @@ const ShellRolesRoute = ShellRolesRouteImport.update({
   path: '/roles',
   getParentRoute: () => ShellRoute,
 } as any)
+const ShellAuditIndexRoute = ShellAuditIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ShellAuditRoute,
+} as any)
+const ShellAuditAccessRoute = ShellAuditAccessRouteImport.update({
+  id: '/access',
+  path: '/access',
+  getParentRoute: () => ShellAuditRoute,
+} as any)
+const ShellAuditControlPlaneRoute = ShellAuditControlPlaneRouteImport.update({
+  id: '/control-plane',
+  path: '/control-plane',
+  getParentRoute: () => ShellAuditRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof ShellIndexRoute
@@ -71,8 +95,12 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/mfa': typeof MfaRoute
   '/account': typeof ShellAccountRoute
+  '/audit': typeof ShellAuditRouteWithChildren
   '/operators': typeof ShellOperatorsRoute
   '/roles': typeof ShellRolesRoute
+  '/audit/access': typeof ShellAuditAccessRoute
+  '/audit/control-plane': typeof ShellAuditControlPlaneRoute
+  '/audit/': typeof ShellAuditIndexRoute
 }
 export interface FileRoutesByTo {
   '/access': typeof AccessRoute
@@ -83,6 +111,9 @@ export interface FileRoutesByTo {
   '/operators': typeof ShellOperatorsRoute
   '/roles': typeof ShellRolesRoute
   '/': typeof ShellIndexRoute
+  '/audit/access': typeof ShellAuditAccessRoute
+  '/audit/control-plane': typeof ShellAuditControlPlaneRoute
+  '/audit': typeof ShellAuditIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -92,9 +123,13 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/mfa': typeof MfaRoute
   '/_shell/account': typeof ShellAccountRoute
+  '/_shell/audit': typeof ShellAuditRouteWithChildren
   '/_shell/operators': typeof ShellOperatorsRoute
   '/_shell/roles': typeof ShellRolesRoute
   '/_shell/': typeof ShellIndexRoute
+  '/_shell/audit/access': typeof ShellAuditAccessRoute
+  '/_shell/audit/control-plane': typeof ShellAuditControlPlaneRoute
+  '/_shell/audit/': typeof ShellAuditIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -105,8 +140,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/mfa'
     | '/account'
+    | '/audit'
     | '/operators'
     | '/roles'
+    | '/audit/access'
+    | '/audit/control-plane'
+    | '/audit/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/access'
@@ -117,6 +156,9 @@ export interface FileRouteTypes {
     | '/operators'
     | '/roles'
     | '/'
+    | '/audit/access'
+    | '/audit/control-plane'
+    | '/audit'
   id:
     | '__root__'
     | '/_shell'
@@ -125,9 +167,13 @@ export interface FileRouteTypes {
     | '/login'
     | '/mfa'
     | '/_shell/account'
+    | '/_shell/audit'
     | '/_shell/operators'
     | '/_shell/roles'
     | '/_shell/'
+    | '/_shell/audit/access'
+    | '/_shell/audit/control-plane'
+    | '/_shell/audit/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -189,6 +235,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShellAccountRouteImport
       parentRoute: typeof ShellRoute
     }
+    '/_shell/audit': {
+      id: '/_shell/audit'
+      path: '/audit'
+      fullPath: '/audit'
+      preLoaderRoute: typeof ShellAuditRouteImport
+      parentRoute: typeof ShellRoute
+    }
     '/_shell/operators': {
       id: '/_shell/operators'
       path: '/operators'
@@ -203,11 +256,49 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShellRolesRouteImport
       parentRoute: typeof ShellRoute
     }
+    '/_shell/audit/': {
+      id: '/_shell/audit/'
+      path: '/'
+      fullPath: '/audit/'
+      preLoaderRoute: typeof ShellAuditIndexRouteImport
+      parentRoute: typeof ShellAuditRoute
+    }
+    '/_shell/audit/access': {
+      id: '/_shell/audit/access'
+      path: '/access'
+      fullPath: '/audit/access'
+      preLoaderRoute: typeof ShellAuditAccessRouteImport
+      parentRoute: typeof ShellAuditRoute
+    }
+    '/_shell/audit/control-plane': {
+      id: '/_shell/audit/control-plane'
+      path: '/control-plane'
+      fullPath: '/audit/control-plane'
+      preLoaderRoute: typeof ShellAuditControlPlaneRouteImport
+      parentRoute: typeof ShellAuditRoute
+    }
   }
 }
 
+interface ShellAuditRouteChildren {
+  ShellAuditAccessRoute: typeof ShellAuditAccessRoute
+  ShellAuditControlPlaneRoute: typeof ShellAuditControlPlaneRoute
+  ShellAuditIndexRoute: typeof ShellAuditIndexRoute
+}
+
+const ShellAuditRouteChildren: ShellAuditRouteChildren = {
+  ShellAuditAccessRoute: ShellAuditAccessRoute,
+  ShellAuditControlPlaneRoute: ShellAuditControlPlaneRoute,
+  ShellAuditIndexRoute: ShellAuditIndexRoute,
+}
+
+const ShellAuditRouteWithChildren = ShellAuditRoute._addFileChildren(
+  ShellAuditRouteChildren,
+)
+
 interface ShellRouteChildren {
   ShellAccountRoute: typeof ShellAccountRoute
+  ShellAuditRoute: typeof ShellAuditRouteWithChildren
   ShellOperatorsRoute: typeof ShellOperatorsRoute
   ShellRolesRoute: typeof ShellRolesRoute
   ShellIndexRoute: typeof ShellIndexRoute
@@ -215,6 +306,7 @@ interface ShellRouteChildren {
 
 const ShellRouteChildren: ShellRouteChildren = {
   ShellAccountRoute: ShellAccountRoute,
+  ShellAuditRoute: ShellAuditRouteWithChildren,
   ShellOperatorsRoute: ShellOperatorsRoute,
   ShellRolesRoute: ShellRolesRoute,
   ShellIndexRoute: ShellIndexRoute,

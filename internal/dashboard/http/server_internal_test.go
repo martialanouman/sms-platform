@@ -3,10 +3,14 @@ package http
 import (
 	"bytes"
 	"context"
+	"slices"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"github.com/martialanouman/sms-platform/internal/dashboard"
 	"github.com/martialanouman/sms-platform/internal/dashboard/postgres"
@@ -61,5 +65,18 @@ func TestTheAccessLogPageMapsEveryEntry(t *testing.T) {
 	res, err = s.ListAccessLog(ctx, ListAccessLogRequestObject{Params: ListAccessLogParams{Cursor: &bad}})
 	if refused, ok := res.(ListAccessLog422JSONResponse); err != nil || !ok || refused.Errors == nil || (*refused.Errors)[0].Field != "cursor" {
 		t.Fatalf("bad cursor: %+v %v", res, err)
+	}
+	actor := openapi_types.UUID(uuid.MustParse("0190a000-0000-7000-8000-000000000001"))
+	res, err = s.ListAccessLog(ctx, ListAccessLogRequestObject{Params: ListAccessLogParams{Actor: &actor}})
+	if mine, ok := res.(ListAccessLog200JSONResponse); err != nil || !ok || len(mine.Data) == 0 ||
+		slices.ContainsFunc(mine.Data, func(e AccessLogEntry) bool { return e.Actor == nil || *e.Actor != actor.String() }) {
+		t.Fatalf("by actor: %+v %v", res, err)
+	}
+	later, earlier := time.Now().Add(time.Hour), time.Now().Add(-2*time.Hour)
+	for name, params := range map[string]ListAccessLogParams{"from later": {FromDate: &later}, "to earlier": {ToDate: &earlier}} {
+		res, err = s.ListAccessLog(ctx, ListAccessLogRequestObject{Params: params})
+		if none, ok := res.(ListAccessLog200JSONResponse); err != nil || !ok || len(none.Data) != 0 {
+			t.Errorf("%s: %+v %v", name, res, err)
+		}
 	}
 }

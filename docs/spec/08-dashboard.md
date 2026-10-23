@@ -106,7 +106,7 @@ Ceux du chapitre 1 §1.2. Règles communes :
 - **Un secret** s'affiche une fois, à la création ou à la rotation (I2).
 - **Un contrôle interdit** est désactivé et expliqué, jamais masqué sans raison.
 - **Facturation désactivée** : l'écran dit « fonctionnalité indisponible ».
-- **Audit** : deux onglets, « Plan de contrôle » (passerelle, sous `audit:read`) et « Accès au
+- **Audit** : deux onglets, « Administration de la passerelle » (journal de l'API d'administration, sous `audit:read`) et « Accès au
   dashboard » (journal du BFF, sous `audit:read` aussi), jamais fusionnés.
 - Accessibilité WCAG 2.1 AA sur les parcours principaux ; bureau d'abord, tablette dégradée proprement.
 

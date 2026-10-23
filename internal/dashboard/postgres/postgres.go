@@ -343,8 +343,8 @@ func (t tx) Log(ctx context.Context, e dashboard.Entry) error {
 	return queries.Log(ctx, t.db, sqlc.LogParams{Actor: optional(e.Actor), Event: string(e.Event), Target: optional(e.Target), Success: e.Success})
 }
 
-func (t tx) AccessLog(ctx context.Context, before *dashboard.Entry, limit int) ([]dashboard.Entry, error) {
-	arg := sqlc.AccessLogParams{PageSize: int64(limit)}
+func (t tx) AccessLog(ctx context.Context, f dashboard.AccessLogFilter, before *dashboard.Entry, limit int) ([]dashboard.Entry, error) {
+	arg := sqlc.AccessLogParams{PageSize: int64(limit), Actor: f.Actor, FromDate: f.From, ToDate: f.To}
 	if before != nil {
 		arg.BeforeAt, arg.BeforeID = &before.At, &before.ID
 	}

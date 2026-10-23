@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/martialanouman/sms-platform/internal/dashboard/personal"
 	"github.com/martialanouman/sms-platform/internal/platform/scopes"
 )
 
@@ -18,8 +19,6 @@ const (
 	personalLifetime = time.Hour
 	operatorLifetime = 5 * time.Minute
 )
-
-var personalExcluded = []string{"content:read", "content:erase", "gdpr:erase"}
 
 // ErrSignerUnavailable is a signer that did not answer, or refused.
 var ErrSignerUnavailable = errors.New("signer unavailable")
@@ -55,7 +54,7 @@ type PersonalToken struct {
 
 func personalScopes(held, requested []string) ([]string, error) {
 	allowed := slices.DeleteFunc(slices.Clone(held), func(p string) bool {
-		return !slices.Contains(scopes.All, p) || slices.Contains(personalExcluded, p)
+		return !slices.Contains(scopes.All, p) || slices.Contains(personal.Excluded, p)
 	})
 	if requested == nil {
 		requested = allowed

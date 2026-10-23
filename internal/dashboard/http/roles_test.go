@@ -2,6 +2,7 @@ package http_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/netip"
 	"strings"
@@ -62,5 +63,44 @@ func TestASessionNotElevatedReachesOnlyAuthWhenItsRolesRequireMFA(t *testing.T) 
 	}
 	if got := a.do(t, call{method: "GET", path: "/api/access-log", cookie: verified.cookies[0].Value}); got.status != 200 {
 		t.Errorf("access log once elevated: %d %s", got.status, got.raw)
+	}
+}
+
+func TestTheAuditDirectoryNamesEveryOperatorAndNothingMore(t *testing.T) {
+	a := newAPI(t, netip.MustParsePrefix("127.0.0.0/8"))
+	a.activate(t)
+	c := a.elevated(t)
+	if got := a.do(t, call{method: "POST", path: "/api/operators", cookie: c, body: `{"email":"ada@example.test","displayName":"Ada"}`}); got.status != 201 {
+		t.Fatalf("create: %d %s", got.status, got.raw)
+	}
+	if _, err := a.owner.Exec(context.Background(), `UPDATE dashboard.operators SET status = 'disabled' WHERE email = 'ada@example.test'`); err != nil {
+		t.Fatal(err)
+	}
+
+	a.holdOnly(t, "Audit")
+	got := a.do(t, call{method: "GET", path: "/api/audit/operators", cookie: c})
+	if got.status != 200 {
+		t.Fatalf("an Audit session: %d %s", got.status, got.raw)
+	}
+	var listed []map[string]any
+	if err := json.Unmarshal([]byte(got.raw), &listed); err != nil {
+		t.Fatal(err)
+	}
+	status := map[string]any{}
+	for _, o := range listed {
+		status[fmt.Sprint(o["email"], " ", o["displayName"])] = o["status"]
+	}
+	if fmt.Sprint(status) != "map[ada@example.test Ada:disabled owner@example.test owner@example.test:active]" {
+		t.Errorf("directory %s", got.raw)
+	}
+	for _, leak := range []string{"roles", "accessLink", "secondFactorEnrolled"} {
+		if strings.Contains(got.raw, leak) {
+			t.Errorf("directory %s leaks %s", got.raw, leak)
+		}
+	}
+
+	a.holdOnly(t, "Reporting")
+	if got := a.do(t, call{method: "GET", path: "/api/audit/operators", cookie: c}); got.status != 403 || got.code() != "forbidden_scope" {
+		t.Errorf("a Reporting session: %d %s", got.status, got.raw)
 	}
 }
