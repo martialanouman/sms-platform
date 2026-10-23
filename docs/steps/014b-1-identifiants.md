@@ -143,3 +143,14 @@ Trois revues (correction et sécurité ; tests creux ; code en trop).
    suffit), une invalidation écrite deux fois.
 7. **Gardé** : la grâce en `time.Duration` dans le cœur ; `Dummy` sans preuve de coût (défaut antérieur à 014b, un test
    de temps serait fragile) ; « Ses binds ouverts sont déconnectés. » suit le contrat, comme en 014a-3 (#173).
+
+## Correctifs de revue, tour 2
+
+Une revue des correctifs du tour 1. Aucun bloquant.
+
+1. **Le 409 d'activation a deux causes** depuis le tour 1 (révoqué, ou compte clos entre-temps) : « Refusé : l'identifiant
+   est révoqué, ou le compte est clos. » ; le 409 de la rotation dit « Ce compte est clos. » au lieu du message anglais.
+2. **Filtre de compte de l'`UPDATE` de rotation remis**, garde redondante assumée : sans lui, le contrat du port ne
+   tenait que par le rollback du middleware. Son mutant est équivalent tant que le cœur lit avant d'écrire.
+3. **G101 de gosec** sur les constantes SQL générées que sqlc nomme d'après `credentials` : la règle existante du sqlc
+   du dashboard couvre désormais celui d'`admin-api-svc`.

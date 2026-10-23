@@ -204,7 +204,7 @@ test('a credential revoked meanwhile is said in French', async () => {
   await user.click(within(await row(/Clé d’API/)).getByRole('button', { name: 'Désactiver' }))
   const dialog = await screen.findByRole('alertdialog')
   await user.click(within(dialog).getByRole('button', { name: 'Désactiver' }))
-  expect(await within(dialog).findByText('Révoqué : seule une rotation le ravive.')).toBeDefined()
+  expect(await within(dialog).findByText('Refusé : l’identifiant est révoqué, ou le compte est clos.')).toBeDefined()
 })
 
 test('a closed account freezes its credentials', async () => {
@@ -280,4 +280,16 @@ test('credentials that cannot be read are said, with a retry', async () => {
   stub([], { [`GET ${path}`]: () => json(500, { code: 'internal', message: 'boom', errors: [] }) })
   renderAt(`/accounts/${api.id}`)
   expect(await within(await block()).findByText('Les identifiants n’ont pas pu être chargés')).toBeDefined()
+})
+
+test('a rotation refused because the account closed meanwhile is said in French', async () => {
+  stub([key], {
+    [`POST ${path}/${key.id}/rotate`]: () => json(409, { code: 'conflict', message: 'not allowed', errors: [] }),
+  })
+  const user = userEvent.setup()
+  renderAt(`/accounts/${api.id}`)
+  await user.click(within(await row(/Clé d’API/)).getByRole('button', { name: 'Rotation' }))
+  const dialog = await screen.findByRole('dialog')
+  await user.click(within(dialog).getByRole('button', { name: 'Tourner le secret' }))
+  expect(await within(dialog).findByText('Ce compte est clos.')).toBeDefined()
 })

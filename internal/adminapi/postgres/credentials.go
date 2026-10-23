@@ -41,7 +41,7 @@ func (t tx) SetCredentialStatus(ctx context.Context, accountID, id, status strin
 }
 
 func (t tx) RotateCredential(ctx context.Context, accountID, id, hash string, grace time.Duration) (adminapi.Credential, error) {
-	id, err := queries.RotateCredential(ctx, t.db, sqlc.RotateCredentialParams{ID: id,
+	id, err := queries.RotateCredential(ctx, t.db, sqlc.RotateCredentialParams{ID: id, AccountID: accountID,
 		SecretHash: &hash, GraceSec: int(grace / time.Second)})
 	if err != nil {
 		return adminapi.Credential{}, refused(err)

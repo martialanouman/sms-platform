@@ -151,7 +151,7 @@ UPDATE control_plane.credentials SET
   secret_hash = $2,
   status = CASE WHEN status = 'revoked' THEN 'active' ELSE status END,
   rotated_at = now()
-WHERE id = $3
+WHERE id = $3 AND account_id = $4
 RETURNING id
 `
 
@@ -159,10 +159,16 @@ type RotateCredentialParams struct {
 	GraceSec   int
 	SecretHash *string
 	ID         string
+	AccountID  string
 }
 
 func (q *Queries) RotateCredential(ctx context.Context, db DBTX, arg RotateCredentialParams) (string, error) {
-	row := db.QueryRow(ctx, rotateCredential, arg.GraceSec, arg.SecretHash, arg.ID)
+	row := db.QueryRow(ctx, rotateCredential,
+		arg.GraceSec,
+		arg.SecretHash,
+		arg.ID,
+		arg.AccountID,
+	)
 	var id string
 	err := row.Scan(&id)
 	return id, err

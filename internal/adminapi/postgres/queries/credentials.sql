@@ -27,7 +27,7 @@ UPDATE control_plane.credentials SET
   secret_hash = sqlc.arg(secret_hash),
   status = CASE WHEN status = 'revoked' THEN 'active' ELSE status END,
   rotated_at = now()
-WHERE id = sqlc.arg(id)
+WHERE id = sqlc.arg(id) AND account_id = sqlc.arg(account_id)
 RETURNING id;
 
 -- name: RevokeCredential :execrows

@@ -165,7 +165,7 @@ export function Credentials({ account }: { account: Account }) {
           action={pending.action === 'disable' ? 'Désactiver' : 'Activer'}
           invalidate={key}
           onClose={close}
-          refusals={{ 409: revokedOnly }}
+          refusals={{ 409: 'Refusé : l’identifiant est révoqué, ou le compte est clos.' }}
           call={() =>
             gw.PATCH('/admin/accounts/{id}/credentials/{credential_id}', {
               ...path(pending.c as Credential),
@@ -285,7 +285,7 @@ function RotateForm({
   onClose: () => void
   onRotated: (s: Shown) => void
 }) {
-  const { submit, waiting, refusal } = useSubmission()
+  const { submit, waiting, refusal, fail } = useSubmission()
   const [seconds, setSeconds] = useState('0')
   const form = useId()
   const revoked = credential.status === 'revoked'
@@ -298,6 +298,10 @@ function RotateForm({
         body: { grace_period_sec: Number(seconds) },
       }),
     )
+    if (outcome.response?.status === 409) {
+      fail('Ce compte est clos.')
+      return
+    }
     if ('data' in outcome) {
       onRotated(outcome.data)
     }
