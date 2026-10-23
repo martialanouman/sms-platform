@@ -97,3 +97,27 @@ Fable, 2026-10-23, sauf mention. Les décisions humaines du même jour sont marq
 - **Tests** : Postgres réel sous `admin_api_svc` (chaque opération, unicités, CHECK, compte clos, transitions, hachés
   vérifiés, cascade, audit sans haché, DTO sans secret, `no-store`) ; cœur sans base (transitions, formats) ; Vitest avec
   `axe`. Mutation manuelle ; preuve sur contabo169.
+
+## Écarts au design, constatés à l'implémentation
+
+- **Les transitions vivent dans la requête** (révise 364) : `RotateCredential` est un `UPDATE` à `CASE` (ancien haché et
+  échéance seulement avec une grâce, révoqué remis `active`), `RevokeCredential` efface les trois colonnes ; aucune
+  table de transitions en Go (301 : les règles en base).
+- **Aucun contrôle de `system_id` dans le cœur** : le CHECK `credentials_system_id_check` refuse déjà un bind sans
+  `system_id` et une clé avec, en 422 sur ce champ ; le contrôle Go était un mutant survivant.
+- **Compte clos : 422 sans champ** (révise 351) : `account_id` vient du chemin, et la traduction préfixe `body.` ; le
+  message suffit, comme pour `accounts_channel_check`.
+- **`CopyButton` passe au kit avec `SecretOnce`** : `ui.tsx` ne peut importer `factor.tsx`, qui importe le kit.
+- **Un `Select` « Type »** ne propose que les types absents ; le 409 de création se dit selon le type choisi (« Ce
+  system_id est déjà pris. » pour un bind ; le type pris ne survient qu'en course).
+- **Désactiver et Activer passent par une confirmation** (le journal d'audit le dit) ; Révoquer dit que le `system_id`
+  reste réservé au compte.
+
+## Mutations
+
+À la main, par le script de copie, mutation et restauration (`cmp`). `argon2id` 8/8 (un test de sel trop court
+ajouté) ; SQL généré 12/12, un équivalent retiré (la garde de statut sur l'ancien haché : un révoqué n'en a pas) ;
+traduction 3/3 ; adaptateur 2/2 ; cœur 7/7, le contrôle de `system_id` retiré ; migration 3/4, survivant équivalent :
+la borne `{1,15}` du motif (huma borne à 15 avant la base, qui la garde en filet) ; huma 6/6 après un test (`status:
+revoked` refusé au PATCH). Un premier passage filtrait les tests par un `-run` qui omettait celui de la rotation : les
+mutants de la rotation ont été rejoués. SPA 16/16 après deux tests (activation, grâce expirée).
