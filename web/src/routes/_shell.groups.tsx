@@ -71,15 +71,18 @@ function Groups() {
       <PageHeader title="Groupes de clients" />
       {readable ? (
         <>
-          <Toolbar>
-            <Select
-              label="Statut"
-              items={filters}
-              value={search.status ?? ''}
-              onChange={(status) =>
-                void navigate({ search: { status: status === '' ? undefined : (status as Status) } })
-              }
-            />
+          <Toolbar
+            filters={
+              <Select
+                label="Statut"
+                items={filters}
+                value={search.status ?? ''}
+                onChange={(status) =>
+                  void navigate({ search: { status: status === '' ? undefined : (status as Status) } })
+                }
+              />
+            }
+          >
             <Button size="sm" variant="primary" blockedReason={blocked} onClick={() => setPending({ kind: 'create' })}>
               Nouveau groupe
             </Button>

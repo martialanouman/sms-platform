@@ -109,6 +109,12 @@ Fable, 2026-10-23, sauf mention. Les décisions humaines du même jour sont marq
 309. **Dettes** : #61 soldée ici (première implémentation du PATCH ; le motif de 302 vaut pour les tables suivantes).
      Ouverte en 014a-2 : 286. Sans effet : #119 (même report pour trois tables de plus), #162, #169 (aucun MSISDN).
 
+Retour humain de la preuve navigateur, 2026-10-23 :
+
+310. **Barre d'outils** : les filtres à gauche, l'action à droite, à la même hauteur ; le filtre n'a pas de libellé au-dessus,
+     son déclencheur dit « Statut : Tous » (nom accessible « Statut », contenu dans le texte visible). `Toolbar` gagne
+     `filters`.
+
 ## Design arrêté
 
 - **Migration** `migrations/control_plane/00004_customers.sql` : `customer_groups`, `customers`, `accounts` (287 à

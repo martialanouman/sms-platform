@@ -964,6 +964,19 @@
   min-width: var(--anchor-width);
 }
 
+.ui-toolbar__filters {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  margin-right: auto;
+}
+
+.ui-toolbar .ui-select {
+  width: auto;
+  height: var(--control-height-sm);
+  font-size: var(--fs-12);
+}
+
 .ui-select {
   display: flex;
   align-items: center;

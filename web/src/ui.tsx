@@ -140,15 +140,12 @@ export function Select({
 }) {
   return (
     <BaseSelect.Root items={items} value={value} onValueChange={(next) => onChange(next ?? '')}>
-      <div className="ui-field">
-        <BaseSelect.Label className="ui-field__label">{label}</BaseSelect.Label>
-        <BaseSelect.Trigger className="ui-input ui-select">
-          <BaseSelect.Value />
-          <BaseSelect.Icon className="ui-select__icon">
-            <Icon name="chevron" />
-          </BaseSelect.Icon>
-        </BaseSelect.Trigger>
-      </div>
+      <BaseSelect.Trigger className="ui-input ui-select" aria-label={label}>
+        {label} : {items.find((item) => item.value === value)?.label}
+        <BaseSelect.Icon className="ui-select__icon">
+          <Icon name="chevron" />
+        </BaseSelect.Icon>
+      </BaseSelect.Trigger>
       <BaseSelect.Portal>
         <BaseSelect.Positioner className="ui-combobox__positioner" sideOffset={4} alignItemWithTrigger={false}>
           <BaseSelect.Popup className="ui-combobox__popup">
@@ -433,8 +430,13 @@ export function LoadingState({ label, rows, line }: { label: string; rows: numbe
   )
 }
 
-export function Toolbar({ children }: { children: ReactNode }) {
-  return <div className="ui-toolbar">{children}</div>
+export function Toolbar({ filters, children }: { filters?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="ui-toolbar">
+      {filters && <div className="ui-toolbar__filters">{filters}</div>}
+      {children}
+    </div>
+  )
 }
 
 export function DataTable<Row>({

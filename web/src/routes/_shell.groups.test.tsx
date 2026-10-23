@@ -74,9 +74,11 @@ test('the status filter and the next page travel in the address', async () => {
   const { router } = renderAt('/groups')
   await screen.findByText('Banques')
 
+  expect(screen.getByRole('combobox').textContent).toBe('Statut : Tous')
   await user.click(screen.getByRole('combobox', { name: 'Statut' }))
   await user.click(await screen.findByRole('option', { name: 'Archivés' }))
   await waitFor(() => expect(router.state.location.search).toEqual({ status: 'archived' }))
+  expect(screen.getByRole('combobox').textContent).toBe('Statut : Archivés')
   await waitFor(() => expect(calls.some((r) => new URL(r.url).searchParams.get('status') === 'archived')).toBe(true))
 
   await user.click(screen.getByRole('combobox', { name: 'Statut' }))
