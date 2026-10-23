@@ -12,6 +12,7 @@ const groups = [
     label: 'Clients',
     entries: [
       { to: '/customers', label: 'Clients', permission: 'customers:read' },
+      { to: '/accounts', label: 'Comptes', permission: 'accounts:read' },
       { to: '/groups', label: 'Groupes', permission: 'customer-groups:read' },
     ],
   },

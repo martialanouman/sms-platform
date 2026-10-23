@@ -202,10 +202,10 @@ export function Choices({
 
 const CheckboxRoot = Checkbox.Root
 
-export function Choice({ value, children }: { value: string; children: ReactNode }) {
+export function Choice({ value, disabled, children }: { value: string; disabled?: boolean; children: ReactNode }) {
   return (
     <label className="role-choice__option">
-      <CheckboxRoot value={value} className="ui-check">
+      <CheckboxRoot value={value} disabled={disabled} className="ui-check">
         <Checkbox.Indicator className="ui-check__mark">
           <Icon name="check" />
         </Checkbox.Indicator>
@@ -449,7 +449,7 @@ export function LoadingState({ label, rows, line }: { label: string; rows: numbe
   )
 }
 
-export function Toolbar({ filters, children }: { filters?: ReactNode; children: ReactNode }) {
+export function Toolbar({ filters, children }: { filters?: ReactNode; children?: ReactNode }) {
   return (
     <div className="ui-toolbar">
       {filters && <div className="ui-toolbar__filters">{filters}</div>}

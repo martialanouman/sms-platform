@@ -971,6 +971,13 @@
   margin-right: auto;
 }
 
+.ui-filter {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-12);
+}
+
 .ui-toolbar .ui-select {
   width: auto;
   height: var(--control-height-sm);
