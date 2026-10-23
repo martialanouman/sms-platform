@@ -51,7 +51,7 @@ function CustomerPage() {
   }
   return (
     <>
-      <PageHeader crumbs={[customersCrumb, 'Client']} title="Client" />
+      <PageHeader crumbs={[readable ? customersCrumb : 'Clients', 'Client']} title="Client" />
       <section className="page">
         {!readable ? (
           <Forbidden

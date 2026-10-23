@@ -283,3 +283,11 @@ test('a refused setting describes the group of choices it concerns', async () =>
   const alert = await within(dialog).findByRole('alert')
   expect(within(dialog).getByRole('group', { name: 'Canaux' }).getAttribute('aria-describedby')).toBe(alert.id)
 })
+
+test('without accounts:read the breadcrumb names Comptes without linking to it', async () => {
+  stubFetch({ 'GET /api/auth/me': () => json(200, { ...me, permissions: ['customers:read'] }) })
+  renderAt(`/accounts/${api.id}`)
+  const crumbs = await within(await screen.findByRole('banner')).findByRole('navigation', { name: 'Fil d’Ariane' })
+  await waitFor(() => expect(crumbs.textContent).toBe('ComptesCompte'))
+  expect(within(crumbs).queryByRole('link')).toBeNull()
+})

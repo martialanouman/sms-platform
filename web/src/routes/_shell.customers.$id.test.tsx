@@ -266,6 +266,8 @@ test('an unknown customer is told', async () => {
   })
   renderAt(`/customers/${acme.id}`)
   expect(await screen.findByRole('heading', { name: 'Ce client n’a pas pu être chargé' })).toBeDefined()
+  const crumbs = screen.getByRole('navigation', { name: 'Fil d’Ariane' })
+  expect(within(crumbs).getByRole('link', { name: 'Clients' }).getAttribute('href')).toBe('/customers')
 })
 
 test('reactivating or closing a customer closed meanwhile is said in French', async () => {
@@ -546,4 +548,12 @@ test('without customer-groups:read the group of the customer is said unreadable'
   expect(within(identity).getByText('Groupe').nextElementSibling?.textContent).toBe('non lisible')
   expect(container.textContent).not.toContain(banks.id)
   expect(await violations(container)).toEqual([])
+})
+
+test('without customers:read the breadcrumb names Clients without linking to it', async () => {
+  stubFetch({ 'GET /api/auth/me': () => json(200, { ...me, permissions: ['accounts:read'] }) })
+  renderAt(`/customers/${acme.id}`)
+  const crumbs = await within(await screen.findByRole('banner')).findByRole('navigation', { name: 'Fil d’Ariane' })
+  await waitFor(() => expect(crumbs.textContent).toBe('ClientsClient'))
+  expect(within(crumbs).queryByRole('link')).toBeNull()
 })

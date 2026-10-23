@@ -51,9 +51,13 @@ function AccountPage() {
     <>
       <PageHeader
         crumbs={[
-          <Link key="accounts" to="/accounts">
-            Comptes
-          </Link>,
+          readable ? (
+            <Link key="accounts" to="/accounts">
+              Comptes
+            </Link>
+          ) : (
+            'Comptes'
+          ),
           account.data?.name ?? 'Compte',
         ]}
         title={account.data?.name ?? 'Compte'}
