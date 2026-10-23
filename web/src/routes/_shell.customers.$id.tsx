@@ -1,13 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useId, useState } from 'react'
+import { type Account, AccountForm, accountsKey, effective } from '../accounts'
 import { at } from '../audit'
 import { ageFields, type Customer, CustomerForm, customerStatus, customersKey, useGroups } from '../customers'
 import { gw } from '../gw'
 import { Failure, useClosedOn } from '../list'
 import { read } from '../queries'
 import { useShellMe } from '../session'
-import { Button, Confirmation, Forbidden, LoadingState, PageHeader, Toolbar } from '../ui'
+import { Button, Confirmation, DataTable, Forbidden, LoadingState, PageHeader, Toolbar } from '../ui'
 
 export const Route = createFileRoute('/_shell/customers/$id')({ component: CustomerPage })
 
@@ -121,6 +122,7 @@ function Loaded({ customer, writes }: { customer: Customer; writes: boolean }) {
           <dd>{at(customer.updated_at)}</dd>
         </dl>
       </section>
+      <Accounts customer={customer} />
       {pending === 'edit' && <CustomerForm customer={customer} onClose={close} />}
       {pending === 'suspend' && (
         <Confirmation
@@ -201,5 +203,78 @@ function Impact({ id }: { id: string }) {
       {closed.length > 0 &&
         ` ${count(closed.length, '1 compte clos le reste', '{n} comptes clos le restent')} : ${names(closed)}.`}
     </p>
+  )
+}
+
+function Accounts({ customer }: { customer: Customer }) {
+  const me = useShellMe()
+  const held = me.data?.permissions ?? []
+  const readable = held.includes('accounts:read')
+  const heading = useId()
+  const [creating, setCreating] = useState(false)
+  const accounts = useQuery({
+    queryKey: [...accountsKey, { customer_id: customer.id }],
+    queryFn: () => read(gw.GET('/admin/accounts', { params: { query: { customer_id: customer.id } } }), 'accounts'),
+    enabled: readable,
+  })
+
+  return (
+    <section aria-labelledby={heading}>
+      <h2 id={heading}>Comptes</h2>
+      {!readable ? (
+        <p>Les comptes demandent accounts:read.</p>
+      ) : (
+        <>
+          <Toolbar>
+            <Link to="/accounts" search={{ customer_id: customer.id }}>
+              Tous les comptes
+            </Link>
+            <Button
+              size="sm"
+              blockedReason={
+                held.includes('accounts:write')
+                  ? customer.status === 'closed'
+                    ? 'Clos définitivement.'
+                    : undefined
+                  : 'Cette action demande accounts:write.'
+              }
+              onClick={() => setCreating(true)}
+            >
+              Nouveau compte
+            </Button>
+          </Toolbar>
+          {accounts.isPending ? (
+            <LoadingState label="Chargement des comptes…" rows={2} />
+          ) : accounts.error ? (
+            <Failure
+              title="Les comptes n’ont pas pu être chargés"
+              error={accounts.error}
+              retry={() => void accounts.refetch()}
+            />
+          ) : accounts.data.data.length === 0 ? (
+            <p>Aucun compte.</p>
+          ) : (
+            <DataTable<Account>
+              caption="Comptes du client"
+              rows={accounts.data.data}
+              rowKey={(a) => a.id}
+              columns={[
+                {
+                  header: 'Nom',
+                  cell: (a) => (
+                    <Link to="/accounts/$id" params={{ id: a.id }}>
+                      {a.name}
+                    </Link>
+                  ),
+                },
+                { header: 'Statut', cell: (a) => effective(a.status, customer.status) },
+                { header: 'Créé le', cell: (a) => at(a.created_at) },
+              ]}
+            />
+          )}
+          {creating && <AccountForm customerId={customer.id} onClose={() => setCreating(false)} />}
+        </>
+      )}
+    </section>
   )
 }

@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
-import { empty, json, me, renderAt, stubFetch, violations } from '../test'
+import { empty, explained, json, me, renderAt, stubFetch, violations } from '../test'
 
 const writer = { ...me, permissions: ['customers:read', 'customers:write', 'customer-groups:read'] }
 const reader = { ...me, permissions: ['customers:read', 'customer-groups:read'] }
@@ -307,4 +307,150 @@ test('without customer-groups:read the group of the form is blocked and explaine
     'Le groupe demande customer-groups:read.',
   )
   expect(calls.some((r) => r.url.includes('customer-groups'))).toBe(false)
+})
+
+const accountOf = (name: string, status: string) => ({
+  id: `01a16026-0000-7000-8000-0000000a${name.padStart(4, '0')}`,
+  customer_id: acme.id,
+  customer_name: acme.name,
+  customer_status: 'suspended',
+  name,
+  status,
+  smpp_enabled: true,
+  rest_enabled: true,
+  query_sm_enabled: true,
+  cancel_sm_enabled: true,
+  allowed_bind_types: ['transceiver'],
+  max_sessions: 1,
+  rate_limit: null,
+  created_at: '2026-10-23T08:00:00Z',
+  updated_at: '2026-10-23T08:00:00Z',
+})
+const accountant = { ...me, permissions: [...writer.permissions, 'accounts:read', 'accounts:write'] }
+
+test('the page of a customer lists its accounts, with their effective status, and links to them all', async () => {
+  const calls = stub(
+    { ...acme, status: 'suspended' },
+    { 'GET /api/gw/admin/accounts': () => json(200, { data: [accountOf('api', 'active')], next_cursor: 'n' }) },
+    accountant,
+  )
+  const { container } = renderAt(`/customers/${acme.id}`)
+  const section = await screen.findByRole('region', { name: 'Comptes' })
+  const row = await within(section).findByRole('row', { name: /api/ })
+  expect(within(row).getByRole('link', { name: 'api' }).getAttribute('href')).toBe(
+    `/accounts/${accountOf('api', '').id}`,
+  )
+  expect(within(row).getByText('Actif (client suspendu)')).toBeDefined()
+  expect(within(section).getByRole('link', { name: 'Tous les comptes' }).getAttribute('href')).toBe(
+    `/accounts?customer_id=${acme.id}`,
+  )
+  expect(new URL(calls.find((r) => r.url.includes('/admin/accounts'))?.url ?? '').search).toBe(
+    `?customer_id=${acme.id}`,
+  )
+  expect(await violations(container)).toEqual([])
+})
+
+test('a new account is created for the customer, and a taken name is said in French', async () => {
+  let taken = false
+  const calls = stub(
+    acme,
+    {
+      'GET /api/gw/admin/accounts': () => json(200, { data: [], next_cursor: null }),
+      'POST /api/gw/admin/accounts': () => {
+        taken = !taken
+        return taken
+          ? json(409, { code: 'conflict', message: 'already taken', errors: [] })
+          : json(201, accountOf('web', 'active'))
+      },
+    },
+    accountant,
+  )
+  const user = userEvent.setup()
+  renderAt(`/customers/${acme.id}`)
+  const section = await screen.findByRole('region', { name: 'Comptes' })
+  await user.click(within(section).getByRole('button', { name: 'Nouveau compte' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Nouveau compte' })
+  await user.type(within(dialog).getByRole('textbox', { name: 'Nom' }), 'web')
+  await user.click(within(dialog).getByRole('button', { name: 'Créer le compte' }))
+  expect(await within(dialog).findByText('Un compte de ce client porte déjà ce nom.')).toBeDefined()
+  await user.click(within(dialog).getByRole('button', { name: 'Créer le compte' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  expect(
+    await calls
+      .filter((r) => r.method === 'POST')
+      .at(-1)
+      ?.json(),
+  ).toEqual({ customer_id: acme.id, name: 'web' })
+  await waitFor(() => expect(calls.filter((r) => r.url.includes('/admin/accounts?')).length).toBe(2))
+})
+
+test('a closed customer gets no new account', async () => {
+  stub(
+    { ...acme, status: 'closed' },
+    { 'GET /api/gw/admin/accounts': () => json(200, { data: [], next_cursor: null }) },
+    accountant,
+  )
+  renderAt(`/customers/${acme.id}`)
+  const section = await screen.findByRole('region', { name: 'Comptes' })
+  expect(explained(within(section).getByRole('button', { name: 'Nouveau compte' }))).toBe('Clos définitivement.')
+  expect(await within(section).findByText('Aucun compte.')).toBeDefined()
+})
+
+test('without accounts:read the accounts of a customer are not listed', async () => {
+  const calls = stub(acme)
+  renderAt(`/customers/${acme.id}`)
+  const section = await screen.findByRole('region', { name: 'Comptes' })
+  expect(within(section).getByText('Les comptes demandent accounts:read.')).toBeDefined()
+  expect(calls.some((r) => r.url.includes('/admin/accounts'))).toBe(false)
+})
+
+test('without accounts:write no account is created', async () => {
+  stub(
+    acme,
+    { 'GET /api/gw/admin/accounts': () => json(200, { data: [], next_cursor: null }) },
+    { ...me, permissions: [...writer.permissions, 'accounts:read'] },
+  )
+  renderAt(`/customers/${acme.id}`)
+  const section = await screen.findByRole('region', { name: 'Comptes' })
+  expect(explained(within(section).getByRole('button', { name: 'Nouveau compte' }))).toBe(
+    'Cette action demande accounts:write.',
+  )
+})
+
+test('suspending a customer reloads its accounts, which the cascade changed', async () => {
+  const calls = stub(
+    acme,
+    {
+      'GET /api/gw/admin/accounts': () => json(200, { data: [], next_cursor: null }),
+      [`GET ${path}/suspension-impact`]: () =>
+        json(200, { accounts_to_suspend: [], accounts_closed: [], binds_to_disconnect: [] }),
+      [`POST ${path}/suspend`]: () => json(200, { ...acme, status: 'suspended' }),
+    },
+    accountant,
+  )
+  const user = userEvent.setup()
+  renderAt(`/customers/${acme.id}`)
+  await screen.findByText('Aucun compte.')
+  await user.click(screen.getByRole('button', { name: 'Suspendre' }))
+  await confirm('Suspendre')
+  await waitFor(() => expect(calls.filter((r) => r.url.includes('/admin/accounts?')).length).toBe(2))
+})
+
+test('a new account refused because the customer is closed is said in French', async () => {
+  stub(
+    acme,
+    {
+      'GET /api/gw/admin/accounts': () => json(200, { data: [], next_cursor: null }),
+      'POST /api/gw/admin/accounts': () => json(422, { code: 'validation_error', message: 'not allowed', errors: [] }),
+    },
+    accountant,
+  )
+  const user = userEvent.setup()
+  renderAt(`/customers/${acme.id}`)
+  const section = await screen.findByRole('region', { name: 'Comptes' })
+  await user.click(within(section).getByRole('button', { name: 'Nouveau compte' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Nouveau compte' })
+  await user.type(within(dialog).getByRole('textbox', { name: 'Nom' }), 'web')
+  await user.click(within(dialog).getByRole('button', { name: 'Créer le compte' }))
+  expect(await within(dialog).findByText('Ce client est clos ou n’existe plus.')).toBeDefined()
 })

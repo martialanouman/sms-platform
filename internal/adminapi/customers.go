@@ -2,7 +2,6 @@ package adminapi
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	errs "github.com/martialanouman/sms-platform/internal/platform/errors"
@@ -138,11 +137,7 @@ func UpdateCustomer(ctx context.Context, tx Tx, id string, p CustomerPatch) (Cus
 func SuspendCustomer(ctx context.Context, tx Tx, id string) (Customer, error) {
 	suspended := "suspended"
 	c, err := UpdateCustomer(ctx, tx, id, CustomerPatch{Status: &suspended})
-	var r Refused
-	if errors.As(err, &r) && r.Field == "status" {
-		return c, Refused{Code: errs.ErrConflict, Message: r.Message}
-	}
-	return c, err
+	return c, closedConflict(err)
 }
 
 // SuspensionImpact is what suspending customer id would affect: its accounts to suspend, and its closed ones.
