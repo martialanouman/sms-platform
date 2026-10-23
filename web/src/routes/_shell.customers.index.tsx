@@ -2,9 +2,18 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { at } from '../audit'
-import { type Customer, CustomerForm, customersKey, groupLabel, Status, statusFilters, useGroups } from '../customers'
+import {
+  type Customer,
+  CustomerForm,
+  customersKey,
+  GroupFilter,
+  Status,
+  statusFilters,
+  statusOf,
+  useGroups,
+} from '../customers'
 import { gw } from '../gw'
-import { Failure, type Paged, Pager, paged, text, useClosedOn } from '../list'
+import { Failure, NoResults, type Paged, Pager, paged, text, useClosedOn } from '../list'
 import { read } from '../queries'
 import { useShellMe } from '../session'
 import { Button, Card, DataTable, EmptyState, Forbidden, LoadingState, needs, PageHeader, Select } from '../ui'
@@ -16,7 +25,7 @@ export const Route = createFileRoute('/_shell/customers/')({
   validateSearch: (s: Record<string, unknown>): CustomersSearch => ({
     ...paged(s),
     group_id: text(s.group_id),
-    status: s.status === 'active' || s.status === 'suspended' || s.status === 'closed' ? s.status : undefined,
+    status: statusOf(s.status),
   }),
   component: Customers,
 })
@@ -71,16 +80,7 @@ function Customers() {
         {readable ? (
           <>
             <div className="ui-filters">
-              <Select
-                label="Groupe"
-                items={[
-                  { value: '', label: 'Tous' },
-                  ...groups.list.map((g) => ({ value: g.id, label: groupLabel(g) })),
-                ]}
-                value={search.group_id ?? ''}
-                onChange={(id) => filter({ group_id: id === '' ? undefined : id })}
-                blockedReason={groups.blocked}
-              />
+              <GroupFilter value={search.group_id} onChange={(id) => filter({ group_id: id })} />
               <Select
                 label="Statut"
                 items={statusFilters}
@@ -98,12 +98,7 @@ function Customers() {
               />
             ) : list.data.data.length === 0 ? (
               filtered ? (
-                <EmptyState title="Aucun résultat">
-                  <p>Élargissez les filtres.</p>
-                  <Button size="sm" onClick={() => void navigate({ search: {} })}>
-                    Retirer les filtres
-                  </Button>
-                </EmptyState>
+                <NoResults clear={() => void navigate({ search: {} })} />
               ) : (
                 <EmptyState title="Aucun client">
                   <p>Créez le premier client avec « Nouveau client ».</p>

@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { unreachable } from './api'
 import { Refused, Unauthenticated, useSessionClosed } from './session'
-import { Button, ErrorState } from './ui'
+import { Button, EmptyState, ErrorState } from './ui'
 
 export function useClosedOn(error: unknown) {
   const closed = useSessionClosed()
@@ -75,5 +75,16 @@ export function Pager<Search extends Paged>({
         </Button>
       </span>
     </div>
+  )
+}
+
+export function NoResults({ clear }: { clear: () => void }) {
+  return (
+    <EmptyState title="Aucun résultat">
+      <p>Élargissez les filtres.</p>
+      <Button size="sm" onClick={clear}>
+        Retirer les filtres
+      </Button>
+    </EmptyState>
   )
 }

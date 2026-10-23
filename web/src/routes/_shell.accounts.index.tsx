@@ -2,12 +2,12 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { type Account, accountsKey, channels, EffectiveStatus } from '../accounts'
 import { at } from '../audit'
-import { customersKey, groupLabel, statusFilters, useGroups } from '../customers'
+import { customersKey, GroupFilter, statusFilters, statusOf } from '../customers'
 import { gw } from '../gw'
-import { Failure, type Paged, Pager, paged, text, useClosedOn } from '../list'
+import { Failure, NoResults, type Paged, Pager, paged, text, useClosedOn } from '../list'
 import { read } from '../queries'
 import { useShellMe } from '../session'
-import { Button, Card, DataTable, EmptyState, Forbidden, Icon, LoadingState, PageHeader, Select } from '../ui'
+import { Card, DataTable, EmptyState, Forbidden, Icon, LoadingState, PageHeader, Select } from '../ui'
 
 type Status = Account['status']
 type AccountsSearch = Paged & { customer_id?: string; group_id?: string; status?: Status }
@@ -17,7 +17,7 @@ export const Route = createFileRoute('/_shell/accounts/')({
     ...paged(s),
     customer_id: text(s.customer_id),
     group_id: text(s.group_id),
-    status: s.status === 'active' || s.status === 'suspended' || s.status === 'closed' ? s.status : undefined,
+    status: statusOf(s.status),
   }),
   component: Accounts,
 })
@@ -28,7 +28,6 @@ function Accounts() {
   const readable = held.includes('accounts:read')
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
-  const groups = useGroups()
   const list = useQuery({
     queryKey: [...accountsKey, search],
     queryFn: () =>
@@ -70,16 +69,7 @@ function Accounts() {
               {search.customer_id && (
                 <CustomerFilter id={search.customer_id} remove={() => filter({ customer_id: undefined })} />
               )}
-              <Select
-                label="Groupe"
-                items={[
-                  { value: '', label: 'Tous' },
-                  ...groups.list.map((g) => ({ value: g.id, label: groupLabel(g) })),
-                ]}
-                value={search.group_id ?? ''}
-                onChange={(id) => filter({ group_id: id === '' ? undefined : id })}
-                blockedReason={groups.blocked}
-              />
+              <GroupFilter value={search.group_id} onChange={(id) => filter({ group_id: id })} />
               <Select
                 label="Statut"
                 items={statusFilters}
@@ -97,12 +87,7 @@ function Accounts() {
               />
             ) : list.data.data.length === 0 ? (
               filtered ? (
-                <EmptyState title="Aucun résultat">
-                  <p>Élargissez les filtres.</p>
-                  <Button size="sm" onClick={() => void navigate({ search: {} })}>
-                    Retirer les filtres
-                  </Button>
-                </EmptyState>
+                <NoResults clear={() => void navigate({ search: {} })} />
               ) : (
                 <EmptyState title="Aucun compte">
                   <p>Un compte se crée depuis la fiche de son client.</p>

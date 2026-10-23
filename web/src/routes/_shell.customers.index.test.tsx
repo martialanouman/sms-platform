@@ -337,3 +337,21 @@ test('a single customer shown is said in the singular, with a way forward', asyn
   expect(await screen.findByText('1 client affiché')).toBeDefined()
   expect(screen.getByRole('button', { name: 'Suivant' }).hasAttribute('aria-disabled')).toBe(false)
 })
+
+test('an active status from the address filters, and Tous on the group leaves the address bare', async () => {
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, reader),
+    'GET /api/gw/admin/customers': () => page([acme]),
+    'GET /api/gw/admin/customer-groups': directory,
+  })
+  const user = userEvent.setup()
+  const { router } = renderAt(`/customers?status=active&group_id=${banks.id}`)
+  await screen.findByRole('rowheader', { name: 'Acme' })
+  expect(new URL(calls.find((r) => r.url.includes('/admin/customers'))?.url ?? '').searchParams.get('status')).toBe(
+    'active',
+  )
+  expect(screen.getByRole('combobox', { name: 'Statut' }).textContent).toBe('Statut : Actifs')
+  await user.click(screen.getByRole('combobox', { name: 'Groupe' }))
+  await user.click(await screen.findByRole('option', { name: 'Tous' }))
+  await waitFor(() => expect(router.state.location.href).toBe('/customers?status=active'))
+})

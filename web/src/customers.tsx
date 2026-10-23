@@ -16,7 +16,7 @@ export const groupsKey = ['customer-groups']
 
 export const groupsBlocked = needs('customer-groups:read', 'Le groupe')
 
-export const customerStatus: Record<Customer['status'], { label: string; tone: Tone }> = {
+const customerStatus: Record<Customer['status'], { label: string; tone: Tone }> = {
   active: { label: 'Actif', tone: 'ok' },
   suspended: { label: 'Suspendu', tone: 'warn' },
   closed: { label: 'Fermé', tone: 'neutral' },
@@ -24,6 +24,21 @@ export const customerStatus: Record<Customer['status'], { label: string; tone: T
 
 export function Status({ status }: { status: Customer['status'] }) {
   return <StatusPill tone={customerStatus[status].tone}>{customerStatus[status].label}</StatusPill>
+}
+
+export const statusOf = (v: unknown) => (v === 'active' || v === 'suspended' || v === 'closed' ? v : undefined)
+
+export function GroupFilter({ value, onChange }: { value?: string; onChange: (id: string) => void }) {
+  const groups = useGroups()
+  return (
+    <Select
+      label="Groupe"
+      items={[{ value: '', label: 'Tous' }, ...groups.list.map((g) => ({ value: g.id, label: groupLabel(g) }))]}
+      value={value ?? ''}
+      onChange={onChange}
+      blockedReason={groups.blocked}
+    />
+  )
 }
 
 export const statusFilters = [

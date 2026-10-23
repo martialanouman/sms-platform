@@ -10,20 +10,15 @@ type Status = Account['status']
 
 export const accountsKey = [...customersKey, 'accounts']
 
-export const effective = (status: Status, customer: Status) =>
-  status === 'active' && customer === 'suspended'
-    ? { status: 'suspended' as const, byCustomer: true }
-    : { status, byCustomer: false }
-
 export const channels = (a: Account) =>
   [a.smpp_enabled && 'smpp', a.rest_enabled && 'rest'].filter((c) => c !== false).join(' · ')
 
 export function EffectiveStatus({ status, customer }: { status: Status; customer: Status }) {
-  const shown = effective(status, customer)
+  const byCustomer = status === 'active' && customer === 'suspended'
   return (
     <span className="ui-status">
-      <CustomerStatus status={shown.status} />
-      {shown.byCustomer && <span className="ui-why">par son client</span>}
+      <CustomerStatus status={byCustomer ? 'suspended' : status} />
+      {byCustomer && <span className="ui-why">par son client</span>}
     </span>
   )
 }

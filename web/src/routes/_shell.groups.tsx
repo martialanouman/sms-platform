@@ -4,7 +4,7 @@ import { type FormEvent, useId, useState } from 'react'
 import { at } from '../audit'
 import { type Group, groupsKey } from '../customers'
 import { gw } from '../gw'
-import { Failure, type Paged, Pager, paged, useClosedOn } from '../list'
+import { Failure, NoResults, type Paged, Pager, paged, useClosedOn } from '../list'
 import { read } from '../queries'
 import { useShellMe } from '../session'
 import {
@@ -36,8 +36,10 @@ export const Route = createFileRoute('/_shell/groups')({
   component: Groups,
 })
 
-const statusLabel: Record<Status, string> = { active: 'Actif', archived: 'Archivé' }
-const statusTone: Record<Status, Tone> = { active: 'ok', archived: 'neutral' }
+const groupStatus: Record<Status, { label: string; tone: Tone }> = {
+  active: { label: 'Actif', tone: 'ok' },
+  archived: { label: 'Archivé', tone: 'neutral' },
+}
 const about = 'Un groupe range des clients pour le filtrage et le reporting ; il ne porte ni solde, ni quota, ni règle.'
 
 const filters = [
@@ -105,12 +107,7 @@ function Groups() {
               />
             ) : list.data.data.length === 0 ? (
               search.status ? (
-                <EmptyState title="Aucun résultat">
-                  <p>Élargissez les filtres.</p>
-                  <Button size="sm" onClick={() => void navigate({ search: {} })}>
-                    Retirer les filtres
-                  </Button>
-                </EmptyState>
+                <NoResults clear={() => void navigate({ search: {} })} />
               ) : (
                 <EmptyState title="Aucun groupe">
                   <p>Créez le premier groupe avec « Nouveau groupe ».</p>
@@ -138,7 +135,9 @@ function Groups() {
                     { header: 'Description', cell: (g) => g.description ?? '—' },
                     {
                       header: 'Statut',
-                      cell: (g) => <StatusPill tone={statusTone[g.status]}>{statusLabel[g.status]}</StatusPill>,
+                      cell: (g) => (
+                        <StatusPill tone={groupStatus[g.status].tone}>{groupStatus[g.status].label}</StatusPill>
+                      ),
                     },
                     {
                       header: 'Clients',

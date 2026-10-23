@@ -24,6 +24,7 @@ import {
 export const Route = createFileRoute('/_shell/customers/$id')({ component: CustomerPage })
 
 const closedFinal = 'Ce client est fermé définitivement.'
+const frozen = 'Fermé définitivement.'
 
 type Pending = 'edit' | 'suspend' | 'reactivate' | 'close' | 'delete'
 
@@ -84,7 +85,7 @@ function Loaded({ customer, writes }: { customer: Customer; writes: boolean }) {
     close()
   }
   const write = writes ? undefined : needs('customers:write')
-  const closed = customer.status === 'closed' ? 'Fermé définitivement.' : undefined
+  const closed = customer.status === 'closed' ? frozen : undefined
   const status = (body: { status: 'active' | 'closed' }) => () =>
     gw.PATCH('/admin/customers/{id}', { params: { path: { id: customer.id } }, body })
 
@@ -289,7 +290,7 @@ function Accounts({ customer }: { customer: Customer }) {
               blockedReason={
                 held.includes('accounts:write')
                   ? customer.status === 'closed'
-                    ? 'Fermé définitivement.'
+                    ? frozen
                     : undefined
                   : needs('accounts:write')
               }
