@@ -182,7 +182,7 @@ arrive avec son service (017 → 022, 020 → 029b).
 - **014a — Clients, groupes, comptes** : navigation à deux niveaux, suspension en cascade, canaux,
   `max_sessions`, `query_sm` / `cancel_sm`.
   Coupée en trois (humain, 2026-10-23) : schéma et groupes ; clients ; comptes
-  (`docs/steps/014a-1-schema-et-groupes.md`).
+  (`docs/steps/014a-1-schema-et-groupes.md`). 014a-2 mergée (#174), 014a-3 : `docs/steps/014a-3-comptes.md`.
 - **014b — Identifiants, webhooks** : clé d'API et bind hachés (rotation avec grâce, révocation, I2),
   webhooks au secret scellé.
 - **015 — Plateforme, sender IDs, débits** : `platform_policy` (quiet hours, politique de contenu,
