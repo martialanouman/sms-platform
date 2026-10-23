@@ -78,7 +78,18 @@ test('a new webhook shows its secret once, then nothing is left of it', async ()
   await user.click(within(await block()).getByRole('button', { name: 'Nouveau webhook' }))
   const dialog = await screen.findByRole('dialog', { name: 'Nouveau webhook' })
   expect(within(dialog).getByRole('combobox', { name: 'Événement' }).textContent).toContain('Accusés de réception')
-  await user.type(within(dialog).getByRole('textbox', { name: 'URL' }), 'https://hooks.example.com/dlr')
+  await user.click(within(dialog).getByRole('combobox', { name: 'Événement' }))
+  expect(screen.queryByRole('option', { name: /Messages entrants/ })).toBeNull()
+  await user.keyboard('{Escape}')
+  const url = within(dialog).getByRole('textbox', { name: 'URL' }) as HTMLInputElement
+  expect([url.type, url.getAttribute('maxlength')]).toEqual(['url', '2048'])
+  for (const bad of ['http://hooks.example.com', 'https://u@hooks.example.com']) {
+    await user.type(url, bad)
+    expect(url.validity.patternMismatch).toBe(true)
+    await user.clear(url)
+  }
+  await user.type(url, 'https://hooks.example.com/dlr')
+  expect(url.validity.patternMismatch).toBe(false)
   await user.click(within(dialog).getByRole('button', { name: 'Créer' }))
   const once = await screen.findByRole('dialog', { name: 'Webhook Accusés de réception (DLR)' })
   expect(within(once).getByText(secret)).toBeDefined()
@@ -124,7 +135,7 @@ test('an edit sends the URL and status that changed', async () => {
 })
 
 test('an edit refused because the account closed meanwhile is said in French', async () => {
-  stub([{ ...mo, status: 'disabled' }], {
+  const calls = stub([{ ...mo, status: 'disabled' }], {
     [`PATCH ${path}/${mo.id}`]: () => json(409, { code: 'conflict', message: 'closed', errors: [] }),
   })
   const user = userEvent.setup()
@@ -136,6 +147,7 @@ test('an edit refused because the account closed meanwhile is said in French', a
   await user.type(url, 'https://hooks.example.com/v2')
   await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
   expect(await within(dialog).findByText('Ce compte est clos.')).toBeDefined()
+  expect(await sent(calls, 'PATCH')).toEqual({ url: 'https://hooks.example.com/v2' })
 })
 
 test('a rotation is confirmed, then shows the new secret once', async () => {
@@ -178,6 +190,9 @@ test('a webhook is deleted after a confirmation', async () => {
   await user.click(within(dialog).getByRole('button', { name: 'Supprimer' }))
   await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
   expect(calls.some((r) => r.method === 'DELETE')).toBe(true)
+  await waitFor(() =>
+    expect(calls.filter((r) => r.method === 'GET' && new URL(r.url).pathname === path).length).toBe(2),
+  )
 })
 
 test('a closed account freezes new webhooks and rotations but still edits and deletes', async () => {
@@ -202,4 +217,10 @@ test('without accounts:write every change is blocked; an unreadable list is said
   stub([], { [`GET ${path}`]: () => json(500, { code: 'internal', message: 'boom', errors: [] }) })
   renderAt(`/accounts/${api.id}`)
   expect(await within(await block()).findByText('Les webhooks n’ont pas pu être chargés')).toBeDefined()
+})
+
+test('an account without webhooks says so', async () => {
+  stub([])
+  renderAt(`/accounts/${api.id}`)
+  expect(await within(await block()).findByText('Aucun webhook.')).toBeDefined()
 })

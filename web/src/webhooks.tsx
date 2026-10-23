@@ -24,13 +24,10 @@ type Event = Webhook['event_type']
 type Shown = components['schemas']['WebhookWithSecret']
 
 const events: Record<Event, string> = { mo: 'Messages entrants (MO)', dlr: 'Accusés de réception (DLR)' }
-const statuses = [
-  { value: 'active', label: 'Actif' },
-  { value: 'disabled', label: 'Désactivé' },
-]
+const statuses: Record<Webhook['status'], string> = { active: 'Actif', disabled: 'Désactivé' }
 const closed = 'Ce compte est clos.'
 const unsealed = 'Le scellement est indisponible : rien n’a été modifié.'
-const https = 'https://[^/?#@]+([/?#].*)?'
+const https = 'https://[^\\/?#@]+([\\/?#].*)?'
 
 export function Webhooks({ account }: { account: Account }) {
   const me = useShellMe()
@@ -86,7 +83,7 @@ export function Webhooks({ account }: { account: Account }) {
           columns={[
             { header: 'Événement', cell: (w) => events[w.event_type] },
             { header: 'URL', cell: (w) => w.url },
-            { header: 'Statut', cell: (w) => (w.status === 'active' ? 'Actif' : 'Désactivé') },
+            { header: 'Statut', cell: (w) => statuses[w.status] },
             {
               header: 'Actions',
               cell: (w) => (
@@ -299,7 +296,12 @@ function EditForm({
     >
       {refusal}
       <UrlField value={url} onChange={setUrl} />
-      <Select label="Statut" items={statuses} value={status} onChange={setStatus} />
+      <Select
+        label="Statut"
+        items={Object.entries(statuses).map(([value, label]) => ({ value, label }))}
+        value={status}
+        onChange={setStatus}
+      />
     </Form>
   )
 }
