@@ -613,3 +613,56 @@ export function Confirmation({
 }
 
 export const answered = (response?: Response) => !!response && response.status < 500 && response.status !== 429
+
+export function CopyButton({ label, value }: { label: string; value: string }) {
+  const [outcome, setOutcome] = useState('')
+
+  function copy() {
+    setOutcome('')
+    navigator.clipboard.writeText(value).then(
+      () => setOutcome('Copié.'),
+      () => setOutcome('Le navigateur a refusé la copie ; sélectionnez le texte et copiez-le.'),
+    )
+  }
+
+  return (
+    <>
+      <button className="ui-button ui-button--secondary" type="button" onClick={copy}>
+        {label}
+      </button>
+      <p className="auth__aside" role="status">
+        {outcome}
+      </p>
+    </>
+  )
+}
+
+export function SecretOnce({
+  title,
+  secret,
+  onClose,
+  children,
+}: {
+  title: string
+  secret: string
+  onClose: () => void
+  children: ReactNode
+}) {
+  return (
+    <Modal
+      title={title}
+      onClose={onClose}
+      footer={
+        <>
+          <CopyButton label="Copier le secret" value={secret} />
+          <Button variant="primary" onClick={onClose}>
+            J’ai copié le secret
+          </Button>
+        </>
+      }
+    >
+      {children}
+      <code className="auth__secret">{secret}</code>
+    </Modal>
+  )
+}

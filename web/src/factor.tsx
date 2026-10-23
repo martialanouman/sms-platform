@@ -5,7 +5,7 @@ import { flushSync } from 'react-dom'
 import { api, json, type send, unreachable } from './api'
 import type { components } from './api.gen'
 import { assertPasskey, passkeysSupported, registerPasskey } from './passkey'
-import { Field, useSubmission } from './ui'
+import { CopyButton, Field, useSubmission } from './ui'
 
 type Method = 'totp' | 'recovery_code'
 type Call<T = unknown> = ReturnType<Parameters<typeof send<T>>[0]>
@@ -165,29 +165,6 @@ function RecoveryCodes({ codes, onDone, Heading }: { codes: string[]; onDone: ()
       <button className="ui-button ui-button--primary" type="button" onClick={onDone}>
         J'ai enregistré ces codes
       </button>
-    </>
-  )
-}
-
-export function CopyButton({ label, value }: { label: string; value: string }) {
-  const [outcome, setOutcome] = useState('')
-
-  function copy() {
-    setOutcome('')
-    navigator.clipboard.writeText(value).then(
-      () => setOutcome('Copié.'),
-      () => setOutcome('Le navigateur a refusé la copie ; sélectionnez le texte et copiez-le.'),
-    )
-  }
-
-  return (
-    <>
-      <button className="ui-button ui-button--secondary" type="button" onClick={copy}>
-        {label}
-      </button>
-      <p className="auth__aside" role="status">
-        {outcome}
-      </p>
     </>
   )
 }
