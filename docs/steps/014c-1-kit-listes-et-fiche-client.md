@@ -205,6 +205,10 @@ l'annuaire échoue ou ne contient pas le groupe (au-delà de 500).
 correctif avait 12 jours, sous la quarantaine de 14 jours de `minimumReleaseAge`. Décision humaine : exempter
 `zod@4.6.6` seul et le forcer par `overrides` ; dette #179 (retrait le 2026-10-25).
 
+La CI de la PR a ensuite levé GHSA-4qv8-2p9j-2685 et GHSA-f72v-6w45-q472 (`undici` < 8.12.2, modérés), tirés
+par `jsdom`, donc par les tests seuls. Correctif publié le 2026-10-15, 8 jours. Même décision humaine :
+`undici@8.12.2` exempté et forcé, ajouté à la dette #179 (retrait le 2026-10-29).
+
 ## Preuve dans le navigateur
 
 Sur contabo169, `Propriétaire` (compte de preuve), image du dashboard construite depuis la branche, fenêtre
