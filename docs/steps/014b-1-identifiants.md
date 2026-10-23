@@ -154,3 +154,25 @@ Une revue des correctifs du tour 1. Aucun bloquant.
    tenait que par le rollback du middleware. Son mutant est équivalent tant que le cœur lit avant d'écrire.
 3. **G101 de gosec** sur les constantes SQL générées que sqlc nomme d'après `credentials` : la règle existante du sqlc
    du dashboard couvre désormais celui d'`admin-api-svc`.
+
+## Preuve dans le navigateur
+
+Sur contabo169, `Propriétaire` (compte de preuve). Migration 00006 par un Job `migrate`, GRANT vérifiés après
+`catalog-apply` (`admin_api_svc` : `SELECT`, `INSERT`, `UPDATE`, `DELETE` sur `credentials`). Captures dans
+`docs/steps/014b-1/`.
+
+- compte `preuve-014b` sous « Commerce Exemple » (client suspendu : accepté) ; bind SMPP `preuve14b` créé, mot de passe
+  de huit caractères montré une fois ; la modale fermée, il n'est plus dans le DOM ; en base, `secret_hash` est un PHC
+  argon2id (`m=65536,t=3,p=4`) qui vérifie le mot de passe montré et refuse un caractère changé ;
+- clé d'API créée, `smsgw_` et 43 caractères, son haché est le sha256 hex de la clé ; « Nouvel identifiant » figé ;
+- rotation de la clé avec « Grâce : 1 h » : « jusqu'au … » une heure après la rotation, ancien haché gardé en base ;
+- bind : rotation sans grâce (« Sans grâce, les binds ouverts sont déconnectés. »), désactivé, réactivé, révoqué
+  (« Le system_id preuve14b reste réservé à ce compte. »), Activer et Révoquer alors figés, ranimé par rotation
+  (« Révoqué : il redevient actif avec un secret neuf, sans grâce. ») ;
+- second compte : bind `preuve14b` refusé, « Ce system_id est déjà pris. » ; une clé créée, puis le compte clos : tout
+  figé ; par l'API, une création rend 422 et une rotation 409 ;
+- audit : douze appels sous l'opérateur ; neuf lignes de diff sur `credentials`, aucune ne porte `secret_hash` ni
+  `previous_secret_hash` ;
+- axe (WCAG 2.1 AA) sur la fiche compte et son bloc : aucune violation.
+- Constat : clore un compte laisse ses identifiants `active` ; l'effectif se lit au compte (ADR-0006), et le vérificateur
+  de 021 et 025b lira le statut du compte.
