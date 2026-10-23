@@ -91,14 +91,6 @@ func (t tx) GroupCustomers(ctx context.Context, id string, after *adminapi.Key, 
 
 func customer(r sqlc.ControlPlaneCustomer) adminapi.Customer {
 	return adminapi.Customer{ID: r.ID, Name: r.Name, Status: r.Status, GroupID: r.GroupID, CreatedAt: r.CreatedAt,
-		UpdatedAt: r.UpdatedAt, MaxAge: adminapi.MaxAge{OTP: widen(r.MaxAgeOtp), Transactional: widen(r.MaxAgeTransactional),
-			Marketing: widen(r.MaxAgeMarketing)}}
-}
-
-func widen(v *int32) *int {
-	if v == nil {
-		return nil
-	}
-	n := int(*v)
-	return &n
+		UpdatedAt: r.UpdatedAt, MaxAge: adminapi.MaxAge{OTP: r.MaxAgeOtp, Transactional: r.MaxAgeTransactional,
+			Marketing: r.MaxAgeMarketing}}
 }

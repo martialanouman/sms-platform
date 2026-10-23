@@ -51,9 +51,9 @@ type ControlPlaneCustomer struct {
 	Name                string
 	Status              string
 	GroupID             *string
-	MaxAgeOtp           *int32
-	MaxAgeTransactional *int32
-	MaxAgeMarketing     *int32
+	MaxAgeOtp           *int
+	MaxAgeTransactional *int
+	MaxAgeMarketing     *int
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }

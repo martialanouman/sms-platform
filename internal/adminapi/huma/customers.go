@@ -32,10 +32,10 @@ type customerGroup struct {
 	Name        string    `json:"name"`
 	Description *string   `json:"description" maxLength:"1000"`
 	Status      string    `json:"status" enum:"active,archived"`
-	MemberCount int64     `json:"member_count" minimum:"0"`
 	CreatedBy   *string   `json:"created_by" format:"uuid"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+	MemberCount int64     `json:"member_count" minimum:"0"`
 }
 
 type maxAge struct {
@@ -88,21 +88,9 @@ type updateGroupInput struct {
 	}
 }
 
-func toGroup(g adminapi.CustomerGroup) customerGroup {
-	return customerGroup{ID: g.ID, Name: g.Name, Description: g.Description, Status: g.Status, MemberCount: g.MemberCount,
-		CreatedBy: g.CreatedBy, CreatedAt: g.CreatedAt, UpdatedAt: g.UpdatedAt}
-}
-
 func toCustomer(c adminapi.Customer) customer {
 	return customer{ID: c.ID, Name: c.Name, Status: c.Status, GroupID: c.GroupID, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
-		MaxAgeOverride: maxAge{OTP: c.MaxAge.OTP, Transactional: c.MaxAge.Transactional, Marketing: c.MaxAge.Marketing}}
-}
-
-func optional(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
+		MaxAgeOverride: maxAge(c.MaxAge)}
 }
 
 func registerCustomerGroups(api huma.API) {
@@ -110,13 +98,17 @@ func registerCustomerGroups(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "list-customer-groups", Method: http.MethodGet, Path: "/admin/customer-groups",
 		Tags: tags, Security: security("customer-groups:read"), Errors: []int{401, 403, 422}},
 		func(ctx context.Context, in *listGroupsInput) (*pageOutput[customerGroup], error) {
-			groups, next, err := adminapi.GroupsPage(ctx, adminapi.TxFrom(ctx), optional(in.Status), in.Cursor, in.Limit)
+			var status *string
+			if in.Status != "" {
+				status = &in.Status
+			}
+			groups, next, err := adminapi.GroupsPage(ctx, adminapi.TxFrom(ctx), status, in.Cursor, in.Limit)
 			if err != nil {
 				return nil, err
 			}
 			out := make([]customerGroup, len(groups))
 			for i, g := range groups {
-				out[i] = toGroup(g)
+				out[i] = customerGroup(g)
 			}
 			return page(out, next), nil
 		})
@@ -127,7 +119,7 @@ func registerCustomerGroups(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			return &groupOutput{toGroup(g)}, nil
+			return &groupOutput{customerGroup(g)}, nil
 		})
 	huma.Register(api, huma.Operation{OperationID: "get-customer-group", Method: http.MethodGet, Path: "/admin/customer-groups/{id}",
 		Tags: tags, Security: security("customer-groups:read"), Errors: []int{401, 403, 404, 422}},
@@ -136,7 +128,7 @@ func registerCustomerGroups(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			return &groupOutput{toGroup(g)}, nil
+			return &groupOutput{customerGroup(g)}, nil
 		})
 	huma.Register(api, huma.Operation{OperationID: "update-customer-group", Method: http.MethodPatch, Path: "/admin/customer-groups/{id}",
 		Tags: tags, Security: security("customer-groups:write"), Errors: []int{401, 403, 404, 409, 422}},
@@ -146,7 +138,7 @@ func registerCustomerGroups(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			return &groupOutput{toGroup(g)}, nil
+			return &groupOutput{customerGroup(g)}, nil
 		})
 	huma.Register(api, huma.Operation{OperationID: "delete-customer-group", Method: http.MethodDelete, Path: "/admin/customer-groups/{id}",
 		Tags: tags, Security: security("customer-groups:write"), DefaultStatus: http.StatusNoContent, Errors: []int{401, 403, 404, 422}},
