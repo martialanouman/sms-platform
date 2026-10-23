@@ -151,7 +151,7 @@ UPDATE control_plane.credentials SET
   secret_hash = $2,
   status = CASE WHEN status = 'revoked' THEN 'active' ELSE status END,
   rotated_at = now()
-WHERE id = $3 AND account_id = $4
+WHERE id = $3
 RETURNING id
 `
 
@@ -159,16 +159,10 @@ type RotateCredentialParams struct {
 	GraceSec   int
 	SecretHash *string
 	ID         string
-	AccountID  string
 }
 
 func (q *Queries) RotateCredential(ctx context.Context, db DBTX, arg RotateCredentialParams) (string, error) {
-	row := db.QueryRow(ctx, rotateCredential,
-		arg.GraceSec,
-		arg.SecretHash,
-		arg.ID,
-		arg.AccountID,
-	)
+	row := db.QueryRow(ctx, rotateCredential, arg.GraceSec, arg.SecretHash, arg.ID)
 	var id string
 	err := row.Scan(&id)
 	return id, err
@@ -177,7 +171,7 @@ func (q *Queries) RotateCredential(ctx context.Context, db DBTX, arg RotateCrede
 const setCredentialStatus = `-- name: SetCredentialStatus :one
 UPDATE control_plane.credentials SET status = $1
 WHERE id = $2 AND account_id = $3
-RETURNING id
+RETURNING id, account_id, type, system_id, status, last_used_at, grace_expires_at, created_at, rotated_at
 `
 
 type SetCredentialStatusParams struct {
@@ -186,9 +180,31 @@ type SetCredentialStatusParams struct {
 	AccountID string
 }
 
-func (q *Queries) SetCredentialStatus(ctx context.Context, db DBTX, arg SetCredentialStatusParams) (string, error) {
+type SetCredentialStatusRow struct {
+	ID             string
+	AccountID      string
+	Type           string
+	SystemID       *string
+	Status         string
+	LastUsedAt     *time.Time
+	GraceExpiresAt *time.Time
+	CreatedAt      time.Time
+	RotatedAt      *time.Time
+}
+
+func (q *Queries) SetCredentialStatus(ctx context.Context, db DBTX, arg SetCredentialStatusParams) (SetCredentialStatusRow, error) {
 	row := db.QueryRow(ctx, setCredentialStatus, arg.Status, arg.ID, arg.AccountID)
-	var id string
-	err := row.Scan(&id)
-	return id, err
+	var i SetCredentialStatusRow
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.Type,
+		&i.SystemID,
+		&i.Status,
+		&i.LastUsedAt,
+		&i.GraceExpiresAt,
+		&i.CreatedAt,
+		&i.RotatedAt,
+	)
+	return i, err
 }

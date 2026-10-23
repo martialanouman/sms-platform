@@ -36,15 +36,13 @@ type Credentials interface {
 	RevokeCredential(ctx context.Context, accountID, id string) error
 }
 
-const apiKey = "api_key"
-
 const alphanumeric = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 
-// NewSecret is a fresh secret for a credential of kind and the hash stored for it: an API key is 256 random bits,
+// newSecret is a fresh secret for a credential of kind and the hash stored for it: an API key is 256 random bits,
 // hashed with sha256 for a check per request; an SMPP password is eight characters, as SMPP 3.4 allows, hashed with
 // argon2id.
-func NewSecret(kind string) (secret, hash string) {
-	if kind == apiKey {
+func newSecret(kind string) (secret, hash string) {
+	if kind == "api_key" {
 		raw := make([]byte, 32)
 		_, _ = rand.Read(raw)
 		key := "smsgw_" + base64.RawURLEncoding.EncodeToString(raw)
@@ -72,24 +70,25 @@ func CreateCredential(ctx context.Context, tx Tx, accountID, kind string, system
 	if _, err := tx.Account(ctx, accountID); err != nil {
 		return Credential{}, "", err
 	}
-	secret, hash := NewSecret(kind)
+	secret, hash := newSecret(kind)
 	c, err := tx.CreateCredential(ctx, accountID, kind, systemID, hash)
 	return c, secret, err
 }
 
 // RotateCredential gives credential id a new secret; the old one stays valid for grace, unless the credential was
-// revoked.
+// revoked. A closed account's credential is a conflict.
 func RotateCredential(ctx context.Context, tx Tx, accountID, id string, grace time.Duration) (Credential, string, error) {
 	c, err := tx.Credential(ctx, accountID, id)
 	if err != nil {
 		return Credential{}, "", err
 	}
-	secret, hash := NewSecret(c.Type)
+	secret, hash := newSecret(c.Type)
 	c, err = tx.RotateCredential(ctx, accountID, id, hash, grace)
-	return c, secret, err
+	return c, secret, closedConflict(err)
 }
 
-// SetCredentialStatus enables or disables credential id; a revoked credential is a conflict.
+// SetCredentialStatus enables or disables credential id; a revoked credential, or enabling one of a closed account, is
+// a conflict.
 func SetCredentialStatus(ctx context.Context, tx Tx, accountID, id, status string) (Credential, error) {
 	c, err := tx.SetCredentialStatus(ctx, accountID, id, status)
 	return c, closedConflict(err)

@@ -77,6 +77,7 @@ func TestCredentialsAreCreatedWithASecretShownOnceAndStoredHashed(t *testing.T) 
 	g := newGateway(t)
 	a := g.account(t)
 
+	bind := g.createCredential(t, a.ID, `{"type": "smpp_bind", "system_id": "acme01"}`)
 	key := g.createCredential(t, a.ID, `{"type": "api_key"}`)
 	if key.AccountID != a.ID || key.Type != "api_key" || key.SystemID != nil || key.Status != "active" ||
 		key.LastUsedAt != nil || key.GraceExpiresAt != nil || key.RotatedAt != nil || key.CreatedAt == nil ||
@@ -86,7 +87,6 @@ func TestCredentialsAreCreatedWithASecretShownOnceAndStoredHashed(t *testing.T) 
 	if current, _ := g.hashes(t, key.ID); current == nil || *current != sha(key.Secret) {
 		t.Fatalf("api key hash = %v", current)
 	}
-	bind := g.createCredential(t, a.ID, `{"type": "smpp_bind", "system_id": "acme01"}`)
 	if bind.Type != "smpp_bind" || bind.SystemID == nil || *bind.SystemID != "acme01" || !bindPassword.MatchString(bind.Secret) {
 		t.Fatalf("bind = %+v", bind)
 	}
@@ -97,6 +97,9 @@ func TestCredentialsAreCreatedWithASecretShownOnceAndStoredHashed(t *testing.T) 
 	other := g.account(t)
 	if again := g.createCredential(t, other.ID, `{"type": "api_key"}`); again.Secret == key.Secret {
 		t.Fatal("two keys share their secret")
+	}
+	if again := g.createCredential(t, other.ID, `{"type": "smpp_bind", "system_id": "acme02"}`); again.Secret == bind.Secret {
+		t.Fatal("two binds share their password")
 	}
 
 	rec := g.send(t, http.MethodGet, "/admin/accounts/"+a.ID+"/credentials", "credentials:read", "")
@@ -135,9 +138,9 @@ func TestACredentialIsRefusedATakenTypeATakenSystemIDAMisplacedOneAndAClosedAcco
 		field  string
 	}{
 		`{"type": "smpp_bind", "system_id": "acme01"}`: {http.StatusConflict, "body.system_id"},
-		`{"type": "smpp_bind"}`:                       {http.StatusUnprocessableEntity, "body.system_id"},
-		`{"type": "api_key", "system_id": "x"}`:       {http.StatusUnprocessableEntity, "body.system_id"},
-		`{"type": "smpp_bind", "system_id": "a b"}`:   {http.StatusUnprocessableEntity, "body.system_id"},
+		`{"type": "smpp_bind"}`:                        {http.StatusUnprocessableEntity, "body.system_id"},
+		`{"type": "api_key", "system_id": "x"}`:        {http.StatusUnprocessableEntity, "body.system_id"},
+		`{"type": "smpp_bind", "system_id": "a b"}`:    {http.StatusUnprocessableEntity, "body.system_id"},
 	} {
 		p := as[problem](t, g.send(t, http.MethodPost, path, "credentials:write", body), want.status)
 		if len(p.Errors) != 1 || p.Errors[0].Field != want.field {
@@ -155,6 +158,9 @@ func TestACredentialIsRefusedATakenTypeATakenSystemIDAMisplacedOneAndAClosedAcco
 	if p.Code != "validation_error" || len(p.Errors) != 0 {
 		t.Fatalf("closed account: %+v", p)
 	}
+	suspended := g.account(t)
+	g.send(t, http.MethodPost, "/admin/accounts/"+suspended.ID+"/suspend", "accounts:write", "")
+	g.createCredential(t, suspended.ID, `{"type": "api_key"}`)
 	if rec := g.send(t, http.MethodPost, "/admin/accounts/00000000-0000-7000-8000-000000000000/credentials", "credentials:write",
 		`{"type": "api_key"}`); rec.Code != http.StatusNotFound {
 		t.Fatalf("unknown account: %d %s", rec.Code, rec.Body)
@@ -188,8 +194,10 @@ func TestARotationKeepsTheOldSecretForItsGraceOnly(t *testing.T) {
 			t.Fatalf("%q: %+v previous=%v", body, at, previous)
 		}
 	}
-	if rec := g.send(t, http.MethodPost, path+"/rotate", "credentials:write", `{"grace_period_sec": 604801}`); rec.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("grace beyond 7 days: %d", rec.Code)
+	for _, body := range []string{`{"grace_period_sec": 604801}`, `{"grace_period_sec": -1}`} {
+		if rec := g.send(t, http.MethodPost, path+"/rotate", "credentials:write", body); rec.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("%s: %d", body, rec.Code)
+		}
 	}
 	if rec := g.send(t, http.MethodPost, "/admin/accounts/"+g.account(t).ID+"/credentials/"+key.ID+"/rotate", "credentials:write", ""); rec.Code != http.StatusNotFound {
 		t.Fatalf("another account's credential: %d", rec.Code)
@@ -217,6 +225,16 @@ func TestADisabledCredentialStaysDisabledAndARevokedOneOnlyARotationRevives(t *t
 		t.Fatalf("revoked through the status: %d %s", rec.Code, rec.Body)
 	}
 
+	elsewhere := "/admin/accounts/" + g.account(t).ID + "/credentials/" + bind.ID
+	if rec := g.send(t, http.MethodPatch, elsewhere, "credentials:write", `{"status": "disabled"}`); rec.Code != http.StatusNotFound {
+		t.Fatalf("patch through another account: %d", rec.Code)
+	}
+	if rec := g.send(t, http.MethodDelete, elsewhere, "credentials:write", ""); rec.Code != http.StatusNotFound {
+		t.Fatalf("revoke through another account: %d", rec.Code)
+	}
+	if current, _ := g.hashes(t, bind.ID); current == nil {
+		t.Fatal("revoked through another account")
+	}
 	for range 2 {
 		if rec := g.send(t, http.MethodDelete, path, "credentials:write", ""); rec.Code != http.StatusNoContent {
 			t.Fatalf("revoke: %d %s", rec.Code, rec.Body)
@@ -236,7 +254,7 @@ func TestADisabledCredentialStaysDisabledAndARevokedOneOnlyARotationRevives(t *t
 	}
 	revived := as[credentialBody](t, g.send(t, http.MethodPost, path+"/rotate", "credentials:write", `{"grace_period_sec": 3600}`), http.StatusOK)
 	if current, previous := g.hashes(t, bind.ID); revived.Status != "active" || revived.GraceExpiresAt != nil || previous != nil ||
-		!bindVerifies(t, current, revived.Secret) {
+		!bindVerifies(t, current, revived.Secret) || revived.Secret == bind.Secret {
 		t.Fatalf("revived = %+v", revived)
 	}
 	if rec := g.send(t, http.MethodDelete, "/admin/accounts/"+a.ID+"/credentials/00000000-0000-7000-8000-000000000000", "credentials:write", ""); rec.Code != http.StatusNotFound {
@@ -264,5 +282,33 @@ func TestNoHashReachesTheAuditAndCredentialsGoWithTheirAccount(t *testing.T) {
 	}
 	if n := g.count(t, `SELECT count(*) FROM control_plane.credentials`); n != 0 {
 		t.Fatalf("%d credentials outlive their account", n)
+	}
+}
+
+func TestAClosedAccountRevivesNoCredentialButStillRevokesAndDisables(t *testing.T) {
+	g := newGateway(t)
+	a := g.account(t)
+	key := g.createCredential(t, a.ID, `{"type": "api_key"}`)
+	bind := g.createCredential(t, a.ID, `{"type": "smpp_bind", "system_id": "acme01"}`)
+	keyPath := "/admin/accounts/" + a.ID + "/credentials/" + key.ID
+	bindPath := "/admin/accounts/" + a.ID + "/credentials/" + bind.ID
+	g.send(t, http.MethodDelete, keyPath, "credentials:write", "")
+	g.send(t, http.MethodPatch, "/admin/accounts/"+a.ID, "accounts:write", `{"status": "closed"}`)
+
+	if c := as[credentialBody](t, g.send(t, http.MethodPatch, bindPath, "credentials:write", `{"status": "disabled"}`), http.StatusOK); c.Status != "disabled" {
+		t.Fatalf("disable on a closed account = %+v", c)
+	}
+	for _, call := range []struct{ method, path, body string }{
+		{http.MethodPost, keyPath + "/rotate", ""},
+		{http.MethodPost, bindPath + "/rotate", `{"grace_period_sec": 60}`},
+		{http.MethodPatch, bindPath, `{"status": "active"}`},
+	} {
+		p := as[problem](t, g.send(t, call.method, call.path, "credentials:write", call.body), http.StatusConflict)
+		if p.Code != "conflict" {
+			t.Fatalf("%s %s: %+v", call.method, call.path, p)
+		}
+	}
+	if rec := g.send(t, http.MethodDelete, bindPath, "credentials:write", ""); rec.Code != http.StatusNoContent {
+		t.Fatalf("revoke on a closed account: %d", rec.Code)
 	}
 }

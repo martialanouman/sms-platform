@@ -31,6 +31,10 @@ END $$;
 
 CREATE TRIGGER account_is_closed BEFORE INSERT ON control_plane.credentials
   FOR EACH ROW EXECUTE FUNCTION control_plane.account_is_closed();
+CREATE TRIGGER account_is_closed_revival BEFORE UPDATE ON control_plane.credentials
+  FOR EACH ROW WHEN (NEW.secret_hash IS DISTINCT FROM OLD.secret_hash AND NEW.secret_hash IS NOT NULL
+                     OR NEW.status = 'active' AND OLD.status <> 'active')
+  EXECUTE FUNCTION control_plane.account_is_closed();
 CREATE TRIGGER touch_updated_at BEFORE UPDATE ON control_plane.credentials
   FOR EACH ROW EXECUTE FUNCTION control_plane.touch_updated_at();
 CREATE TRIGGER audit_capture AFTER INSERT OR UPDATE OR DELETE ON control_plane.credentials

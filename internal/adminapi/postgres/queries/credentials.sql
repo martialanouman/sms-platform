@@ -17,7 +17,7 @@ RETURNING id;
 -- name: SetCredentialStatus :one
 UPDATE control_plane.credentials SET status = sqlc.arg(status)
 WHERE id = sqlc.arg(id) AND account_id = sqlc.arg(account_id)
-RETURNING id;
+RETURNING id, account_id, type, system_id, status, last_used_at, grace_expires_at, created_at, rotated_at;
 
 -- name: RotateCredential :one
 UPDATE control_plane.credentials SET
@@ -27,7 +27,7 @@ UPDATE control_plane.credentials SET
   secret_hash = sqlc.arg(secret_hash),
   status = CASE WHEN status = 'revoked' THEN 'active' ELSE status END,
   rotated_at = now()
-WHERE id = sqlc.arg(id) AND account_id = sqlc.arg(account_id)
+WHERE id = sqlc.arg(id)
 RETURNING id;
 
 -- name: RevokeCredential :execrows

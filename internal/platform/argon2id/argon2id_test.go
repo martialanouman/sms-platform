@@ -1,6 +1,7 @@
 package argon2id_test
 
 import (
+	"encoding/base64"
 	"strings"
 	"testing"
 
@@ -27,6 +28,8 @@ func TestAHashThisPackageWouldNotWriteIsAnError(t *testing.T) {
 	phc := argon2id.Hash("x")
 	for _, bad := range []string{
 		"",
+		"x" + phc,
+		phc[:strings.LastIndex(phc, "$")] + "$" + base64.RawStdEncoding.EncodeToString(make([]byte, 64)),
 		strings.Replace(phc, "argon2id", "argon2i", 1),
 		strings.Replace(phc, "v=19", "v=16", 1),
 		strings.Replace(phc, "t=3", "t=1", 1),

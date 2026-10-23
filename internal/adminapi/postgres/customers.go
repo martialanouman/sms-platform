@@ -22,7 +22,6 @@ var fields = map[string]string{
 	"credentials_account_id_type_key": "type",
 	"credentials_system_id_key":       "system_id",
 	"credentials_system_id_check":     "system_id",
-	"credentials_revoked_check":       "status",
 }
 
 func refused(err error) error {
