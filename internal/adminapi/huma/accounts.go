@@ -46,7 +46,7 @@ type createAccountInput struct {
 		RestEnabled      *bool           `json:"rest_enabled,omitempty" default:"true"`
 		QuerySmEnabled   *bool           `json:"query_sm_enabled,omitempty" default:"true"`
 		CancelSmEnabled  *bool           `json:"cancel_sm_enabled,omitempty" default:"true"`
-		AllowedBindTypes value[[]string] `json:"allowed_bind_types,omitempty" minItems:"1" uniqueItems:"true" enum:"transmitter,receiver,transceiver"`
+		AllowedBindTypes value[[]string] `json:"allowed_bind_types,omitempty" nullable:"false" minItems:"1" uniqueItems:"true" enum:"transmitter,receiver,transceiver"`
 		MaxSessions      *int            `json:"max_sessions,omitempty" minimum:"0" maximum:"2147483647" default:"1"`
 	}
 }

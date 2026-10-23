@@ -134,3 +134,13 @@ Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloq
    statuts et « (client clos) », inatteignables (335) ; les casts des `coalesce` ; une constante à un seul usage ; la
    borne du DTO de réponse, qu'aucune garde ne lit.
 7. **Écart 328 confirmé** par les deux revues : le code suit 325 (humain), la fiche affiche `customer_name`.
+
+## Correctifs de revue, tour 2
+
+Une revue des correctifs du tour 1. Aucun bloquant.
+
+1. **Schéma servi de la création nullable sur `allowed_bind_types`** (basse) : `value[[]string]` délègue au schéma d'un
+   `[]string`, nullable chez huma ; `nullable:"false"` l'aligne sur le contrat (le refus de `null` tenait déjà par
+   `value`). Le `default: [transceiver]` du contrat n'est pas servi : le tag fait paniquer huma sur ce type, le handler
+   pose le défaut.
+2. **Description du groupe par le refus** : testée.

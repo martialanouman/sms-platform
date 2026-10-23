@@ -268,3 +268,14 @@ test('a rename refused for another reason keeps the gateway message', async () =
   expect(await within(dialog).findByRole('alert')).toBeDefined()
   expect(within(dialog).queryByText('Ce client est clos ou n’existe plus.')).toBeNull()
 })
+
+test('a refused setting describes the group of choices it concerns', async () => {
+  stub(api, {
+    [`PATCH ${path}/channels`]: () => json(422, { code: 'validation_error', message: 'Canaux refusés.', errors: [] }),
+  })
+  const { user, dialog } = await editBlock('Canaux')
+  await user.click(within(dialog).getByRole('checkbox', { name: 'REST' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
+  const alert = await within(dialog).findByRole('alert')
+  expect(within(dialog).getByRole('group', { name: 'Canaux' }).getAttribute('aria-describedby')).toBe(alert.id)
+})
