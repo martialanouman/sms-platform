@@ -110,6 +110,14 @@ func toCustomer(c adminapi.Customer) customer {
 		MaxAgeOverride: maxAge(c.MaxAge)}
 }
 
+func toCustomers(customers []adminapi.Customer) []customer {
+	out := make([]customer, len(customers))
+	for i, c := range customers {
+		out[i] = toCustomer(c)
+	}
+	return out
+}
+
 func registerCustomerGroups(api huma.API) {
 	tags := []string{"customer-groups"}
 	huma.Register(api, huma.Operation{OperationID: "list-customer-groups", Method: http.MethodGet, Path: "/admin/customer-groups",
@@ -169,11 +177,7 @@ func registerCustomerGroups(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			out := make([]customer, len(customers))
-			for i, c := range customers {
-				out[i] = toCustomer(c)
-			}
-			return page(out, next), nil
+			return page(toCustomers(customers), next), nil
 		})
 }
 
@@ -188,9 +192,9 @@ type listCustomersInput struct {
 
 type createCustomerInput struct {
 	Body struct {
-		Name           string  `json:"name" minLength:"1" maxLength:"200"`
-		GroupID        *string `json:"group_id,omitempty" format:"uuid"`
-		MaxAgeOverride *maxAge `json:"max_age_override,omitempty"`
+		Name           string        `json:"name" minLength:"1" maxLength:"200"`
+		GroupID        *string       `json:"group_id,omitempty" format:"uuid"`
+		MaxAgeOverride value[maxAge] `json:"max_age_override,omitempty"`
 	}
 }
 
@@ -241,18 +245,14 @@ func registerCustomers(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			out := make([]customer, len(customers))
-			for i, c := range customers {
-				out[i] = toCustomer(c)
-			}
-			return page(out, next), nil
+			return page(toCustomers(customers), next), nil
 		})
 	huma.Register(api, huma.Operation{OperationID: "create-customer", Method: http.MethodPost, Path: "/admin/customers",
 		Tags: tags, Security: security("customers:write"), DefaultStatus: http.StatusCreated, Errors: []int{401, 403, 422}},
 		func(ctx context.Context, in *createCustomerInput) (*customerOutput, error) {
 			var age adminapi.MaxAge
-			if in.Body.MaxAgeOverride != nil {
-				age = adminapi.MaxAge(*in.Body.MaxAgeOverride)
+			if v := in.Body.MaxAgeOverride.Value; v != nil {
+				age = adminapi.MaxAge(*v)
 			}
 			c, err := adminapi.TxFrom(ctx).CreateCustomer(ctx, in.Body.Name, in.Body.GroupID, age)
 			if err != nil {
@@ -274,8 +274,9 @@ func registerCustomers(api huma.API) {
 		func(ctx context.Context, in *updateCustomerInput) (*customerOutput, error) {
 			p := adminapi.CustomerPatch{Name: in.Body.Name.Value, Status: in.Body.Status.Value,
 				GroupID: adminapi.Nullable[string](in.Body.GroupID)}
-			if age := in.Body.MaxAgeOverride.Value; age != nil {
-				p.MaxAge = &adminapi.MaxAge{OTP: age.OTP, Transactional: age.Transactional, Marketing: age.Marketing}
+			if v := in.Body.MaxAgeOverride.Value; v != nil {
+				age := adminapi.MaxAge(*v)
+				p.MaxAge = &age
 			}
 			c, err := adminapi.UpdateCustomer(ctx, adminapi.TxFrom(ctx), in.ID, p)
 			if err != nil {

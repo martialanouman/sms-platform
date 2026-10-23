@@ -97,12 +97,15 @@ func TestACustomerIsCreatedInItsGroupAndReadBack(t *testing.T) {
 	if read.ID != c.ID || read.Name != "Acme" || *read.GroupID != group.ID || !same(ages(read), [3]int{60, 0, 3600}) {
 		t.Fatalf("read = %+v", read)
 	}
+	if rec := g.send(t, http.MethodPost, "/admin/customers", "customers:write", `{"name": "x", "max_age_override": null}`); rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("null ages at creation: %d %s", rec.Code, rec.Body)
+	}
 	bare := g.createCustomer(t, `{"name": "Bare"}`)
 	if bare.GroupID != nil || bare.MaxAgeOverride == nil || !same(ages(bare), [3]int{}) {
 		t.Fatalf("bare = %+v", bare)
 	}
 	lines := g.lines(t)
-	if len(lines) != 3 || lines[1].OperationID != "create-customer" || lines[1].Status != 201 {
+	if len(lines) != 4 || lines[1].OperationID != "create-customer" || lines[1].Status != 201 || lines[2].Status != 422 {
 		t.Fatalf("lines = %+v", lines)
 	}
 	if n := g.count(t, `SELECT count(*) FROM control_plane.audit_changes WHERE table_name = 'customers' AND op = 'insert'

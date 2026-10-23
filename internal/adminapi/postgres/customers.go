@@ -13,12 +13,9 @@ import (
 )
 
 var fields = map[string]string{
-	"customer_groups_name_key":              "name",
-	"customers_group_id_fkey":               "group_id",
-	"closed_is_final":                       "status",
-	"customers_max_age_otp_check":           "max_age_override.otp",
-	"customers_max_age_transactional_check": "max_age_override.transactional",
-	"customers_max_age_marketing_check":     "max_age_override.marketing",
+	"customer_groups_name_key": "name",
+	"customers_group_id_fkey":  "group_id",
+	"closed_is_final":          "status",
 }
 
 func refused(err error) error {
