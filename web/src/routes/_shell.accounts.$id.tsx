@@ -26,6 +26,9 @@ export const Route = createFileRoute('/_shell/accounts/$id')({ component: Accoun
 const closedFinal = 'Ce compte est clos définitivement.'
 const bindTypes = ['transmitter', 'receiver', 'transceiver'] as const
 const onOff = (on: boolean) => (on ? 'Activé' : 'Désactivé')
+const checked = (...pairs: [boolean, string][]) => pairs.filter(([on]) => on).map(([, value]) => value)
+
+type AccountPath = { params: { path: { id: string } } }
 
 type Pending = 'rename' | 'channels' | 'sessions' | 'ops' | 'suspend' | 'reactivate' | 'close' | 'delete'
 
@@ -150,7 +153,8 @@ function Loaded({ account, writes }: { account: Account; writes: boolean }) {
       {pending === 'channels' && (
         <Settings
           title={`Canaux du compte ${account.name}`}
-          initial={[account.smpp_enabled && 'smpp', account.rest_enabled && 'rest'].filter((v) => v !== false)}
+          label="Canaux"
+          initial={checked([account.smpp_enabled, 'smpp'], [account.rest_enabled, 'rest'])}
           options={[
             { value: 'smpp', label: 'SMPP' },
             { value: 'rest', label: 'REST' },
@@ -165,13 +169,12 @@ function Loaded({ account, writes }: { account: Account; writes: boolean }) {
           }
         />
       )}
-      {pending === 'sessions' && <SessionsForm account={account} onClose={close} />}
+      {pending === 'sessions' && <SessionsForm account={account} path={path} onClose={close} />}
       {pending === 'ops' && (
         <Settings
           title={`Opérations SMPP du compte ${account.name}`}
-          initial={[account.query_sm_enabled && 'query_sm', account.cancel_sm_enabled && 'cancel_sm'].filter(
-            (v) => v !== false,
-          )}
+          label="Opérations SMPP"
+          initial={checked([account.query_sm_enabled, 'query_sm'], [account.cancel_sm_enabled, 'cancel_sm'])}
           options={[
             { value: 'query_sm', label: 'query_sm' },
             { value: 'cancel_sm', label: 'cancel_sm' },
@@ -253,23 +256,27 @@ function Loaded({ account, writes }: { account: Account; writes: boolean }) {
 
 function Settings({
   title,
+  label,
   initial,
   options,
   last,
   about,
   save,
   onClose,
+  children,
 }: {
   title: string
+  label: string
   initial: string[]
   options: { value: string; label: string }[]
   last?: string
   about?: string
   save: (on: string[]) => ComponentProps<typeof Confirmation>['call'] | undefined
   onClose: () => void
+  children?: ReactNode
 }) {
   const queryClient = useQueryClient()
-  const { submit, waiting, refusal } = useSubmission()
+  const { submit, waiting, refusal, describedBy } = useSubmission()
   const [on, setOn] = useState(initial)
   const form = useId()
   const alone = last !== undefined && on.length === 1
@@ -304,7 +311,8 @@ function Settings({
       <form className="form" id={form} onSubmit={confirm}>
         {refusal}
         {about && <p>{about}</p>}
-        <Choices value={on} onChange={setOn}>
+        {children}
+        <Choices value={on} onChange={setOn} label={label} describedBy={describedBy}>
           {options.map((o) => (
             <Choice value={o.value} key={o.value} disabled={alone && on.includes(o.value)}>
               {o.label}
@@ -317,63 +325,33 @@ function Settings({
   )
 }
 
-function SessionsForm({ account, onClose }: { account: Account; onClose: () => void }) {
-  const queryClient = useQueryClient()
-  const { submit, waiting, refusal } = useSubmission()
+function SessionsForm({ account, path, onClose }: { account: Account; path: AccountPath; onClose: () => void }) {
   const [sessions, setSessions] = useState(String(account.max_sessions))
-  const [types, setTypes] = useState<string[]>(account.allowed_bind_types)
-  const form = useId()
-
-  async function save(event: FormEvent) {
-    event.preventDefault()
-    const outcome = await submit(() =>
-      gw.PATCH('/admin/accounts/{id}/session-limits', {
-        params: { path: { id: account.id } },
-        body: {
-          max_sessions: Number(sessions),
-          allowed_bind_types: bindTypes.filter((t) => types.includes(t)),
-        },
-      }),
-    )
-    if (outcome.failure === undefined) {
-      void queryClient.invalidateQueries({ queryKey: accountsKey })
-      onClose()
-    }
-  }
-
   return (
-    <Modal
+    <Settings
       title={`Sessions du compte ${account.name}`}
+      label="Types de bind"
+      initial={account.allowed_bind_types}
+      options={bindTypes.map((t) => ({ value: t, label: t }))}
+      last="Au moins un type de bind."
       onClose={onClose}
-      footer={
-        <>
-          <Button onClick={onClose}>Annuler</Button>
-          <Button variant="primary" type="submit" form={form} loading={waiting}>
-            Enregistrer
-          </Button>
-        </>
+      save={(on) => () =>
+        gw.PATCH('/admin/accounts/{id}/session-limits', {
+          ...path,
+          body: { max_sessions: Number(sessions), allowed_bind_types: bindTypes.filter((t) => on.includes(t)) },
+        })
       }
     >
-      <form className="form" id={form} onSubmit={save}>
-        {refusal}
-        <Field
-          label="Sessions simultanées"
-          type="number"
-          required
-          min={0}
-          step={1}
-          value={sessions}
-          onChange={(e) => setSessions(e.target.value)}
-        />
-        <Choices value={types} onChange={setTypes}>
-          {bindTypes.map((t) => (
-            <Choice value={t} key={t} disabled={types.length === 1 && types.includes(t)}>
-              {t}
-            </Choice>
-          ))}
-        </Choices>
-        <p>Au moins un type de bind.</p>
-      </form>
-    </Modal>
+      <Field
+        label="Sessions simultanées"
+        type="number"
+        required
+        min={0}
+        max={2147483647}
+        step={1}
+        value={sessions}
+        onChange={(e) => setSessions(e.target.value)}
+      />
+    </Settings>
   )
 }

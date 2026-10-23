@@ -10,13 +10,8 @@ type Status = Account['status']
 
 export const accountsKey = [...customersKey, 'accounts']
 
-const rank: Record<Status, number> = { active: 0, suspended: 1, closed: 2 }
-const under: Record<Status, string> = { active: '', suspended: ' (client suspendu)', closed: ' (client clos)' }
-
 export const effective = (status: Status, customer: Status) =>
-  customerStatus[status] + (rank[customer] > rank[status] ? under[customer] : '')
-
-export const nameTaken = 'Un compte de ce client porte déjà ce nom.'
+  customerStatus[status] + (status === 'active' && customer === 'suspended' ? ' (client suspendu)' : '')
 
 export function AccountForm({
   customerId,
@@ -37,7 +32,10 @@ export function AccountForm({
     const outcome = account
       ? await submit(() => gw.PATCH('/admin/accounts/{id}', { params: { path: { id: account.id } }, body: { name } }))
       : await submit(() => gw.POST('/admin/accounts', { body: { customer_id: customerId, name } }))
-    const said = { 409: nameTaken, 422: 'Ce client est clos.' }[outcome.response?.status ?? 0]
+    const said = {
+      409: 'Un compte de ce client porte déjà ce nom.',
+      ...(!account && { 422: 'Ce client est clos ou n’existe plus.' }),
+    }[outcome.response?.status ?? 0]
     if (said) {
       fail(said)
       return

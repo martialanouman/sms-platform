@@ -87,6 +87,7 @@ test('the session limits are sent with the bind types in a fixed order', async (
   const calls = stub(api, { [`PATCH ${path}/session-limits`]: () => json(200, api) })
   const { user, dialog } = await editBlock('Sessions')
   const sessions = within(dialog).getByRole('spinbutton', { name: 'Sessions simultanées' })
+  expect(sessions.getAttribute('max')).toBe('2147483647')
   await user.clear(sessions)
   await user.type(sessions, '0')
   await user.click(within(dialog).getByRole('checkbox', { name: 'receiver' }))
@@ -114,13 +115,16 @@ test('the SMPP operations send only what changed, and nothing when nothing did',
 })
 
 test('a rename onto a taken name is refused in French', async () => {
-  stub(api, { [`PATCH ${path}`]: () => json(409, { code: 'conflict', message: 'already taken', errors: [] }) })
+  const calls = stub(api, {
+    [`PATCH ${path}`]: () => json(409, { code: 'conflict', message: 'already taken', errors: [] }),
+  })
   const { user, dialog } = await editBlock('Identité')
   const name = within(dialog).getByRole('textbox', { name: 'Nom' })
   await user.clear(name)
   await user.type(name, 'web')
   await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
   expect(await within(dialog).findByText('Un compte de ce client porte déjà ce nom.')).toBeDefined()
+  expect(await sent(calls, 'PATCH')).toEqual({ name: 'web' })
 })
 
 test('suspending, reactivating under a suspended customer, and closing', async () => {
@@ -176,8 +180,13 @@ test('a closed account is frozen but can still be deleted, which leads back to i
 test('without accounts:write every change is blocked', async () => {
   stub(api, {}, { ...me, permissions: ['accounts:read'] })
   renderAt(`/accounts/${api.id}`)
-  for (const name of ['Suspendre', 'Clôturer', 'Supprimer']) {
+  for (const name of ['Suspendre', 'Réactiver', 'Clôturer', 'Supprimer']) {
     expect(explained(await screen.findByRole('button', { name }))).toBe('Cette action demande accounts:write.')
+  }
+  for (const block of ['Identité', 'Canaux', 'Sessions', 'Opérations SMPP']) {
+    expect(
+      explained(within(screen.getByRole('region', { name: block })).getByRole('button', { name: 'Modifier' })),
+    ).toBe('Cette action demande accounts:write.')
   }
 })
 
@@ -198,4 +207,64 @@ test('reactivating under an active customer says nothing of the customer', async
   await user.click(await screen.findByRole('button', { name: 'Réactiver' }))
   const dialog = await screen.findByRole('alertdialog')
   expect(dialog.textContent).not.toContain('Son client est suspendu')
+})
+
+test('the four flags are each read from their own field', async () => {
+  stub({ ...api, smpp_enabled: false, rest_enabled: true, query_sm_enabled: true, cancel_sm_enabled: false })
+  renderAt(`/accounts/${api.id}`)
+  const value = async (block: string, term: string) =>
+    within(await screen.findByRole('region', { name: block })).getByText(term).nextElementSibling?.textContent
+  expect([
+    await value('Canaux', 'SMPP'),
+    await value('Canaux', 'REST'),
+    await value('Opérations SMPP', 'query_sm'),
+    await value('Opérations SMPP', 'cancel_sm'),
+  ]).toEqual(['Désactivé', 'Activé', 'Activé', 'Désactivé'])
+})
+
+test('disabling SMPP sends REST alone, and the groups of choices are named', async () => {
+  const calls = stub(
+    { ...api, rest_enabled: true, query_sm_enabled: false },
+    { [`PATCH ${path}/channels`]: () => json(200, api) },
+  )
+  const { user, dialog } = await editBlock('Canaux')
+  expect(within(dialog).getByRole('group', { name: 'Canaux' })).toBeDefined()
+  await user.click(within(dialog).getByRole('checkbox', { name: 'SMPP' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  expect(await sent(calls, 'PATCH', '/channels')).toEqual({ smpp_enabled: false, rest_enabled: true })
+})
+
+test('the last SMPP operation can still be turned off', async () => {
+  const calls = stub({ ...api, cancel_sm_enabled: false }, { [`PATCH ${path}/smpp-ops`]: () => json(200, api) })
+  const { user, dialog } = await editBlock('Opérations SMPP')
+  await user.click(within(dialog).getByRole('checkbox', { name: 'query_sm' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  expect(await sent(calls, 'PATCH', '/smpp-ops')).toEqual({ query_sm_enabled: false })
+})
+
+test('reactivating or closing an account closed meanwhile is said in French', async () => {
+  stub(
+    { ...api, status: 'suspended' },
+    { [`PATCH ${path}`]: () => json(422, { code: 'validation_error', message: 'not allowed', errors: [] }) },
+  )
+  const user = userEvent.setup()
+  renderAt(`/accounts/${api.id}`)
+  for (const action of ['Réactiver', 'Clôturer']) {
+    await user.click(await screen.findByRole('button', { name: action }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: action }))
+    expect(await within(dialog).findByText('Ce compte est clos définitivement.')).toBeDefined()
+    await user.click(within(dialog).getByRole('button', { name: 'Annuler' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+  }
+})
+
+test('a rename refused for another reason keeps the gateway message', async () => {
+  stub(api, { [`PATCH ${path}`]: () => json(422, { code: 'validation_error', message: 'Nom refusé.', errors: [] }) })
+  const { user, dialog } = await editBlock('Identité')
+  await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
+  expect(await within(dialog).findByRole('alert')).toBeDefined()
+  expect(within(dialog).queryByText('Ce client est clos ou n’existe plus.')).toBeNull()
 })

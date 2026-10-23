@@ -111,3 +111,13 @@ test('the rail offers Comptes between Clients and Groupes', async () => {
       .map((l) => l.textContent),
   ).toEqual(['Clients', 'Comptes', 'Groupes'])
 })
+
+test('choosing a filter keeps the customer and drops the cursor', async () => {
+  const calls = stub()
+  const user = userEvent.setup()
+  renderAt(`/accounts?customer_id=${acme.id}&cursor=c1`)
+  await screen.findByRole('table', { name: 'Comptes' })
+  await user.click(screen.getByRole('combobox', { name: 'Statut' }))
+  await user.click(await screen.findByRole('option', { name: 'Suspendus' }))
+  await waitFor(() => expect(listed(calls).at(-1)).toBe(`?customer_id=${acme.id}&status=suspended`))
+})

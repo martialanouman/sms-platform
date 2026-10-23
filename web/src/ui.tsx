@@ -185,16 +185,26 @@ export function Select({
 export function Choices({
   value,
   onChange,
+  label,
+  describedBy,
   className,
   children,
 }: {
   value: string[]
   onChange: (next: string[]) => void
+  label?: string
+  describedBy?: string
   className?: string
   children: ReactNode
 }) {
   return (
-    <CheckboxGroup value={value} onValueChange={onChange} className={className}>
+    <CheckboxGroup
+      value={value}
+      onValueChange={onChange}
+      aria-label={label}
+      aria-describedby={describedBy}
+      className={className}
+    >
       {children}
     </CheckboxGroup>
   )

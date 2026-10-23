@@ -435,3 +435,22 @@ test('suspending a customer reloads its accounts, which the cascade changed', as
   await confirm('Suspendre')
   await waitFor(() => expect(calls.filter((r) => r.url.includes('/admin/accounts?')).length).toBe(2))
 })
+
+test('a new account refused because the customer is closed is said in French', async () => {
+  stub(
+    acme,
+    {
+      'GET /api/gw/admin/accounts': () => json(200, { data: [], next_cursor: null }),
+      'POST /api/gw/admin/accounts': () => json(422, { code: 'validation_error', message: 'not allowed', errors: [] }),
+    },
+    accountant,
+  )
+  const user = userEvent.setup()
+  renderAt(`/customers/${acme.id}`)
+  const section = await screen.findByRole('region', { name: 'Comptes' })
+  await user.click(within(section).getByRole('button', { name: 'Nouveau compte' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Nouveau compte' })
+  await user.type(within(dialog).getByRole('textbox', { name: 'Nom' }), 'web')
+  await user.click(within(dialog).getByRole('button', { name: 'Créer le compte' }))
+  expect(await within(dialog).findByText('Ce client est clos ou n’existe plus.')).toBeDefined()
+})
