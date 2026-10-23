@@ -98,3 +98,59 @@ Fable, 2026-10-23, sauf mention. Les décisions humaines du même jour sont marq
 - **Listes Clients, Comptes, Groupes** et **fiche client** : 389, 391, 392.
 - **Aucun changement de contrat ni de Go.**
 - **Tests** : 401 ; mutation consignée ; preuve sur contabo169, captures dans `docs/steps/014c-1/`.
+
+## Écarts au design, constatés à l'implémentation
+
+- **`Card.title` optionnel** : les cartes des listes n'ont pas d'en-tête dans la maquette ; un `h2` « Clients » y
+  doublerait le `h1`. Sans titre, la carte est une `section` sans nom (pas une région).
+- **`needs(permission, sujet?)`** : un sujet optionnel couvre les raisons qui ne commencent pas par « Cette action »
+  (« La création d'un opérateur », « La composition d'un rôle », « La liste des rôles à attribuer », « Le groupe »,
+  « La liste des comptes ») ; la phrase finit par un point après la clé. La raison du jeton personnel devient
+  « Cette action demande Jeton personnel : se délivrer `gateway:personal_token`. Seul le rôle Propriétaire la détient
+  par défaut ; un administrateur peut l'accorder. » ; « Les comptes demandent accounts:read. » de la fiche client passe
+  aussi par `needs`.
+- **`crumbs: ReactNode[]`** : le fil complet, ancêtres en `Link`, dernier segment en texte, marqué
+  `aria-current="page"` par `PageHeader`.
+- **`Pager({ count, noun: [singulier, pluriel] })`** : l'accord le demande (« 1 client affiché », « entrées
+  affichées »). Les journaux d'audit et la modale des modifications l'adoptent aussi.
+- **`useToast()` rend `notify`** directement. La racine du toast est `role="status"` et perd l'`aria-modal` que Base UI
+  pose (axe le refuse sur `status`) : retiré par la prop `render`.
+- **Filtres hors de la sous-barre** : une rangée `.ui-filters` dans le contenu, et l'action principale dans l'en-tête
+  (Clients, Groupes, Opérateurs, Rôles), comme la maquette. `Toolbar` perd sa prop `filters`, et les règles mortes
+  `.ui-filter` et `.ui-toolbar .ui-select` tombent ; l'avertissement CSS préexistant de biome disparaît avec elles.
+- **`.ui-muted`** ajoutée aux classes de 384 pour les valeurs muettes (« Aucun », « (archivé) », dates).
+- **Liste Clients** : un groupe archivé porte la mention muette « (archivé) », comme la maquette.
+- **Âges maximaux** : le plafond affiché est le `max` de `ageFields` (10 min, 24 h, 72 h), déjà celui du formulaire.
+- **Statut effectif** : seul un compte actif d'un client suspendu est « Suspendu, par son client » ; un compte actif
+  d'un client fermé n'existe pas (la clôture cascade).
+- **Écran Audit** : titre et fil « Journal d'audit », alignés sur le rail.
+- **Test du `title`** : `violations()` de `web/src/test.tsx` signale aussi tout `[title]` rendu ; chaque écran qui
+  appelle axe est donc couvert.
+- **Toasts** : pas de toast pour les écritures des groupes (hors de la liste de 397 retenue pour 014c-1) ; le
+  renommage d'un compte en reçoit un, par `AccountForm`.
+- **Fiche compte** : seulement adaptée (fil « Comptes › nom », statut effectif en pilule, « fermé ») ; son lien
+  « ← client » reste jusqu'à 014c-2.
+- **Non fait ici** : la preuve sur contabo169 et ses captures (`docs/steps/014c-1/`), à la main de l'humain avant le
+  merge.
+
+## Mutations
+
+À la main, une ligne à la fois, restauration vérifiée par `cmp` ; suite Vitest ciblée ou complète.
+
+| Unité | Tués | Survivants |
+|---|---|---|
+| `Explained`, `needs`, `Select` (`ui.tsx`) | 7/7 | — |
+| `PageHeader`, fil d'Ariane, rail | 6/6 | — |
+| `Pager` (`list.tsx`) | 5/5 | — |
+| `Toasts`, `useToast` et leurs appels (`ui.tsx`, `customers.tsx`, `accounts.tsx`, fiche client) | 12/12 | — |
+| `Tabs` | 3/3 | — |
+| `StatusPill`, `Card`, `KeyValue`, racine du toast | 7/7 | — |
+| Liste Clients | 9/9 | 2 au premier passage (un filtre seul compte comme filtre) : test ajouté sur chaque filtre |
+| Liste Comptes | 9/9 | — |
+| `effective`, `channels`, `EffectiveStatus` (`accounts.tsx`) | 6/7 | 1 équivalent |
+| Liste Groupes | 6/6 | — |
+| Fiche client | 16/16 | 2 au premier passage (mono de la date de création, carte Comptes `flush` à vide) : assertions ajoutées |
+
+**Équivalents nommés** : `customer === 'suspended'` → `customer !== 'active'` dans `effective` (un compte actif sous un
+client fermé n'existe pas, la clôture cascade) ; une mutation de motif ambigu a touché la `key` React d'un
+`Select.Item`, changement de clé seul, sans effet observable.
