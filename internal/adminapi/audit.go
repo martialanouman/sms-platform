@@ -57,6 +57,7 @@ type Tx interface {
 	Groups
 	Customers
 	Accounts
+	Credentials
 }
 
 // Store opens the transactions of the control plane.

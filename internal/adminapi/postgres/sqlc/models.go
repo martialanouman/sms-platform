@@ -46,6 +46,21 @@ type ControlPlaneAuditLog struct {
 	At          time.Time
 }
 
+type ControlPlaneCredential struct {
+	ID                 string
+	AccountID          string
+	Type               string
+	SystemID           *string
+	Status             string
+	SecretHash         *string
+	PreviousSecretHash *string
+	GraceExpiresAt     *time.Time
+	LastUsedAt         *time.Time
+	RotatedAt          *time.Time
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
 type ControlPlaneCustomer struct {
 	ID                  string
 	Name                string

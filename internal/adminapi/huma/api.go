@@ -40,6 +40,7 @@ func New(c Config) (http.Handler, huma.API) {
 	registerCustomerGroups(api)
 	registerCustomers(api)
 	registerAccounts(api)
+	registerCredentials(api)
 	return audit{mux: mux, uncommitted: c.Uncommitted}, api
 }
 
