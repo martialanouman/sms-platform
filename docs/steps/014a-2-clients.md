@@ -70,3 +70,40 @@ Fable, 2026-10-23, sauf mention.
   suspension et de la clôture (comptes insérés par le test, clos épargnés), réactivation sans cascade, clos définitif en 409
   et 422, groupe inconnu 422, suppression 409 puis 204, aperçu (`[]` pour les binds), diff et acteur de la cascade ;
   Vitest des deux écrans avec `axe`. Mutation manuelle, consignée.
+
+## Écarts au design, constatés à l'implémentation
+
+- **Marque #173 dans l'adaptateur huma** (`internal/adminapi/huma/customers.go`), sur la ligne qui pose
+  `binds_to_disconnect` ; le cœur rend deux listes de comptes sans type `Session`, qu'aucune opération ne peuple avant
+  025a.
+- **`list-group-customers` passe par `list-customers` filtrée** (`CustomersPage`) : la requête `GroupCustomers` de 014a-1
+  disparaît.
+- **Cascade restreinte aux comptes qui changent** (`status NOT IN ('closed', @status)`) : suspendre un client ne réécrit
+  pas un compte déjà suspendu, l'audit n'a pas de diff vide.
+- **`Confirmation.refusals`** : une table statut → message français, pour les refus de 314.
+- **`Select.blockedReason`** (correctif de revue) : sans `customer-groups:read`, le filtre et le sélecteur de groupe sont
+  désactivés et expliqués (spec 08 §8.8), l'annuaire n'est pas lu, la colonne montre l'identifiant brut.
+- **TanStack Router garde les clés d'adresse non validées** : retirer `group_id` de `validateSearch` ne change pas la
+  requête ; la ligne garde le typage et la normalisation de `''`.
+
+## Mutations
+
+À la main, par le script de copie, mutation et restauration (`cmp`). Cœur 6/6 ; adaptateur 7/7 ; SQL généré 10/10 (un
+onzième, identique à l'original, était une erreur de liste) ; couche huma 6/6, puis 1/1 (âges nuls à la création) ;
+module partagé de la SPA 12/12 ; fiche 11/11 ; liste 4/5, le survivant équivalent ci-dessus ; `Confirmation.refusals`
+1/1. Après la revue : les huit survivants de la revue des tests tués par des tests ajoutés, `Select.blockedReason` 2/2.
+
+## Correctifs de revue, tour 1
+
+Trois revues (correction et sécurité ; tests creux ; code en trop). Aucun bloquant.
+
+1. **`max_age_override: null` accepté à la création** (basse) : refusé, 422, comme au PATCH (`value[maxAge]`).
+2. **Groupe vidé en silence sans `customer-groups:read`** (basse, rôle personnalisé seulement) : bloqué et expliqué.
+3. **Tests ajoutés** : lien de la colonne « Clients » de Groupes, curseur de la page suivante, 422 de la réactivation et de
+   la clôture, 422 du formulaire en modification, groupe archivé offert à son client, aperçu sans compte, réactivation
+   bloquée sans `customers:write`.
+4. **Code en trop retiré** : les trois entrées `customers_max_age_*_check` de la traduction (huma borne avant Postgres),
+   une classe CSS sans règle, la clé et le type de groupe dupliqués, un `return` inutile, une conversion écrite à la main,
+   une boucle de conversion dupliquée, un commentaire qui répétait 311.
+5. **Gardé** : le squelette « lisible ? barre et liste : refus » des trois écrans reste écrit trois fois ; un composant
+   commun prendrait plus de paramètres qu'il n'économise de lignes.
