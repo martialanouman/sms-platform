@@ -1,6 +1,6 @@
-import { createFileRoute, Link, Outlet } from '@tanstack/react-router'
+import { createFileRoute, Outlet } from '@tanstack/react-router'
 import { useShellMe } from '../session'
-import { Forbidden, PageHeader } from '../ui'
+import { Forbidden, PageHeader, Tabs } from '../ui'
 
 export const Route = createFileRoute('/_shell/audit')({ component: Audit })
 
@@ -13,14 +13,13 @@ function Audit() {
       <section className="page">
         {readable ? (
           <>
-            <nav className="audit-tabs" aria-label="Journaux d’audit">
-              <Link className="audit-tabs__tab" to="/audit/control-plane">
-                Administration de la passerelle
-              </Link>
-              <Link className="audit-tabs__tab" to="/audit/access">
-                Accès au dashboard
-              </Link>
-            </nav>
+            <Tabs
+              label="Journaux d’audit"
+              tabs={[
+                { to: '/audit/control-plane', label: 'Administration de la passerelle' },
+                { to: '/audit/access', label: 'Accès au dashboard' },
+              ]}
+            />
             <Outlet />
           </>
         ) : (

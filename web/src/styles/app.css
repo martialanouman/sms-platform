@@ -931,14 +931,14 @@
   font: var(--text-caption);
 }
 
-.audit-tabs {
+.ui-tabs {
   display: flex;
   gap: var(--sp-5);
   border-bottom: 1px solid var(--border-subtle);
   margin-bottom: var(--sp-5);
 }
 
-.audit-tabs__tab {
+.ui-tabs__tab {
   padding: var(--sp-3) 0;
   border-bottom: 2px solid transparent;
   color: var(--text-muted);
@@ -946,14 +946,19 @@
   text-decoration: none;
 }
 
-.audit-tabs__tab:hover {
+.ui-tabs__tab:hover {
   color: var(--text-primary);
   text-decoration: none;
 }
 
-.audit-tabs__tab[aria-current="page"] {
+.ui-tabs__tab[aria-current="page"] {
   border-bottom-color: var(--action-primary-border);
   color: var(--text-primary);
+}
+
+.ui-tabs__tab[aria-disabled="true"] {
+  color: var(--text-faint);
+  cursor: not-allowed;
 }
 
 .audit-filters {

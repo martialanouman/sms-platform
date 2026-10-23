@@ -1,9 +1,17 @@
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  Outlet,
+  RouterProvider,
+} from '@tanstack/react-router'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useRef } from 'react'
 import { expect, test, vi } from 'vitest'
 import { explained } from './test'
-import { Button, needs, Select, Toasts, useToast } from './ui'
+import { Button, needs, Select, Tabs, Toasts, useToast } from './ui'
 
 const bubble = () => document.querySelector('.ui-tooltip')?.textContent
 
@@ -74,4 +82,36 @@ test('a toast is a status, at most three stand, and each leaves after five secon
   expect(standing()).toHaveLength(3)
   await act(async () => vi.advanceTimersByTime(200))
   expect(region.querySelectorAll('[role="status"]')).toHaveLength(0)
+})
+
+test('tabs are links marking the current one, and a frozen tab stays shown, explained and inert', async () => {
+  const root = createRootRoute({
+    component: () => (
+      <>
+        <Tabs
+          label="Journaux"
+          tabs={[
+            { to: '/audit/control-plane', label: 'Administration' },
+            { to: '/audit/access', label: 'Accès', blockedReason: needs('audit:read') },
+          ]}
+        />
+        <Outlet />
+      </>
+    ),
+  })
+  const page = (path: string) => createRoute({ getParentRoute: () => root, path, component: () => null })
+  const router = createRouter({
+    routeTree: root.addChildren([page('audit/control-plane'), page('audit/access')]),
+    history: createMemoryHistory({ initialEntries: ['/audit/control-plane'] }),
+  })
+  render(<RouterProvider router={router} />)
+  const nav = await screen.findByRole('navigation', { name: 'Journaux' })
+  const current = await screen.findByRole('link', { name: 'Administration' })
+  await waitFor(() => expect(current.getAttribute('aria-current')).toBe('page'))
+  expect(nav.className).toBe('ui-tabs')
+  const frozen = screen.getByRole('link', { name: 'Accès' })
+  expect(frozen.getAttribute('aria-disabled')).toBe('true')
+  expect(explained(frozen)).toBe('Cette action demande Journal d’audit : lire audit:read.')
+  await userEvent.setup().click(frozen)
+  expect(router.state.location.pathname).toBe('/audit/control-plane')
 })

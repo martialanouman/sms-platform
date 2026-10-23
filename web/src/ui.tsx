@@ -9,6 +9,7 @@ import { Select as BaseSelect } from '@base-ui/react/select'
 import { Toast } from '@base-ui/react/toast'
 import { Tooltip } from '@base-ui/react/tooltip'
 import { type QueryKey, useQueryClient } from '@tanstack/react-query'
+import { Link, type LinkProps } from '@tanstack/react-router'
 import {
   Children,
   type ComponentProps,
@@ -381,6 +382,34 @@ function ToastStack() {
 export function useToast() {
   const { add } = Toast.useToastManager()
   return (text: string) => void add({ description: text })
+}
+
+export function Tabs({
+  tabs,
+  label,
+}: {
+  tabs: { to: LinkProps['to']; label: string; blockedReason?: ReactNode }[]
+  label: string
+}) {
+  return (
+    <nav className="ui-tabs" aria-label={label}>
+      {tabs.map((tab) => (
+        <Explained
+          key={tab.label}
+          reason={tab.blockedReason}
+          render={
+            <Link
+              className="ui-tabs__tab"
+              to={tab.to}
+              onClick={tab.blockedReason === undefined ? undefined : (event) => event.preventDefault()}
+            >
+              {tab.label}
+            </Link>
+          }
+        />
+      ))}
+    </nav>
+  )
 }
 
 export function EmptyState({
