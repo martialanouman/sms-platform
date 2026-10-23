@@ -118,7 +118,13 @@ function Customers() {
                     { header: 'Créé le', cell: (c) => at(c.created_at) },
                   ]}
                 />
-                <Pager search={search} next={list.data.next_cursor} go={(next) => void navigate({ search: next })} />
+                <Pager
+                  search={search}
+                  next={list.data.next_cursor}
+                  go={(next) => void navigate({ search: next })}
+                  count={list.data.data.length}
+                  noun={['client affiché', 'clients affichés']}
+                />
               </>
             )}
             {creating && <CustomerForm onClose={() => setCreating(false)} />}

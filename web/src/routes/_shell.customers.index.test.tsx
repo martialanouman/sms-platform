@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
-import { json, me, once, renderAt, stubFetch, violations } from '../test'
+import { explained, json, me, once, renderAt, stubFetch, violations } from '../test'
 
 const reader = { ...me, permissions: ['customers:read', 'customer-groups:read'] }
 const writer = { ...reader, permissions: [...reader.permissions, 'customers:write'] }
@@ -246,4 +246,29 @@ test('without customer-groups:read the group filter is blocked and explained', a
   expect(document.getElementById(group.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
     'Le groupe demande Groupes de clients : lire customer-groups:read.',
   )
+})
+
+test('the pager tells how many are shown, its useless buttons frozen and explained', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, reader),
+    'GET /api/gw/admin/customers': () => page([acme, solo]),
+    'GET /api/gw/admin/customer-groups': directory,
+  })
+  renderAt('/customers')
+  expect(await screen.findByText('2 clients affichés')).toBeDefined()
+  const previous = screen.getByRole('button', { name: 'Précédent' })
+  const next = screen.getByRole('button', { name: 'Suivant' })
+  expect([previous, next].map((b) => b.getAttribute('aria-disabled'))).toEqual(['true', 'true'])
+  expect([explained(previous), explained(next)]).toEqual(['Première page.', 'Dernière page.'])
+})
+
+test('a single customer shown is said in the singular, with a way forward', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, reader),
+    'GET /api/gw/admin/customers': () => page([acme], 'c1'),
+    'GET /api/gw/admin/customer-groups': directory,
+  })
+  renderAt('/customers')
+  expect(await screen.findByText('1 client affiché')).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Suivant' }).hasAttribute('aria-disabled')).toBe(false)
 })

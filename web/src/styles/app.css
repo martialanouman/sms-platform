@@ -1100,3 +1100,19 @@
   color: var(--text-muted);
   font-size: var(--fs-13);
 }
+
+.ui-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  padding: var(--sp-5) var(--pad-card);
+  color: var(--text-muted);
+  font: var(--text-caption);
+}
+
+.ui-pager__nav {
+  display: flex;
+  gap: var(--sp-4);
+}

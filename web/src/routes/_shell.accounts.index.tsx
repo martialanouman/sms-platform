@@ -128,7 +128,13 @@ function Accounts() {
                     { header: 'Créé le', cell: (a) => at(a.created_at) },
                   ]}
                 />
-                <Pager search={search} next={list.data.next_cursor} go={(next) => void navigate({ search: next })} />
+                <Pager
+                  search={search}
+                  next={list.data.next_cursor}
+                  go={(next) => void navigate({ search: next })}
+                  count={list.data.data.length}
+                  noun={['compte affiché', 'comptes affichés']}
+                />
               </>
             )}
           </section>

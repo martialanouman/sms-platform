@@ -143,7 +143,13 @@ function Groups() {
                     },
                   ]}
                 />
-                <Pager search={search} next={list.data.next_cursor} go={(next) => void navigate({ search: next })} />
+                <Pager
+                  search={search}
+                  next={list.data.next_cursor}
+                  go={(next) => void navigate({ search: next })}
+                  count={list.data.data.length}
+                  noun={['groupe affiché', 'groupes affichés']}
+                />
               </>
             )}
             {pending?.kind === 'create' && <GroupForm onClose={close} />}
