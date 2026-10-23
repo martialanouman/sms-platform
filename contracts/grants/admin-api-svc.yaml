@@ -5,3 +5,4 @@ control_plane:
   customers: [select, insert, update, delete]
   accounts: [select, insert, update, delete]
   credentials: [select, insert, update, delete]
+  webhooks: [select, insert, update, delete]

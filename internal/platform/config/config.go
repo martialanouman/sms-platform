@@ -46,6 +46,7 @@ type Infra struct {
 	TotpKeyFile            string
 	JWKSURL                string
 	AdminAPIURL            string
+	ContentKeyAddr         string
 }
 
 var defaults = map[string]string{
@@ -77,6 +78,7 @@ var defaults = map[string]string{
 	"TOTP_KEY_FILE":             "",
 	"JWKS_URL":                  "",
 	"ADMIN_API_URL":             "",
+	"CONTENT_KEY_ADDR":          "",
 }
 
 // Default is the value Load reads for name when the environment leaves it unset.
@@ -140,6 +142,7 @@ func Load() (Infra, error) {
 		TotpKeyFile:            value("TOTP_KEY_FILE"),
 		JWKSURL:                value("JWKS_URL"),
 		AdminAPIURL:            value("ADMIN_API_URL"),
+		ContentKeyAddr:         value("CONTENT_KEY_ADDR"),
 	}
 	for _, p := range list("TRUSTED_PROXIES") {
 		prefix, err := netip.ParsePrefix(p)

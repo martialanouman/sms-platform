@@ -71,6 +71,7 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 		"TOTP_KEY_FILE":             "/secrets/totp-key",
 		"JWKS_URL":                  "https://dashboard:8443/.well-known/jwks.json",
 		"ADMIN_API_URL":             "https://admin-api-svc:8443",
+		"CONTENT_KEY_ADDR":          "content-key-svc:7002",
 	})
 	got, err := config.Load()
 	if err != nil {
@@ -102,6 +103,7 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 		TotpKeyFile:            "/secrets/totp-key",
 		JWKSURL:                "https://dashboard:8443/.well-known/jwks.json",
 		AdminAPIURL:            "https://admin-api-svc:8443",
+		ContentKeyAddr:         "content-key-svc:7002",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Load() = %+v, want %+v", got, want)
@@ -110,7 +112,7 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 
 func TestVariablesIsTheClosedListLoadReads(t *testing.T) {
 	want := []string{
-		"ADMIN_API_URL", "COOKIE_KEY_FILE", "DASHBOARD_BOOTSTRAP_EMAIL", "DASHBOARD_PUBLIC_URL", "DRAIN_BUDGET", "DRAIN_DELAY", "GRPC_ADDR",
+		"ADMIN_API_URL", "CONTENT_KEY_ADDR", "COOKIE_KEY_FILE", "DASHBOARD_BOOTSTRAP_EMAIL", "DASHBOARD_PUBLIC_URL", "DRAIN_BUDGET", "DRAIN_DELAY", "GRPC_ADDR",
 		"HTTP_ADDR", "INTERNAL_ADDR", "JWKS_URL", "KAFKA_BROKERS", "LOG_LEVEL", "OPENBAO_ADDR", "OPS_ADDR", "POSTGRES_ROLE_SECRETS_DIR", "POSTGRES_URL",
 		"SHUTDOWN_TIMEOUT", "SMTP_ADDR", "SMTP_FROM", "SMTP_PASSWORD_FILE", "SMTP_USERNAME", "TLS_ALLOWED_CLIENTS",
 		"TLS_CA_FILE", "TLS_CERT_FILE", "TLS_KEY_FILE", "TOTP_KEY_FILE", "TRACE_SAMPLE_RATIO", "TRUSTED_PROXIES",

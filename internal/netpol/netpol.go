@@ -27,6 +27,7 @@ var (
 	podName = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$`)
 	jwks    = regexp.MustCompile(`^https://([a-z0-9](?:[a-z0-9-]*[a-z0-9])?):([0-9]+)/`)
 	gateway = regexp.MustCompile(`^https://([a-z0-9](?:[a-z0-9-]*[a-z0-9])?):([0-9]+)$`)
+	service = regexp.MustCompile(`^([a-z0-9](?:[a-z0-9-]*[a-z0-9])?):([0-9]+)$`)
 )
 
 type labels struct {
@@ -110,7 +111,7 @@ func tcpPort(s string) int {
 
 // Render reads every manifest of fsys but File and renders the namespace's default deny, the DNS egress of every pod,
 // the egress of each workload to the stores its variables name (Postgres for POSTGRES_URL, each Strimzi cluster of
-// KAFKA_BROKERS, the OpenBao of OPENBAO_ADDR, the relay of SMTP_ADDR, the pods of JWKS_URL and ADMIN_API_URL), and the ingress of each caller of TLS_ALLOWED_CLIENTS on the ports of
+// KAFKA_BROKERS, the OpenBao of OPENBAO_ADDR, the relay of SMTP_ADDR, the pods of JWKS_URL, ADMIN_API_URL and CONTENT_KEY_ADDR), and the ingress of each caller of TLS_ALLOWED_CLIENTS on the ports of
 // GRPC_ADDR and INTERNAL_ADDR, and the ingress of Prometheus on the port each workload names ops.
 func Render(fsys fs.FS) ([]byte, error) {
 	dns := newPolicy("dns", nil, "Egress")
@@ -218,6 +219,12 @@ func flows(fsys fs.FS, file string) (policy, error) {
 					m := gateway.FindStringSubmatch(e.Value)
 					if m == nil || tcpPort(m[2]) == 0 {
 						return p, fmt.Errorf("%s: ADMIN_API_URL %q is not https://<pod>:<port>", name, e.Value)
+					}
+					add(to("sms", map[string]string{"app.kubernetes.io/name": m[1]}, port{"TCP", tcpPort(m[2])}))
+				case "CONTENT_KEY_ADDR":
+					m := service.FindStringSubmatch(e.Value)
+					if m == nil || tcpPort(m[2]) == 0 {
+						return p, fmt.Errorf("%s: CONTENT_KEY_ADDR %q is not <pod>:<port>", name, e.Value)
 					}
 					add(to("sms", map[string]string{"app.kubernetes.io/name": m[1]}, port{"TCP", tcpPort(m[2])}))
 				case "SMTP_ADDR":

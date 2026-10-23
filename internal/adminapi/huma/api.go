@@ -25,6 +25,7 @@ type Config struct {
 	Store       adminapi.Store
 	Verifier    adminapi.Verifier
 	Uncommitted prometheus.Counter
+	Sealer      adminapi.Sealer
 }
 
 // New is the handler of the Admin API, and its huma API, whose OpenAPI document the contract guard reads.
@@ -41,6 +42,7 @@ func New(c Config) (http.Handler, huma.API) {
 	registerCustomers(api)
 	registerAccounts(api)
 	registerCredentials(api)
+	registerWebhooks(api, c.Sealer)
 	return audit{mux: mux, uncommitted: c.Uncommitted}, api
 }
 

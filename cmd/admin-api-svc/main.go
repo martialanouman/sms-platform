@@ -19,8 +19,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
+	"google.golang.org/grpc/grpclog"
 
 	"github.com/martialanouman/sms-platform/internal/adminapi"
+	"github.com/martialanouman/sms-platform/internal/adminapi/contentkey"
 	adminapihuma "github.com/martialanouman/sms-platform/internal/adminapi/huma"
 	"github.com/martialanouman/sms-platform/internal/adminapi/jwks"
 	"github.com/martialanouman/sms-platform/internal/adminapi/postgres"
@@ -58,6 +60,9 @@ func validate(infra config.Infra) error {
 		return fmt.Errorf("JWKS_URL %q is not https://", infra.JWKSURL)
 	case infra.PostgresURL == "":
 		return errors.New("POSTGRES_URL is empty")
+	}
+	if _, _, err := net.SplitHostPort(infra.ContentKeyAddr); err != nil {
+		return fmt.Errorf("CONTENT_KEY_ADDR %q is not <service>:<port>", infra.ContentKeyAddr)
 	}
 	return nil
 }
@@ -99,8 +104,14 @@ func run(ctx context.Context, infra config.Infra, log *slog.Logger, registry pro
 	}
 	keys := &jwks.Keys{URL: infra.JWKSURL, Client: &http.Client{Transport: &http.Transport{TLSClientConfig: clientTLS}},
 		Now: time.Now, Log: log, Failures: reloadFailures}
+	grpclog.SetLoggerV2(observability.GRPCLogger(log))
+	sealer, err := contentkey.New(infra.ContentKeyAddr, clientTLS, log)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = sealer.Close() }()
 	handler, _ := adminapihuma.New(adminapihuma.Config{Store: postgres.New(pool),
-		Verifier: adminapi.Verifier{Keys: keys, Issuer: issuer, Now: time.Now}, Uncommitted: uncommitted})
+		Verifier: adminapi.Verifier{Keys: keys, Issuer: issuer, Now: time.Now}, Uncommitted: uncommitted, Sealer: sealer})
 	opsServer, err := ops.New(infra.OpsAddr, infra.ShutdownTimeout, gatherer)
 	if err != nil {
 		return err

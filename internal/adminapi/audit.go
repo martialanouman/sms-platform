@@ -58,6 +58,7 @@ type Tx interface {
 	Customers
 	Accounts
 	Credentials
+	Webhooks
 }
 
 // Store opens the transactions of the control plane.

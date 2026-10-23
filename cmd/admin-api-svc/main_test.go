@@ -52,6 +52,7 @@ func valid(t *testing.T, ca mtlstest.Authority) config.Infra {
 		JWKSURL:           "https://dashboard:1/.well-known/jwks.json",
 		PublicURL:         adminapitest.Issuer + "/",
 		PostgresURL:       "postgres://admin_api_svc@127.0.0.1:1/control_plane",
+		ContentKeyAddr:    "content-key-svc:7002",
 	}
 }
 
@@ -71,6 +72,8 @@ func TestRunRefusesEachFaultBeforeListening(t *testing.T) {
 		"no Postgres":             {func(i *config.Infra) { i.PostgresURL = "" }, "POSTGRES_URL"},
 		"unreadable Postgres URL": {func(i *config.Infra) { i.PostgresURL = "postgres://[" }, "POSTGRES_URL"},
 		"no certificate":          {func(i *config.Infra) { i.TLS.Cert = "" }, "mtls"},
+		"no content key":          {func(i *config.Infra) { i.ContentKeyAddr = "" }, "CONTENT_KEY_ADDR"},
+		"content key unparsed":    {func(i *config.Infra) { i.ContentKeyAddr = "content-key-svc" }, "CONTENT_KEY_ADDR"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			infra := valid(t, mtlstest.New(t))

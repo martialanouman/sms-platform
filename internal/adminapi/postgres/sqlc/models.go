@@ -82,3 +82,15 @@ type ControlPlaneCustomerGroup struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
+
+type ControlPlaneWebhook struct {
+	ID              string
+	AccountID       string
+	EventType       string
+	Url             string
+	Status          string
+	SecretSealed    []byte
+	SecretKmsKeyRef string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}

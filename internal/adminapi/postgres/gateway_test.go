@@ -25,6 +25,7 @@ import (
 )
 
 type gateway struct {
+	sealer      *sealer
 	h           http.Handler
 	k           adminapitest.Keys
 	uncommitted prometheus.Counter
@@ -62,7 +63,9 @@ func newGateway(t *testing.T) gateway {
 	t.Cleanup(pool.Close)
 	k := adminapitest.NewKeys(t, "v1")
 	uncommitted := prometheus.NewCounter(prometheus.CounterOpts{Name: "uncommitted"})
-	h, api := adminhuma.New(adminhuma.Config{Store: postgres.New(pool), Verifier: k.Verifier(), Uncommitted: uncommitted})
+	seal := &sealer{}
+	h, api := adminhuma.New(adminhuma.Config{Store: postgres.New(pool), Verifier: k.Verifier(), Uncommitted: uncommitted,
+		Sealer: seal})
 	huma.Register(api, huma.Operation{OperationID: "create-probe", Method: http.MethodPost, Path: "/admin/probes/{id}",
 		Security: []map[string][]string{{"OperatorBearer": {"routes:write"}}}},
 		func(ctx context.Context, in *struct {
@@ -85,7 +88,7 @@ func newGateway(t *testing.T) gateway {
 		}) (*struct{}, error) {
 			return nil, nil
 		})
-	return gateway{h: h, k: k, migrator: migrator, uncommitted: uncommitted, pg: pg}
+	return gateway{sealer: seal, h: h, k: k, migrator: migrator, uncommitted: uncommitted, pg: pg}
 }
 
 func (g gateway) call(t *testing.T, method, path, scope string) *httptest.ResponseRecorder {
