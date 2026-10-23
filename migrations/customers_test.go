@@ -34,6 +34,8 @@ func TestCustomerTablesHoldTheirRules(t *testing.T) {
 		{"otp age", `INSERT INTO control_plane.customers (name, max_age_otp) VALUES ('x', 601)`, "23514", "customers_max_age_otp_check"},
 		{"otp age floor", `INSERT INTO control_plane.customers (name, max_age_otp) VALUES ('x', 0)`, "23514", "customers_max_age_otp_check"},
 		{"transactional age", `INSERT INTO control_plane.customers (name, max_age_transactional) VALUES ('x', 86401)`, "23514", "customers_max_age_transactional_check"},
+		{"transactional age floor", `INSERT INTO control_plane.customers (name, max_age_transactional) VALUES ('x', 0)`, "23514", "customers_max_age_transactional_check"},
+		{"marketing age floor", `INSERT INTO control_plane.customers (name, max_age_marketing) VALUES ('x', 0)`, "23514", "customers_max_age_marketing_check"},
 		{"marketing age", `INSERT INTO control_plane.customers (name, max_age_marketing) VALUES ('x', 259201)`, "23514", "customers_max_age_marketing_check"},
 		{"closed customer reopened", `UPDATE control_plane.customers SET status = 'active' WHERE name = 'closed'`, "23514", "closed_is_final"},
 		{"customer with accounts", `DELETE FROM control_plane.customers WHERE id = ` + customer, "23001", "accounts_customer_id_fkey"},

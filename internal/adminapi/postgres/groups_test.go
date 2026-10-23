@@ -25,9 +25,11 @@ type group struct {
 }
 
 type problem struct {
-	Code   string `json:"code"`
-	Errors []struct {
-		Field string `json:"field"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	Errors  []struct {
+		Field   string `json:"field"`
+		Message string `json:"message"`
 	} `json:"errors"`
 }
 
@@ -107,7 +109,8 @@ func TestAGroupNameIsTakenOnce(t *testing.T) {
 		g.send(t, http.MethodPatch, "/admin/customer-groups/"+other.ID, "customer-groups:write", `{"name": "Banques"}`),
 	} {
 		p := as[problem](t, rec, http.StatusConflict)
-		if p.Code != "conflict" || len(p.Errors) != 1 || p.Errors[0].Field != "body.name" {
+		if p.Code != "conflict" || p.Message != "already taken" || len(p.Errors) != 1 || p.Errors[0].Field != "body.name" ||
+			p.Errors[0].Message != "already taken" {
 			t.Fatalf("problem = %+v", p)
 		}
 	}
@@ -129,6 +132,17 @@ func TestAPatchKeepsAnAbsentFieldAndClearsANullOne(t *testing.T) {
 	cleared := as[group](t, g.send(t, http.MethodPatch, path, "customer-groups:write", `{"description": null}`), http.StatusOK)
 	if cleared.Description != nil || cleared.Status != "archived" || cleared.Name != "Banques" {
 		t.Fatalf("cleared = %+v", cleared)
+	}
+	if n := g.count(t, `SELECT count(*) FROM control_plane.audit_changes c JOIN control_plane.audit_log l USING (request_id)
+		WHERE c.table_name = 'customer_groups' AND c.op = 'update' AND c.actor = '`+operator+`'
+		AND l.operation_id = 'update-customer-group' AND l.status = 200`); n != 2 {
+		t.Fatalf("%d updates captured under the operator and their line", n)
+	}
+	for name, body := range map[string]string{"name": `{"name": null}`, "status": `{"status": null}`,
+		"empty name": `{"name": ""}`, "unknown status": `{"status": "gone"}`} {
+		if rec := g.send(t, http.MethodPatch, path, "customer-groups:write", body); rec.Code != http.StatusUnprocessableEntity {
+			t.Errorf("null %s: %d %s", name, rec.Code, rec.Body)
+		}
 	}
 	renamed := as[group](t, g.send(t, http.MethodPatch, path, "customer-groups:write", `{"name": "Assurances", "description": "e"}`), http.StatusOK)
 	if renamed.Name != "Assurances" || renamed.Description == nil || *renamed.Description != "e" || renamed.Status != "archived" {
@@ -203,6 +217,11 @@ func TestDeletingAGroupDetachesItsCustomers(t *testing.T) {
 	}
 	if rec := g.send(t, http.MethodDelete, path, "customer-groups:write", ""); rec.Code != http.StatusNotFound {
 		t.Fatalf("delete again: %d", rec.Code)
+	}
+	if n := g.count(t, `SELECT count(*) FROM control_plane.audit_changes c JOIN control_plane.audit_log l USING (request_id)
+		WHERE c.table_name = 'customer_groups' AND c.op = 'delete' AND c.actor = '`+operator+`'
+		AND l.operation_id = 'delete-customer-group'`); n != 1 {
+		t.Fatalf("%d deletions captured under the operator and their line", n)
 	}
 	if lines := g.lines(t); len(lines) != 3 || lines[1].OperationID != "delete-customer-group" || lines[1].Status != 204 || lines[2].Status != 404 {
 		t.Fatalf("lines = %+v", lines)
@@ -305,5 +324,46 @@ func TestABodyBeyondTheLimitIsTooLarge(t *testing.T) {
 		`{"name": "x", "description": "`+strings.Repeat("a", 2<<20)+`"}`), http.StatusRequestEntityTooLarge)
 	if p.Code != "payload_too_large" {
 		t.Fatalf("problem = %+v", p)
+	}
+}
+
+func TestRowsWrittenTogetherAreEachPagedOnce(t *testing.T) {
+	g := newGateway(t)
+	g.exec(t, `SET app.actor = 'test'`,
+		`INSERT INTO control_plane.customer_groups (name) VALUES ('a'), ('b'), ('c')`,
+		`INSERT INTO control_plane.customers (name, group_id) SELECT n, (SELECT id FROM control_plane.customer_groups WHERE name = 'a')
+			FROM unnest(ARRAY['x', 'y', 'z']) AS n`)
+	type row struct {
+		ID string `json:"id"`
+	}
+	type rows struct {
+		Data       []row   `json:"data"`
+		NextCursor *string `json:"next_cursor"`
+	}
+	walk := func(path, scope string) map[string]bool {
+		seen := map[string]bool{}
+		cursor := ""
+		for range 4 {
+			p := as[rows](t, g.send(t, http.MethodGet, path+"?limit=1&cursor="+cursor, scope, ""), http.StatusOK)
+			for _, r := range p.Data {
+				seen[r.ID] = true
+			}
+			if p.NextCursor == nil {
+				return seen
+			}
+			cursor = *p.NextCursor
+		}
+		t.Fatalf("%s does not end", path)
+		return nil
+	}
+	if seen := walk("/admin/customer-groups", "customer-groups:read"); len(seen) != 3 {
+		t.Fatalf("groups seen %d times", len(seen))
+	}
+	var a string
+	if err := g.migrator.QueryRow(context.Background(), `SELECT id FROM control_plane.customer_groups WHERE name = 'a'`).Scan(&a); err != nil {
+		t.Fatal(err)
+	}
+	if seen := walk("/admin/customer-groups/"+a+"/customers", "customer-groups:read"); len(seen) != 3 {
+		t.Fatalf("customers seen %d", len(seen))
 	}
 }

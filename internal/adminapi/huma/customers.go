@@ -3,6 +3,7 @@ package huma
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"reflect"
 	"time"
@@ -24,6 +25,22 @@ func (n *nullable[T]) UnmarshalJSON(b []byte) error {
 }
 
 func (nullable[T]) Schema(r huma.Registry) *huma.Schema {
+	return r.Schema(reflect.TypeFor[T](), true, "")
+}
+
+type value[T any] struct{ Value *T }
+
+var errNull = errors.New("must not be null")
+
+func (v *value[T]) UnmarshalJSON(b []byte) error {
+	if string(b) == "null" {
+		return errNull
+	}
+	v.Value = new(T)
+	return json.Unmarshal(b, v.Value)
+}
+
+func (value[T]) Schema(r huma.Registry) *huma.Schema {
 	return r.Schema(reflect.TypeFor[T](), true, "")
 }
 
@@ -82,9 +99,9 @@ type createGroupInput struct {
 type updateGroupInput struct {
 	ID   string `path:"id" format:"uuid"`
 	Body struct {
-		Name        *string          `json:"name,omitempty" minLength:"1" maxLength:"200"`
+		Name        value[string]    `json:"name,omitempty" minLength:"1" maxLength:"200"`
 		Description nullable[string] `json:"description,omitempty" maxLength:"1000"`
-		Status      *string          `json:"status,omitempty" enum:"active,archived"`
+		Status      value[string]    `json:"status,omitempty" enum:"active,archived"`
 	}
 }
 
@@ -133,8 +150,8 @@ func registerCustomerGroups(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "update-customer-group", Method: http.MethodPatch, Path: "/admin/customer-groups/{id}",
 		Tags: tags, Security: security("customer-groups:write"), Errors: []int{401, 403, 404, 409, 422}},
 		func(ctx context.Context, in *updateGroupInput) (*groupOutput, error) {
-			g, err := adminapi.TxFrom(ctx).UpdateGroup(ctx, in.ID, adminapi.GroupPatch{Name: in.Body.Name,
-				Description: adminapi.Nullable[string](in.Body.Description), Status: in.Body.Status})
+			g, err := adminapi.TxFrom(ctx).UpdateGroup(ctx, in.ID, adminapi.GroupPatch{Name: in.Body.Name.Value,
+				Description: adminapi.Nullable[string](in.Body.Description), Status: in.Body.Status.Value})
 			if err != nil {
 				return nil, err
 			}
