@@ -144,3 +144,26 @@ Une revue des correctifs du tour 1. Aucun bloquant.
    `value`). Le `default: [transceiver]` du contrat n'est pas servi : le tag fait paniquer huma sur ce type, le handler
    pose le défaut.
 2. **Description du groupe par le refus** : testée.
+
+## Preuve dans le navigateur
+
+Sur contabo169, `Propriétaire` (compte de preuve), migration 00005 appliquée par le Job `migrate`. Captures dans
+`docs/steps/014a-3/`.
+
+- rail : Clients, Comptes, Groupes ;
+- depuis la fiche de « Commerce Exemple » : création de `api` (deux canaux, `transceiver`, une session, les deux
+  opérations SMPP) ; un second `api` refusé, « Un compte de ce client porte déjà ce nom. » (409 dans l'audit) ;
+- fiche du compte : renommé `api-web` ; REST désactivé, SMPP figé en dernier canal ; trois sessions et `transmitter`
+  ajouté, `transceiver` figé tant qu'il était seul ; `cancel_sm` désactivé, la modale dit la déconnexion des binds ;
+- compte suspendu, puis client suspendu (« Aucun compte à suspendre. ») ; réactivation du compte : « Son client est
+  suspendu : le compte reste suspendu en pratique. », statut « Actif (client suspendu) » sur la fiche, dans la section
+  et dans la liste globale ;
+- liste : filtre « Groupe : Banque », filtre « Statut : Suspendus », « Tous les comptes » de la fiche client pose
+  « Client : Commerce Exemple », « Retirer » le lève ;
+- clôture : quatre « Modifier » et trois actions figés, Supprimer ouvert ; un compte `jetable` créé puis supprimé, retour
+  à la fiche client ;
+- client clos « Banque Exemple » : « Nouveau compte » figé ; par l'API, la création rend 422 sur `customer_id` ;
+- audit : treize mutations sous l'opérateur, dix lignes de diff sur `accounts` ;
+- axe (WCAG 2.1 AA) sur la liste et la fiche : aucune violation.
+- Écart d'outil : dans la première session du navigateur, après de nombreuses modales, le clic n'ouvrait plus aucun
+  `Select` (le clavier, si) ; une session neuve les ouvre au clic. Rien dans le code.
