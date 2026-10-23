@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { type ComponentProps, type FormEvent, type ReactNode, useId, useState } from 'react'
-import { type Account, AccountForm, accountsKey, effective } from '../accounts'
+import { type Account, AccountForm, accountsKey, EffectiveStatus } from '../accounts'
 import { at } from '../audit'
 import { Credentials } from '../credentials'
 import { gw } from '../gw'
@@ -17,6 +17,7 @@ import {
   Forbidden,
   LoadingState,
   Modal,
+  needs,
   PageHeader,
   Toolbar,
   useSubmission,
@@ -25,7 +26,7 @@ import { Webhooks } from '../webhooks'
 
 export const Route = createFileRoute('/_shell/accounts/$id')({ component: AccountPage })
 
-const closedFinal = 'Ce compte est clos définitivement.'
+const closedFinal = 'Ce compte est fermé définitivement.'
 const bindTypes = ['transmitter', 'receiver', 'transceiver'] as const
 const onOff = (on: boolean) => (on ? 'Activé' : 'Désactivé')
 const checked = (...pairs: [boolean, string][]) => pairs.filter(([on]) => on).map(([, value]) => value)
@@ -48,7 +49,19 @@ function AccountPage() {
 
   return (
     <>
-      <PageHeader title={account.data?.name ?? 'Compte'} />
+      <PageHeader
+        crumbs={[
+          readable ? (
+            <Link key="accounts" to="/accounts">
+              Comptes
+            </Link>
+          ) : (
+            'Comptes'
+          ),
+          account.data?.name ?? 'Compte',
+        ]}
+        title={account.data?.name ?? 'Compte'}
+      />
       <section className="page">
         {!readable ? (
           <Forbidden
@@ -88,8 +101,8 @@ function Loaded({ account, writes }: { account: Account; writes: boolean }) {
   const navigate = useNavigate()
   const [pending, setPending] = useState<Pending>()
   const close = () => setPending(undefined)
-  const write = writes ? undefined : 'Cette action demande accounts:write.'
-  const frozen = write ?? (account.status === 'closed' ? 'Clos définitivement.' : undefined)
+  const write = writes ? undefined : needs('accounts:write')
+  const frozen = write ?? (account.status === 'closed' ? 'Fermé définitivement.' : undefined)
   const path = { params: { path: { id: account.id } } }
   const status = (body: { status: 'active' | 'closed' }) => () => gw.PATCH('/admin/accounts/{id}', { ...path, body })
   const edit = (next: Pending) => (
@@ -127,7 +140,9 @@ function Loaded({ account, writes }: { account: Account; writes: boolean }) {
       </Toolbar>
       <Block title="Identité" edit={edit('rename')}>
         <dt>Statut</dt>
-        <dd>{effective(account.status, account.customer_status)}</dd>
+        <dd>
+          <EffectiveStatus status={account.status} customer={account.customer_status} />
+        </dd>
         <dt>Créé le</dt>
         <dd>{at(account.created_at)}</dd>
         <dt>Modifié le</dt>
@@ -238,7 +253,7 @@ function Loaded({ account, writes }: { account: Account; writes: boolean }) {
           refusals={{ 422: closedFinal }}
           call={status({ status: 'closed' })}
         >
-          <p>Définitif : un compte clos ne se rouvre pas.</p>
+          <p>Définitif : un compte fermé ne se rouvre pas.</p>
         </Confirmation>
       )}
       {pending === 'delete' && (

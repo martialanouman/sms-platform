@@ -66,7 +66,7 @@ test('the operators are listed with their status, roles and factor', async () =>
   stubFetch({ 'GET /api/auth/me': () => json(200, owner), 'GET /api/operators': () => json(200, [self, ada, zed]) })
   const { container } = renderAt('/operators')
   expect(
-    await within(await screen.findByRole('banner')).findByRole('heading', { name: 'Opérateurs', level: 1 }),
+    await within(await screen.findByRole('main')).findByRole('heading', { name: 'Opérateurs', level: 1 }),
   ).toBeDefined()
   expect(await screen.findByRole('table', { name: 'Opérateurs du tableau de bord' })).toBeDefined()
   expect(document.title).toBe('Opérateurs — Tableau de bord')
@@ -338,7 +338,7 @@ test('what the operator may not do is disabled and explained', async () => {
   const user = userEvent.setup()
   const create = screen.getByRole('button', { name: 'Nouvel opérateur' })
   expect(create.getAttribute('aria-disabled')).toBe('true')
-  expect(explained(create)).toBe('La création d’un opérateur demande operators:write.')
+  expect(explained(create)).toBe('La création d’un opérateur demande Opérateurs : modifier operators:write.')
   create.focus()
   await user.keyboard('{Enter}')
   await user.click(create)
@@ -346,10 +346,10 @@ test('what the operator may not do is disabled and explained', async () => {
   for (const name of ['Modifier les rôles', 'Envoyer un lien', 'Désactiver']) {
     const button = within(row('ada@example.test')).getByRole('button', { name })
     expect(button.getAttribute('aria-disabled')).toBe('true')
-    expect(explained(button)).toBe('Cette action demande operators:write.')
+    expect(explained(button)).toBe('Cette action demande Opérateurs : modifier operators:write.')
   }
   const enable = within(row('zed@example.test')).getByRole('button', { name: 'Réactiver' })
-  expect(explained(enable)).toBe('Cette action demande operators:write.')
+  expect(explained(enable)).toBe('Cette action demande Opérateurs : modifier operators:write.')
   await user.click(enable)
   expect(calls.some((c) => c.method !== 'GET' && c.url.includes('/api/operators'))).toBe(false)
   expect(calls.some((c) => c.url.endsWith('/api/roles'))).toBe(false)
@@ -365,7 +365,7 @@ test('roles cannot be set without reading them, and nobody disables himself', as
   await screen.findByText('ada@example.test')
   const roles = within(row('ada@example.test')).getByRole('button', { name: 'Modifier les rôles' })
   expect(roles.getAttribute('aria-disabled')).toBe('true')
-  expect(explained(roles)).toBe('La liste des rôles à attribuer demande roles:read.')
+  expect(explained(roles)).toBe('La liste des rôles à attribuer demande Rôles : lire roles:read.')
   const disable = within(row('operateur@example.test')).getByRole('button', { name: 'Désactiver' })
   expect(disable.getAttribute('aria-disabled')).toBe('true')
   expect(explained(disable)).toBe(

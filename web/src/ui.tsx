@@ -6,11 +6,15 @@ import { Combobox as BaseCombobox } from '@base-ui/react/combobox'
 import { Dialog } from '@base-ui/react/dialog'
 import { Field as BaseField } from '@base-ui/react/field'
 import { Select as BaseSelect } from '@base-ui/react/select'
+import { Toast } from '@base-ui/react/toast'
 import { Tooltip } from '@base-ui/react/tooltip'
 import { type QueryKey, useQueryClient } from '@tanstack/react-query'
+import { Link, type LinkProps } from '@tanstack/react-router'
 import {
+  Children,
   type ComponentProps,
   createContext,
+  type ReactElement,
   type ReactNode,
   type Ref,
   useContext,
@@ -138,9 +142,8 @@ export function Select({
   items: { value: string; label: string }[]
   value: string
   onChange: (value: string) => void
-  blockedReason?: string
+  blockedReason?: ReactNode
 }) {
-  const reason = useId()
   return (
     <BaseSelect.Root
       items={items}
@@ -148,23 +151,17 @@ export function Select({
       onValueChange={(next) => onChange(next ?? '')}
       open={blockedReason === undefined ? undefined : false}
     >
-      {blockedReason !== undefined && (
-        <span className="ui-visually-hidden" id={reason}>
-          {blockedReason}
-        </span>
-      )}
-      <BaseSelect.Trigger
-        className="ui-input ui-select"
-        aria-label={label}
-        aria-describedby={blockedReason === undefined ? undefined : reason}
-        aria-disabled={blockedReason !== undefined || undefined}
-        title={blockedReason}
-      >
-        {label} : {items.find((item) => item.value === value)?.label ?? value}
-        <BaseSelect.Icon className="ui-select__icon">
-          <Icon name="chevron" />
-        </BaseSelect.Icon>
-      </BaseSelect.Trigger>
+      <Explained
+        reason={blockedReason}
+        render={
+          <BaseSelect.Trigger className="ui-input ui-select" aria-label={label}>
+            {label} : {items.find((item) => item.value === value)?.label ?? value}
+            <BaseSelect.Icon className="ui-select__icon">
+              <Icon name="chevron" />
+            </BaseSelect.Icon>
+          </BaseSelect.Trigger>
+        }
+      />
       <BaseSelect.Portal>
         <BaseSelect.Positioner className="ui-combobox__positioner" sideOffset={4} alignItemWithTrigger={false}>
           <BaseSelect.Popup className="ui-combobox__popup">
@@ -307,19 +304,144 @@ export function PageHeaderSlot() {
   return <div className="topbar__start" ref={useContext(HeaderSlot)[1]} />
 }
 
-export function PageHeader({ title, titleRef }: { title: string; titleRef?: Ref<HTMLHeadingElement> }) {
+export function PageHeader({
+  crumbs,
+  title,
+  status,
+  meta,
+  actions,
+  titleRef,
+}: {
+  crumbs: ReactNode[]
+  title: string
+  status?: ReactNode
+  meta?: ReactNode
+  actions?: ReactNode
+  titleRef?: Ref<HTMLHeadingElement>
+}) {
   const [node] = useContext(HeaderSlot)
   useEffect(() => {
     document.title = `${title} — Tableau de bord`
   }, [title])
   return (
-    node &&
-    createPortal(
-      <h1 className="page-header__title" ref={titleRef} tabIndex={-1}>
-        {title}
-      </h1>,
-      node,
-    )
+    <div className="page-header">
+      {node &&
+        createPortal(
+          <nav className="crumbs" aria-label="Fil d’Ariane">
+            <ol className="crumbs__list">
+              {Children.map(crumbs, (crumb, i) => (
+                <li className="crumbs__item" aria-current={i === crumbs.length - 1 ? 'page' : undefined}>
+                  {crumb}
+                </li>
+              ))}
+            </ol>
+          </nav>,
+          node,
+        )}
+      <div className="page-header__main">
+        <div className="page-header__line">
+          <h1 className="page-header__title" ref={titleRef} tabIndex={-1}>
+            {title}
+          </h1>
+          {status}
+        </div>
+        {meta && <p className="page-header__meta">{meta}</p>}
+      </div>
+      {actions && <div className="page-header__actions">{actions}</div>}
+    </div>
+  )
+}
+
+export function Toasts({ children }: { children: ReactNode }) {
+  return (
+    <Toast.Provider limit={3} timeout={5000}>
+      {children}
+      <ToastStack />
+    </Toast.Provider>
+  )
+}
+
+function ToastStack() {
+  const { toasts } = Toast.useToastManager()
+  return (
+    <Toast.Portal>
+      <Toast.Viewport className="ui-toasts">
+        {toasts.map((toast) => (
+          <Toast.Root
+            key={toast.id}
+            toast={toast}
+            className="ui-toast"
+            render={({ 'aria-modal': _modal, role: _role, ...props }) => <div {...props} />}
+          >
+            <Toast.Description className="ui-toast__text" />
+            <Toast.Close className="ui-toast__close" aria-label="Fermer">
+              <Icon name="times" />
+            </Toast.Close>
+          </Toast.Root>
+        ))}
+      </Toast.Viewport>
+    </Toast.Portal>
+  )
+}
+
+export function useToast() {
+  const { add } = Toast.useToastManager()
+  return (text: string) => void add({ description: text })
+}
+
+export function Tabs({ tabs, label }: { tabs: { to: LinkProps['to']; label: string }[]; label: string }) {
+  return (
+    <nav className="ui-tabs" aria-label={label}>
+      {tabs.map((tab) => (
+        <Link key={tab.label} className="ui-tabs__tab" to={tab.to}>
+          {tab.label}
+        </Link>
+      ))}
+    </nav>
+  )
+}
+
+export type Tone = 'ok' | 'warn' | 'neutral'
+
+export function StatusPill({ tone, children }: { tone: Tone; children: ReactNode }) {
+  return <span className={`ui-pill ui-pill--${tone}`}>{children}</span>
+}
+
+export function Card({
+  title,
+  aside,
+  footer,
+  flush,
+  children,
+}: {
+  title?: string
+  aside?: ReactNode
+  footer?: ReactNode
+  flush?: boolean
+  children: ReactNode
+}) {
+  const id = useId()
+  return (
+    <section className={flush ? 'ui-card ui-card--flush' : 'ui-card'} aria-labelledby={title && id}>
+      {title && (
+        <div className="ui-card__head">
+          <h2 className="ui-card__title" id={id}>
+            {title}
+          </h2>
+          {aside}
+        </div>
+      )}
+      <div className="ui-card__body">{children}</div>
+      {footer}
+    </section>
+  )
+}
+
+export function KeyValue({ items }: { items: { label: string; value: ReactNode }[] }) {
+  return (
+    <dl className="ui-kv">
+      {items.map((item) => [<dt key={`${item.label}-label`}>{item.label}</dt>, <dd key={item.label}>{item.value}</dd>])}
+    </dl>
   )
 }
 
@@ -373,6 +495,42 @@ export function Forbidden({
   )
 }
 
+export function needs(permission: string, subject = 'Cette action') {
+  const { resource, action } = permissionLabel(permission)
+  return (
+    <>
+      {subject} demande {resource} : {action?.toLocaleLowerCase('fr')}{' '}
+      <span className="role-keys__key">{permission}</span>.
+    </>
+  )
+}
+
+export function Explained({ reason, render }: { reason?: ReactNode; render: ReactElement }) {
+  const id = useId()
+  const blocked = reason !== undefined
+  return (
+    <Tooltip.Root disabled={!blocked}>
+      <Tooltip.Trigger
+        delay={0}
+        closeOnClick={false}
+        render={render}
+        aria-disabled={blocked || undefined}
+        aria-describedby={blocked ? id : undefined}
+      />
+      {blocked && (
+        <span className="ui-visually-hidden" id={id}>
+          {reason}
+        </span>
+      )}
+      <Tooltip.Portal>
+        <Tooltip.Positioner className="ui-tooltip__positioner" side="bottom" align="end" sideOffset={6}>
+          <Tooltip.Popup className="ui-tooltip">{reason}</Tooltip.Popup>
+        </Tooltip.Positioner>
+      </Tooltip.Portal>
+    </Tooltip.Root>
+  )
+}
+
 export function Button({
   variant = 'secondary',
   size,
@@ -386,40 +544,26 @@ export function Button({
   variant?: 'primary' | 'secondary' | 'danger'
   size?: 'sm'
   loading?: boolean
-  // debt: #160
-  blockedReason?: string
+  blockedReason?: ReactNode
 } & Omit<ComponentProps<'button'>, 'className'>) {
-  const reason = useId()
   const inert = loading || blockedReason !== undefined
-  const button = (
-    <BaseButton
-      {...rest}
-      type={type}
-      className={`ui-button ui-button--${variant}${size ? ` ui-button--${size}` : ''}`}
-      aria-busy={loading || undefined}
-      aria-disabled={inert || undefined}
-      aria-describedby={blockedReason === undefined ? undefined : reason}
-      onClick={inert ? (event) => event.preventDefault() : onClick}
-    >
-      {loading && <span className="ui-button__spinner" aria-hidden="true" />}
-      {children}
-    </BaseButton>
-  )
-  if (blockedReason === undefined) {
-    return button
-  }
   return (
-    <Tooltip.Root>
-      <Tooltip.Trigger delay={0} closeOnClick={false} render={button} />
-      <span className="ui-visually-hidden" id={reason}>
-        {blockedReason}
-      </span>
-      <Tooltip.Portal>
-        <Tooltip.Positioner className="ui-tooltip__positioner" side="bottom" align="end" sideOffset={6}>
-          <Tooltip.Popup className="ui-tooltip">{blockedReason}</Tooltip.Popup>
-        </Tooltip.Positioner>
-      </Tooltip.Portal>
-    </Tooltip.Root>
+    <Explained
+      reason={blockedReason}
+      render={
+        <BaseButton
+          {...rest}
+          type={type}
+          className={`ui-button ui-button--${variant}${size ? ` ui-button--${size}` : ''}`}
+          aria-busy={loading || undefined}
+          aria-disabled={inert || undefined}
+          onClick={inert ? (event) => event.preventDefault() : onClick}
+        >
+          {loading && <span className="ui-button__spinner" aria-hidden="true" />}
+          {children}
+        </BaseButton>
+      }
+    />
   )
 }
 
@@ -459,13 +603,8 @@ export function LoadingState({ label, rows, line }: { label: string; rows: numbe
   )
 }
 
-export function Toolbar({ filters, children }: { filters?: ReactNode; children?: ReactNode }) {
-  return (
-    <div className="ui-toolbar">
-      {filters && <div className="ui-toolbar__filters">{filters}</div>}
-      {children}
-    </div>
-  )
+export function Toolbar({ children }: { children: ReactNode }) {
+  return <div className="ui-toolbar">{children}</div>
 }
 
 export function DataTable<Row>({

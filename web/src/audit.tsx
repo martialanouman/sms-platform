@@ -9,6 +9,10 @@ const when = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: '
 
 export const at = (iso: string) => when.format(new Date(iso))
 
+const minute = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+
+export const atMinute = (iso: string) => minute.format(new Date(iso))
+
 export function useOperatorName() {
   const operators = useQuery(auditOperatorsQuery)
   return (id: string | null) => {

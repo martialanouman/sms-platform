@@ -1,13 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { type Account, accountsKey, effective } from '../accounts'
-import { at } from '../audit'
-import { customersKey, groupLabel, useGroups } from '../customers'
+import { useRef } from 'react'
+import { type Account, accountsKey, channels, EffectiveStatus } from '../accounts'
+import { atMinute } from '../audit'
+import { customersKey, GroupFilter, statusFilters, statusOf } from '../customers'
 import { gw } from '../gw'
-import { Failure, type Paged, Pager, paged, text, useClosedOn } from '../list'
+import { Failure, NoResults, type Paged, Pager, paged, text, useClosedOn } from '../list'
 import { read } from '../queries'
 import { useShellMe } from '../session'
-import { Button, DataTable, EmptyState, Forbidden, LoadingState, PageHeader, Select, Toolbar } from '../ui'
+import { Card, DataTable, EmptyState, Forbidden, Icon, LoadingState, PageHeader, Select } from '../ui'
 
 type Status = Account['status']
 type AccountsSearch = Paged & { customer_id?: string; group_id?: string; status?: Status }
@@ -17,17 +18,10 @@ export const Route = createFileRoute('/_shell/accounts/')({
     ...paged(s),
     customer_id: text(s.customer_id),
     group_id: text(s.group_id),
-    status: s.status === 'active' || s.status === 'suspended' || s.status === 'closed' ? s.status : undefined,
+    status: statusOf(s.status),
   }),
   component: Accounts,
 })
-
-const statusFilters = [
-  { value: '', label: 'Tous' },
-  { value: 'active', label: 'Actifs' },
-  { value: 'suspended', label: 'Suspendus' },
-  { value: 'closed', label: 'Clos' },
-]
 
 function Accounts() {
   const me = useShellMe()
@@ -35,7 +29,8 @@ function Accounts() {
   const readable = held.includes('accounts:read')
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
-  const groups = useGroups()
+  const title = useRef<HTMLHeadingElement>(null)
+  const clear = () => void navigate({ search: {} }).then(() => title.current?.focus())
   const list = useQuery({
     queryKey: [...accountsKey, search],
     queryFn: () =>
@@ -56,41 +51,40 @@ function Accounts() {
   })
   useClosedOn(list.error)
   const filter = (next: Partial<AccountsSearch>) =>
-    void navigate({
+    navigate({
       search: { customer_id: search.customer_id, group_id: search.group_id, status: search.status, ...next },
     })
+  const filtered = search.customer_id !== undefined || search.group_id !== undefined || search.status !== undefined
 
   return (
     <>
-      <PageHeader title="Comptes" />
-      {readable ? (
-        <>
-          <Toolbar
-            filters={
-              <>
-                {search.customer_id && (
-                  <CustomerFilter id={search.customer_id} remove={() => filter({ customer_id: undefined })} />
-                )}
-                <Select
-                  label="Groupe"
-                  items={[
-                    { value: '', label: 'Tous' },
-                    ...groups.list.map((g) => ({ value: g.id, label: groupLabel(g) })),
-                  ]}
-                  value={search.group_id ?? ''}
-                  onChange={(id) => filter({ group_id: id === '' ? undefined : id })}
-                  blockedReason={groups.blocked}
+      <PageHeader
+        crumbs={['Comptes']}
+        titleRef={title}
+        title="Comptes"
+        meta={
+          readable && 'Les comptes SMPP et REST de tous les clients. Un compte se crée depuis la fiche de son client.'
+        }
+      />
+      <section className="page">
+        {readable ? (
+          <>
+            <div className="ui-filters">
+              {search.customer_id && (
+                <CustomerFilter
+                  id={search.customer_id}
+                  listed={list.data?.data[0]?.customer_name}
+                  remove={() => void filter({ customer_id: undefined }).then(() => title.current?.focus())}
                 />
-                <Select
-                  label="Statut"
-                  items={statusFilters}
-                  value={search.status ?? ''}
-                  onChange={(status) => filter({ status: status === '' ? undefined : (status as Status) })}
-                />
-              </>
-            }
-          />
-          <section className="page">
+              )}
+              <GroupFilter value={search.group_id} onChange={(id) => filter({ group_id: id })} />
+              <Select
+                label="Statut"
+                items={statusFilters}
+                value={search.status ?? ''}
+                onChange={(status) => filter({ status: status === '' ? undefined : (status as Status) })}
+              />
+            </div>
             {list.isPending ? (
               <LoadingState label="Chargement des comptes…" rows={3} />
             ) : list.error ? (
@@ -100,9 +94,26 @@ function Accounts() {
                 retry={() => void list.refetch()}
               />
             ) : list.data.data.length === 0 ? (
-              <EmptyState title="Aucun compte" />
+              filtered ? (
+                <NoResults clear={clear} />
+              ) : (
+                <EmptyState title="Aucun compte">
+                  <p>Un compte se crée depuis la fiche de son client.</p>
+                </EmptyState>
+              )
             ) : (
-              <>
+              <Card
+                flush
+                footer={
+                  <Pager
+                    search={search}
+                    next={list.data.next_cursor}
+                    go={(next) => void navigate({ search: next })}
+                    count={list.data.data.length}
+                    noun={['compte affiché', 'comptes affichés']}
+                  />
+                }
+              >
                 <DataTable<Account>
                   caption="Comptes"
                   rows={list.data.data}
@@ -111,7 +122,7 @@ function Accounts() {
                     {
                       header: 'Nom',
                       cell: (a) => (
-                        <Link to="/accounts/$id" params={{ id: a.id }}>
+                        <Link className="ui-mono" to="/accounts/$id" params={{ id: a.id }}>
                           {a.name}
                         </Link>
                       ),
@@ -124,30 +135,34 @@ function Accounts() {
                         </Link>
                       ),
                     },
-                    { header: 'Statut', cell: (a) => effective(a.status, a.customer_status) },
-                    { header: 'Créé le', cell: (a) => at(a.created_at) },
+                    {
+                      header: 'Statut',
+                      cell: (a) => <EffectiveStatus status={a.status} customer={a.customer_status} />,
+                    },
+                    { header: 'Canaux', cell: (a) => <span className="ui-mono">{channels(a)}</span> },
+                    {
+                      header: 'Créé le',
+                      cell: (a) => <span className="ui-mono ui-muted">{atMinute(a.created_at)}</span>,
+                    },
                   ]}
                 />
-                <Pager search={search} next={list.data.next_cursor} go={(next) => void navigate({ search: next })} />
-              </>
+              </Card>
             )}
-          </section>
-        </>
-      ) : (
-        <section className="page">
+          </>
+        ) : (
           <Forbidden
             title="Accès aux comptes non accordé"
             about="Cet écran liste les comptes des clients, leur client et leur statut."
             permission="accounts:read"
             grantedBy="Exploitation"
           />
-        </section>
-      )}
+        )}
+      </section>
     </>
   )
 }
 
-function CustomerFilter({ id, remove }: { id: string; remove: () => void }) {
+function CustomerFilter({ id, listed, remove }: { id: string; listed?: string; remove: () => void }) {
   const me = useShellMe()
   const readable = (me.data?.permissions ?? []).includes('customers:read')
   const customer = useQuery({
@@ -156,11 +171,11 @@ function CustomerFilter({ id, remove }: { id: string; remove: () => void }) {
     enabled: readable,
   })
   return (
-    <span className="ui-filter">
-      Client : {customer.data?.name ?? id}
-      <Button size="sm" aria-label="Retirer le filtre Client" onClick={remove}>
-        Retirer
-      </Button>
+    <span className="ui-chip">
+      Client : {customer.data?.name ?? listed ?? id}
+      <button className="ui-chip__remove" type="button" aria-label="Retirer le filtre Client" onClick={remove}>
+        <Icon name="times" />
+      </button>
     </span>
   )
 }

@@ -1,9 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router'
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import axeCore from 'axe-core'
 import { StrictMode } from 'react'
-import { afterEach, vi } from 'vitest'
+import { afterEach, expect, vi } from 'vitest'
 import { routeTree } from './routeTree.gen'
 import { rememberChallenge } from './session'
 
@@ -58,7 +58,7 @@ export function empty(status: number) {
 
 export async function violations(container: Element) {
   const result = await axeCore.run(container, { rules: { 'color-contrast': { enabled: false } } })
-  return result.violations.map((v) => v.id)
+  return [...result.violations.map((v) => v.id), ...(document.body.querySelector('[title]') ? ['title'] : [])]
 }
 
 export const me = {
@@ -99,4 +99,12 @@ export function once(answer: () => Response) {
     served = true
     return answer()
   }
+}
+
+export async function toasted() {
+  const region = await screen.findByRole('region', { name: 'Notifications' })
+  expect(region.getAttribute('aria-live')).toBe('polite')
+  await waitFor(() => expect(region.querySelectorAll('.ui-toast').length).toBeGreaterThan(0))
+  expect(within(region).queryAllByRole('status')).toEqual([])
+  return [...region.querySelectorAll('.ui-toast')].map((t) => t.textContent)
 }

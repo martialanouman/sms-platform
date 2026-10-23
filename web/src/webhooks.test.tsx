@@ -111,7 +111,7 @@ test('a taken event, a closed account and an unavailable sealing are said in Fre
   await user.type(within(dialog).getByRole('textbox', { name: 'URL' }), 'https://hooks.example.com/mo')
   for (const [status, said] of [
     [409, 'Ce compte a déjà un webhook pour cet événement.'],
-    [422, 'Ce compte est clos ou n’existe plus.'],
+    [422, 'Ce compte est fermé ou n’existe plus.'],
     [503, 'Le scellement est indisponible : rien n’a été modifié.'],
   ] as const) {
     answer = status
@@ -146,7 +146,7 @@ test('an edit refused because the account closed meanwhile is said in French', a
   await user.clear(url)
   await user.type(url, 'https://hooks.example.com/v2')
   await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
-  expect(await within(dialog).findByText('Ce compte est clos.')).toBeDefined()
+  expect(await within(dialog).findByText('Ce compte est fermé.')).toBeDefined()
   expect(await sent(calls, 'PATCH')).toEqual({ url: 'https://hooks.example.com/v2' })
 })
 
@@ -174,7 +174,7 @@ test('a rotation refused is said in French', async () => {
   await user.click(within(await row(/Messages entrants/)).getByRole('button', { name: 'Rotation du secret' }))
   const dialog = await screen.findByRole('dialog')
   await user.click(within(dialog).getByRole('button', { name: 'Tourner le secret' }))
-  expect(await within(dialog).findByText('Ce compte est clos.')).toBeDefined()
+  expect(await within(dialog).findByText('Ce compte est fermé.')).toBeDefined()
   answer = 503
   await user.click(within(dialog).getByRole('button', { name: 'Tourner le secret' }))
   expect(await within(dialog).findByText('Le scellement est indisponible : rien n’a été modifié.')).toBeDefined()
@@ -199,8 +199,10 @@ test('a closed account freezes new webhooks and rotations but still edits and de
   stub([mo], {}, writer, { ...api, status: 'closed' })
   renderAt(`/accounts/${api.id}`)
   const moRow = await row(/Messages entrants/)
-  expect(explained(within(moRow).getByRole('button', { name: 'Rotation du secret' }))).toBe('Clos définitivement.')
-  expect(explained(within(await block()).getByRole('button', { name: 'Nouveau webhook' }))).toBe('Clos définitivement.')
+  expect(explained(within(moRow).getByRole('button', { name: 'Rotation du secret' }))).toBe('Fermé définitivement.')
+  expect(explained(within(await block()).getByRole('button', { name: 'Nouveau webhook' }))).toBe(
+    'Fermé définitivement.',
+  )
   expect(within(moRow).getByRole('button', { name: 'Modifier' }).getAttribute('aria-disabled')).toBeNull()
   expect(within(moRow).getByRole('button', { name: 'Supprimer' }).getAttribute('aria-disabled')).toBeNull()
 })
@@ -210,7 +212,7 @@ test('without accounts:write every change is blocked; an unreadable list is said
   const { unmount } = renderAt(`/accounts/${api.id}`)
   for (const name of ['Modifier', 'Rotation du secret', 'Supprimer']) {
     expect(explained(within(await row(/Messages entrants/)).getByRole('button', { name }))).toBe(
-      'Cette action demande accounts:write.',
+      'Cette action demande Comptes : modifier accounts:write.',
     )
   }
   unmount()

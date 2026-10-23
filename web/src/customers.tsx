@@ -1,10 +1,11 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { type FormEvent, useId, useState } from 'react'
 import type { components } from './admin.gen'
 import { gw } from './gw'
 import { read } from './queries'
 import { useShellMe } from './session'
-import { Button, Field, Modal, Select, useSubmission } from './ui'
+import { Button, Field, Modal, needs, Select, StatusPill, type Tone, useSubmission, useToast } from './ui'
 
 export type Customer = components['schemas']['Customer']
 export type Group = components['schemas']['CustomerGroup']
@@ -14,13 +15,39 @@ export const customersKey = ['customers']
 
 export const groupsKey = ['customer-groups']
 
-export const groupsBlocked = 'Le groupe demande customer-groups:read.'
+export const groupsBlocked = needs('customer-groups:read', 'Le groupe')
 
-export const customerStatus: Record<Customer['status'], string> = {
-  active: 'Actif',
-  suspended: 'Suspendu',
-  closed: 'Clos',
+const customerStatus: Record<Customer['status'], { label: string; tone: Tone }> = {
+  active: { label: 'Actif', tone: 'ok' },
+  suspended: { label: 'Suspendu', tone: 'warn' },
+  closed: { label: 'Fermé', tone: 'neutral' },
 }
+
+export function Status({ status }: { status: Customer['status'] }) {
+  return <StatusPill tone={customerStatus[status].tone}>{customerStatus[status].label}</StatusPill>
+}
+
+export const statusOf = (v: unknown) => (v === 'active' || v === 'suspended' || v === 'closed' ? v : undefined)
+
+export function GroupFilter({ value, onChange }: { value?: string; onChange: (id: string) => void }) {
+  const groups = useGroups()
+  return (
+    <Select
+      label="Groupe"
+      items={[{ value: '', label: 'Tous' }, ...groups.list.map((g) => ({ value: g.id, label: groupLabel(g) }))]}
+      value={value ?? ''}
+      onChange={onChange}
+      blockedReason={groups.blocked}
+    />
+  )
+}
+
+export const statusFilters = [
+  { value: '', label: 'Tous' },
+  { value: 'active', label: 'Actifs' },
+  { value: 'suspended', label: 'Suspendus' },
+  { value: 'closed', label: 'Fermés' },
+]
 
 export function useGroups() {
   const me = useShellMe()
@@ -32,7 +59,28 @@ export function useGroups() {
   })
   const list = [...(groups.data?.data ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'fr'))
   const name = (id: string | null) => (id ? (list.find((g) => g.id === id)?.name ?? id) : '—')
-  return { list, name, blocked: readable ? undefined : groupsBlocked }
+  const archived = (id: string) => list.find((g) => g.id === id)?.status === 'archived'
+  return { list, name, archived, blocked: readable ? undefined : groupsBlocked }
+}
+
+export function GroupName({ id, link }: { id: string; link?: boolean }) {
+  const groups = useGroups()
+  if (groups.blocked) {
+    return <span className="ui-muted">non lisible</span>
+  }
+  const name = (
+    <>
+      {groups.name(id)}
+      {groups.archived(id) && <span className="ui-muted"> (archivé)</span>}
+    </>
+  )
+  return link ? (
+    <Link to="/customers" search={{ group_id: id }}>
+      {name}
+    </Link>
+  ) : (
+    name
+  )
 }
 
 export const groupLabel = (g: Group) => (g.status === 'archived' ? `${g.name} (archivé)` : g.name)
@@ -49,6 +97,7 @@ export function CustomerForm({ customer, onClose }: { customer?: Customer; onClo
   const queryClient = useQueryClient()
   const { list, blocked } = useGroups()
   const { submit, waiting, refusal, fail, describedBy } = useSubmission()
+  const notify = useToast()
   const [name, setName] = useState(customer?.name ?? '')
   const [group, setGroup] = useState(customer?.group_id ?? '')
   const loaded = customer?.max_age_override ?? none
@@ -91,6 +140,7 @@ export function CustomerForm({ customer, onClose }: { customer?: Customer; onClo
     }
     if (outcome.failure === undefined) {
       void queryClient.invalidateQueries({ queryKey: customersKey })
+      notify(`Client ${name} ${customer ? 'modifié' : 'créé'}.`)
       onClose()
     }
   }

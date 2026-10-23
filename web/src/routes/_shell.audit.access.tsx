@@ -71,7 +71,13 @@ function Access() {
               { header: 'Résultat', cell: (e) => (e.outcome === 'success' ? 'Réussi' : 'Échec') },
             ]}
           />
-          <Pager search={search} next={log.data.nextCursor} go={(next) => void navigate({ search: next })} />
+          <Pager
+            search={search}
+            next={log.data.nextCursor}
+            go={(next) => void navigate({ search: next })}
+            count={log.data.data.length}
+            noun={['entrée affichée', 'entrées affichées']}
+          />
         </>
       )}
     </>

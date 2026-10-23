@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { unreachable } from './api'
 import { Refused, Unauthenticated, useSessionClosed } from './session'
-import { Button, ErrorState, Toolbar } from './ui'
+import { Button, EmptyState, ErrorState } from './ui'
 
 export function useClosedOn(error: unknown) {
   const closed = useSessionClosed()
@@ -36,21 +36,26 @@ export function Pager<Search extends Paged>({
   search,
   next,
   go,
+  count,
+  noun,
 }: {
   search: Search
   next?: string | null
   go: (next: Search) => void
+  count: number
+  noun: [one: string, many: string]
 }) {
   const trail = search.trail ?? []
   const back = trail.at(-1)
-  if (!next && back === undefined) {
-    return null
-  }
   return (
-    <Toolbar>
-      {back !== undefined && (
+    <div className="ui-pager">
+      <span>
+        {count} {count === 1 ? noun[0] : noun[1]}
+      </span>
+      <span className="ui-pager__nav">
         <Button
           size="sm"
+          blockedReason={back === undefined ? 'Première page.' : undefined}
           onClick={() =>
             go({
               ...search,
@@ -61,12 +66,25 @@ export function Pager<Search extends Paged>({
         >
           Précédent
         </Button>
-      )}
-      {next && (
-        <Button size="sm" onClick={() => go({ ...search, cursor: next, trail: [...trail, search.cursor ?? first] })}>
+        <Button
+          size="sm"
+          blockedReason={next ? undefined : 'Dernière page.'}
+          onClick={() => go({ ...search, cursor: next ?? undefined, trail: [...trail, search.cursor ?? first] })}
+        >
           Suivant
         </Button>
-      )}
-    </Toolbar>
+      </span>
+    </div>
+  )
+}
+
+export function NoResults({ clear }: { clear: () => void }) {
+  return (
+    <EmptyState title="Aucun résultat">
+      <p>Élargissez les filtres.</p>
+      <Button size="sm" onClick={clear}>
+        Retirer les filtres
+      </Button>
+    </EmptyState>
   )
 }

@@ -39,7 +39,25 @@ test('the top bar names the operator, who reaches the account through it', async
   const { router } = renderAt('/')
   await userEvent.setup().click(await screen.findByRole('link', { name: 'Opérateur' }))
   await waitFor(() => expect(router.state.location.pathname).toBe('/account'))
-  expect(await within(screen.getByRole('banner')).findByRole('heading', { level: 1, name: 'Mon compte' })).toBeDefined()
+  expect(await within(screen.getByRole('main')).findByRole('heading', { level: 1, name: 'Mon compte' })).toBeDefined()
+})
+
+test('the top bar carries the breadcrumb, its last segment in text', async () => {
+  stubFetch({ 'GET /api/auth/me': () => json(200, me) })
+  const { container } = renderAt('/account')
+  const crumbs = await within(await screen.findByRole('banner')).findByRole('navigation', { name: 'Fil d’Ariane' })
+  expect(crumbs.textContent).toBe('Mon compte')
+  expect(within(crumbs).queryByRole('link')).toBeNull()
+  expect(within(crumbs).getByText('Mon compte').getAttribute('aria-current')).toBe('page')
+  expect(within(screen.getByRole('banner')).queryByRole('heading')).toBeNull()
+  expect(await violations(container)).toEqual([])
+})
+
+test('the rail names the audit screen in full', async () => {
+  stubFetch({ 'GET /api/auth/me': () => json(200, { ...me, permissions: ['audit:read'] }) })
+  renderAt('/')
+  const group = await screen.findByRole('list', { name: 'Administration' })
+  expect(within(group).getByRole('link', { name: 'Journal d’audit' }).getAttribute('href')).toBe('/audit')
 })
 
 test('the skip link moves the focus to the content', async () => {

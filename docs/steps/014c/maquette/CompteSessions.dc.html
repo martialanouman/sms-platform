@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Fiche compte · Sessions</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#0c0f14}
+a{color:#2dd4bf;text-decoration:none}a:hover{color:#5eead4;text-decoration:underline}
+.sg{font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:13px;line-height:1.5;color:#e6edf3;background:#0c0f14;font-variant-numeric:tabular-nums}
+.sg .mono{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px}
+.sg .rail{flex:0 0 236px;background:#0a0d12;border-right:1px solid #1c242f;padding:16px 12px;box-sizing:border-box}
+.sg .logo{display:flex;align-items:center;gap:10px;padding:4px 8px 20px;font-weight:600;font-size:14px}
+.sg .tile{width:28px;height:28px;border-radius:7px;background:linear-gradient(140deg,#5eead4,#0f766e);color:#0a0d12;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
+.sg .navh{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8b95a3;padding:16px 8px 6px}
+.sg .nav a{display:block;padding:7px 8px;border-radius:7px;color:#c4ccd6}
+.sg .nav a:hover{background:#151b24;text-decoration:none;color:#e6edf3}
+.sg .nav a.on{background:rgba(45,212,191,.14);color:#2dd4bf}
+.sg .main{flex:999 1 560px;min-width:0}
+.sg .top{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:1px solid #1c242f;background:#0a0d12;box-sizing:border-box}
+.sg .crumb{font-size:12px;color:#8b95a3}
+.sg .crumb a{color:#8b95a3}
+.sg .content{padding:24px 40px 40px;max-width:1600px;box-sizing:border-box}
+.sg h1{font-size:28px;font-weight:600;margin:0;line-height:1.2;font-family:'IBM Plex Mono',ui-monospace,monospace}
+.sg .sub{color:#8b95a3;font-size:12px}
+.sg .card{background:#11161e;border:1px solid #232b36;border-radius:12px}
+.sg .cardh{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid #1c242f}
+.sg .cardh h2{font-size:15px;font-weight:600;margin:0}
+.sg .cardb{padding:16px;display:flex;flex-direction:column;gap:16px}
+.sg .btn{height:28px;padding:0 12px;border-radius:7px;border:1px solid #2c3542;background:transparent;color:#e6edf3;font:inherit;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.sg .btn.primary{border-color:#2dd4bf;background:rgba(45,212,191,.14);color:#2dd4bf}
+.sg .btn.danger{border-color:#e5484d;color:#ff8589}
+.sg .btn[aria-disabled=true]{background:#0c1017;border-color:#1c242f;color:#6b7684;cursor:not-allowed}
+.sg .tabs{display:flex;gap:4px;border-bottom:1px solid #1c242f;flex-wrap:wrap}
+.sg .tabs a{padding:10px 12px;color:#8b95a3;border-bottom:2px solid transparent;margin-bottom:-1px}
+.sg .tabs a:hover{color:#e6edf3;text-decoration:none}
+.sg .tabs a.on{color:#e6edf3;border-bottom-color:#2dd4bf}
+.sg .pill{display:inline-flex;align-items:center;gap:6px;padding:1px 10px;border-radius:20px;font-size:12px;white-space:nowrap}
+.sg .pill i{width:6px;height:6px;border-radius:50%;background:currentColor}
+.sg .ok{background:rgba(47,209,138,.14);color:#2fd18a}
+.sg .why{font-size:11.5px;color:#8b95a3}
+.sg .lbl{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8b95a3;display:block;margin-bottom:6px}
+.sg .input{height:34px;width:120px;box-sizing:border-box;padding:0 10px;border-radius:7px;border:1px solid #2c3542;background:#0c1017;color:#e6edf3;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:13px}
+.sg .chk{display:flex;align-items:center;gap:8px;padding:4px 0}
+.sg .chk input{appearance:none;width:16px;height:16px;border-radius:4px;border:1px solid #2c3542;background:#0c1017;margin:0;position:relative}
+.sg .chk input:checked{background:rgba(45,212,191,.14);border-color:#2dd4bf}
+.sg .chk input:checked::after{content:'';position:absolute;left:4px;top:1px;width:5px;height:9px;border:solid #2dd4bf;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.sg .chk input:disabled{opacity:.55}
+.sg .module{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:32px 16px}
+</style>
+</helmet>
+<div class="sg" style="display: flex; flex-wrap: wrap; min-height: 960px">
+<nav class="rail" aria-label="Navigation principale">
+<div class="logo"><span class="tile">SG</span>SMS Gateway</div>
+<div class="nav">
+<div class="navh">Clients</div>
+<a href="Main.dc.html">Clients</a>
+<a class="on" href="ComptesListe.dc.html">Comptes</a>
+<a href="#">Groupes</a>
+<div class="navh">Administration</div>
+<a href="#">Opérateurs</a>
+<a href="#">Rôles</a>
+<a href="#">Journal d’audit</a>
+</div>
+</nav>
+<div class="main">
+<header class="top">
+<nav class="crumb" aria-label="Fil d’Ariane"><a href="Main.dc.html">Clients</a> › <a href="ClientFiche.dc.html">Banque Exemple</a> › <span class="mono">api-banque</span></nav>
+<div class="crumb">A. Kouadio · Propriétaire</div>
+</header>
+<main class="content" style="display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h1>api-banque</h1><span class="pill ok"><i></i>Actif</span></div>
+<div class="sub">Compte de <a href="ClientFiche.dc.html">Banque Exemple</a> · créé le 12/10/2026 09:20</div>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end">
+<button class="btn" type="button">Suspendre</button>
+<button class="btn" type="button" aria-disabled="true">Réactiver</button>
+<button class="btn danger" type="button">Clôturer</button>
+<button class="btn danger" type="button">Supprimer</button>
+</div>
+</div>
+<nav class="tabs" aria-label="Sections du compte">
+<a href="CompteIdentifiants.dc.html">Identifiants</a>
+<a href="CompteCanaux.dc.html">Canaux &amp; opérations</a>
+<a class="on" href="CompteSessions.dc.html" aria-current="page">Sessions</a>
+<a href="CompteWebhooks.dc.html">Webhooks MO/DLR</a>
+</nav>
+<div style="display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 16px; align-items: start">
+<section class="card" aria-labelledby="h-lim">
+<div class="cardh"><h2 id="h-lim">Limites de session</h2></div>
+<form class="cardb">
+<div><label class="lbl" for="max">max_sessions</label><input class="input" id="max" value="4" inputmode="numeric" aria-describedby="max-why"><div class="why" id="max-why" style="margin-top: 6px">Baisser la limite ne coupe aucun bind ouvert.</div></div>
+<fieldset style="border: 0; padding: 0; margin: 0"><legend class="lbl">Types de bind</legend>
+<label class="chk"><input type="checkbox" checked>Émetteur <span class="mono" style="color: #8b95a3">transmitter</span></label>
+<label class="chk"><input type="checkbox">Récepteur <span class="mono" style="color: #8b95a3">receiver</span></label>
+<label class="chk"><input type="checkbox" checked>Émetteur-récepteur <span class="mono" style="color: #8b95a3">transceiver</span></label>
+<div class="why">Au moins un type reste autorisé.</div>
+</fieldset>
+<div><button class="btn primary" type="button">Enregistrer</button></div>
+<div class="why">L’action est enregistrée dans le journal d’audit.</div>
+</form>
+</section>
+<section class="card" aria-labelledby="h-live">
+<div class="cardh"><h2 id="h-live">Binds vivants</h2><span class="why">limite 4</span></div>
+<div class="module">
+<div style="font-weight: 600">Sessions en direct indisponibles</div>
+<div class="why" style="font-size: 12.5px">Les binds ouverts de ce compte s’afficheront ici, avec leur type, leur IP et leur débit, dès que le serveur SMPP sera en service. Rien n’est caché : aucun bind n’existe encore.</div>
+</div>
+</section>
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

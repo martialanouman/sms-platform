@@ -3,7 +3,7 @@ import { createFileRoute, Link, Outlet, useNavigate } from '@tanstack/react-rout
 import { useEffect, useState } from 'react'
 import { api, json, mfaRequired, send, unreachable } from '../api'
 import { Unauthenticated, useActivity, useMe, useSessionClosed } from '../session'
-import { Button, ErrorState, LoadingState, PageHeaderProvider, PageHeaderSlot } from '../ui'
+import { Button, ErrorState, LoadingState, PageHeaderProvider, PageHeaderSlot, Toasts } from '../ui'
 
 export const Route = createFileRoute('/_shell')({ component: Shell })
 
@@ -21,7 +21,7 @@ const groups = [
     entries: [
       { to: '/operators', label: 'Opérateurs', permission: 'operators:read' },
       { to: '/roles', label: 'Rôles', permission: 'roles:read' },
-      { to: '/audit', label: 'Audit', permission: 'audit:read' },
+      { to: '/audit', label: 'Journal d’audit', permission: 'audit:read' },
     ],
   },
 ] as const
@@ -93,53 +93,55 @@ function Shell() {
 
   return (
     <PageHeaderProvider>
-      <div className="shell">
-        {/* biome-ignore lint/a11y/useValidAnchor: #contenu est une vraie destination ; le fragment seul ne donne pas le focus à main. */}
-        <a
-          className="shell__skip"
-          href="#contenu"
-          onClick={(event) => {
-            event.preventDefault()
-            document.getElementById('contenu')?.focus()
-          }}
-        >
-          Aller au contenu
-        </a>
-        {me.data ? <Rail held={me.data.permissions} /> : <div className="shell__rail" />}
-        <header className="shell__topbar">
-          <PageHeaderSlot />
-          {me.data && (
-            <div className="topbar__end">
-              <Link className="topbar__operator" to="/account">
-                {me.data.operator.displayName}
-              </Link>
-              <Button size="sm" loading={leaving} onClick={logout}>
-                Se déconnecter
-              </Button>
-            </div>
-          )}
-        </header>
-        <main className="shell__content" id="contenu" tabIndex={-1}>
-          {failure && (
-            <p className="auth__refusal" role="alert">
-              {failure}
-            </p>
-          )}
-          {me.error && !(me.error instanceof Unauthenticated) && (
-            <div className="page">
-              <ErrorState as="h1" title="Impossible de vérifier la session" onRetry={() => void me.refetch()}>
-                {unreachable} Aucun écran ne s’ouvre sans elle.
-              </ErrorState>
-            </div>
-          )}
-          {me.isPending && (
-            <div className="page">
-              <LoadingState label="Ouverture de la session" rows={2} line />
-            </div>
-          )}
-          {me.data && <Outlet />}
-        </main>
-      </div>
+      <Toasts>
+        <div className="shell">
+          {/* biome-ignore lint/a11y/useValidAnchor: #contenu est une vraie destination ; le fragment seul ne donne pas le focus à main. */}
+          <a
+            className="shell__skip"
+            href="#contenu"
+            onClick={(event) => {
+              event.preventDefault()
+              document.getElementById('contenu')?.focus()
+            }}
+          >
+            Aller au contenu
+          </a>
+          {me.data ? <Rail held={me.data.permissions} /> : <div className="shell__rail" />}
+          <header className="shell__topbar">
+            <PageHeaderSlot />
+            {me.data && (
+              <div className="topbar__end">
+                <Link className="topbar__operator" to="/account">
+                  {me.data.operator.displayName}
+                </Link>
+                <Button size="sm" loading={leaving} onClick={logout}>
+                  Se déconnecter
+                </Button>
+              </div>
+            )}
+          </header>
+          <main className="shell__content" id="contenu" tabIndex={-1}>
+            {failure && (
+              <p className="auth__refusal" role="alert">
+                {failure}
+              </p>
+            )}
+            {me.error && !(me.error instanceof Unauthenticated) && (
+              <div className="page">
+                <ErrorState as="h1" title="Impossible de vérifier la session" onRetry={() => void me.refetch()}>
+                  {unreachable} Aucun écran ne s’ouvre sans elle.
+                </ErrorState>
+              </div>
+            )}
+            {me.isPending && (
+              <div className="page">
+                <LoadingState label="Ouverture de la session" rows={2} line />
+              </div>
+            )}
+            {me.data && <Outlet />}
+          </main>
+        </div>
+      </Toasts>
     </PageHeaderProvider>
   )
 }

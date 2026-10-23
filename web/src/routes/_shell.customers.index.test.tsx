@@ -1,7 +1,8 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
-import { json, me, once, renderAt, stubFetch, violations } from '../test'
+import { atMinute } from '../audit'
+import { explained, json, me, once, renderAt, stubFetch, toasted, violations } from '../test'
 
 const reader = { ...me, permissions: ['customers:read', 'customer-groups:read'] }
 const writer = { ...reader, permissions: [...reader.permissions, 'customers:write'] }
@@ -29,11 +30,12 @@ const acme = {
 const solo = { ...acme, id: '01a16026-0000-7000-8000-0000000000c2', name: 'Solo', status: 'suspended', group_id: null }
 const page = (data: unknown[], next: string | null = null) => json(200, { data, next_cursor: next })
 
+async function row(name: string) {
+  return within((await screen.findByRole('rowheader', { name })).closest('tr') as HTMLTableRowElement)
+}
+
 async function cells(name: string) {
-  const row = (await screen.findByRole('rowheader', { name })).closest('tr') as HTMLTableRowElement
-  return within(row)
-    .getAllByRole('cell')
-    .map((c) => c.textContent)
+  return (await row(name)).getAllByRole('cell').map((c) => c.textContent)
 }
 
 test('the rail offers Clients before Groupes', async () => {
@@ -58,22 +60,80 @@ test('without customers:read the screen says why and asks nothing', async () => 
   expect(calls.some((r) => new URL(r.url).pathname.startsWith('/api/gw/'))).toBe(false)
 })
 
-test('the customers are listed with their group named, and lead to their page', async () => {
+test('the customers are listed with their status in a pill and their group named, and lead to their page', async () => {
+  const gone = { ...solo, id: '01a16026-0000-7000-8000-0000000000c3', name: 'Gone', status: 'closed', group_id: old.id }
   const calls = stubFetch({
     'GET /api/auth/me': () => json(200, reader),
-    'GET /api/gw/admin/customers': () => page([acme, solo]),
+    'GET /api/gw/admin/customers': () => page([acme, solo, gone]),
     'GET /api/gw/admin/customer-groups': directory,
   })
   const { container } = renderAt('/customers')
   expect(await screen.findByRole('table', { name: 'Clients' })).toBeDefined()
   expect(document.title).toBe('Clients — Tableau de bord')
-  await waitFor(async () => expect((await cells('Acme')).slice(0, 2)).toEqual(['Banques', 'Actif']))
-  expect((await cells('Solo')).slice(0, 2)).toEqual(['—', 'Suspendu'])
+  expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Nom', 'Statut', 'Groupe', 'Créé le'])
+  await waitFor(async () => expect(await cells('Acme')).toEqual(['Actif', 'Banques', atMinute(acme.created_at)]))
+  expect(atMinute(acme.created_at)).toMatch(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/)
+  expect(await cells('Solo')).toEqual(['Suspendu', 'Aucun', atMinute(solo.created_at)])
+  expect(await cells('Gone')).toEqual(['Fermé', 'Anciens (archivé)', atMinute(gone.created_at)])
+  const pill = async (name: string, label: string) => (await row(name)).getByText(label).className
+  expect(await pill('Acme', 'Actif')).toBe('ui-pill ui-pill--ok')
+  expect(await pill('Solo', 'Suspendu')).toBe('ui-pill ui-pill--warn')
+  expect(await pill('Gone', 'Fermé')).toBe('ui-pill ui-pill--neutral')
+  expect(await pill('Acme', atMinute(acme.created_at))).toContain('ui-mono')
   expect(screen.getByRole('link', { name: 'Acme' }).getAttribute('href')).toBe(`/customers/${acme.id}`)
   const groups = calls.find((r) => r.url.includes('customer-groups'))
   expect(new URL(groups?.url ?? '').searchParams.get('limit')).toBe('500')
   expect(new URL(groups?.url ?? '').searchParams.has('status')).toBe(false)
   expect(await violations(container)).toEqual([])
+})
+
+test('the header says what a customer is and offers to create one; the table and its pager share a card', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, writer),
+    'GET /api/gw/admin/customers': () => page([acme]),
+    'GET /api/gw/admin/customer-groups': directory,
+  })
+  renderAt('/customers')
+  const table = await screen.findByRole('table', { name: 'Clients' })
+  const header = screen.getByRole('heading', { level: 1, name: 'Clients' }).closest('.page-header') as HTMLElement
+  expect(header.textContent).toContain(
+    'Les clients de l’agrégateur, leur groupe et leur statut. Un client porte un ou plusieurs comptes.',
+  )
+  expect(within(header).getByRole('button', { name: 'Nouveau client' })).toBeDefined()
+  const card = table.closest('.ui-card') as HTMLElement
+  expect(card.classList.contains('ui-card--flush')).toBe(true)
+  expect(within(card).getByText('1 client affiché')).toBeDefined()
+})
+
+test('no customer at all says how to create one', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, writer),
+    'GET /api/gw/admin/customers': () => page([]),
+    'GET /api/gw/admin/customer-groups': directory,
+  })
+  const { container } = renderAt('/customers')
+  expect(await screen.findByText('Aucun client')).toBeDefined()
+  expect(screen.getByText('Créez le premier client avec « Nouveau client ».')).toBeDefined()
+  expect(screen.queryByRole('button', { name: 'Retirer les filtres' })).toBeNull()
+  expect(await violations(container)).toEqual([])
+})
+
+test('no customer under either filter asks to widen them, and clears them', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, writer),
+    'GET /api/gw/admin/customers': () => page([]),
+    'GET /api/gw/admin/customer-groups': directory,
+  })
+  for (const search of ['status=closed', `group_id=${banks.id}`]) {
+    const { router, unmount } = renderAt(`/customers?${search}`)
+    expect(await screen.findByText('Aucun résultat')).toBeDefined()
+    expect(screen.getByText('Élargissez les filtres.')).toBeDefined()
+    expect(screen.queryByText('Aucun client')).toBeNull()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Retirer les filtres' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({}))
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1, name: 'Clients' })))
+    unmount()
+  }
 })
 
 test('the group and status filters travel in the address', async () => {
@@ -95,6 +155,12 @@ test('the group and status filters travel in the address', async () => {
   await waitFor(() => expect(router.state.location.search).toEqual({ group_id: banks.id }))
 
   await user.click(screen.getByRole('combobox', { name: 'Statut' }))
+  expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual([
+    'Tous',
+    'Actifs',
+    'Suspendus',
+    'Fermés',
+  ])
   await user.click(await screen.findByRole('option', { name: 'Suspendus' }))
   await waitFor(() => expect(router.state.location.search).toEqual({ group_id: banks.id, status: 'suspended' }))
   await waitFor(() => {
@@ -132,6 +198,7 @@ test('a customer is created in an active group with the ages typed', async () =>
     max_age_override: { otp: 60, transactional: null, marketing: null },
   })
   expect(screen.queryByRole('dialog')).toBeNull()
+  expect(await toasted()).toEqual(['Client Acme créé.'])
 })
 
 test('a bare customer is created with its name alone', async () => {
@@ -180,7 +247,9 @@ test('without customers:write the creation is blocked and explained', async () =
     'GET /api/gw/admin/customer-groups': directory,
   })
   renderAt('/customers')
-  expect((await screen.findByRole('button', { name: 'Nouveau client' })).getAttribute('aria-disabled')).toBe('true')
+  const create = await screen.findByRole('button', { name: 'Nouveau client' })
+  expect(create.getAttribute('aria-disabled')).toBe('true')
+  expect(explained(create)).toBe('Cette action demande Clients : modifier customers:write.')
 })
 
 test('a session gone while listing sends to the login', async () => {
@@ -244,6 +313,81 @@ test('without customer-groups:read the group filter is blocked and explained', a
   await userEvent.setup().click(group)
   await expect(screen.findByRole('option', {}, { timeout: 300 })).rejects.toThrow()
   expect(document.getElementById(group.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
-    'Le groupe demande customer-groups:read.',
+    'Le groupe demande Groupes de clients : lire customer-groups:read.',
   )
+})
+
+test('the pager tells how many are shown, its useless buttons frozen and explained', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, reader),
+    'GET /api/gw/admin/customers': () => page([acme, solo]),
+    'GET /api/gw/admin/customer-groups': directory,
+  })
+  renderAt('/customers')
+  expect(await screen.findByText('2 clients affichés')).toBeDefined()
+  const previous = screen.getByRole('button', { name: 'Précédent' })
+  const next = screen.getByRole('button', { name: 'Suivant' })
+  expect([previous, next].map((b) => b.getAttribute('aria-disabled'))).toEqual(['true', 'true'])
+  expect([explained(previous), explained(next)]).toEqual(['Première page.', 'Dernière page.'])
+})
+
+test('a single customer shown is said in the singular, with a way forward', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, reader),
+    'GET /api/gw/admin/customers': () => page([acme], 'c1'),
+    'GET /api/gw/admin/customer-groups': directory,
+  })
+  renderAt('/customers')
+  expect(await screen.findByText('1 client affiché')).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Suivant' }).hasAttribute('aria-disabled')).toBe(false)
+})
+
+test('an active status from the address filters, and Tous on the group leaves the address bare', async () => {
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, reader),
+    'GET /api/gw/admin/customers': () => page([acme]),
+    'GET /api/gw/admin/customer-groups': directory,
+  })
+  const user = userEvent.setup()
+  const { router } = renderAt(`/customers?status=active&group_id=${banks.id}`)
+  await screen.findByRole('rowheader', { name: 'Acme' })
+  expect(new URL(calls.find((r) => r.url.includes('/admin/customers'))?.url ?? '').searchParams.get('status')).toBe(
+    'active',
+  )
+  expect(screen.getByRole('combobox', { name: 'Statut' }).textContent).toBe('Statut : Actifs')
+  await user.click(screen.getByRole('combobox', { name: 'Groupe' }))
+  await user.click(await screen.findByRole('option', { name: 'Tous' }))
+  await waitFor(() => expect(router.state.location.href).toBe('/customers?status=active'))
+})
+
+test('without customer-groups:read the group of a customer is said unreadable, never its identifier', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, { ...me, permissions: ['customers:read'] }),
+    'GET /api/gw/admin/customers': () => page([acme, solo]),
+  })
+  const { container } = renderAt('/customers')
+  const table = await screen.findByRole('table', { name: 'Clients' })
+  expect((await cells('Acme'))[1]).toBe('non lisible')
+  expect((await cells('Solo'))[1]).toBe('Aucun')
+  expect(table.textContent).not.toContain(banks.id)
+  expect(await violations(container)).toEqual([])
+})
+
+test('a creation the gateway fails keeps the dialog open with the refusal, and toasts nothing', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, writer),
+    'GET /api/gw/admin/customers': () => page([]),
+    'GET /api/gw/admin/customer-groups': directory,
+    'POST /api/gw/admin/customers': () => json(503, { code: 'service_unavailable', message: 'down' }),
+  })
+  const user = userEvent.setup()
+  renderAt('/customers')
+  await user.click(await screen.findByRole('button', { name: 'Nouveau client' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Nouveau client' })
+  expect(await violations(document.body)).toEqual([])
+  await user.type(within(dialog).getByLabelText('Nom'), 'Acme')
+  await user.click(within(dialog).getByRole('button', { name: 'Créer le client' }))
+  expect(await within(dialog).findByRole('alert')).toBeDefined()
+  expect(screen.getByRole('dialog', { name: 'Nouveau client' })).toBe(dialog)
+  expect(screen.getByRole('region', { name: 'Notifications' }).querySelectorAll('.ui-toast')).toHaveLength(0)
 })

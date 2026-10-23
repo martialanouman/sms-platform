@@ -1,13 +1,15 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { type FormEvent, useId, useState } from 'react'
+import { type FormEvent, useId, useRef, useState } from 'react'
+import { atMinute } from '../audit'
 import { type Group, groupsKey } from '../customers'
 import { gw } from '../gw'
-import { Failure, type Paged, Pager, paged, useClosedOn } from '../list'
+import { Failure, NoResults, type Paged, Pager, paged, useClosedOn } from '../list'
 import { read } from '../queries'
 import { useShellMe } from '../session'
 import {
   Button,
+  Card,
   Confirmation,
   DataTable,
   EmptyState,
@@ -15,9 +17,11 @@ import {
   Forbidden,
   LoadingState,
   Modal,
+  needs,
   PageHeader,
   Select,
-  Toolbar,
+  StatusPill,
+  type Tone,
   useSubmission,
 } from '../ui'
 
@@ -32,7 +36,11 @@ export const Route = createFileRoute('/_shell/groups')({
   component: Groups,
 })
 
-const statusLabel: Record<Status, string> = { active: 'Actif', archived: 'Archivé' }
+const groupStatus: Record<Status, { label: string; tone: Tone }> = {
+  active: { label: 'Actif', tone: 'ok' },
+  archived: { label: 'Archivé', tone: 'neutral' },
+}
+const about = 'Un groupe range des clients pour le filtrage et le reporting ; il ne porte ni solde, ni quota, ni règle.'
 
 const filters = [
   { value: '', label: 'Tous' },
@@ -46,9 +54,11 @@ function Groups() {
   const me = useShellMe()
   const held = me.data?.permissions ?? []
   const readable = held.includes('customer-groups:read')
-  const blocked = held.includes('customer-groups:write') ? undefined : 'Cette action demande customer-groups:write.'
+  const blocked = held.includes('customer-groups:write') ? undefined : needs('customer-groups:write')
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
+  const title = useRef<HTMLHeadingElement>(null)
+  const clear = () => void navigate({ search: {} }).then(() => title.current?.focus())
   const list = useQuery({
     queryKey: [...groupsKey, search],
     queryFn: () =>
@@ -64,11 +74,23 @@ function Groups() {
 
   return (
     <>
-      <PageHeader title="Groupes de clients" />
-      {readable ? (
-        <>
-          <Toolbar
-            filters={
+      <PageHeader
+        crumbs={['Groupes de clients']}
+        titleRef={title}
+        title="Groupes de clients"
+        meta={readable && about}
+        actions={
+          readable && (
+            <Button size="sm" variant="primary" blockedReason={blocked} onClick={() => setPending({ kind: 'create' })}>
+              Nouveau groupe
+            </Button>
+          )
+        }
+      />
+      <section className="page">
+        {readable ? (
+          <>
+            <div className="ui-filters">
               <Select
                 label="Statut"
                 items={filters}
@@ -77,13 +99,7 @@ function Groups() {
                   void navigate({ search: { status: status === '' ? undefined : (status as Status) } })
                 }
               />
-            }
-          >
-            <Button size="sm" variant="primary" blockedReason={blocked} onClick={() => setPending({ kind: 'create' })}>
-              Nouveau groupe
-            </Button>
-          </Toolbar>
-          <section className="page">
+            </div>
             {list.isPending ? (
               <LoadingState label="Chargement des groupes…" rows={3} />
             ) : list.error ? (
@@ -93,9 +109,26 @@ function Groups() {
                 retry={() => void list.refetch()}
               />
             ) : list.data.data.length === 0 ? (
-              <EmptyState title="Aucun groupe" />
+              search.status ? (
+                <NoResults clear={clear} />
+              ) : (
+                <EmptyState title="Aucun groupe">
+                  <p>Créez le premier groupe avec « Nouveau groupe ».</p>
+                </EmptyState>
+              )
             ) : (
-              <>
+              <Card
+                flush
+                footer={
+                  <Pager
+                    search={search}
+                    next={list.data.next_cursor}
+                    go={(next) => void navigate({ search: next })}
+                    count={list.data.data.length}
+                    noun={['groupe affiché', 'groupes affichés']}
+                  />
+                }
+              >
                 <DataTable<Group>
                   caption="Groupes de clients"
                   rows={list.data.data}
@@ -103,7 +136,12 @@ function Groups() {
                   columns={[
                     { header: 'Nom', cell: (g) => g.name },
                     { header: 'Description', cell: (g) => g.description ?? '—' },
-                    { header: 'Statut', cell: (g) => statusLabel[g.status] },
+                    {
+                      header: 'Statut',
+                      cell: (g) => (
+                        <StatusPill tone={groupStatus[g.status].tone}>{groupStatus[g.status].label}</StatusPill>
+                      ),
+                    },
                     {
                       header: 'Clients',
                       cell: (g) => (
@@ -111,6 +149,10 @@ function Groups() {
                           {g.member_count}
                         </Link>
                       ),
+                    },
+                    {
+                      header: 'Créé le',
+                      cell: (g) => <span className="ui-mono ui-muted">{atMinute(g.created_at)}</span>,
                     },
                     {
                       header: 'Actions',
@@ -132,6 +174,7 @@ function Groups() {
                           </Button>
                           <Button
                             size="sm"
+                            variant="danger"
                             blockedReason={blocked}
                             onClick={() => setPending({ kind: 'delete', group: g })}
                           >
@@ -142,25 +185,22 @@ function Groups() {
                     },
                   ]}
                 />
-                <Pager search={search} next={list.data.next_cursor} go={(next) => void navigate({ search: next })} />
-              </>
+              </Card>
             )}
             {pending?.kind === 'create' && <GroupForm onClose={close} />}
             {pending?.kind === 'edit' && <GroupForm group={pending.group} onClose={close} />}
             {pending?.kind === 'status' && <StatusChange group={pending.group} onClose={close} />}
             {pending?.kind === 'delete' && <Deletion group={pending.group} onClose={close} />}
-          </section>
-        </>
-      ) : (
-        <section className="page">
+          </>
+        ) : (
           <Forbidden
             title="Accès aux groupes de clients non accordé"
             about="Cet écran liste les groupes qui rangent les clients pour le filtrage et le reporting."
             permission="customer-groups:read"
             grantedBy="Exploitation"
           />
-        </section>
-      )}
+        )}
+      </section>
     </>
   )
 }
@@ -214,7 +254,7 @@ function GroupForm({ group, onClose }: { group?: Group; onClose: () => void }) {
       }
     >
       <form className="form" id={form} onSubmit={save}>
-        <p>Un groupe range des clients pour le filtrage et le reporting ; il ne porte ni solde, ni quota, ni règle.</p>
+        <p>{about}</p>
         {refusal}
         <Field
           label="Nom"

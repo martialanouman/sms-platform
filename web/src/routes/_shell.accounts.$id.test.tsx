@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
-import { empty, explained, json, me, renderAt, stubFetch, violations } from '../test'
+import { empty, explained, json, me, renderAt, stubFetch, toasted, violations } from '../test'
 
 const writer = { ...me, permissions: ['accounts:read', 'accounts:write'] }
 const acme = { id: '01a16026-0000-7000-8000-0000000000c1' }
@@ -68,7 +68,9 @@ test('an account under a suspended customer is shown suspended in effect', async
   stub({ ...api, customer_status: 'suspended' })
   renderAt(`/accounts/${api.id}`)
   const identity = await screen.findByRole('region', { name: 'Identité' })
-  expect(within(identity).getByText('Statut').nextElementSibling?.textContent).toBe('Actif (client suspendu)')
+  const status = within(identity).getByText('Statut').nextElementSibling as HTMLElement
+  expect(within(status).getByText('Suspendu').className).toBe('ui-pill ui-pill--warn')
+  expect(within(status).getByText('par son client').className).toBe('ui-why')
 })
 
 test('the channels are sent together, and the last one enabled cannot be disabled', async () => {
@@ -157,7 +159,7 @@ test('a suspension refused because the account is closed is said in French', asy
   const dialog = await screen.findByRole('alertdialog')
   expect(dialog.textContent).toContain('Ses binds ouverts sont déconnectés.')
   await user.click(within(dialog).getByRole('button', { name: 'Suspendre' }))
-  expect(await within(dialog).findByText('Ce compte est clos définitivement.')).toBeDefined()
+  expect(await within(dialog).findByText('Ce compte est fermé définitivement.')).toBeDefined()
 })
 
 test('a closed account is frozen but can still be deleted, which leads back to its customer', async () => {
@@ -165,12 +167,12 @@ test('a closed account is frozen but can still be deleted, which leads back to i
   const user = userEvent.setup()
   const { router } = renderAt(`/accounts/${api.id}`)
   for (const name of ['Suspendre', 'Réactiver', 'Clôturer']) {
-    expect(explained(await screen.findByRole('button', { name }))).toBe('Clos définitivement.')
+    expect(explained(await screen.findByRole('button', { name }))).toBe('Fermé définitivement.')
   }
   for (const block of ['Identité', 'Canaux', 'Sessions', 'Opérations SMPP']) {
     expect(
       explained(within(screen.getByRole('region', { name: block })).getByRole('button', { name: 'Modifier' })),
-    ).toBe('Clos définitivement.')
+    ).toBe('Fermé définitivement.')
   }
   await user.click(screen.getByRole('button', { name: 'Supprimer' }))
   await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Supprimer' }))
@@ -181,12 +183,14 @@ test('without accounts:write every change is blocked', async () => {
   stub(api, {}, { ...me, permissions: ['accounts:read'] })
   renderAt(`/accounts/${api.id}`)
   for (const name of ['Suspendre', 'Réactiver', 'Clôturer', 'Supprimer']) {
-    expect(explained(await screen.findByRole('button', { name }))).toBe('Cette action demande accounts:write.')
+    expect(explained(await screen.findByRole('button', { name }))).toBe(
+      'Cette action demande Comptes : modifier accounts:write.',
+    )
   }
   for (const block of ['Identité', 'Canaux', 'Sessions', 'Opérations SMPP']) {
     expect(
       explained(within(screen.getByRole('region', { name: block })).getByRole('button', { name: 'Modifier' })),
-    ).toBe('Cette action demande accounts:write.')
+    ).toBe('Cette action demande Comptes : modifier accounts:write.')
   }
 })
 
@@ -255,7 +259,7 @@ test('reactivating or closing an account closed meanwhile is said in French', as
     await user.click(await screen.findByRole('button', { name: action }))
     const dialog = await screen.findByRole('alertdialog')
     await user.click(within(dialog).getByRole('button', { name: action }))
-    expect(await within(dialog).findByText('Ce compte est clos définitivement.')).toBeDefined()
+    expect(await within(dialog).findByText('Ce compte est fermé définitivement.')).toBeDefined()
     await user.click(within(dialog).getByRole('button', { name: 'Annuler' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
   }
@@ -266,7 +270,7 @@ test('a rename refused for another reason keeps the gateway message', async () =
   const { user, dialog } = await editBlock('Identité')
   await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
   expect(await within(dialog).findByRole('alert')).toBeDefined()
-  expect(within(dialog).queryByText('Ce client est clos ou n’existe plus.')).toBeNull()
+  expect(within(dialog).queryByText('Ce client est fermé ou n’existe plus.')).toBeNull()
 })
 
 test('a refused setting describes the group of choices it concerns', async () => {
@@ -278,4 +282,23 @@ test('a refused setting describes the group of choices it concerns', async () =>
   await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
   const alert = await within(dialog).findByRole('alert')
   expect(within(dialog).getByRole('group', { name: 'Canaux' }).getAttribute('aria-describedby')).toBe(alert.id)
+})
+
+test('without accounts:read the breadcrumb names Comptes without linking to it', async () => {
+  stubFetch({ 'GET /api/auth/me': () => json(200, { ...me, permissions: ['customers:read'] }) })
+  renderAt(`/accounts/${api.id}`)
+  const crumbs = await within(await screen.findByRole('banner')).findByRole('navigation', { name: 'Fil d’Ariane' })
+  await waitFor(() => expect(crumbs.textContent).toBe('ComptesCompte'))
+  expect(within(crumbs).queryByRole('link')).toBeNull()
+})
+
+test('a rename that succeeds is told in a toast', async () => {
+  stub(api, { [`PATCH ${path}`]: () => json(200, { ...api, name: 'web' }) })
+  const { user, dialog } = await editBlock('Identité')
+  const name = within(dialog).getByRole('textbox', { name: 'Nom' })
+  await user.clear(name)
+  await user.type(name, 'web')
+  await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  expect(await toasted()).toEqual(['Compte web renommé.'])
 })

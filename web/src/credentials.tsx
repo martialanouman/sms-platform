@@ -14,6 +14,7 @@ import {
   Field,
   LoadingState,
   Modal,
+  needs,
   SecretOnce,
   Select,
   Toolbar,
@@ -70,8 +71,8 @@ export function Credentials({ account }: { account: Account }) {
   const [shown, setShown] = useState<Shown>()
   const close = () => setPending(undefined)
   const blocked =
-    (held.includes('credentials:write') ? undefined : 'Cette action demande credentials:write.') ??
-    (account.status === 'closed' ? 'Clos définitivement.' : undefined)
+    (held.includes('credentials:write') ? undefined : needs('credentials:write')) ??
+    (account.status === 'closed' ? 'Fermé définitivement.' : undefined)
   const list = credentials.data ?? []
   const free = (Object.keys(kinds) as Kind[]).filter((k) => !list.some((c) => c.type === k))
   const path = (c: Credential) => ({ params: { path: { id: account.id, credential_id: c.id } } })
@@ -165,7 +166,7 @@ export function Credentials({ account }: { account: Account }) {
           action={pending.action === 'disable' ? 'Désactiver' : 'Activer'}
           invalidate={key}
           onClose={close}
-          refusals={{ 409: 'Refusé : l’identifiant est révoqué, ou le compte est clos.' }}
+          refusals={{ 409: 'Refusé : l’identifiant est révoqué, ou le compte est fermé.' }}
           call={() =>
             gw.PATCH('/admin/accounts/{id}/credentials/{credential_id}', {
               ...path(pending.c as Credential),
@@ -224,7 +225,7 @@ function CreateForm({
     )
     const said = {
       409: kind === 'smpp_bind' ? 'Ce system_id est déjà pris.' : 'Ce compte a déjà un identifiant de ce type.',
-      422: 'Ce compte est clos ou n’existe plus.',
+      422: 'Ce compte est fermé ou n’existe plus.',
     }[outcome.response?.status ?? 0]
     if (said) {
       fail(said)
@@ -299,7 +300,7 @@ function RotateForm({
       }),
     )
     if (outcome.response?.status === 409) {
-      fail('Ce compte est clos.')
+      fail('Ce compte est fermé.')
       return
     }
     if ('data' in outcome) {

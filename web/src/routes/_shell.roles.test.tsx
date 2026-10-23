@@ -49,9 +49,8 @@ test('the roles are listed with their permissions and holders counted', async ()
     'GET /api/roles': () => json(200, [owner, support, readers]),
   })
   const { container } = renderAt('/roles')
-  expect(
-    await within(await screen.findByRole('banner')).findByRole('heading', { level: 1, name: 'Rôles' }),
-  ).toBeDefined()
+  expect(await within(await screen.findByRole('main')).findByRole('heading', { level: 1, name: 'Rôles' })).toBeDefined()
+  expect(within(screen.getByRole('navigation', { name: 'Fil d’Ariane' })).getByText('Rôles')).toBeDefined()
   expect(await screen.findByRole('table', { name: 'Rôles du tableau de bord' })).toBeDefined()
   expect(document.title).toBe('Rôles — Tableau de bord')
   const cells = within(row('Support'))
@@ -242,11 +241,11 @@ test('a default role, a held role and a reader without roles:write are refused, 
   })
   await waitFor(() =>
     expect(explained(screen.getByRole('button', { name: 'Nouveau rôle' }))).toBe(
-      'La composition d’un rôle demande roles:write.',
+      'La composition d’un rôle demande Rôles : modifier roles:write.',
     ),
   )
   expect(explained(within(row('Tenu')).getByRole('button', { name: 'Modifier' }))).toBe(
-    'Cette action demande roles:write.',
+    'Cette action demande Rôles : modifier roles:write.',
   )
   expect(
     within(row('Support')).getByRole('button', { name: 'Voir les permissions' }).hasAttribute('aria-disabled'),

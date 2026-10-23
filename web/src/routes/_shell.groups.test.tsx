@@ -1,7 +1,8 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
-import { empty, json, me, once, renderAt, stubFetch, violations } from '../test'
+import { atMinute } from '../audit'
+import { empty, explained, json, me, once, renderAt, stubFetch, violations } from '../test'
 
 const reader = { ...me, permissions: ['customer-groups:read'] }
 const writer = { ...me, permissions: ['customer-groups:read', 'customer-groups:write'] }
@@ -59,10 +60,65 @@ test('the groups are listed with their status and member count', async () => {
   const { container } = renderAt('/groups')
   expect(await screen.findByRole('table', { name: 'Groupes de clients' })).toBeDefined()
   expect(document.title).toBe('Groupes de clients — Tableau de bord')
-  expect((await cells('Banques')).slice(0, 3)).toEqual(['Établissements financiers', 'Actif', '3'])
+  expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).toEqual([
+    'Nom',
+    'Description',
+    'Statut',
+    'Clients',
+    'Créé le',
+    'Actions',
+  ])
+  expect((await cells('Banques')).slice(0, 4)).toEqual([
+    'Établissements financiers',
+    'Actif',
+    '3',
+    atMinute(banks.created_at),
+  ])
   expect(screen.getByRole('link', { name: '3' }).getAttribute('href')).toBe(`/customers?group_id=${banks.id}`)
   expect((await cells('Télécoms')).slice(0, 3)).toEqual(['—', 'Archivé', '0'])
+  expect((await row('Banques')).getByText('Actif').className).toBe('ui-pill ui-pill--ok')
+  expect((await row('Télécoms')).getByText('Archivé').className).toBe('ui-pill ui-pill--neutral')
+  expect((await row('Banques')).getByText(atMinute(banks.created_at)).className).toContain('ui-mono')
+  expect(atMinute(banks.created_at)).toMatch(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/)
+  expect((await row('Banques')).getByRole('button', { name: 'Supprimer' }).className).toContain('ui-button--danger')
+  expect((await row('Banques')).getByRole('button', { name: 'Modifier' }).closest('.row-actions')).not.toBeNull()
+  const table = screen.getByRole('table', { name: 'Groupes de clients' })
+  expect(screen.getByText('2 groupes affichés').closest('.ui-card')).toBe(table.closest('.ui-card'))
   expect(await violations(container)).toEqual([])
+})
+
+test('the header says what a group is and offers to create one', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, writer),
+    'GET /api/gw/admin/customer-groups': () => page([banks]),
+  })
+  renderAt('/groups')
+  const title = await screen.findByRole('heading', { level: 1, name: 'Groupes de clients' })
+  const header = title.closest('.page-header') as HTMLElement
+  expect(header.textContent).toContain(
+    'Un groupe range des clients pour le filtrage et le reporting ; il ne porte ni solde, ni quota, ni règle.',
+  )
+  expect(within(header).getByRole('button', { name: 'Nouveau groupe' })).toBeDefined()
+})
+
+test('no group at all says how to create one, and none under the filter asks to widen it', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, writer),
+    'GET /api/gw/admin/customer-groups': () => page([]),
+  })
+  const { unmount } = renderAt('/groups')
+  expect(await screen.findByText('Aucun groupe')).toBeDefined()
+  expect(screen.getByText('Créez le premier groupe avec « Nouveau groupe ».')).toBeDefined()
+  expect(screen.queryByRole('button', { name: 'Retirer les filtres' })).toBeNull()
+  unmount()
+  const { router } = renderAt('/groups?status=archived')
+  expect(await screen.findByText('Aucun résultat')).toBeDefined()
+  expect(screen.getByText('Élargissez les filtres.')).toBeDefined()
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Retirer les filtres' }))
+  await waitFor(() => expect(router.state.location.search).toEqual({}))
+  await waitFor(() =>
+    expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1, name: 'Groupes de clients' })),
+  )
 })
 
 test('the status filter and the next page travel in the address', async () => {
@@ -236,9 +292,14 @@ test('without customer-groups:write every change is blocked and explained', asyn
     'GET /api/gw/admin/customer-groups': () => page([banks]),
   })
   renderAt('/groups')
-  expect((await screen.findByRole('button', { name: 'Nouveau groupe' })).getAttribute('aria-disabled')).toBe('true')
+  const reason = 'Cette action demande Groupes de clients : modifier customer-groups:write.'
+  const create = await screen.findByRole('button', { name: 'Nouveau groupe' })
+  expect(create.getAttribute('aria-disabled')).toBe('true')
+  expect(explained(create)).toBe(reason)
   for (const name of ['Modifier', 'Archiver', 'Supprimer']) {
-    expect((await row('Banques')).getByRole('button', { name }).getAttribute('aria-disabled')).toBe('true')
+    const button = (await row('Banques')).getByRole('button', { name })
+    expect(button.getAttribute('aria-disabled')).toBe('true')
+    expect(explained(button)).toBe(reason)
   }
 })
 
