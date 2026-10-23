@@ -371,7 +371,7 @@ function ToastStack() {
             key={toast.id}
             toast={toast}
             className="ui-toast"
-            render={({ 'aria-modal': _, ...props }) => <div {...props} role="status" />}
+            render={({ 'aria-modal': _modal, role: _role, ...props }) => <div {...props} />}
           >
             <Toast.Description className="ui-toast__text" />
             <Toast.Close className="ui-toast__close" aria-label="Fermer">

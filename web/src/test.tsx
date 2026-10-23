@@ -103,8 +103,8 @@ export function once(answer: () => Response) {
 
 export async function toasted() {
   const region = await screen.findByRole('region', { name: 'Notifications' })
-  await waitFor(() => expect(within(region).queryAllByRole('status').length).toBeGreaterThan(0))
-  return within(region)
-    .getAllByRole('status')
-    .map((t) => t.textContent)
+  expect(region.getAttribute('aria-live')).toBe('polite')
+  await waitFor(() => expect(region.querySelectorAll('.ui-toast').length).toBeGreaterThan(0))
+  expect(within(region).queryAllByRole('status')).toEqual([])
+  return [...region.querySelectorAll('.ui-toast')].map((t) => t.textContent)
 }

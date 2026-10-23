@@ -65,7 +65,7 @@ function Notifier() {
   )
 }
 
-test('a toast is a status, at most three stand, and each leaves after five seconds', async () => {
+test('toasts speak through their polite region, at most three stand, and each leaves after five seconds', async () => {
   vi.useFakeTimers()
   render(
     <Toasts>
@@ -73,15 +73,17 @@ test('a toast is a status, at most three stand, and each leaves after five secon
     </Toasts>,
   )
   const region = screen.getByRole('region', { name: 'Notifications' })
+  expect(region.getAttribute('aria-live')).toBe('polite')
   for (let i = 0; i < 4; i++) {
     act(() => fireEvent.click(screen.getByRole('button', { name: 'Notifier' })))
   }
-  const standing = () => [...region.querySelectorAll('[role="status"]:not([data-limited])')].map((t) => t.textContent)
+  const standing = () => [...region.querySelectorAll('.ui-toast:not([data-limited])')].map((t) => t.textContent)
   expect(standing().sort()).toEqual(['Avis 2.', 'Avis 3.', 'Avis 4.'])
+  expect(region.querySelectorAll('[role="status"]')).toHaveLength(0)
   act(() => vi.advanceTimersByTime(4900))
   expect(standing()).toHaveLength(3)
   await act(async () => vi.advanceTimersByTime(200))
-  expect(region.querySelectorAll('[role="status"]')).toHaveLength(0)
+  expect(region.querySelectorAll('.ui-toast')).toHaveLength(0)
 })
 
 test('tabs are links marking the current one', async () => {
