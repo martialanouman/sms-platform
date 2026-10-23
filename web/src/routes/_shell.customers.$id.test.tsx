@@ -510,3 +510,27 @@ test('a new account refused because the customer is closed is said in French', a
   await user.click(within(dialog).getByRole('button', { name: 'Créer le compte' }))
   expect(await within(dialog).findByText('Ce client est fermé ou n’existe plus.')).toBeDefined()
 })
+
+test('suspending by the keyboard leaves the focus on Suspendre, now blocked', async () => {
+  let current = acme
+  stub(acme, {
+    [`GET ${path}`]: () => json(200, current),
+    [`GET ${path}/suspension-impact`]: () =>
+      json(200, { accounts_to_suspend: [], accounts_closed: [], binds_to_disconnect: [] }),
+    [`POST ${path}/suspend`]: () => {
+      current = { ...acme, status: 'suspended' }
+      return json(200, current)
+    },
+  })
+  const user = userEvent.setup()
+  renderAt(`/customers/${acme.id}`)
+  const suspend = await screen.findByRole('button', { name: 'Suspendre' })
+  suspend.focus()
+  await user.keyboard('{Enter}')
+  const dialog = await screen.findByRole('alertdialog')
+  within(dialog).getByRole('button', { name: 'Suspendre' }).focus()
+  await user.keyboard('{Enter}')
+  await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+  await waitFor(() => expect(explained(screen.getByRole('button', { name: 'Suspendre' }))).toBe('Déjà suspendu.'))
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Suspendre' }))
+})

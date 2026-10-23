@@ -115,3 +115,19 @@ test('tabs are links marking the current one, and a frozen tab stays shown, expl
   await userEvent.setup().click(frozen)
   expect(router.state.location.pathname).toBe('/audit/control-plane')
 })
+
+test('a free button carries no reason and opens no bubble, even focused', async () => {
+  render(<Button>Suspendre</Button>)
+  const button = screen.getByRole('button', { name: 'Suspendre' })
+  await userEvent.setup().tab()
+  expect(document.activeElement).toBe(button)
+  expect(button.hasAttribute('aria-disabled')).toBe(false)
+  expect(button.hasAttribute('aria-describedby')).toBe(false)
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  expect(document.querySelector('.ui-tooltip')).toBeNull()
+})
+
+test('a loading button stays inert', () => {
+  render(<Button loading>Enregistrer</Button>)
+  expect(screen.getByRole('button', { name: 'Enregistrer' }).getAttribute('aria-disabled')).toBe('true')
+})

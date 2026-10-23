@@ -523,15 +523,21 @@ export function needs(permission: string, subject = 'Cette action') {
 
 export function Explained({ reason, render }: { reason?: ReactNode; render: ReactElement }) {
   const id = useId()
-  if (reason === undefined) {
-    return render
-  }
+  const blocked = reason !== undefined
   return (
-    <Tooltip.Root>
-      <Tooltip.Trigger delay={0} closeOnClick={false} render={render} aria-disabled aria-describedby={id} />
-      <span className="ui-visually-hidden" id={id}>
-        {reason}
-      </span>
+    <Tooltip.Root disabled={!blocked}>
+      <Tooltip.Trigger
+        delay={0}
+        closeOnClick={false}
+        render={render}
+        aria-disabled={blocked || undefined}
+        aria-describedby={blocked ? id : undefined}
+      />
+      {blocked && (
+        <span className="ui-visually-hidden" id={id}>
+          {reason}
+        </span>
+      )}
       <Tooltip.Portal>
         <Tooltip.Positioner className="ui-tooltip__positioner" side="bottom" align="end" sideOffset={6}>
           <Tooltip.Popup className="ui-tooltip">{reason}</Tooltip.Popup>
