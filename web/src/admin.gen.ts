@@ -2399,6 +2399,8 @@ export interface components {
             id: string;
             /** Format: uuid */
             customer_id: string;
+            customer_name: string;
+            customer_status: components["schemas"]["CustomerStatus"];
             name: string;
             status: components["schemas"]["AccountStatus"];
             smpp_enabled: boolean;
@@ -2425,7 +2427,12 @@ export interface components {
             query_sm_enabled: boolean;
             /** @default true */
             cancel_sm_enabled: boolean;
-            allowed_bind_types?: components["schemas"]["BindType"][];
+            /**
+             * @default [
+             *       "transceiver"
+             *     ]
+             */
+            allowed_bind_types: components["schemas"]["BindType"][];
             /** @default 1 */
             max_sessions: number;
         };
@@ -4704,6 +4711,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationError"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["ServiceUnavailable"];

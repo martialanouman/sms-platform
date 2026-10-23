@@ -442,6 +442,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
@@ -2854,6 +2855,8 @@ components:
       properties:
         id: { type: string, format: uuid }
         customer_id: { type: string, format: uuid }
+        customer_name: { type: string }
+        customer_status: { $ref: '#/components/schemas/CustomerStatus' }
         name: { type: string }
         status: { $ref: '#/components/schemas/AccountStatus' }
         smpp_enabled: { type: boolean }
@@ -2868,7 +2871,7 @@ components:
             - type: "null"
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
-      required: [id, customer_id, name, status, smpp_enabled, rest_enabled, query_sm_enabled, cancel_sm_enabled, allowed_bind_types, max_sessions, rate_limit, created_at, updated_at]
+      required: [id, customer_id, customer_name, customer_status, name, status, smpp_enabled, rest_enabled, query_sm_enabled, cancel_sm_enabled, allowed_bind_types, max_sessions, rate_limit, created_at, updated_at]
     AccountCreate:
       type: object
       additionalProperties: false
@@ -2879,7 +2882,7 @@ components:
         rest_enabled: { type: boolean, default: true }
         query_sm_enabled: { type: boolean, default: true }
         cancel_sm_enabled: { type: boolean, default: true }
-        allowed_bind_types: { type: array, minItems: 1, uniqueItems: true, items: { $ref: '#/components/schemas/BindType' } }
+        allowed_bind_types: { type: array, minItems: 1, uniqueItems: true, default: [transceiver], items: { $ref: '#/components/schemas/BindType' } }
         max_sessions: { type: integer, minimum: 0, default: 1 }
       required: [customer_id, name]
     AccountUpdate:
