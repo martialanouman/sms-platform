@@ -23,6 +23,8 @@ import { Route as ShellRolesRouteImport } from './routes/_shell.roles'
 import { Route as ShellAuditIndexRouteImport } from './routes/_shell.audit.index'
 import { Route as ShellAuditAccessRouteImport } from './routes/_shell.audit.access'
 import { Route as ShellAuditControlPlaneRouteImport } from './routes/_shell.audit.control-plane'
+import { Route as ShellCustomersIndexRouteImport } from './routes/_shell.customers.index'
+import { Route as ShellCustomersIdRouteImport } from './routes/_shell.customers.$id'
 
 const ShellRoute = ShellRouteImport.update({
   id: '/_shell',
@@ -93,6 +95,16 @@ const ShellAuditControlPlaneRoute = ShellAuditControlPlaneRouteImport.update({
   path: '/control-plane',
   getParentRoute: () => ShellAuditRoute,
 } as any)
+const ShellCustomersIndexRoute = ShellCustomersIndexRouteImport.update({
+  id: '/customers/',
+  path: '/customers/',
+  getParentRoute: () => ShellRoute,
+} as any)
+const ShellCustomersIdRoute = ShellCustomersIdRouteImport.update({
+  id: '/customers/$id',
+  path: '/customers/$id',
+  getParentRoute: () => ShellRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof ShellIndexRoute
@@ -107,7 +119,9 @@ export interface FileRoutesByFullPath {
   '/roles': typeof ShellRolesRoute
   '/audit/access': typeof ShellAuditAccessRoute
   '/audit/control-plane': typeof ShellAuditControlPlaneRoute
+  '/customers/$id': typeof ShellCustomersIdRoute
   '/audit/': typeof ShellAuditIndexRoute
+  '/customers/': typeof ShellCustomersIndexRoute
 }
 export interface FileRoutesByTo {
   '/access': typeof AccessRoute
@@ -121,7 +135,9 @@ export interface FileRoutesByTo {
   '/': typeof ShellIndexRoute
   '/audit/access': typeof ShellAuditAccessRoute
   '/audit/control-plane': typeof ShellAuditControlPlaneRoute
+  '/customers/$id': typeof ShellCustomersIdRoute
   '/audit': typeof ShellAuditIndexRoute
+  '/customers': typeof ShellCustomersIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -138,7 +154,9 @@ export interface FileRoutesById {
   '/_shell/': typeof ShellIndexRoute
   '/_shell/audit/access': typeof ShellAuditAccessRoute
   '/_shell/audit/control-plane': typeof ShellAuditControlPlaneRoute
+  '/_shell/customers/$id': typeof ShellCustomersIdRoute
   '/_shell/audit/': typeof ShellAuditIndexRoute
+  '/_shell/customers/': typeof ShellCustomersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -155,7 +173,9 @@ export interface FileRouteTypes {
     | '/roles'
     | '/audit/access'
     | '/audit/control-plane'
+    | '/customers/$id'
     | '/audit/'
+    | '/customers/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/access'
@@ -169,7 +189,9 @@ export interface FileRouteTypes {
     | '/'
     | '/audit/access'
     | '/audit/control-plane'
+    | '/customers/$id'
     | '/audit'
+    | '/customers'
   id:
     | '__root__'
     | '/_shell'
@@ -185,7 +207,9 @@ export interface FileRouteTypes {
     | '/_shell/'
     | '/_shell/audit/access'
     | '/_shell/audit/control-plane'
+    | '/_shell/customers/$id'
     | '/_shell/audit/'
+    | '/_shell/customers/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -296,6 +320,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShellAuditControlPlaneRouteImport
       parentRoute: typeof ShellAuditRoute
     }
+    '/_shell/customers/': {
+      id: '/_shell/customers/'
+      path: '/customers'
+      fullPath: '/customers/'
+      preLoaderRoute: typeof ShellCustomersIndexRouteImport
+      parentRoute: typeof ShellRoute
+    }
+    '/_shell/customers/$id': {
+      id: '/_shell/customers/$id'
+      path: '/customers/$id'
+      fullPath: '/customers/$id'
+      preLoaderRoute: typeof ShellCustomersIdRouteImport
+      parentRoute: typeof ShellRoute
+    }
   }
 }
 
@@ -322,6 +360,8 @@ interface ShellRouteChildren {
   ShellOperatorsRoute: typeof ShellOperatorsRoute
   ShellRolesRoute: typeof ShellRolesRoute
   ShellIndexRoute: typeof ShellIndexRoute
+  ShellCustomersIdRoute: typeof ShellCustomersIdRoute
+  ShellCustomersIndexRoute: typeof ShellCustomersIndexRoute
 }
 
 const ShellRouteChildren: ShellRouteChildren = {
@@ -331,6 +371,8 @@ const ShellRouteChildren: ShellRouteChildren = {
   ShellOperatorsRoute: ShellOperatorsRoute,
   ShellRolesRoute: ShellRolesRoute,
   ShellIndexRoute: ShellIndexRoute,
+  ShellCustomersIdRoute: ShellCustomersIdRoute,
+  ShellCustomersIndexRoute: ShellCustomersIndexRoute,
 }
 
 const ShellRouteWithChildren = ShellRoute._addFileChildren(ShellRouteChildren)

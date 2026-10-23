@@ -532,6 +532,7 @@ export function Confirmation({
   invalidate,
   onClose,
   onDone = onClose,
+  refusals = {},
   children,
 }: {
   title: string
@@ -541,15 +542,21 @@ export function Confirmation({
   invalidate: QueryKey
   onClose: () => void
   onDone?: () => void
+  refusals?: Record<number, string>
   children: ReactNode
 }) {
   const queryClient = useQueryClient()
-  const { submit, waiting, refusal } = useSubmission()
+  const { submit, waiting, refusal, fail } = useSubmission()
 
   async function confirm() {
     const outcome = await submit(call)
     if (answered(outcome.response)) {
       void queryClient.invalidateQueries({ queryKey: invalidate })
+    }
+    const said = outcome.response && refusals[outcome.response.status]
+    if (said) {
+      fail(said)
+      return
     }
     if (outcome.failure === undefined) {
       onDone()

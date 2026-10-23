@@ -10,7 +10,10 @@ export const Route = createFileRoute('/_shell')({ component: Shell })
 const groups = [
   {
     label: 'Clients',
-    entries: [{ to: '/groups', label: 'Groupes', permission: 'customer-groups:read' }],
+    entries: [
+      { to: '/customers', label: 'Clients', permission: 'customers:read' },
+      { to: '/groups', label: 'Groupes', permission: 'customer-groups:read' },
+    ],
   },
   {
     label: 'Administration',
