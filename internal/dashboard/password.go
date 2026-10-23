@@ -3,34 +3,17 @@
 package dashboard
 
 import (
-	"crypto/rand"
-	"crypto/subtle"
-	"encoding/base64"
 	"errors"
-	"fmt"
-	"runtime"
-	"strings"
 	"unicode"
 	"unicode/utf8"
 
-	"golang.org/x/crypto/argon2"
+	"github.com/martialanouman/sms-platform/internal/platform/argon2id"
 )
 
-const (
-	slots      = 10
-	memory     = 64 * 1024
-	passes     = 3
-	lanes      = 4
-	saltLength = 16
-	keyLength  = 32
-)
-
-var params = fmt.Sprintf("m=%d,t=%d,p=%d", memory, passes, lanes)
+const slots = 10
 
 // ErrBusy is every hashing slot taken: the caller retries later, nothing was decided.
 var ErrBusy = errors.New("every hashing slot is busy")
-
-var errUnreadableHash = errors.New("unreadable password hash")
 
 // CheckPassword names, in French for the operator, each rule the password breaks; none when it complies.
 func CheckPassword(password string) []string {
@@ -87,13 +70,9 @@ func (h *Hasher) hold(do func() error) error {
 
 // Hash is the PHC string of password under a fresh salt.
 func (h *Hasher) Hash(password string) (string, error) {
-	salt := make([]byte, saltLength)
-	_, _ = rand.Read(salt)
 	var phc string
 	err := h.hold(func() error {
-		key := argon2.IDKey([]byte(password), salt, passes, memory, lanes, keyLength)
-		phc = fmt.Sprintf("$argon2id$v=%d$%s$%s$%s", argon2.Version, params,
-			base64.RawStdEncoding.EncodeToString(salt), base64.RawStdEncoding.EncodeToString(key))
+		phc = argon2id.Hash(password)
 		return nil
 	})
 	return phc, err
@@ -102,23 +81,11 @@ func (h *Hasher) Hash(password string) (string, error) {
 // Verify tells whether password is the one phc was computed from. A hash this binary would not have written is an
 // error, never a match.
 func (h *Hasher) Verify(phc, password string) (bool, error) {
-	fields := strings.Split(phc, "$")
-	if len(fields) != 6 || fields[0] != "" || fields[1] != "argon2id" ||
-		fields[2] != fmt.Sprintf("v=%d", argon2.Version) || fields[3] != params {
-		return false, errUnreadableHash
-	}
-	salt, err := base64.RawStdEncoding.DecodeString(fields[4])
-	if err != nil || len(salt) < saltLength {
-		return false, errUnreadableHash
-	}
-	want, err := base64.RawStdEncoding.DecodeString(fields[5])
-	if err != nil || len(want) != keyLength {
-		return false, errUnreadableHash
-	}
 	var match bool
-	err = h.hold(func() error {
-		match = subtle.ConstantTimeCompare(argon2.IDKey([]byte(password), salt, passes, memory, lanes, keyLength), want) == 1
-		return nil
+	err := h.hold(func() error {
+		var err error
+		match, err = argon2id.Verify(phc, password)
+		return err
 	})
 	return match, err
 }
@@ -127,7 +94,7 @@ func (h *Hasher) Verify(phc, password string) (bool, error) {
 // time of a refusal tells nothing.
 func (h *Hasher) VerifyDummy(password string) error {
 	return h.hold(func() error {
-		runtime.KeepAlive(argon2.IDKey([]byte(password), make([]byte, saltLength), passes, memory, lanes, keyLength))
+		argon2id.Dummy(password)
 		return nil
 	})
 }
