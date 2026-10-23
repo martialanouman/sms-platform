@@ -292,7 +292,7 @@ func TestAClosedCustomerStaysClosed(t *testing.T) {
 	}
 }
 
-func TestTheSuspensionImpactSeparatesOpenAndClosedAccountsAndListsNoBind(t *testing.T) {
+func TestTheSuspensionImpactListsActiveAndClosedAccountsAndNoBind(t *testing.T) {
 	g := newGateway(t)
 	c := g.createCustomer(t, `{"name": "Acme"}`)
 	g.accounts(t, c.ID, "active:b", "suspended:a", "closed:c")
@@ -308,7 +308,7 @@ func TestTheSuspensionImpactSeparatesOpenAndClosedAccountsAndListsNoBind(t *test
 		Closed  []ref  `json:"accounts_closed"`
 		Binds   *[]any `json:"binds_to_disconnect"`
 	}](t, rec, http.StatusOK)
-	if len(impact.Suspend) != 2 || impact.Suspend[0].Name != "a" || impact.Suspend[1].Name != "b" || impact.Suspend[0].ID == "" ||
+	if len(impact.Suspend) != 1 || impact.Suspend[0].Name != "b" || impact.Suspend[0].ID == "" ||
 		len(impact.Closed) != 1 || impact.Closed[0].Name != "c" || impact.Binds == nil || len(*impact.Binds) != 0 {
 		t.Fatalf("impact = %s", rec.Body)
 	}

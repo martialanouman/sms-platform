@@ -116,3 +116,11 @@ Une revue des correctifs du tour 1. Aucun bloquant.
    focalisable, `aria-disabled`, décrit par sa raison, et son menu est tenu fermé, comme `Button.blockedReason`.
 2. **Filtre actif invisible sans `customer-groups:read`** (basse) : le déclencheur montre la valeur brute (l'identifiant du
    groupe) quand aucun libellé ne la nomme ; même chose dans le formulaire.
+
+## Preuve dans le navigateur
+
+Sur contabo169, `Propriétaire` (compte de preuve, mot de passe et TOTP).
+
+1. **Aperçu de suspension** (constaté par la preuve) : un compte déjà suspendu figurait parmi « N comptes seront
+   suspendus », alors que la cascade ne le touche pas. `accounts_to_suspend` ne retient plus que les comptes actifs ; un
+   compte suspendu n'apparaît dans aucune des deux listes.

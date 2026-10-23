@@ -156,9 +156,10 @@ func SuspensionImpact(ctx context.Context, tx Tx, id string) (suspend, closed []
 	}
 	suspend, closed = []AccountRef{}, []AccountRef{}
 	for _, a := range accounts {
-		if a.Status == "closed" {
+		switch a.Status {
+		case "closed":
 			closed = append(closed, a)
-		} else {
+		case "active":
 			suspend = append(suspend, a)
 		}
 	}
