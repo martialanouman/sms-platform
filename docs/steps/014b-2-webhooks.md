@@ -85,3 +85,23 @@ Fable, 2026-10-23, sauf mention. Un brouillon de l'implémenteur a été relu, c
 - **SPA** : `web/src/webhooks.tsx`, bloc de la fiche compte ; Vitest avec `axe`.
 - **Dette** : #177, `debt: #177` sur la requête de rotation.
 - **Tests** : 379 à 381, netpol, config ; mutation ; preuve (382).
+
+## Écarts au design, constatés à l'implémentation
+
+- **L'échec du scellement devient 503 dans le cœur** (révise 368) : `CreateWebhook` et `RotateWebhookSecret` répondent
+  `errs.ErrServiceUnavailable` à toute erreur du `Sealer` ; l'adaptateur gRPC journalise le code et rend l'erreur telle
+  quelle. Un seul endroit tient la règle, pour tout adaptateur.
+- **`CONTENT_KEY_ADDR` refusée par `net.SplitHostPort`** : vide ou sans port, une seule garde ; l'adaptateur en tire le
+  `ServerName` (le `tls.Config` client est cloné : le client JWKS le partage).
+- **Le test de l'adaptateur résout `content-key-svc` par un résolveur `dns` manuel** (`grpc.WithResolvers`) : le nom
+  et le SAN restent ceux de la production.
+- **Création, PATCH et rotation rendent la ligne par `RETURNING`**, sans relecture ; la rotation lit d'abord, pour un
+  404 avant tout scellement (testé : KMS en panne, webhook d'un autre compte → 404).
+- **Un composant `Form`** porte la modale et le formulaire des trois actions du bloc ; `UrlField` l'URL `https`.
+
+## Mutations
+
+À la main, par le script de copie, mutation et restauration (`cmp`). SQL généré 5/5 ; cœur 4/4 après un test (lecture
+avant rotation) ; traduction 1/1 ; migration 4/4 ; adaptateur gRPC 3/3 ; huma 2/4, deux équivalents : le motif d'URL à
+la création et l'`enum` du statut au PATCH, que les CHECK de la base refusent aussi en 422 ; SPA 18/18 après un test
+(rechargement après modification).
