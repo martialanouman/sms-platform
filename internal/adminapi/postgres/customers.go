@@ -13,15 +13,16 @@ import (
 )
 
 var fields = map[string]string{
-	"customer_groups_name_key":        "name",
-	"customers_group_id_fkey":         "group_id",
-	"closed_is_final":                 "status",
-	"accounts_customer_id_name_key":   "name",
-	"accounts_customer_id_fkey":       "customer_id",
-	"customer_is_closed":              "customer_id",
-	"credentials_account_id_type_key": "type",
-	"credentials_system_id_key":       "system_id",
-	"credentials_system_id_check":     "system_id",
+	"customer_groups_name_key":           "name",
+	"customers_group_id_fkey":            "group_id",
+	"closed_is_final":                    "status",
+	"accounts_customer_id_name_key":      "name",
+	"accounts_customer_id_fkey":          "customer_id",
+	"customer_is_closed":                 "customer_id",
+	"credentials_account_id_type_key":    "type",
+	"credentials_system_id_key":          "system_id",
+	"credentials_system_id_check":        "system_id",
+	"webhooks_account_id_event_type_key": "event_type",
 }
 
 func refused(err error) error {

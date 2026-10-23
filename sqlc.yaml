@@ -32,6 +32,8 @@ sql:
         out: internal/adminapi/postgres/sqlc
         sql_package: pgx/v5
         emit_methods_with_db_argument: true
+        rename:
+          url: URL
         overrides:
           - db_type: uuid
             go_type: string

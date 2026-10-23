@@ -21,6 +21,7 @@ import {
   Toolbar,
   useSubmission,
 } from '../ui'
+import { Webhooks } from '../webhooks'
 
 export const Route = createFileRoute('/_shell/accounts/$id')({ component: AccountPage })
 
@@ -151,6 +152,7 @@ function Loaded({ account, writes }: { account: Account; writes: boolean }) {
         <dd>{onOff(account.cancel_sm_enabled)}</dd>
       </Block>
       <Credentials account={account} />
+      <Webhooks account={account} />
       {pending === 'rename' && <AccountForm customerId={account.customer_id} account={account} onClose={close} />}
       {pending === 'channels' && (
         <Settings

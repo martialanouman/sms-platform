@@ -77,6 +77,16 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
+              kubernetes.io/metadata.name: sms
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: content-key-svc
+      ports:
+        - protocol: TCP
+          port: 7002
+    - to:
+        - namespaceSelector:
+            matchLabels:
               kubernetes.io/metadata.name: postgres
           podSelector:
             matchLabels:

@@ -57,6 +57,8 @@ spec:
               value: /tls/ca.crt
             - name: JWKS_URL
               value: https://dashboard:8443/.well-known/jwks.json
+            - name: CONTENT_KEY_ADDR
+              value: content-key-svc:7002
             - name: DASHBOARD_PUBLIC_URL
               value: http://localhost:8080
             - name: POSTGRES_URL

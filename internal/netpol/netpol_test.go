@@ -348,3 +348,19 @@ func TestAServiceReachesThePodsOfItsAdminAPI(t *testing.T) {
 		}
 	}
 }
+
+func TestAServiceReachesThePodsOfItsContentKeyService(t *testing.T) {
+	got := render(t, fstest.MapFS{"relay.yaml": {Data: []byte(job("relay", [2]string{"CONTENT_KEY_ADDR", "keys:7002"}))}})
+	e := got["relay"].Spec.Egress
+	if len(e) != 1 || len(e[0].To) != 1 ||
+		!reflect.DeepEqual(e[0].To[0].NamespaceSelector.MatchLabels, map[string]string{"kubernetes.io/metadata.name": "sms"}) ||
+		!reflect.DeepEqual(e[0].To[0].PodSelector.MatchLabels, map[string]string{"app.kubernetes.io/name": "keys"}) ||
+		len(e[0].Ports) != 1 || e[0].Ports[0].Port != 7002 {
+		t.Fatalf("egress %+v, want the keys pods on 7002", e)
+	}
+	for _, bad := range []string{"https://keys:7002", "keys", "keys.sms.svc:7002", "keys:0", "Keys:7002", "keys:7002/x"} {
+		if _, err := netpol.Render(fstest.MapFS{"relay.yaml": {Data: []byte(job("relay", [2]string{"CONTENT_KEY_ADDR", bad}))}}); err == nil || !strings.Contains(err.Error(), "CONTENT_KEY_ADDR") {
+			t.Errorf("%q: err = %v, want a refusal", bad, err)
+		}
+	}
+}

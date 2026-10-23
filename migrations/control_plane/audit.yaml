@@ -4,3 +4,4 @@ customer_groups: {audit: diff}
 customers: {audit: diff}
 accounts: {audit: diff}
 credentials: {audit: diff}
+webhooks: {audit: diff}

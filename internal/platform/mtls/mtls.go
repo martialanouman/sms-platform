@@ -42,8 +42,8 @@ func (f Files) Server(allowed, nextProtos []string) (*tls.Config, error) {
 	}, nil
 }
 
-// Client returns the config of an internal client; the caller sets ServerName to the bare service name it dials. The CA is
-// read once: a CA rotation restarts the client.
+// Client returns the config of an internal client; an HTTP caller sets ServerName to the bare service name it dials, gRPC
+// takes it from the target. The CA is read once: a CA rotation restarts the client.
 func (f Files) Client() (*tls.Config, error) {
 	l, err := newLoader(f)
 	if err != nil {
