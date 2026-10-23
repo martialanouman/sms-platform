@@ -20,7 +20,6 @@ import {
   needs,
   OperatorCell,
   PageHeader,
-  Toolbar,
   useSubmission,
 } from '../ui'
 
@@ -79,10 +78,12 @@ function Operators() {
 
   return (
     <>
-      <PageHeader title="Opérateurs" titleRef={title} />
-      {readable ? (
-        <>
-          <Toolbar>
+      <PageHeader
+        crumbs={['Opérateurs']}
+        title="Opérateurs"
+        titleRef={title}
+        actions={
+          readable && (
             <Button
               size="sm"
               variant="primary"
@@ -91,100 +92,102 @@ function Operators() {
             >
               Nouvel opérateur
             </Button>
-          </Toolbar>
-          <section className="page">
-            <p className="page__note" role="status">
-              {note}
-            </p>
-            {operators.isPending ? (
-              <LoadingState label="Chargement des opérateurs…" rows={3} />
-            ) : operators.error ? (
-              <ErrorState
-                as="h2"
-                title="Les opérateurs n’ont pas pu être chargés"
-                onRetry={() => void operators.refetch()}
-              >
-                {operators.error instanceof Refused ? operators.error.message : unreachable}
-              </ErrorState>
-            ) : operators.data.length === 0 ? (
-              <EmptyState title="Aucun opérateur" />
-            ) : (
-              <DataTable
-                caption="Opérateurs du tableau de bord"
-                rows={operators.data}
-                rowKey={(o) => o.id}
-                columns={[
-                  {
-                    header: 'Opérateur',
-                    cell: (o) => <OperatorCell name={o.displayName} email={o.email} />,
-                  },
-                  { header: 'Statut', cell: status },
-                  {
-                    header: 'Rôles',
-                    cell: (o) => (o.roles.length > 0 ? o.roles.map((r) => r.name).join(', ') : 'Aucun rôle'),
-                  },
-                  {
-                    header: 'Second facteur',
-                    cell: (o) => (o.secondFactorEnrolled ? 'Configuré' : 'Aucun'),
-                  },
-                  {
-                    header: 'Actions',
-                    cell: (o) => (
-                      <div className="row-actions">
-                        <Button
-                          size="sm"
-                          blockedReason={
-                            writable ?? (readsRoles ? undefined : needs('roles:read', 'La liste des rôles à attribuer'))
-                          }
-                          onClick={open({ kind: 'roles', operator: o })}
-                        >
-                          Modifier les rôles
-                        </Button>
-                        <Status
-                          operator={o}
-                          blockedReason={
-                            writable ??
-                            (o.id === me.data?.operator.id
-                              ? 'Le compte de la session ne se désactive pas ici : un autre détenteur de operators:write peut le faire.'
-                              : undefined)
-                          }
-                          onDisable={open({ kind: 'disable', operator: o })}
-                        />
-                        <Button
-                          size="sm"
-                          blockedReason={
-                            writable ??
-                            (o.status === 'disabled'
-                              ? 'Le compte est désactivé : réactivez-le avant d’envoyer un lien.'
-                              : undefined)
-                          }
-                          onClick={open({ kind: 'link', operator: o })}
-                        >
-                          Envoyer un lien
-                        </Button>
-                      </div>
-                    ),
-                  },
-                ]}
-              />
-            )}
-            {pending?.kind === 'create' && (
-              <Creation
-                onClose={dismiss(pending)}
-                onCreated={(email) => setNote(`Compte créé. Le lien d’activation part à ${email} ; il vaut 72 heures.`)}
-              />
-            )}
-            {pending?.kind === 'roles' && (
-              <Roles
-                operator={pending.operator}
-                self={pending.operator.id === me.data?.operator.id}
-                onClose={dismiss(pending)}
-              />
-            )}
-            {pending?.kind === 'disable' && <Disable operator={pending.operator} onClose={dismiss(pending)} />}
-            {pending?.kind === 'link' && <AccessLink operator={pending.operator} onClose={dismiss(pending)} />}
-          </section>
-        </>
+          )
+        }
+      />
+      {readable ? (
+        <section className="page">
+          <p className="page__note" role="status">
+            {note}
+          </p>
+          {operators.isPending ? (
+            <LoadingState label="Chargement des opérateurs…" rows={3} />
+          ) : operators.error ? (
+            <ErrorState
+              as="h2"
+              title="Les opérateurs n’ont pas pu être chargés"
+              onRetry={() => void operators.refetch()}
+            >
+              {operators.error instanceof Refused ? operators.error.message : unreachable}
+            </ErrorState>
+          ) : operators.data.length === 0 ? (
+            <EmptyState title="Aucun opérateur" />
+          ) : (
+            <DataTable
+              caption="Opérateurs du tableau de bord"
+              rows={operators.data}
+              rowKey={(o) => o.id}
+              columns={[
+                {
+                  header: 'Opérateur',
+                  cell: (o) => <OperatorCell name={o.displayName} email={o.email} />,
+                },
+                { header: 'Statut', cell: status },
+                {
+                  header: 'Rôles',
+                  cell: (o) => (o.roles.length > 0 ? o.roles.map((r) => r.name).join(', ') : 'Aucun rôle'),
+                },
+                {
+                  header: 'Second facteur',
+                  cell: (o) => (o.secondFactorEnrolled ? 'Configuré' : 'Aucun'),
+                },
+                {
+                  header: 'Actions',
+                  cell: (o) => (
+                    <div className="row-actions">
+                      <Button
+                        size="sm"
+                        blockedReason={
+                          writable ?? (readsRoles ? undefined : needs('roles:read', 'La liste des rôles à attribuer'))
+                        }
+                        onClick={open({ kind: 'roles', operator: o })}
+                      >
+                        Modifier les rôles
+                      </Button>
+                      <Status
+                        operator={o}
+                        blockedReason={
+                          writable ??
+                          (o.id === me.data?.operator.id
+                            ? 'Le compte de la session ne se désactive pas ici : un autre détenteur de operators:write peut le faire.'
+                            : undefined)
+                        }
+                        onDisable={open({ kind: 'disable', operator: o })}
+                      />
+                      <Button
+                        size="sm"
+                        blockedReason={
+                          writable ??
+                          (o.status === 'disabled'
+                            ? 'Le compte est désactivé : réactivez-le avant d’envoyer un lien.'
+                            : undefined)
+                        }
+                        onClick={open({ kind: 'link', operator: o })}
+                      >
+                        Envoyer un lien
+                      </Button>
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          )}
+          {pending?.kind === 'create' && (
+            <Creation
+              onClose={dismiss(pending)}
+              onCreated={(email) => setNote(`Compte créé. Le lien d’activation part à ${email} ; il vaut 72 heures.`)}
+            />
+          )}
+          {pending?.kind === 'roles' && (
+            <Roles
+              operator={pending.operator}
+              self={pending.operator.id === me.data?.operator.id}
+              onClose={dismiss(pending)}
+            />
+          )}
+          {pending?.kind === 'disable' && <Disable operator={pending.operator} onClose={dismiss(pending)} />}
+          {pending?.kind === 'link' && <AccessLink operator={pending.operator} onClose={dismiss(pending)} />}
+        </section>
       ) : (
         <section className="page">
           <Forbidden

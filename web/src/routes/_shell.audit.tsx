@@ -9,7 +9,7 @@ function Audit() {
   const readable = (me.data?.permissions ?? []).includes('audit:read')
   return (
     <>
-      <PageHeader title="Audit" />
+      <PageHeader crumbs={['Journal d’audit']} title="Journal d’audit" />
       <section className="page">
         {readable ? (
           <>

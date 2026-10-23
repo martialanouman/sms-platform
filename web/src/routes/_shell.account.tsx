@@ -19,7 +19,7 @@ function Account() {
   // debt: #157
   return (
     <section className="page">
-      <PageHeader title="Mon compte" />
+      <PageHeader crumbs={['Mon compte']} title="Mon compte" />
       {me.data && (
         <>
           <p className="auth__intro">

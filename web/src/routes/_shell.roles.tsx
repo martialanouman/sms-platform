@@ -19,7 +19,6 @@ import {
   Modal,
   needs,
   PageHeader,
-  Toolbar,
   useSubmission,
 } from '../ui'
 
@@ -62,10 +61,12 @@ function Roles() {
 
   return (
     <>
-      <PageHeader title="Rôles" titleRef={title} />
-      {readable ? (
-        <>
-          <Toolbar>
+      <PageHeader
+        crumbs={['Rôles']}
+        title="Rôles"
+        titleRef={title}
+        actions={
+          readable && (
             <Button
               size="sm"
               variant="primary"
@@ -74,87 +75,89 @@ function Roles() {
             >
               Nouveau rôle
             </Button>
-          </Toolbar>
-          <section className="page">
-            {roles.isPending ? (
-              <LoadingState label="Chargement des rôles…" rows={3} />
-            ) : roles.error ? (
-              <ErrorState as="h2" title="Les rôles n’ont pas pu être chargés" onRetry={() => void roles.refetch()}>
-                {roles.error instanceof Refused ? roles.error.message : unreachable}
-              </ErrorState>
-            ) : (
-              <DataTable
-                caption="Rôles du tableau de bord"
-                rows={roles.data}
-                rowKey={(r) => r.id}
-                columns={[
-                  { header: 'Nom', cell: (r) => r.name },
-                  { header: 'Description', cell: (r) => r.description },
-                  { header: 'Permissions', cell: (r) => r.permissions.length, end: true },
-                  { header: 'Détenteurs', cell: (r) => r.holders.length, end: true },
-                  {
-                    header: 'Actions',
-                    cell: (r) => (
-                      <div className="row-actions">
-                        <Button size="sm" onClick={open({ kind: 'view', role: r })}>
-                          Voir les permissions
-                        </Button>
-                        <Button
-                          size="sm"
-                          blockedReason={r.isDefault ? byDefault : writable}
-                          onClick={open({ kind: 'edit', role: r })}
-                        >
-                          Modifier
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          blockedReason={
-                            r.isDefault
-                              ? byDefault
-                              : (writable ??
-                                (r.holders.length > 0
-                                  ? `Détenu par ${r.holders.join(', ')} : il se retire d’abord à ces opérateurs.`
-                                  : undefined))
-                          }
-                          onClick={open({ kind: 'delete', role: r })}
-                        >
-                          Supprimer
-                        </Button>
-                      </div>
-                    ),
-                  },
-                ]}
-              />
-            )}
-            {pending?.kind === 'view' && <View role={pending.role} onClose={dismiss(pending)} />}
-            {pending?.kind === 'create' && <Editor catalog={catalog} onClose={dismiss(pending)} />}
-            {pending?.kind === 'edit' && <Editor role={pending.role} catalog={catalog} onClose={dismiss(pending)} />}
-            {pending?.kind === 'delete' && (
-              <Confirmation
-                title={`Supprimer le rôle ${pending.role.name} ?`}
-                action="Supprimer"
-                danger
-                invalidate={rolesQuery.queryKey}
-                call={() =>
-                  api.DELETE('/roles/{roleId}', { params: { path: { roleId: pending.role.id } }, headers: json })
+          )
+        }
+      />
+      {readable ? (
+        <section className="page">
+          {roles.isPending ? (
+            <LoadingState label="Chargement des rôles…" rows={3} />
+          ) : roles.error ? (
+            <ErrorState as="h2" title="Les rôles n’ont pas pu être chargés" onRetry={() => void roles.refetch()}>
+              {roles.error instanceof Refused ? roles.error.message : unreachable}
+            </ErrorState>
+          ) : (
+            <DataTable
+              caption="Rôles du tableau de bord"
+              rows={roles.data}
+              rowKey={(r) => r.id}
+              columns={[
+                { header: 'Nom', cell: (r) => r.name },
+                { header: 'Description', cell: (r) => r.description },
+                { header: 'Permissions', cell: (r) => r.permissions.length, end: true },
+                { header: 'Détenteurs', cell: (r) => r.holders.length, end: true },
+                {
+                  header: 'Actions',
+                  cell: (r) => (
+                    <div className="row-actions">
+                      <Button size="sm" onClick={open({ kind: 'view', role: r })}>
+                        Voir les permissions
+                      </Button>
+                      <Button
+                        size="sm"
+                        blockedReason={r.isDefault ? byDefault : writable}
+                        onClick={open({ kind: 'edit', role: r })}
+                      >
+                        Modifier
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        blockedReason={
+                          r.isDefault
+                            ? byDefault
+                            : (writable ??
+                              (r.holders.length > 0
+                                ? `Détenu par ${r.holders.join(', ')} : il se retire d’abord à ces opérateurs.`
+                                : undefined))
+                        }
+                        onClick={open({ kind: 'delete', role: r })}
+                      >
+                        Supprimer
+                      </Button>
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          )}
+          {pending?.kind === 'view' && <View role={pending.role} onClose={dismiss(pending)} />}
+          {pending?.kind === 'create' && <Editor catalog={catalog} onClose={dismiss(pending)} />}
+          {pending?.kind === 'edit' && <Editor role={pending.role} catalog={catalog} onClose={dismiss(pending)} />}
+          {pending?.kind === 'delete' && (
+            <Confirmation
+              title={`Supprimer le rôle ${pending.role.name} ?`}
+              action="Supprimer"
+              danger
+              invalidate={rolesQuery.queryKey}
+              call={() =>
+                api.DELETE('/roles/{roleId}', { params: { path: { roleId: pending.role.id } }, headers: json })
+              }
+              onClose={dismiss(pending)}
+              onDone={() => {
+                if (current.current === pending) {
+                  setPending(undefined)
+                  setDeleted((n) => n + 1)
                 }
-                onClose={dismiss(pending)}
-                onDone={() => {
-                  if (current.current === pending) {
-                    setPending(undefined)
-                    setDeleted((n) => n + 1)
-                  }
-                }}
-              >
-                <p>
-                  Personne ne détient ce rôle : sa suppression ne retirera aucune permission à aucun opérateur. Elle est
-                  définitive.
-                </p>
-              </Confirmation>
-            )}
-          </section>
-        </>
+              }}
+            >
+              <p>
+                Personne ne détient ce rôle : sa suppression ne retirera aucune permission à aucun opérateur. Elle est
+                définitive.
+              </p>
+            </Confirmation>
+          )}
+        </section>
       ) : (
         <section className="page">
           <Forbidden

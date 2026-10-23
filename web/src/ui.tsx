@@ -9,6 +9,7 @@ import { Select as BaseSelect } from '@base-ui/react/select'
 import { Tooltip } from '@base-ui/react/tooltip'
 import { type QueryKey, useQueryClient } from '@tanstack/react-query'
 import {
+  Children,
   type ComponentProps,
   createContext,
   type ReactElement,
@@ -301,19 +302,51 @@ export function PageHeaderSlot() {
   return <div className="topbar__start" ref={useContext(HeaderSlot)[1]} />
 }
 
-export function PageHeader({ title, titleRef }: { title: string; titleRef?: Ref<HTMLHeadingElement> }) {
+export function PageHeader({
+  crumbs,
+  title,
+  status,
+  meta,
+  actions,
+  titleRef,
+}: {
+  crumbs: ReactNode[]
+  title: string
+  status?: ReactNode
+  meta?: ReactNode
+  actions?: ReactNode
+  titleRef?: Ref<HTMLHeadingElement>
+}) {
   const [node] = useContext(HeaderSlot)
   useEffect(() => {
     document.title = `${title} — Tableau de bord`
   }, [title])
   return (
-    node &&
-    createPortal(
-      <h1 className="page-header__title" ref={titleRef} tabIndex={-1}>
-        {title}
-      </h1>,
-      node,
-    )
+    <div className="page-header">
+      {node &&
+        createPortal(
+          <nav className="crumbs" aria-label="Fil d’Ariane">
+            <ol className="crumbs__list">
+              {Children.map(crumbs, (crumb, i) => (
+                <li className="crumbs__item" aria-current={i === crumbs.length - 1 ? 'page' : undefined}>
+                  {crumb}
+                </li>
+              ))}
+            </ol>
+          </nav>,
+          node,
+        )}
+      <div className="page-header__main">
+        <div className="page-header__line">
+          <h1 className="page-header__title" ref={titleRef} tabIndex={-1}>
+            {title}
+          </h1>
+          {status}
+        </div>
+        {meta && <p className="page-header__meta">{meta}</p>}
+      </div>
+      {actions && <div className="page-header__actions">{actions}</div>}
+    </div>
   )
 }
 

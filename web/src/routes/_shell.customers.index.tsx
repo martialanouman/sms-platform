@@ -53,7 +53,7 @@ function Customers() {
 
   return (
     <>
-      <PageHeader title="Clients" />
+      <PageHeader crumbs={['Clients']} title="Clients" />
       {readable ? (
         <>
           <Toolbar

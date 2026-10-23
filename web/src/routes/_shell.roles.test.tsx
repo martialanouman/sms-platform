@@ -49,9 +49,8 @@ test('the roles are listed with their permissions and holders counted', async ()
     'GET /api/roles': () => json(200, [owner, support, readers]),
   })
   const { container } = renderAt('/roles')
-  expect(
-    await within(await screen.findByRole('banner')).findByRole('heading', { level: 1, name: 'Rôles' }),
-  ).toBeDefined()
+  expect(await within(await screen.findByRole('main')).findByRole('heading', { level: 1, name: 'Rôles' })).toBeDefined()
+  expect(within(screen.getByRole('navigation', { name: 'Fil d’Ariane' })).getByText('Rôles')).toBeDefined()
   expect(await screen.findByRole('table', { name: 'Rôles du tableau de bord' })).toBeDefined()
   expect(document.title).toBe('Rôles — Tableau de bord')
   const cells = within(row('Support'))

@@ -62,7 +62,7 @@ function Accounts() {
 
   return (
     <>
-      <PageHeader title="Comptes" />
+      <PageHeader crumbs={['Comptes']} title="Comptes" />
       {readable ? (
         <>
           <Toolbar

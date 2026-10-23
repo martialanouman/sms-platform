@@ -49,7 +49,15 @@ function AccountPage() {
 
   return (
     <>
-      <PageHeader title={account.data?.name ?? 'Compte'} />
+      <PageHeader
+        crumbs={[
+          <Link key="accounts" to="/accounts">
+            Comptes
+          </Link>,
+          account.data?.name ?? 'Compte',
+        ]}
+        title={account.data?.name ?? 'Compte'}
+      />
       <section className="page">
         {!readable ? (
           <Forbidden

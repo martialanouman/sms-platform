@@ -30,9 +30,16 @@ function CustomerPage() {
 
   return (
     <>
-      <PageHeader title={customer.data?.name ?? 'Client'} />
+      <PageHeader
+        crumbs={[
+          <Link key="customers" to="/customers">
+            Clients
+          </Link>,
+          customer.data?.name ?? 'Client',
+        ]}
+        title={customer.data?.name ?? 'Client'}
+      />
       <section className="page">
-        <Link to="/customers">← Clients</Link>
         {!readable ? (
           <Forbidden
             title="Accès aux clients non accordé"

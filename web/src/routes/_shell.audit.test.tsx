@@ -49,11 +49,11 @@ test('the control plane tab lists the gateway journal, newest first', async () =
   })
   const { container } = renderAt('/audit')
   expect(await screen.findByRole('table', { name: 'Journal d’administration de la passerelle' })).toBeDefined()
-  expect(document.title).toBe('Audit — Tableau de bord')
+  expect(document.title).toBe('Journal d’audit — Tableau de bord')
   expect(screen.getByRole('link', { name: 'Administration de la passerelle' }).getAttribute('aria-current')).toBe(
     'page',
   )
-  expect(screen.getByRole('navigation', { name: 'Navigation principale' }).textContent).toContain('Audit')
+  expect(screen.getByRole('navigation', { name: 'Navigation principale' }).textContent).toContain('Journal d’audit')
   expect(cells('create-route').slice(0, 4)).toEqual([ada, 'create-route', '/admin/routes', '403'])
   expect(calls.some((r) => ['/api/access-log', '/api/operators'].includes(new URL(r.url).pathname))).toBe(false)
   expect(await violations(container)).toEqual([])

@@ -46,7 +46,11 @@ test('the page of a customer shows who it is, its group and its ages', async () 
   stub(acme)
   const { container } = renderAt(`/customers/${acme.id}`)
   expect(await screen.findByRole('heading', { name: 'Acme', level: 1 })).toBeDefined()
-  expect(screen.getByRole('link', { name: '← Clients' }).getAttribute('href')).toBe('/customers')
+  const crumbs = screen.getByRole('navigation', { name: 'Fil d’Ariane' })
+  expect(within(crumbs).getByRole('link', { name: 'Clients' }).getAttribute('href')).toBe('/customers')
+  expect(within(crumbs).getByText('Acme').getAttribute('aria-current')).toBe('page')
+  expect(within(crumbs).getByRole('link', { name: 'Clients' }).closest('li')?.hasAttribute('aria-current')).toBe(false)
+  expect(screen.queryByRole('link', { name: '← Clients' })).toBeNull()
   await waitFor(() =>
     expect(screen.getByRole('link', { name: 'Banques' }).getAttribute('href')).toBe(`/customers?group_id=${banks.id}`),
   )

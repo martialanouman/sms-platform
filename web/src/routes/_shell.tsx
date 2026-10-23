@@ -21,7 +21,7 @@ const groups = [
     entries: [
       { to: '/operators', label: 'Opérateurs', permission: 'operators:read' },
       { to: '/roles', label: 'Rôles', permission: 'roles:read' },
-      { to: '/audit', label: 'Audit', permission: 'audit:read' },
+      { to: '/audit', label: 'Journal d’audit', permission: 'audit:read' },
     ],
   },
 ] as const

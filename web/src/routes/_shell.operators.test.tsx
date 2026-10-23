@@ -66,7 +66,7 @@ test('the operators are listed with their status, roles and factor', async () =>
   stubFetch({ 'GET /api/auth/me': () => json(200, owner), 'GET /api/operators': () => json(200, [self, ada, zed]) })
   const { container } = renderAt('/operators')
   expect(
-    await within(await screen.findByRole('banner')).findByRole('heading', { name: 'Opérateurs', level: 1 }),
+    await within(await screen.findByRole('main')).findByRole('heading', { name: 'Opérateurs', level: 1 }),
   ).toBeDefined()
   expect(await screen.findByRole('table', { name: 'Opérateurs du tableau de bord' })).toBeDefined()
   expect(document.title).toBe('Opérateurs — Tableau de bord')

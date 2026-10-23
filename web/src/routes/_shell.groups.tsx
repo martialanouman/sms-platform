@@ -65,7 +65,7 @@ function Groups() {
 
   return (
     <>
-      <PageHeader title="Groupes de clients" />
+      <PageHeader crumbs={['Groupes de clients']} title="Groupes de clients" />
       {readable ? (
         <>
           <Toolbar
