@@ -2,15 +2,15 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { at } from '../audit'
-import { type Customer, CustomerForm, customerStatus, customersKey, groupLabel, useGroups } from '../customers'
+import { type Customer, CustomerForm, customersKey, groupLabel, Status, statusFilters, useGroups } from '../customers'
 import { gw } from '../gw'
 import { Failure, type Paged, Pager, paged, text, useClosedOn } from '../list'
 import { read } from '../queries'
 import { useShellMe } from '../session'
-import { Button, DataTable, EmptyState, Forbidden, LoadingState, needs, PageHeader, Select, Toolbar } from '../ui'
+import { Button, Card, DataTable, EmptyState, Forbidden, LoadingState, needs, PageHeader, Select } from '../ui'
 
-type Status = Customer['status']
-type CustomersSearch = Paged & { group_id?: string; status?: Status }
+type CustomerStatus = Customer['status']
+type CustomersSearch = Paged & { group_id?: string; status?: CustomerStatus }
 
 export const Route = createFileRoute('/_shell/customers/')({
   validateSearch: (s: Record<string, unknown>): CustomersSearch => ({
@@ -20,13 +20,6 @@ export const Route = createFileRoute('/_shell/customers/')({
   }),
   component: Customers,
 })
-
-const statusFilters = [
-  { value: '', label: 'Tous' },
-  { value: 'active', label: 'Actifs' },
-  { value: 'suspended', label: 'Suspendus' },
-  { value: 'closed', label: 'Clos' },
-]
 
 function Customers() {
   const me = useShellMe()
@@ -50,34 +43,19 @@ function Customers() {
   const [creating, setCreating] = useState(false)
   const filter = (next: Partial<CustomersSearch>) =>
     void navigate({ search: { group_id: search.group_id, status: search.status, ...next } })
+  const filtered = search.group_id !== undefined || search.status !== undefined
 
   return (
     <>
-      <PageHeader crumbs={['Clients']} title="Clients" />
-      {readable ? (
-        <>
-          <Toolbar
-            filters={
-              <>
-                <Select
-                  label="Groupe"
-                  items={[
-                    { value: '', label: 'Tous' },
-                    ...groups.list.map((g) => ({ value: g.id, label: groupLabel(g) })),
-                  ]}
-                  value={search.group_id ?? ''}
-                  onChange={(id) => filter({ group_id: id === '' ? undefined : id })}
-                  blockedReason={groups.blocked}
-                />
-                <Select
-                  label="Statut"
-                  items={statusFilters}
-                  value={search.status ?? ''}
-                  onChange={(status) => filter({ status: status === '' ? undefined : (status as Status) })}
-                />
-              </>
-            }
-          >
+      <PageHeader
+        crumbs={['Clients']}
+        title="Clients"
+        meta={
+          readable &&
+          'Les clients de l’agrégateur, leur groupe et leur statut. Un client porte un ou plusieurs comptes.'
+        }
+        actions={
+          readable && (
             <Button
               size="sm"
               variant="primary"
@@ -86,8 +64,30 @@ function Customers() {
             >
               Nouveau client
             </Button>
-          </Toolbar>
-          <section className="page">
+          )
+        }
+      />
+      <section className="page">
+        {readable ? (
+          <>
+            <div className="ui-filters">
+              <Select
+                label="Groupe"
+                items={[
+                  { value: '', label: 'Tous' },
+                  ...groups.list.map((g) => ({ value: g.id, label: groupLabel(g) })),
+                ]}
+                value={search.group_id ?? ''}
+                onChange={(id) => filter({ group_id: id === '' ? undefined : id })}
+                blockedReason={groups.blocked}
+              />
+              <Select
+                label="Statut"
+                items={statusFilters}
+                value={search.status ?? ''}
+                onChange={(status) => filter({ status: status === '' ? undefined : (status as CustomerStatus) })}
+              />
+            </div>
             {list.isPending ? (
               <LoadingState label="Chargement des clients…" rows={3} />
             ) : list.error ? (
@@ -97,9 +97,31 @@ function Customers() {
                 retry={() => void list.refetch()}
               />
             ) : list.data.data.length === 0 ? (
-              <EmptyState title="Aucun client" />
+              filtered ? (
+                <EmptyState title="Aucun résultat">
+                  <p>Élargissez les filtres.</p>
+                  <Button size="sm" onClick={() => void navigate({ search: {} })}>
+                    Retirer les filtres
+                  </Button>
+                </EmptyState>
+              ) : (
+                <EmptyState title="Aucun client">
+                  <p>Créez le premier client avec « Nouveau client ».</p>
+                </EmptyState>
+              )
             ) : (
-              <>
+              <Card
+                flush
+                footer={
+                  <Pager
+                    search={search}
+                    next={list.data.next_cursor}
+                    go={(next) => void navigate({ search: next })}
+                    count={list.data.data.length}
+                    noun={['client affiché', 'clients affichés']}
+                  />
+                }
+              >
                 <DataTable<Customer>
                   caption="Clients"
                   rows={list.data.data}
@@ -113,33 +135,35 @@ function Customers() {
                         </Link>
                       ),
                     },
-                    { header: 'Groupe', cell: (c) => groups.name(c.group_id) },
-                    { header: 'Statut', cell: (c) => customerStatus[c.status] },
-                    { header: 'Créé le', cell: (c) => at(c.created_at) },
+                    { header: 'Statut', cell: (c) => <Status status={c.status} /> },
+                    {
+                      header: 'Groupe',
+                      cell: (c) =>
+                        c.group_id === null ? (
+                          <span className="ui-muted">Aucun</span>
+                        ) : (
+                          <>
+                            {groups.name(c.group_id)}
+                            {groups.archived(c.group_id) && <span className="ui-muted"> (archivé)</span>}
+                          </>
+                        ),
+                    },
+                    { header: 'Créé le', cell: (c) => <span className="ui-mono ui-muted">{at(c.created_at)}</span> },
                   ]}
                 />
-                <Pager
-                  search={search}
-                  next={list.data.next_cursor}
-                  go={(next) => void navigate({ search: next })}
-                  count={list.data.data.length}
-                  noun={['client affiché', 'clients affichés']}
-                />
-              </>
+              </Card>
             )}
             {creating && <CustomerForm onClose={() => setCreating(false)} />}
-          </section>
-        </>
-      ) : (
-        <section className="page">
+          </>
+        ) : (
           <Forbidden
             title="Accès aux clients non accordé"
             about="Cet écran liste les clients de l’agrégateur, leur groupe et leur statut."
             permission="customers:read"
             grantedBy="Exploitation"
           />
-        </section>
-      )}
+        )}
+      </section>
     </>
   )
 }

@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
+import { at } from '../audit'
 import { explained, json, me, once, renderAt, stubFetch, toasted, violations } from '../test'
 
 const reader = { ...me, permissions: ['customers:read', 'customer-groups:read'] }
@@ -58,22 +59,79 @@ test('without customers:read the screen says why and asks nothing', async () => 
   expect(calls.some((r) => new URL(r.url).pathname.startsWith('/api/gw/'))).toBe(false)
 })
 
-test('the customers are listed with their group named, and lead to their page', async () => {
+test('the customers are listed with their status in a pill and their group named, and lead to their page', async () => {
+  const gone = { ...solo, id: '01a16026-0000-7000-8000-0000000000c3', name: 'Gone', status: 'closed', group_id: old.id }
   const calls = stubFetch({
     'GET /api/auth/me': () => json(200, reader),
-    'GET /api/gw/admin/customers': () => page([acme, solo]),
+    'GET /api/gw/admin/customers': () => page([acme, solo, gone]),
     'GET /api/gw/admin/customer-groups': directory,
   })
   const { container } = renderAt('/customers')
   expect(await screen.findByRole('table', { name: 'Clients' })).toBeDefined()
   expect(document.title).toBe('Clients — Tableau de bord')
-  await waitFor(async () => expect((await cells('Acme')).slice(0, 2)).toEqual(['Banques', 'Actif']))
-  expect((await cells('Solo')).slice(0, 2)).toEqual(['—', 'Suspendu'])
+  expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Nom', 'Statut', 'Groupe', 'Créé le'])
+  await waitFor(async () => expect(await cells('Acme')).toEqual(['Actif', 'Banques', at(acme.created_at)]))
+  expect(await cells('Solo')).toEqual(['Suspendu', 'Aucun', at(solo.created_at)])
+  expect(await cells('Gone')).toEqual(['Fermé', 'Anciens (archivé)', at(gone.created_at)])
+  const pill = async (name: string, label: string) =>
+    within((await screen.findByRole('rowheader', { name })).closest('tr') as HTMLElement).getByText(label).className
+  expect(await pill('Acme', 'Actif')).toBe('ui-pill ui-pill--ok')
+  expect(await pill('Solo', 'Suspendu')).toBe('ui-pill ui-pill--warn')
+  expect(await pill('Gone', 'Fermé')).toBe('ui-pill ui-pill--neutral')
+  expect(await pill('Acme', at(acme.created_at))).toContain('ui-mono')
   expect(screen.getByRole('link', { name: 'Acme' }).getAttribute('href')).toBe(`/customers/${acme.id}`)
   const groups = calls.find((r) => r.url.includes('customer-groups'))
   expect(new URL(groups?.url ?? '').searchParams.get('limit')).toBe('500')
   expect(new URL(groups?.url ?? '').searchParams.has('status')).toBe(false)
   expect(await violations(container)).toEqual([])
+})
+
+test('the header says what a customer is and offers to create one; the table and its pager share a card', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, writer),
+    'GET /api/gw/admin/customers': () => page([acme]),
+    'GET /api/gw/admin/customer-groups': directory,
+  })
+  renderAt('/customers')
+  const table = await screen.findByRole('table', { name: 'Clients' })
+  const header = screen.getByRole('heading', { level: 1, name: 'Clients' }).closest('.page-header') as HTMLElement
+  expect(header.textContent).toContain(
+    'Les clients de l’agrégateur, leur groupe et leur statut. Un client porte un ou plusieurs comptes.',
+  )
+  expect(within(header).getByRole('button', { name: 'Nouveau client' })).toBeDefined()
+  const card = table.closest('.ui-card') as HTMLElement
+  expect(card.classList.contains('ui-card--flush')).toBe(true)
+  expect(within(card).getByText('1 client affiché')).toBeDefined()
+})
+
+test('no customer at all says how to create one', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, writer),
+    'GET /api/gw/admin/customers': () => page([]),
+    'GET /api/gw/admin/customer-groups': directory,
+  })
+  const { container } = renderAt('/customers')
+  expect(await screen.findByText('Aucun client')).toBeDefined()
+  expect(screen.getByText('Créez le premier client avec « Nouveau client ».')).toBeDefined()
+  expect(screen.queryByRole('button', { name: 'Retirer les filtres' })).toBeNull()
+  expect(await violations(container)).toEqual([])
+})
+
+test('no customer under either filter asks to widen them, and clears them', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, writer),
+    'GET /api/gw/admin/customers': () => page([]),
+    'GET /api/gw/admin/customer-groups': directory,
+  })
+  for (const search of ['status=closed', `group_id=${banks.id}`]) {
+    const { router, unmount } = renderAt(`/customers?${search}`)
+    expect(await screen.findByText('Aucun résultat')).toBeDefined()
+    expect(screen.getByText('Élargissez les filtres.')).toBeDefined()
+    expect(screen.queryByText('Aucun client')).toBeNull()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Retirer les filtres' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({}))
+    unmount()
+  }
 })
 
 test('the group and status filters travel in the address', async () => {
@@ -95,6 +153,12 @@ test('the group and status filters travel in the address', async () => {
   await waitFor(() => expect(router.state.location.search).toEqual({ group_id: banks.id }))
 
   await user.click(screen.getByRole('combobox', { name: 'Statut' }))
+  expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual([
+    'Tous',
+    'Actifs',
+    'Suspendus',
+    'Fermés',
+  ])
   await user.click(await screen.findByRole('option', { name: 'Suspendus' }))
   await waitFor(() => expect(router.state.location.search).toEqual({ group_id: banks.id, status: 'suspended' }))
   await waitFor(() => {

@@ -26,7 +26,7 @@ type Shown = components['schemas']['WebhookWithSecret']
 
 const events: Record<Event, string> = { mo: 'Messages entrants (MO)', dlr: 'Accusés de réception (DLR)' }
 const statuses: Record<Webhook['status'], string> = { active: 'Actif', disabled: 'Désactivé' }
-const closed = 'Ce compte est clos.'
+const closed = 'Ce compte est fermé.'
 const unsealed = 'Le scellement est indisponible : rien n’a été modifié.'
 const https = 'https://[^\\/?#@]+([\\/?#].*)?'
 
@@ -44,7 +44,7 @@ export function Webhooks({ account }: { account: Account }) {
   const [shown, setShown] = useState<Shown>()
   const close = () => setPending(undefined)
   const write = held.includes('accounts:write') ? undefined : needs('accounts:write')
-  const frozen = write ?? (account.status === 'closed' ? 'Clos définitivement.' : undefined)
+  const frozen = write ?? (account.status === 'closed' ? 'Fermé définitivement.' : undefined)
   const list = webhooks.data ?? []
   const free = (Object.keys(events) as Event[]).filter((e) => !list.some((w) => w.event_type === e))
   const path = (w: Webhook) => ({ params: { path: { id: account.id, webhook_id: w.id } } })
@@ -223,7 +223,7 @@ function CreateForm({
     )
     const said = {
       409: 'Ce compte a déjà un webhook pour cet événement.',
-      422: 'Ce compte est clos ou n’existe plus.',
+      422: 'Ce compte est fermé ou n’existe plus.',
       503: unsealed,
     }[outcome.response?.status ?? 0]
     if (said) {

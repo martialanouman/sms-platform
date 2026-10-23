@@ -68,7 +68,9 @@ test('an account under a suspended customer is shown suspended in effect', async
   stub({ ...api, customer_status: 'suspended' })
   renderAt(`/accounts/${api.id}`)
   const identity = await screen.findByRole('region', { name: 'Identité' })
-  expect(within(identity).getByText('Statut').nextElementSibling?.textContent).toBe('Actif (client suspendu)')
+  const status = within(identity).getByText('Statut').nextElementSibling as HTMLElement
+  expect(within(status).getByText('Suspendu').className).toBe('ui-pill ui-pill--warn')
+  expect(within(status).getByText('par son client').className).toBe('ui-why')
 })
 
 test('the channels are sent together, and the last one enabled cannot be disabled', async () => {
@@ -157,7 +159,7 @@ test('a suspension refused because the account is closed is said in French', asy
   const dialog = await screen.findByRole('alertdialog')
   expect(dialog.textContent).toContain('Ses binds ouverts sont déconnectés.')
   await user.click(within(dialog).getByRole('button', { name: 'Suspendre' }))
-  expect(await within(dialog).findByText('Ce compte est clos définitivement.')).toBeDefined()
+  expect(await within(dialog).findByText('Ce compte est fermé définitivement.')).toBeDefined()
 })
 
 test('a closed account is frozen but can still be deleted, which leads back to its customer', async () => {
@@ -165,12 +167,12 @@ test('a closed account is frozen but can still be deleted, which leads back to i
   const user = userEvent.setup()
   const { router } = renderAt(`/accounts/${api.id}`)
   for (const name of ['Suspendre', 'Réactiver', 'Clôturer']) {
-    expect(explained(await screen.findByRole('button', { name }))).toBe('Clos définitivement.')
+    expect(explained(await screen.findByRole('button', { name }))).toBe('Fermé définitivement.')
   }
   for (const block of ['Identité', 'Canaux', 'Sessions', 'Opérations SMPP']) {
     expect(
       explained(within(screen.getByRole('region', { name: block })).getByRole('button', { name: 'Modifier' })),
-    ).toBe('Clos définitivement.')
+    ).toBe('Fermé définitivement.')
   }
   await user.click(screen.getByRole('button', { name: 'Supprimer' }))
   await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Supprimer' }))
@@ -257,7 +259,7 @@ test('reactivating or closing an account closed meanwhile is said in French', as
     await user.click(await screen.findByRole('button', { name: action }))
     const dialog = await screen.findByRole('alertdialog')
     await user.click(within(dialog).getByRole('button', { name: action }))
-    expect(await within(dialog).findByText('Ce compte est clos définitivement.')).toBeDefined()
+    expect(await within(dialog).findByText('Ce compte est fermé définitivement.')).toBeDefined()
     await user.click(within(dialog).getByRole('button', { name: 'Annuler' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
   }
@@ -268,7 +270,7 @@ test('a rename refused for another reason keeps the gateway message', async () =
   const { user, dialog } = await editBlock('Identité')
   await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
   expect(await within(dialog).findByRole('alert')).toBeDefined()
-  expect(within(dialog).queryByText('Ce client est clos ou n’existe plus.')).toBeNull()
+  expect(within(dialog).queryByText('Ce client est fermé ou n’existe plus.')).toBeNull()
 })
 
 test('a refused setting describes the group of choices it concerns', async () => {

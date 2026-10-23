@@ -131,7 +131,7 @@ test('a taken system_id and a closed account are said in French', async () => {
   expect(await within(dialog).findByText('Ce system_id est déjà pris.')).toBeDefined()
   answer = 422
   await user.click(within(dialog).getByRole('button', { name: 'Créer' }))
-  expect(await within(dialog).findByText('Ce compte est clos ou n’existe plus.')).toBeDefined()
+  expect(await within(dialog).findByText('Ce compte est fermé ou n’existe plus.')).toBeDefined()
 })
 
 test('a rotation sends its grace and shows the new secret once', async () => {
@@ -204,7 +204,7 @@ test('a credential revoked meanwhile is said in French', async () => {
   await user.click(within(await row(/Clé d’API/)).getByRole('button', { name: 'Désactiver' }))
   const dialog = await screen.findByRole('alertdialog')
   await user.click(within(dialog).getByRole('button', { name: 'Désactiver' }))
-  expect(await within(dialog).findByText('Refusé : l’identifiant est révoqué, ou le compte est clos.')).toBeDefined()
+  expect(await within(dialog).findByText('Refusé : l’identifiant est révoqué, ou le compte est fermé.')).toBeDefined()
 })
 
 test('a closed account freezes its credentials', async () => {
@@ -212,10 +212,10 @@ test('a closed account freezes its credentials', async () => {
   renderAt(`/accounts/${api.id}`)
   const keyRow = await row(/Clé d’API/)
   for (const name of ['Rotation', 'Désactiver', 'Révoquer']) {
-    expect(explained(within(keyRow).getByRole('button', { name }))).toBe('Clos définitivement.')
+    expect(explained(within(keyRow).getByRole('button', { name }))).toBe('Fermé définitivement.')
   }
   expect(explained(within(await block()).getByRole('button', { name: 'Nouvel identifiant' }))).toBe(
-    'Clos définitivement.',
+    'Fermé définitivement.',
   )
 })
 
@@ -291,5 +291,5 @@ test('a rotation refused because the account closed meanwhile is said in French'
   await user.click(within(await row(/Clé d’API/)).getByRole('button', { name: 'Rotation' }))
   const dialog = await screen.findByRole('dialog')
   await user.click(within(dialog).getByRole('button', { name: 'Tourner le secret' }))
-  expect(await within(dialog).findByText('Ce compte est clos.')).toBeDefined()
+  expect(await within(dialog).findByText('Ce compte est fermé.')).toBeDefined()
 })

@@ -4,7 +4,7 @@ import type { components } from './admin.gen'
 import { gw } from './gw'
 import { read } from './queries'
 import { useShellMe } from './session'
-import { Button, Field, Modal, needs, Select, useSubmission, useToast } from './ui'
+import { Button, Field, Modal, needs, Select, StatusPill, type Tone, useSubmission, useToast } from './ui'
 
 export type Customer = components['schemas']['Customer']
 export type Group = components['schemas']['CustomerGroup']
@@ -16,11 +16,22 @@ export const groupsKey = ['customer-groups']
 
 export const groupsBlocked = needs('customer-groups:read', 'Le groupe')
 
-export const customerStatus: Record<Customer['status'], string> = {
-  active: 'Actif',
-  suspended: 'Suspendu',
-  closed: 'Clos',
+export const customerStatus: Record<Customer['status'], { label: string; tone: Tone }> = {
+  active: { label: 'Actif', tone: 'ok' },
+  suspended: { label: 'Suspendu', tone: 'warn' },
+  closed: { label: 'Fermé', tone: 'neutral' },
 }
+
+export function Status({ status }: { status: Customer['status'] }) {
+  return <StatusPill tone={customerStatus[status].tone}>{customerStatus[status].label}</StatusPill>
+}
+
+export const statusFilters = [
+  { value: '', label: 'Tous' },
+  { value: 'active', label: 'Actifs' },
+  { value: 'suspended', label: 'Suspendus' },
+  { value: 'closed', label: 'Fermés' },
+]
 
 export function useGroups() {
   const me = useShellMe()
@@ -32,7 +43,8 @@ export function useGroups() {
   })
   const list = [...(groups.data?.data ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'fr'))
   const name = (id: string | null) => (id ? (list.find((g) => g.id === id)?.name ?? id) : '—')
-  return { list, name, blocked: readable ? undefined : groupsBlocked }
+  const archived = (id: string) => list.find((g) => g.id === id)?.status === 'archived'
+  return { list, name, archived, blocked: readable ? undefined : groupsBlocked }
 }
 
 export const groupLabel = (g: Group) => (g.status === 'archived' ? `${g.name} (archivé)` : g.name)

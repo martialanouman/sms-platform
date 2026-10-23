@@ -1,13 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { type Account, accountsKey, effective } from '../accounts'
+import { type Account, accountsKey, channels, EffectiveStatus } from '../accounts'
 import { at } from '../audit'
-import { customersKey, groupLabel, useGroups } from '../customers'
+import { customersKey, groupLabel, statusFilters, useGroups } from '../customers'
 import { gw } from '../gw'
 import { Failure, type Paged, Pager, paged, text, useClosedOn } from '../list'
 import { read } from '../queries'
 import { useShellMe } from '../session'
-import { Button, DataTable, EmptyState, Forbidden, LoadingState, PageHeader, Select, Toolbar } from '../ui'
+import { Button, Card, DataTable, EmptyState, Forbidden, Icon, LoadingState, PageHeader, Select } from '../ui'
 
 type Status = Account['status']
 type AccountsSearch = Paged & { customer_id?: string; group_id?: string; status?: Status }
@@ -21,13 +21,6 @@ export const Route = createFileRoute('/_shell/accounts/')({
   }),
   component: Accounts,
 })
-
-const statusFilters = [
-  { value: '', label: 'Tous' },
-  { value: 'active', label: 'Actifs' },
-  { value: 'suspended', label: 'Suspendus' },
-  { value: 'closed', label: 'Clos' },
-]
 
 function Accounts() {
   const me = useShellMe()
@@ -59,38 +52,41 @@ function Accounts() {
     void navigate({
       search: { customer_id: search.customer_id, group_id: search.group_id, status: search.status, ...next },
     })
+  const filtered = search.customer_id !== undefined || search.group_id !== undefined || search.status !== undefined
 
   return (
     <>
-      <PageHeader crumbs={['Comptes']} title="Comptes" />
-      {readable ? (
-        <>
-          <Toolbar
-            filters={
-              <>
-                {search.customer_id && (
-                  <CustomerFilter id={search.customer_id} remove={() => filter({ customer_id: undefined })} />
-                )}
-                <Select
-                  label="Groupe"
-                  items={[
-                    { value: '', label: 'Tous' },
-                    ...groups.list.map((g) => ({ value: g.id, label: groupLabel(g) })),
-                  ]}
-                  value={search.group_id ?? ''}
-                  onChange={(id) => filter({ group_id: id === '' ? undefined : id })}
-                  blockedReason={groups.blocked}
-                />
-                <Select
-                  label="Statut"
-                  items={statusFilters}
-                  value={search.status ?? ''}
-                  onChange={(status) => filter({ status: status === '' ? undefined : (status as Status) })}
-                />
-              </>
-            }
-          />
-          <section className="page">
+      <PageHeader
+        crumbs={['Comptes']}
+        title="Comptes"
+        meta={
+          readable && 'Les comptes SMPP et REST de tous les clients. Un compte se crée depuis la fiche de son client.'
+        }
+      />
+      <section className="page">
+        {readable ? (
+          <>
+            <div className="ui-filters">
+              {search.customer_id && (
+                <CustomerFilter id={search.customer_id} remove={() => filter({ customer_id: undefined })} />
+              )}
+              <Select
+                label="Groupe"
+                items={[
+                  { value: '', label: 'Tous' },
+                  ...groups.list.map((g) => ({ value: g.id, label: groupLabel(g) })),
+                ]}
+                value={search.group_id ?? ''}
+                onChange={(id) => filter({ group_id: id === '' ? undefined : id })}
+                blockedReason={groups.blocked}
+              />
+              <Select
+                label="Statut"
+                items={statusFilters}
+                value={search.status ?? ''}
+                onChange={(status) => filter({ status: status === '' ? undefined : (status as Status) })}
+              />
+            </div>
             {list.isPending ? (
               <LoadingState label="Chargement des comptes…" rows={3} />
             ) : list.error ? (
@@ -100,9 +96,31 @@ function Accounts() {
                 retry={() => void list.refetch()}
               />
             ) : list.data.data.length === 0 ? (
-              <EmptyState title="Aucun compte" />
+              filtered ? (
+                <EmptyState title="Aucun résultat">
+                  <p>Élargissez les filtres.</p>
+                  <Button size="sm" onClick={() => void navigate({ search: {} })}>
+                    Retirer les filtres
+                  </Button>
+                </EmptyState>
+              ) : (
+                <EmptyState title="Aucun compte">
+                  <p>Un compte se crée depuis la fiche de son client.</p>
+                </EmptyState>
+              )
             ) : (
-              <>
+              <Card
+                flush
+                footer={
+                  <Pager
+                    search={search}
+                    next={list.data.next_cursor}
+                    go={(next) => void navigate({ search: next })}
+                    count={list.data.data.length}
+                    noun={['compte affiché', 'comptes affichés']}
+                  />
+                }
+              >
                 <DataTable<Account>
                   caption="Comptes"
                   rows={list.data.data}
@@ -111,7 +129,7 @@ function Accounts() {
                     {
                       header: 'Nom',
                       cell: (a) => (
-                        <Link to="/accounts/$id" params={{ id: a.id }}>
+                        <Link className="ui-mono" to="/accounts/$id" params={{ id: a.id }}>
                           {a.name}
                         </Link>
                       ),
@@ -124,31 +142,26 @@ function Accounts() {
                         </Link>
                       ),
                     },
-                    { header: 'Statut', cell: (a) => effective(a.status, a.customer_status) },
-                    { header: 'Créé le', cell: (a) => at(a.created_at) },
+                    {
+                      header: 'Statut',
+                      cell: (a) => <EffectiveStatus status={a.status} customer={a.customer_status} />,
+                    },
+                    { header: 'Canaux', cell: (a) => <span className="ui-mono">{channels(a)}</span> },
+                    { header: 'Créé le', cell: (a) => <span className="ui-mono ui-muted">{at(a.created_at)}</span> },
                   ]}
                 />
-                <Pager
-                  search={search}
-                  next={list.data.next_cursor}
-                  go={(next) => void navigate({ search: next })}
-                  count={list.data.data.length}
-                  noun={['compte affiché', 'comptes affichés']}
-                />
-              </>
+              </Card>
             )}
-          </section>
-        </>
-      ) : (
-        <section className="page">
+          </>
+        ) : (
           <Forbidden
             title="Accès aux comptes non accordé"
             about="Cet écran liste les comptes des clients, leur client et leur statut."
             permission="accounts:read"
             grantedBy="Exploitation"
           />
-        </section>
-      )}
+        )}
+      </section>
     </>
   )
 }
@@ -162,11 +175,11 @@ function CustomerFilter({ id, remove }: { id: string; remove: () => void }) {
     enabled: readable,
   })
   return (
-    <span className="ui-filter">
+    <span className="ui-chip">
       Client : {customer.data?.name ?? id}
-      <Button size="sm" aria-label="Retirer le filtre Client" onClick={remove}>
-        Retirer
-      </Button>
+      <button className="ui-chip__remove" type="button" aria-label="Retirer le filtre Client" onClick={remove}>
+        <Icon name="times" />
+      </button>
     </span>
   )
 }

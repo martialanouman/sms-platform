@@ -367,7 +367,12 @@ function ToastStack() {
     <Toast.Portal>
       <Toast.Viewport className="ui-toasts">
         {toasts.map((toast) => (
-          <Toast.Root key={toast.id} toast={toast} className="ui-toast" role="status" aria-modal={undefined}>
+          <Toast.Root
+            key={toast.id}
+            toast={toast}
+            className="ui-toast"
+            render={({ 'aria-modal': _, ...props }) => <div {...props} role="status" />}
+          >
             <Toast.Description className="ui-toast__text" />
             <Toast.Close className="ui-toast__close" aria-label="Fermer">
               <Icon name="times" />
@@ -409,6 +414,50 @@ export function Tabs({
         />
       ))}
     </nav>
+  )
+}
+
+export type Tone = 'ok' | 'warn' | 'bad' | 'neutral'
+
+export function StatusPill({ tone, children }: { tone: Tone; children: ReactNode }) {
+  return <span className={`ui-pill ui-pill--${tone}`}>{children}</span>
+}
+
+export function Card({
+  title,
+  aside,
+  footer,
+  flush,
+  children,
+}: {
+  title?: string
+  aside?: ReactNode
+  footer?: ReactNode
+  flush?: boolean
+  children: ReactNode
+}) {
+  const id = useId()
+  return (
+    <section className={flush ? 'ui-card ui-card--flush' : 'ui-card'} aria-labelledby={title && id}>
+      {title && (
+        <div className="ui-card__head">
+          <h2 className="ui-card__title" id={id}>
+            {title}
+          </h2>
+          {aside}
+        </div>
+      )}
+      <div className="ui-card__body">{children}</div>
+      {footer}
+    </section>
+  )
+}
+
+export function KeyValue({ items }: { items: { label: string; value: ReactNode }[] }) {
+  return (
+    <dl className="ui-kv">
+      {items.map((item) => [<dt key={`${item.label}-label`}>{item.label}</dt>, <dd key={item.label}>{item.value}</dd>])}
+    </dl>
   )
 }
 

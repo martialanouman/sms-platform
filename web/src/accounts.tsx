@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { type FormEvent, useId, useState } from 'react'
 import type { components } from './admin.gen'
-import { customerStatus, customersKey } from './customers'
+import { Status as CustomerStatus, customersKey } from './customers'
 import { gw } from './gw'
 import { Button, Field, Modal, useSubmission, useToast } from './ui'
 
@@ -11,7 +11,22 @@ type Status = Account['status']
 export const accountsKey = [...customersKey, 'accounts']
 
 export const effective = (status: Status, customer: Status) =>
-  customerStatus[status] + (status === 'active' && customer === 'suspended' ? ' (client suspendu)' : '')
+  status === 'active' && customer === 'suspended'
+    ? { status: 'suspended' as const, byCustomer: true }
+    : { status, byCustomer: false }
+
+export const channels = (a: Account) =>
+  [a.smpp_enabled && 'smpp', a.rest_enabled && 'rest'].filter((c) => c !== false).join(' · ')
+
+export function EffectiveStatus({ status, customer }: { status: Status; customer: Status }) {
+  const shown = effective(status, customer)
+  return (
+    <span className="ui-status">
+      <CustomerStatus status={shown.status} />
+      {shown.byCustomer && <span className="ui-why">par son client</span>}
+    </span>
+  )
+}
 
 export function AccountForm({
   customerId,
@@ -35,7 +50,7 @@ export function AccountForm({
       : await submit(() => gw.POST('/admin/accounts', { body: { customer_id: customerId, name } }))
     const said = {
       409: 'Un compte de ce client porte déjà ce nom.',
-      ...(!account && { 422: 'Ce client est clos ou n’existe plus.' }),
+      ...(!account && { 422: 'Ce client est fermé ou n’existe plus.' }),
     }[outcome.response?.status ?? 0]
     if (said) {
       fail(said)

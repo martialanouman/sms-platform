@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
+import { at } from '../audit'
 import { empty, explained, json, me, renderAt, stubFetch, toasted, violations } from '../test'
 
 const writer = { ...me, permissions: ['customers:read', 'customers:write', 'customer-groups:read'] }
@@ -55,11 +56,42 @@ test('the page of a customer shows who it is, its group and its ages', async () 
     expect(screen.getByRole('link', { name: 'Banques' }).getAttribute('href')).toBe(`/customers?group_id=${banks.id}`),
   )
   const identity = screen.getByRole('region', { name: 'Identité' })
-  expect(within(identity).getByText('OTP').nextElementSibling?.textContent).toBe('60 s')
-  expect(within(identity).getByText('Transactionnel').nextElementSibling?.textContent).toBe('Plafond de la plateforme')
-  expect(within(identity).getByText('Marketing').nextElementSibling?.textContent).toBe('3600 s')
   expect(within(identity).getByText('Statut').nextElementSibling?.textContent).toBe('Actif')
+  expect(within(identity).getByText('Groupe').nextElementSibling?.textContent).toBe('Banques')
+  const ages = screen.getByRole('region', { name: 'Âges maximaux' })
+  expect(within(ages).getByText('abaissent seulement le plafond de la plateforme')).toBeDefined()
+  const age = (label: string) => within(ages).getByText(label).nextElementSibling as HTMLElement
+  expect(age('OTP').textContent).toBe('60 s')
+  expect(age('OTP').querySelector('.ui-mono')?.textContent).toBe('60 s')
+  expect(age('Transactionnel').textContent).toBe(`Plafond de la plateforme ${(86400).toLocaleString('fr')} s`)
+  expect(age('Transactionnel').querySelector('.ui-mono')?.textContent).toBe(`${(86400).toLocaleString('fr')} s`)
+  expect(age('Marketing').textContent).toBe(`${(3600).toLocaleString('fr')} s`)
+  const header = screen.getByRole('heading', { level: 1, name: 'Acme' }).closest('.page-header') as HTMLElement
+  expect(within(header).getByText('Actif').className).toBe('ui-pill ui-pill--ok')
+  expect(header.textContent).toContain(`Créé le ${at(acme.created_at)} · modifié le ${at(acme.updated_at)}`)
+  expect(within(header).getByText(at(acme.created_at)).className).toBe('ui-mono')
+  expect(within(header).getByText(at(acme.updated_at)).className).toBe('ui-mono')
+  expect(
+    within(header)
+      .getAllByRole('button')
+      .map((b) => [b.textContent, b.className.includes('ui-button--danger')]),
+  ).toEqual([
+    ['Modifier', false],
+    ['Suspendre', false],
+    ['Réactiver', false],
+    ['Clôturer', true],
+    ['Supprimer', true],
+  ])
+  expect(container.textContent).not.toContain(acme.id)
+  expect(container.textContent).not.toMatch(/Comptes : \d/)
   expect(await violations(container)).toEqual([])
+})
+
+test('a customer without a group says so', async () => {
+  stub({ ...acme, group_id: null })
+  renderAt(`/customers/${acme.id}`)
+  const identity = await screen.findByRole('region', { name: 'Identité' })
+  expect(within(identity).getByText('Groupe').nextElementSibling?.textContent).toBe('Aucun')
 })
 
 test('suspending previews the accounts it suspends, then suspends', async () => {
@@ -80,7 +112,7 @@ test('suspending previews the accounts it suspends, then suspends', async () => 
   await user.click(await screen.findByRole('button', { name: 'Suspendre' }))
   const dialog = await screen.findByRole('alertdialog', { name: 'Suspendre le client Acme' })
   await waitFor(() =>
-    expect(dialog.textContent).toContain('2 comptes seront suspendus : api, bulk. 1 compte clos le reste : old.'),
+    expect(dialog.textContent).toContain('2 comptes seront suspendus : api, bulk. 1 compte fermé le reste : old.'),
   )
   await confirm('Suspendre')
   await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
@@ -111,7 +143,7 @@ test('a suspension refused because the customer is closed is said in French', as
   renderAt(`/customers/${acme.id}`)
   await userEvent.setup().click(await screen.findByRole('button', { name: 'Suspendre' }))
   const dialog = await confirm('Suspendre')
-  expect((await within(dialog).findByRole('alert')).textContent).toBe('Ce client est clos définitivement.')
+  expect((await within(dialog).findByRole('alert')).textContent).toBe('Ce client est fermé définitivement.')
 })
 
 test('reactivating says its accounts stay suspended, and closing is definitive', async () => {
@@ -157,7 +189,7 @@ test('a closed customer is frozen but can still be deleted', async () => {
   for (const name of ['Suspendre', 'Réactiver', 'Clôturer', 'Modifier']) {
     const button = await screen.findByRole('button', { name })
     expect(document.getElementById(button.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
-      'Clos définitivement.',
+      'Fermé définitivement.',
     )
   }
   expect(screen.getByRole('button', { name: 'Supprimer' }).hasAttribute('aria-disabled')).toBe(false)
@@ -244,7 +276,7 @@ test('reactivating or closing a customer closed meanwhile is said in French', as
     const { unmount } = renderAt(`/customers/${acme.id}`)
     await userEvent.setup().click(await screen.findByRole('button', { name: action }))
     const dialog = await confirm(action)
-    expect((await within(dialog).findByRole('alert')).textContent).toBe('Ce client est clos définitivement.')
+    expect((await within(dialog).findByRole('alert')).textContent).toBe('Ce client est fermé définitivement.')
     unmount()
   }
 })
@@ -350,10 +382,21 @@ test('the page of a customer lists its accounts, with their effective status, an
   expect(within(row).getByRole('link', { name: 'api' }).getAttribute('href')).toBe(
     `/accounts/${accountOf('api', '').id}`,
   )
-  expect(within(row).getByText('Actif (client suspendu)')).toBeDefined()
+  expect(within(row).getByRole('link', { name: 'api' }).className).toBe('ui-mono')
+  expect(within(row).getByText('Suspendu').className).toBe('ui-pill ui-pill--warn')
+  expect(within(row).getByText('par son client')).toBeDefined()
+  expect(within(row).getByText('smpp · rest').className).toBe('ui-mono')
+  expect(within(row).getByText(at(accountOf('api', '').created_at)).className).toContain('ui-mono')
+  expect(
+    within(section)
+      .getAllByRole('columnheader')
+      .map((h) => h.textContent),
+  ).toEqual(['Nom', 'Statut', 'Canaux', 'Créé le'])
   expect(within(section).getByRole('link', { name: 'Tous les comptes' }).getAttribute('href')).toBe(
     `/accounts?customer_id=${acme.id}`,
   )
+  expect(within(section).getByRole('button', { name: 'Nouveau compte' }).className).toContain('ui-button--primary')
+  expect(section.classList.contains('ui-card--flush')).toBe(true)
   expect(new URL(calls.find((r) => r.url.includes('/admin/accounts'))?.url ?? '').search).toBe(
     `?customer_id=${acme.id}`,
   )
@@ -403,15 +446,17 @@ test('a closed customer gets no new account', async () => {
   )
   renderAt(`/customers/${acme.id}`)
   const section = await screen.findByRole('region', { name: 'Comptes' })
-  expect(explained(within(section).getByRole('button', { name: 'Nouveau compte' }))).toBe('Clos définitivement.')
+  expect(explained(within(section).getByRole('button', { name: 'Nouveau compte' }))).toBe('Fermé définitivement.')
   expect(await within(section).findByText('Aucun compte.')).toBeDefined()
+  expect(section.classList.contains('ui-card--flush')).toBe(false)
 })
 
 test('without accounts:read the accounts of a customer are not listed', async () => {
   const calls = stub(acme)
   renderAt(`/customers/${acme.id}`)
   const section = await screen.findByRole('region', { name: 'Comptes' })
-  expect(within(section).getByText('Les comptes demandent accounts:read.')).toBeDefined()
+  expect(section.textContent).toBe('ComptesLa liste des comptes demande Comptes : lire accounts:read.')
+  expect(within(section).getByText('accounts:read').className).toBe('role-keys__key')
   expect(calls.some((r) => r.url.includes('/admin/accounts'))).toBe(false)
 })
 
@@ -463,5 +508,5 @@ test('a new account refused because the customer is closed is said in French', a
   const dialog = await screen.findByRole('dialog', { name: 'Nouveau compte' })
   await user.type(within(dialog).getByRole('textbox', { name: 'Nom' }), 'web')
   await user.click(within(dialog).getByRole('button', { name: 'Créer le compte' }))
-  expect(await within(dialog).findByText('Ce client est clos ou n’existe plus.')).toBeDefined()
+  expect(await within(dialog).findByText('Ce client est fermé ou n’existe plus.')).toBeDefined()
 })

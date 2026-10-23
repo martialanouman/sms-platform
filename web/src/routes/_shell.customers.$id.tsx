@@ -1,20 +1,37 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useId, useState } from 'react'
-import { type Account, AccountForm, accountsKey, effective } from '../accounts'
+import { useState } from 'react'
+import { type Account, AccountForm, accountsKey, channels, EffectiveStatus } from '../accounts'
 import { at } from '../audit'
-import { ageFields, type Customer, CustomerForm, customerStatus, customersKey, useGroups } from '../customers'
+import { ageFields, type Customer, CustomerForm, customersKey, Status, useGroups } from '../customers'
 import { gw } from '../gw'
 import { Failure, useClosedOn } from '../list'
 import { read } from '../queries'
 import { useShellMe } from '../session'
-import { Button, Confirmation, DataTable, Forbidden, LoadingState, needs, PageHeader, Toolbar, useToast } from '../ui'
+import {
+  Button,
+  Card,
+  Confirmation,
+  DataTable,
+  Forbidden,
+  KeyValue,
+  LoadingState,
+  needs,
+  PageHeader,
+  useToast,
+} from '../ui'
 
 export const Route = createFileRoute('/_shell/customers/$id')({ component: CustomerPage })
 
-const closedFinal = 'Ce client est clos définitivement.'
+const closedFinal = 'Ce client est fermé définitivement.'
 
 type Pending = 'edit' | 'suspend' | 'reactivate' | 'close' | 'delete'
+
+const customersCrumb = (
+  <Link key="customers" to="/customers">
+    Clients
+  </Link>
+)
 
 function CustomerPage() {
   const { id } = Route.useParams()
@@ -28,17 +45,12 @@ function CustomerPage() {
   })
   useClosedOn(customer.error)
 
+  if (readable && customer.data) {
+    return <Loaded customer={customer.data} writes={held.includes('customers:write')} />
+  }
   return (
     <>
-      <PageHeader
-        crumbs={[
-          <Link key="customers" to="/customers">
-            Clients
-          </Link>,
-          customer.data?.name ?? 'Client',
-        ]}
-        title={customer.data?.name ?? 'Client'}
-      />
+      <PageHeader crumbs={[customersCrumb, 'Client']} title="Client" />
       <section className="page">
         {!readable ? (
           <Forbidden
@@ -47,8 +59,6 @@ function CustomerPage() {
             permission="customers:read"
             grantedBy="Exploitation"
           />
-        ) : customer.isPending ? (
-          <LoadingState label="Chargement du client…" rows={3} />
         ) : customer.error ? (
           <Failure
             title="Ce client n’a pas pu être chargé"
@@ -56,7 +66,7 @@ function CustomerPage() {
             retry={() => void customer.refetch()}
           />
         ) : (
-          <Loaded customer={customer.data} writes={held.includes('customers:write')} />
+          <LoadingState label="Chargement du client…" rows={3} />
         )}
       </section>
     </>
@@ -73,68 +83,95 @@ function Loaded({ customer, writes }: { customer: Customer; writes: boolean }) {
     notify(`Client ${customer.name} ${text}.`)
     close()
   }
-  const identity = useId()
   const write = writes ? undefined : needs('customers:write')
-  const closed = customer.status === 'closed' ? 'Clos définitivement.' : undefined
+  const closed = customer.status === 'closed' ? 'Fermé définitivement.' : undefined
   const status = (body: { status: 'active' | 'closed' }) => () =>
     gw.PATCH('/admin/customers/{id}', { params: { path: { id: customer.id } }, body })
 
   return (
     <>
-      <Toolbar>
-        <Button size="sm" blockedReason={write ?? closed} onClick={() => setPending('edit')}>
-          Modifier
-        </Button>
-        <Button
-          size="sm"
-          blockedReason={write ?? closed ?? (customer.status === 'suspended' ? 'Déjà suspendu.' : undefined)}
-          onClick={() => setPending('suspend')}
-        >
-          Suspendre
-        </Button>
-        <Button
-          size="sm"
-          blockedReason={write ?? closed ?? (customer.status === 'active' ? 'Déjà actif.' : undefined)}
-          onClick={() => setPending('reactivate')}
-        >
-          Réactiver
-        </Button>
-        <Button size="sm" variant="danger" blockedReason={write ?? closed} onClick={() => setPending('close')}>
-          Clôturer
-        </Button>
-        <Button size="sm" variant="danger" blockedReason={write} onClick={() => setPending('delete')}>
-          Supprimer
-        </Button>
-      </Toolbar>
-      <section aria-labelledby={identity}>
-        <h2 id={identity}>Identité</h2>
-        <dl>
-          <dt>Statut</dt>
-          <dd>{customerStatus[customer.status]}</dd>
-          <dt>Groupe</dt>
-          <dd>
-            {customer.group_id ? (
-              <Link to="/customers" search={{ group_id: customer.group_id }}>
-                {groups.name(customer.group_id)}
-              </Link>
-            ) : (
-              'Aucun'
-            )}
-          </dd>
-          {ageFields.map((f) => {
-            const age = customer.max_age_override[f.key]
-            return [
-              <dt key={`${f.key}-label`}>{f.label}</dt>,
-              <dd key={f.key}>{age === null ? 'Plafond de la plateforme' : `${age} s`}</dd>,
-            ]
-          })}
-          <dt>Créé le</dt>
-          <dd>{at(customer.created_at)}</dd>
-          <dt>Modifié le</dt>
-          <dd>{at(customer.updated_at)}</dd>
-        </dl>
+      <PageHeader
+        crumbs={[customersCrumb, customer.name]}
+        title={customer.name}
+        status={<Status status={customer.status} />}
+        meta={
+          <>
+            Créé le <span className="ui-mono">{at(customer.created_at)}</span> · modifié le{' '}
+            <span className="ui-mono">{at(customer.updated_at)}</span>
+          </>
+        }
+        actions={
+          <>
+            <Button size="sm" blockedReason={write ?? closed} onClick={() => setPending('edit')}>
+              Modifier
+            </Button>
+            <Button
+              size="sm"
+              blockedReason={write ?? closed ?? (customer.status === 'suspended' ? 'Déjà suspendu.' : undefined)}
+              onClick={() => setPending('suspend')}
+            >
+              Suspendre
+            </Button>
+            <Button
+              size="sm"
+              blockedReason={write ?? closed ?? (customer.status === 'active' ? 'Déjà actif.' : undefined)}
+              onClick={() => setPending('reactivate')}
+            >
+              Réactiver
+            </Button>
+            <Button size="sm" variant="danger" blockedReason={write ?? closed} onClick={() => setPending('close')}>
+              Clôturer
+            </Button>
+            <Button size="sm" variant="danger" blockedReason={write} onClick={() => setPending('delete')}>
+              Supprimer
+            </Button>
+          </>
+        }
+      />
+      <section className="page">
+        <div className="ui-cards">
+          <Card title="Identité">
+            <KeyValue
+              items={[
+                {
+                  label: 'Groupe',
+                  value: customer.group_id ? (
+                    <Link to="/customers" search={{ group_id: customer.group_id }}>
+                      {groups.name(customer.group_id)}
+                    </Link>
+                  ) : (
+                    <span className="ui-muted">Aucun</span>
+                  ),
+                },
+                { label: 'Statut', value: <Status status={customer.status} /> },
+              ]}
+            />
+          </Card>
+          <Card
+            title="Âges maximaux"
+            aside={<span className="ui-why">abaissent seulement le plafond de la plateforme</span>}
+          >
+            <KeyValue
+              items={ageFields.map((f) => {
+                const age = customer.max_age_override[f.key]
+                return {
+                  label: f.label,
+                  value:
+                    age === null ? (
+                      <>
+                        <span className="ui-muted">Plafond de la plateforme</span>{' '}
+                        <span className="ui-mono ui-muted">{f.max.toLocaleString('fr')} s</span>
+                      </>
+                    ) : (
+                      <span className="ui-mono">{age.toLocaleString('fr')} s</span>
+                    ),
+                }
+              })}
+            />
+          </Card>
+        </div>
+        <Accounts customer={customer} />
       </section>
-      <Accounts customer={customer} />
       {pending === 'edit' && <CustomerForm customer={customer} onClose={close} />}
       {pending === 'suspend' && (
         <Confirmation
@@ -173,7 +210,7 @@ function Loaded({ customer, writes }: { customer: Customer; writes: boolean }) {
           refusals={{ 422: closedFinal }}
           call={status({ status: 'closed' })}
         >
-          <p>Définitif : ses comptes non clos sont clos, et un client clos ne se rouvre pas.</p>
+          <p>Définitif : ses comptes non fermés sont fermés, et un client fermé ne se rouvre pas.</p>
         </Confirmation>
       )}
       {pending === 'delete' && (
@@ -219,7 +256,7 @@ function Impact({ id }: { id: string }) {
         ? 'Aucun compte à suspendre.'
         : `${count(suspend.length, '1 compte sera suspendu', '{n} comptes seront suspendus')} : ${names(suspend)}.`}
       {closed.length > 0 &&
-        ` ${count(closed.length, '1 compte clos le reste', '{n} comptes clos le restent')} : ${names(closed)}.`}
+        ` ${count(closed.length, '1 compte fermé le reste', '{n} comptes fermés le restent')} : ${names(closed)}.`}
     </p>
   )
 }
@@ -228,31 +265,31 @@ function Accounts({ customer }: { customer: Customer }) {
   const me = useShellMe()
   const held = me.data?.permissions ?? []
   const readable = held.includes('accounts:read')
-  const heading = useId()
   const [creating, setCreating] = useState(false)
   const accounts = useQuery({
     queryKey: [...accountsKey, { customer_id: customer.id }],
     queryFn: () => read(gw.GET('/admin/accounts', { params: { query: { customer_id: customer.id } } }), 'accounts'),
     enabled: readable,
   })
+  const rows = readable ? (accounts.data?.data ?? []) : []
 
   return (
-    <section aria-labelledby={heading}>
-      <h2 id={heading}>Comptes</h2>
-      {!readable ? (
-        <p>Les comptes demandent accounts:read.</p>
-      ) : (
-        <>
-          <Toolbar>
+    <Card
+      title="Comptes"
+      flush={rows.length > 0}
+      aside={
+        readable && (
+          <span className="ui-card__actions">
             <Link to="/accounts" search={{ customer_id: customer.id }}>
               Tous les comptes
             </Link>
             <Button
               size="sm"
+              variant="primary"
               blockedReason={
                 held.includes('accounts:write')
                   ? customer.status === 'closed'
-                    ? 'Clos définitivement.'
+                    ? 'Fermé définitivement.'
                     : undefined
                   : needs('accounts:write')
               }
@@ -260,39 +297,43 @@ function Accounts({ customer }: { customer: Customer }) {
             >
               Nouveau compte
             </Button>
-          </Toolbar>
-          {accounts.isPending ? (
-            <LoadingState label="Chargement des comptes…" rows={2} />
-          ) : accounts.error ? (
-            <Failure
-              title="Les comptes n’ont pas pu être chargés"
-              error={accounts.error}
-              retry={() => void accounts.refetch()}
-            />
-          ) : accounts.data.data.length === 0 ? (
-            <p>Aucun compte.</p>
-          ) : (
-            <DataTable<Account>
-              caption="Comptes du client"
-              rows={accounts.data.data}
-              rowKey={(a) => a.id}
-              columns={[
-                {
-                  header: 'Nom',
-                  cell: (a) => (
-                    <Link to="/accounts/$id" params={{ id: a.id }}>
-                      {a.name}
-                    </Link>
-                  ),
-                },
-                { header: 'Statut', cell: (a) => effective(a.status, customer.status) },
-                { header: 'Créé le', cell: (a) => at(a.created_at) },
-              ]}
-            />
-          )}
-          {creating && <AccountForm customerId={customer.id} onClose={() => setCreating(false)} />}
-        </>
+          </span>
+        )
+      }
+    >
+      {!readable ? (
+        needs('accounts:read', 'La liste des comptes')
+      ) : accounts.isPending ? (
+        <LoadingState label="Chargement des comptes…" rows={2} />
+      ) : accounts.error ? (
+        <Failure
+          title="Les comptes n’ont pas pu être chargés"
+          error={accounts.error}
+          retry={() => void accounts.refetch()}
+        />
+      ) : rows.length === 0 ? (
+        <p className="ui-muted">Aucun compte.</p>
+      ) : (
+        <DataTable<Account>
+          caption="Comptes du client"
+          rows={rows}
+          rowKey={(a) => a.id}
+          columns={[
+            {
+              header: 'Nom',
+              cell: (a) => (
+                <Link className="ui-mono" to="/accounts/$id" params={{ id: a.id }}>
+                  {a.name}
+                </Link>
+              ),
+            },
+            { header: 'Statut', cell: (a) => <EffectiveStatus status={a.status} customer={customer.status} /> },
+            { header: 'Canaux', cell: (a) => <span className="ui-mono">{channels(a)}</span> },
+            { header: 'Créé le', cell: (a) => <span className="ui-mono ui-muted">{at(a.created_at)}</span> },
+          ]}
+        />
       )}
-    </section>
+      {creating && <AccountForm customerId={customer.id} onClose={() => setCreating(false)} />}
+    </Card>
   )
 }
