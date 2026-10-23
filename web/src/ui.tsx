@@ -613,13 +613,8 @@ export function LoadingState({ label, rows, line }: { label: string; rows: numbe
   )
 }
 
-export function Toolbar({ filters, children }: { filters?: ReactNode; children?: ReactNode }) {
-  return (
-    <div className="ui-toolbar">
-      {filters && <div className="ui-toolbar__filters">{filters}</div>}
-      {children}
-    </div>
-  )
+export function Toolbar({ children }: { children: ReactNode }) {
+  return <div className="ui-toolbar">{children}</div>
 }
 
 export function DataTable<Row>({

@@ -1030,13 +1030,6 @@
   min-width: var(--anchor-width);
 }
 
-.ui-toolbar__filters {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-4);
-  margin-right: auto;
-}
-
 .ui-select {
   display: flex;
   align-items: center;
