@@ -192,3 +192,15 @@ client fermé n'existe pas, la clôture cascade) ; une mutation de motif ambigu 
 l'adresse, pluriel du journal d'accès, lien de la miette quand la fiche lisible échoue) ou retirés (conversion du
 filtre de groupe) ; un équivalent nommé : l'ordre `customer.data?.name ?? listed` de la puce, les deux sources donnant
 le nom courant du même client.
+
+## Correctifs de revue, tour 2
+
+Une revue des correctifs du tour 1. Aucun défaut introduit. Deux remarques basses, antérieures au tour, laissées : la
+racine d'un toast est focalisable sans rôle (règle expérimentale d'axe), et `useGroups().name` rend l'identifiant quand
+l'annuaire échoue ou ne contient pas le groupe (au-delà de 500).
+
+## Avis de sécurité en cours de step
+
+`pnpm audit` a signalé GHSA-mrhx-c7xc-m3w5 (`zod` < 4.6.6, sévérité élevée), tiré par l'outillage du routeur. Le
+correctif avait 12 jours, sous la quarantaine de 14 jours de `minimumReleaseAge`. Décision humaine : exempter
+`zod@4.6.6` seul et le forcer par `overrides` ; dette #179 (retrait le 2026-10-25).
