@@ -220,6 +220,7 @@ test('deleting a group says its customers are detached, then deletes it', async 
   expect(dialog.textContent).toContain('Ses clients (3) sont détachés du groupe, pas supprimés.')
   await user.click(within(dialog).getByRole('button', { name: 'Supprimer' }))
   await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+  expect(calls.find((r) => r.method === 'DELETE')?.headers.get('Content-Type')).toBe('application/json')
   expect(calls.filter((r) => r.method === 'DELETE').map((r) => new URL(r.url).pathname)).toEqual([
     `/api/gw/admin/customer-groups/${banks.id}`,
   ])

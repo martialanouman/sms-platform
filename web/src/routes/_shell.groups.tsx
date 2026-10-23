@@ -2,7 +2,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { type FormEvent, useId, useState } from 'react'
 import type { components } from '../admin.gen'
-import { json } from '../api'
 import { gw } from '../gw'
 import { Failure, type Paged, Pager, paged, useClosedOn } from '../list'
 import { read } from '../queries'
@@ -180,13 +179,11 @@ function GroupForm({ group, onClose }: { group?: Group; onClose: () => void }) {
               ...(name !== group.name && { name }),
               ...(typed !== group.description && { description: typed }),
             },
-            headers: json,
           }),
         )
       : await submit(() =>
           gw.POST('/admin/customer-groups', {
             body: { name, ...(typed !== null && { description: typed }) },
-            headers: json,
           }),
         )
     if (outcome.response?.status === 409) {
@@ -249,7 +246,6 @@ function StatusChange({ group, onClose }: { group: Group; onClose: () => void })
         gw.PATCH('/admin/customer-groups/{id}', {
           params: { path: { id: group.id } },
           body: { status: archive ? 'archived' : 'active' },
-          headers: json,
         })
       }
     >

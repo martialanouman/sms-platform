@@ -36,6 +36,9 @@ export function stubFetch(handlers: Record<string, Handler>) {
     const request = new Request(input, init)
     const key = `${request.method} ${new URL(request.url).pathname}`
     calls.push(request)
+    if (request.method !== 'GET' && request.headers.get('Content-Type')?.split(';')[0] !== 'application/json') {
+      return json(415, { code: 'unsupported_media_type', message: 'La requête doit être en application/json.' })
+    }
     const handler = handlers[key]
     if (!handler) {
       throw new Error(`unexpected request ${key}`)
