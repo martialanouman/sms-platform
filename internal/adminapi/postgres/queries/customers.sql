@@ -27,10 +27,41 @@ RETURNING id;
 -- name: DeleteGroup :execrows
 DELETE FROM control_plane.customer_groups WHERE id = $1;
 
--- name: GroupCustomers :many
+-- name: Customers :many
 SELECT id, name, status, group_id, max_age_otp, max_age_transactional, max_age_marketing, created_at, updated_at
 FROM control_plane.customers
-WHERE group_id = sqlc.arg(group_id)
+WHERE (sqlc.narg(group_id)::uuid IS NULL OR group_id = sqlc.narg(group_id))
+  AND (sqlc.narg(status)::text IS NULL OR status = sqlc.narg(status))
   AND (sqlc.narg(after_at)::timestamptz IS NULL OR (created_at, id) < (sqlc.narg(after_at), sqlc.narg(after_id)::uuid))
 ORDER BY created_at DESC, id DESC
 LIMIT sqlc.arg(lim)::bigint;
+
+-- name: Customer :one
+SELECT id, name, status, group_id, max_age_otp, max_age_transactional, max_age_marketing, created_at, updated_at
+FROM control_plane.customers
+WHERE id = $1;
+
+-- name: CreateCustomer :one
+INSERT INTO control_plane.customers (name, group_id, max_age_otp, max_age_transactional, max_age_marketing)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id;
+
+-- name: UpdateCustomer :one
+UPDATE control_plane.customers SET
+  name = coalesce(sqlc.narg(name), name),
+  status = coalesce(sqlc.narg(status), status),
+  group_id = CASE WHEN sqlc.arg(set_group)::bool THEN sqlc.narg(group_id)::uuid ELSE group_id END,
+  max_age_otp = CASE WHEN sqlc.arg(set_max_age)::bool THEN sqlc.narg(max_age_otp)::integer ELSE max_age_otp END,
+  max_age_transactional = CASE WHEN sqlc.arg(set_max_age)::bool THEN sqlc.narg(max_age_transactional)::integer ELSE max_age_transactional END,
+  max_age_marketing = CASE WHEN sqlc.arg(set_max_age)::bool THEN sqlc.narg(max_age_marketing)::integer ELSE max_age_marketing END
+WHERE id = sqlc.arg(id)
+RETURNING id;
+
+-- name: SetAccountsStatus :exec
+UPDATE control_plane.accounts SET status = sqlc.arg(status) WHERE customer_id = sqlc.arg(customer_id) AND status NOT IN ('closed', sqlc.arg(status));
+
+-- name: DeleteCustomer :execrows
+DELETE FROM control_plane.customers WHERE id = $1;
+
+-- name: CustomerAccounts :many
+SELECT id, name, status FROM control_plane.accounts WHERE customer_id = $1 ORDER BY name, id;

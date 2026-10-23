@@ -38,6 +38,7 @@ func New(c Config) (http.Handler, huma.API) {
 	api.UseMiddleware(authorize(api, c))
 	registerAudit(api)
 	registerCustomerGroups(api)
+	registerCustomers(api)
 	return audit{mux: mux, uncommitted: c.Uncommitted}, api
 }
 
