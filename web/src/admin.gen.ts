@@ -2384,7 +2384,7 @@ export interface components {
              */
             address: string;
             /** @default marketing */
-            traffic_category: components["schemas"]["TrafficCategory"];
+            traffic_category?: components["schemas"]["TrafficCategory"];
         };
         SenderIdUpdate: {
             status?: components["schemas"]["SenderIdStatus"];
@@ -2420,21 +2420,21 @@ export interface components {
             customer_id: string;
             name: string;
             /** @default true */
-            smpp_enabled: boolean;
+            smpp_enabled?: boolean;
             /** @default true */
-            rest_enabled: boolean;
+            rest_enabled?: boolean;
             /** @default true */
-            query_sm_enabled: boolean;
+            query_sm_enabled?: boolean;
             /** @default true */
-            cancel_sm_enabled: boolean;
+            cancel_sm_enabled?: boolean;
             /**
              * @default [
              *       "transceiver"
              *     ]
              */
-            allowed_bind_types: components["schemas"]["BindType"][];
+            allowed_bind_types?: components["schemas"]["BindType"][];
             /** @default 1 */
-            max_sessions: number;
+            max_sessions?: number;
         };
         AccountUpdate: {
             name?: string;
@@ -2541,55 +2541,55 @@ export interface components {
              * @default 52
              * @enum {integer}
              */
-            interface_version: 52 | 80;
+            interface_version?: 52 | 80;
             /** @default 0 */
-            addr_ton: number;
+            addr_ton?: number;
             /** @default 0 */
-            addr_npi: number;
+            addr_npi?: number;
             /** @default 0 */
-            source_addr_ton: number;
+            source_addr_ton?: number;
             /** @default 0 */
-            source_addr_npi: number;
+            source_addr_npi?: number;
             /** @default 1 */
-            dest_addr_ton: number;
+            dest_addr_ton?: number;
             /** @default 1 */
-            dest_addr_npi: number;
+            dest_addr_npi?: number;
             data_coding_default?: number | null;
             /** @default 0 */
-            esm_class_default: number;
+            esm_class_default?: number;
             /** @default 1 */
-            registered_delivery_default: number;
+            registered_delivery_default?: number;
             /**
              * @description Sent for a message of effective priority 0.
              * @default 0
              */
-            priority_flag_default: number;
+            priority_flag_default?: number;
             validity_period_default?: string | null;
             /** @default 30 */
-            enquire_link_interval_sec: number;
+            enquire_link_interval_sec?: number;
             /** @default 3 */
-            enquire_link_max_missed: number;
+            enquire_link_max_missed?: number;
             /** @default 10000 */
-            bind_timeout_ms: number;
+            bind_timeout_ms?: number;
             /** @default 10000 */
-            response_timeout_ms: number;
+            response_timeout_ms?: number;
         };
         /** @description Automatic reconnection of the connector's SMPP binds, opt-in. The breaker never reconnects. */
         ReconnectPolicy: {
             enabled: boolean;
             /** @default 1000 */
-            initial_delay_ms: number;
+            initial_delay_ms?: number;
             /** @default 2 */
-            multiplier: number;
+            multiplier?: number;
             /** @default 60000 */
-            max_delay_ms: number;
+            max_delay_ms?: number;
             /** @default 20 */
-            jitter_pct: number;
+            jitter_pct?: number;
             /**
              * @description 0 retries without limit.
              * @default 0
              */
-            max_attempts: number;
+            max_attempts?: number;
         };
         /** @description A destination, SMPP or HTTP, holding operator accounts. Its throughput is the sum of its available accounts'. */
         Connector: {
@@ -2618,7 +2618,7 @@ export interface components {
             smpp_profile?: components["schemas"]["SmppProfile"];
             http_adapter?: string;
             /** @default 0 */
-            priority_tier: number;
+            priority_tier?: number;
             reconnect_policy?: components["schemas"]["ReconnectPolicy"];
         };
         ConnectorUpdate: {
@@ -2669,10 +2669,10 @@ export interface components {
             throughput_limit_per_sec: number;
             max_binds?: number | null;
             /** @default 10 */
-            max_in_flight: number;
+            max_in_flight?: number;
             bind_type?: components["schemas"]["BindType"];
             /** @default false */
-            tls_enabled: boolean;
+            tls_enabled?: boolean;
             tls_server_name?: string | null;
         };
         /** @description Changing `endpoint`, `tls_enabled` or `tls_server_name` requires `credentials` in the same request, else `validation_error`. */
@@ -2764,7 +2764,7 @@ export interface components {
         RouteCreate: {
             name: string;
             /** @default 100 */
-            priority: number;
+            priority?: number;
             /** Format: uuid */
             match_account_id?: string | null;
             /** Format: uuid */
@@ -2829,7 +2829,7 @@ export interface components {
             /** Format: uuid */
             target_id: string;
             /** @default manual */
-            source: components["schemas"]["ExactRouteSource"];
+            source?: components["schemas"]["ExactRouteSource"];
         };
         ExactRouteUpdate: {
             msisdn: components["schemas"]["MsisdnInput"];
@@ -2865,7 +2865,7 @@ export interface components {
             name: string;
             source_code: string;
             /** @default 2 */
-            timeout_ms: number;
+            timeout_ms?: number;
         };
         RoutingScriptUpdate: {
             name?: string;
@@ -2979,7 +2979,7 @@ export interface components {
                 [key: string]: unknown;
             };
             /** @default flag */
-            action: components["schemas"]["AntispamVerdict"];
+            action?: components["schemas"]["AntispamVerdict"];
         };
         AntispamRuleUpdate: {
             config_json?: {
@@ -3058,7 +3058,7 @@ export interface components {
              * @default exact
              * @enum {string}
              */
-            match_type: "exact" | "prefix";
+            match_type?: "exact" | "prefix";
         };
         OptOutKeywordUpdate: {
             keyword?: string;
@@ -3146,11 +3146,11 @@ export interface components {
              * @default prefix
              * @enum {string}
              */
-            match_type: "exact" | "prefix" | "regex";
+            match_type?: "exact" | "prefix" | "regex";
             /** Format: uuid */
             account_id: string;
             /** @default 0 */
-            priority: number;
+            priority?: number;
         };
         InboundKeywordUpdate: {
             keyword?: string;
@@ -3225,7 +3225,7 @@ export interface components {
                 [key: string]: string;
             } | null;
             /** @default 100 */
-            priority: number;
+            priority?: number;
             reason?: string | null;
         };
         SenderRewriteRuleUpdate: {
@@ -3408,7 +3408,7 @@ export interface components {
              * @default either
              * @enum {string}
              */
-            billing_mode: "prepaid" | "postpaid" | "either";
+            billing_mode?: "prepaid" | "postpaid" | "either";
         };
         RatePlanUpdate: {
             name?: string;
