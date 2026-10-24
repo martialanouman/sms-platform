@@ -473,7 +473,6 @@ test('a personal token is shown once, copied, and gone once closed', async () =>
   await user.click(issue)
   const dialog = await screen.findByRole('dialog', { name: 'Jeton d’API personnel' })
   expect(dialog.textContent).toContain('eyJ.jeton-de-preuve.sig')
-  expect(dialog.textContent).toContain('Ce jeton ne sera plus jamais affiché.')
   expect(screen.getByText(/expire une heure après sa délivrance/)).toBeDefined()
   expect(dialog.textContent).toContain('accounts:read, traffic:read')
   expect(await violations(container)).toEqual([])

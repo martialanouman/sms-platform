@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
 import { atMinute } from '../audit'
-import { empty, explained, json, me, renderAt, stubFetch, toasted, violations } from '../test'
+import { empty, explained, json, me, noToast, renderAt, stubFetch, toasted, violations } from '../test'
 
 const writer = {
   ...me,
@@ -93,7 +93,7 @@ test('the page of an account carries the header of the mock-up and opens on its 
   await waitFor(() =>
     expect(within(tabs).getByRole('link', { name: 'Identifiants' }).getAttribute('aria-current')).toBe('page'),
   )
-  expect(await card('Identifiants')).toBeDefined()
+  expect(await card('Bind SMPP')).toBeDefined()
   expect(screen.queryByRole('link', { name: '← Acme' })).toBeNull()
   expect(await violations(container)).toEqual([])
 })
@@ -408,7 +408,7 @@ test('a refused channel is said in its card, the switch keeps its state and the 
   expect(alert.textContent).toBe('Au moins un canal reste activé.')
   expect(smpp.getAttribute('aria-checked')).toBe('true')
   await waitFor(() => expect(reads(calls)).toBe(2))
-  expect(screen.getByRole('region', { name: 'Notifications' }).querySelectorAll('.ui-toast')).toHaveLength(0)
+  noToast()
 })
 
 test('a channel refused for another reason keeps the gateway message', async () => {
@@ -532,7 +532,7 @@ test('the last bind type cannot be removed, and a refused limit is said in its c
   await user.click(within(limits).getByRole('button', { name: 'Enregistrer' }))
   const alert = await within(limits).findByRole('alert')
   expect(alert.textContent).toBe('Limite refusée.')
-  expect(screen.getByRole('region', { name: 'Notifications' }).querySelectorAll('.ui-toast')).toHaveLength(0)
+  noToast()
   expect(within(limits).getByRole('group', { name: 'Types de bind' }).getAttribute('aria-describedby')).toBe(alert.id)
   expect(fireEvent.submit(limits.querySelector('form') as HTMLFormElement)).toBe(false)
 })

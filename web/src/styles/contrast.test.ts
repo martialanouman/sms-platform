@@ -66,6 +66,9 @@ test.each([
   ['--text-danger-on-tint', '--tint-red', '--surface-card'],
   ['--text-danger', '--surface-card'],
   ['--text-success', '--tint-green', '--surface-card'],
+  ['--text-warning', '--tint-amber', '--surface-card'],
+  ['--text-info', '--tint-blue', '--surface-card'],
+  ['--text-accent', '--tint-teal', '--surface-card'],
 ])('%s on %s reaches WCAG AA', (text, ...layers) => {
   expect(ratio(text, ...layers)).toBeGreaterThanOrEqual(4.5)
 })

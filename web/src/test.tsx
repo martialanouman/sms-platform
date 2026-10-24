@@ -18,14 +18,15 @@ afterEach(() => {
 
 export function renderAt(path: string) {
   const router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: [path] }) })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const view = render(
     <StrictMode>
-      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
       </QueryClientProvider>
     </StrictMode>,
   )
-  return { router, ...view }
+  return { router, queryClient, ...view }
 }
 
 type Handler = (request: Request) => Response | Promise<Response>
@@ -84,6 +85,19 @@ export function stubPasskeys() {
   Object.defineProperty(navigator, 'credentials', { configurable: true, value: device })
   return device
 }
+
+export const understood = 'Je comprends que le nouveau secret ne sera affiché qu’une seule fois.'
+
+export const noToast = () =>
+  expect(screen.getByRole('region', { name: 'Notifications' }).querySelectorAll('.ui-toast')).toHaveLength(0)
+
+export const cached = (queryClient: QueryClient) =>
+  JSON.stringify(
+    queryClient
+      .getQueryCache()
+      .getAll()
+      .map((q) => q.state.data),
+  )
 
 export const explained = (button: HTMLElement) =>
   document.getElementById(button.getAttribute('aria-describedby') ?? '')?.textContent

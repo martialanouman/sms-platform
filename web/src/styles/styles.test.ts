@@ -51,3 +51,15 @@ test('a field draws its boundary with the tokens that reach 3:1', () => {
 test('a link in the page header meta line is underlined, not told apart by colour alone', () => {
   expect(read('./app.css')).toMatch(/\.page-header__meta a\s*\{[^}]*text-decoration:\s*underline/)
 })
+
+test('the revoked pill, the warning banner and the event badges sit on their tints', () => {
+  const rule = (selector: string) => read('./app.css').match(new RegExp(`\\n${selector} \\{([^}]*)\\}`))?.[1] ?? ''
+  expect(rule('\\.ui-pill--bad')).toMatch(/background: var\(--tint-red\);[^}]*color: var\(--text-danger-on-tint\);/)
+  expect(rule('\\.ui-banner--warn')).toMatch(/background: var\(--tint-amber\);[^}]*color: var\(--text-warning\);/)
+  expect(rule('\\.ui-badge--mo')).toMatch(/background: var\(--tint-blue\);[^}]*color: var\(--text-info\);/)
+  expect(rule('\\.ui-badge--dlr')).toMatch(/background: var\(--tint-teal\);[^}]*color: var\(--text-accent\);/)
+})
+
+test('the actions of an end cell sit against its end, as the header above them', () => {
+  expect(read('./app.css')).toMatch(/\n\.ui-table__cell--end \.row-actions \{[^}]*justify-content: flex-end;/)
+})

@@ -6,12 +6,12 @@ import {
   Outlet,
   RouterProvider,
 } from '@tanstack/react-router'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useRef } from 'react'
+import { StrictMode, useRef, useState } from 'react'
 import { expect, test, vi } from 'vitest'
 import { explained } from './test'
-import { Button, needs, Select, Switch, Tabs, Toasts, useToast } from './ui'
+import { Button, Check, Modal, needs, RotationModal, SecretOnce, Select, Switch, Tabs, Toasts, useToast } from './ui'
 
 const bubble = () => document.querySelector('.ui-tooltip')?.textContent
 
@@ -232,4 +232,134 @@ test('a blocked tab is marked current when its route is the one shown', async ()
   render(<RouterProvider router={router} />)
   await waitFor(() => expect(screen.getByRole('button', { name: 'A' }).getAttribute('aria-current')).toBe('page'))
   expect(screen.getByRole('button', { name: 'B' }).hasAttribute('aria-current')).toBe(false)
+})
+
+function Opened({ chained }: { chained?: boolean }) {
+  const [open, setOpen] = useState<'first' | 'second'>()
+  const [gone, setGone] = useState(false)
+  const origin = useRef<HTMLButtonElement>(null)
+  return (
+    <main id="contenu">
+      <h1 tabIndex={-1}>Titre</h1>
+      {!gone && (
+        <button type="button" ref={origin} onClick={() => setOpen('first')}>
+          Ouvrir
+        </button>
+      )}
+      {open === 'first' && (
+        <Modal
+          title="Première"
+          onClose={() => setOpen(undefined)}
+          footer={
+            <button
+              type="button"
+              onClick={() => {
+                setGone(!chained)
+                setOpen(chained ? 'second' : undefined)
+              }}
+            >
+              Suite
+            </button>
+          }
+        >
+          Corps
+        </Modal>
+      )}
+      {open === 'second' && (
+        <SecretOnce title="Seconde" secret="s3cr3t" opener={origin.current} onClose={() => setOpen(undefined)}>
+          Corps
+        </SecretOnce>
+      )}
+    </main>
+  )
+}
+
+test('a modal gives the focus back to its opener, or to the page title once the opener is gone', async () => {
+  const user = userEvent.setup()
+  render(<Opened />)
+  await user.click(screen.getByRole('button', { name: 'Ouvrir' }))
+  await screen.findByRole('dialog', { name: 'Première' })
+  await user.keyboard('{Escape}')
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Ouvrir' }))
+  await user.click(screen.getByRole('button', { name: 'Ouvrir' }))
+  await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Suite' }))
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Titre' }))
+})
+
+test('a secret opened by another modal gives the focus back to the first opener, and says it will not be shown again', async () => {
+  const user = userEvent.setup()
+  render(
+    <StrictMode>
+      <Opened chained />
+    </StrictMode>,
+  )
+  await user.click(screen.getByRole('button', { name: 'Ouvrir' }))
+  await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Suite' }))
+  const secret = await screen.findByRole('dialog', { name: 'Seconde' })
+  const code = within(secret).getByText('s3cr3t')
+  expect(code.nextElementSibling?.textContent).toBe(
+    'Ce secret ne sera plus jamais affiché. Fermer cette fenêtre l’efface de l’écran.',
+  )
+  await user.click(within(secret).getByRole('button', { name: 'J’ai copié le secret' }))
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Ouvrir' }))
+})
+
+test('a check is named by its enclosing label and turns', async () => {
+  const onChange = vi.fn()
+  render(
+    <label>
+      <Check checked={false} onChange={onChange} />
+      Je comprends.
+    </label>,
+  )
+  const box = screen.getByRole('checkbox', { name: 'Je comprends.' })
+  expect(box.className).toBe('ui-check')
+  await userEvent.setup().click(box)
+  expect(onChange.mock.calls[0]?.[0]).toBe(true)
+})
+
+function Rotating({ onSubmit }: { onSubmit: () => void }) {
+  return (
+    <RotationModal
+      title={
+        <>
+          Rotation du bind SMPP <span className="ui-mono">acme01</span>
+        </>
+      }
+      warning="Sans grâce, tout cesse."
+      onClose={() => {}}
+      onSubmit={onSubmit}
+      waiting={false}
+      refusal={<p role="alert">Refus.</p>}
+    >
+      <p>Champs</p>
+    </RotationModal>
+  )
+}
+
+test('a rotation warns, asks to understand first, and only then rotates', async () => {
+  const onSubmit = vi.fn()
+  const user = userEvent.setup()
+  render(<Rotating onSubmit={onSubmit} />)
+  const dialog = await screen.findByRole('dialog', { name: 'Rotation du bind SMPP acme01' })
+  expect(within(dialog).getByText('Sans grâce, tout cesse.').className).toBe('ui-banner--warn')
+  expect(within(dialog).getByRole('alert').textContent).toBe('Refus.')
+  expect(within(dialog).getByText('Champs')).toBeDefined()
+  expect(dialog.textContent).toContain('L’action est enregistrée dans le journal d’audit.')
+  const box = within(dialog).getByRole('checkbox', {
+    name: 'Je comprends que le nouveau secret ne sera affiché qu’une seule fois.',
+  })
+  expect(box.getAttribute('aria-checked')).toBe('false')
+  const rotate = within(dialog).getByRole('button', { name: 'Effectuer la rotation' })
+  expect(rotate.className).toContain('ui-button--danger')
+  expect(explained(rotate)).toBe('Cochez d’abord la case.')
+  await user.click(rotate)
+  expect(onSubmit).not.toHaveBeenCalled()
+  await user.click(box)
+  expect(rotate.hasAttribute('aria-disabled')).toBe(false)
+  await user.click(rotate)
+  expect(onSubmit).toHaveBeenCalledTimes(1)
 })

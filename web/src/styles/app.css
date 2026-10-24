@@ -575,18 +575,6 @@
   color: var(--text-secondary);
 }
 
-.ui-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--sp-4);
-  min-height: var(--subbar-height);
-  padding: var(--sp-4) var(--sp-7);
-  border-bottom: 1px solid var(--border-default);
-  background: var(--surface-page);
-}
-
 .ui-table {
   width: 100%;
   border-collapse: collapse;
@@ -630,6 +618,10 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-4);
+}
+
+.ui-table__cell--end .row-actions {
+  justify-content: flex-end;
 }
 
 .operator-cell {
@@ -1277,6 +1269,41 @@ button.ui-tabs__tab {
   color: var(--text-secondary);
 }
 
+.ui-pill--bad {
+  background: var(--tint-red);
+  color: var(--text-danger-on-tint);
+}
+
+.ui-badge {
+  display: inline-block;
+  margin-right: var(--sp-3);
+  padding: 0 var(--sp-4);
+  border-radius: var(--r-pill);
+  font-family: var(--font-mono);
+  font-size: var(--fs-11);
+  font-weight: var(--fw-semibold);
+}
+
+.ui-badge--mo {
+  background: var(--tint-blue);
+  color: var(--text-info);
+}
+
+.ui-badge--dlr {
+  background: var(--tint-teal);
+  color: var(--text-accent);
+}
+
+.ui-banner--warn {
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--sp-5) var(--sp-6);
+  border: 1px solid color-mix(in srgb, var(--amber-500) 40%, transparent);
+  border-radius: var(--r-card);
+  background: var(--tint-amber);
+  color: var(--text-warning);
+}
+
 .ui-card {
   min-width: 0;
   border: 1px solid var(--border-default);
@@ -1310,6 +1337,28 @@ button.ui-tabs__tab {
 
 .ui-card--flush .ui-table__row:last-child .ui-table__cell {
   border-bottom: 0;
+}
+
+.ui-card__foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+  padding: var(--sp-6) var(--pad-card);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ui-card__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-5);
+  padding: var(--sp-6) 0;
+}
+
+.ui-card__empty-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-weight: var(--fw-semibold);
 }
 
 .ui-card__actions {
