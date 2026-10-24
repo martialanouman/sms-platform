@@ -46,13 +46,15 @@ export function PermissionPicker({
                 readOnly={readOnly || derived(key)}
                 hint={derived(key) ? `${stream} · compris avec la lecture du trafic` : key}
               >
-                {permissionLabel(key).action ?? key}
-                {(sensitive as readonly string[]).includes(key) && (
-                  <>
-                    {' '}
-                    <span className="ui-tag ui-tag--sensitive">sensible</span>
-                  </>
-                )}
+                <span>
+                  {permissionLabel(key).action ?? key}
+                  {(sensitive as readonly string[]).includes(key) && (
+                    <>
+                      {' '}
+                      <span className="ui-tag ui-tag--sensitive">sensible</span>
+                    </>
+                  )}
+                </span>
               </Choice>
             ))}
         </fieldset>

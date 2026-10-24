@@ -823,7 +823,6 @@
 }
 
 .ui-tag--sensitive {
-  margin-left: var(--sp-2);
   border-color: transparent;
   background: var(--tint-amber);
   color: var(--text-warning);

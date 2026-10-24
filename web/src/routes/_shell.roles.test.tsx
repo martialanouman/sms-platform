@@ -148,6 +148,12 @@ test('a role is composed in French, grouped in the order of the mockup, keys in 
   ).toBeDefined()
   expect(within(dialog).getByRole('checkbox', { name: 'future:thing' })).toBeDefined()
   expect(
+    [...dialog.querySelectorAll('.ui-tag--sensitive')].map((t) => [t.parentElement?.tagName, t.parentElement?.textContent]),
+  ).toEqual([
+    ['SPAN', 'Exporter en masse sensible'],
+    ['SPAN', 'Révéler sensible'],
+  ])
+  expect(
     [...dialog.querySelectorAll('.ui-tag--sensitive')].map((t) => t.closest('label')?.querySelector('[role=checkbox]')),
   ).toEqual([
     within(within(dialog).getByRole('group', { name: 'CDR' })).getByRole('checkbox', { name: /Exporter/ }),
