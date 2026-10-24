@@ -11,7 +11,21 @@ import userEvent from '@testing-library/user-event'
 import { StrictMode, useRef, useState } from 'react'
 import { expect, test, vi } from 'vitest'
 import { explained } from './test'
-import { Button, Check, Modal, needs, RotationModal, SecretOnce, Select, Switch, Tabs, Toasts, useToast } from './ui'
+import {
+  Button,
+  Check,
+  Choice,
+  Choices,
+  Modal,
+  needs,
+  RotationModal,
+  SecretOnce,
+  Select,
+  Switch,
+  Tabs,
+  Toasts,
+  useToast,
+} from './ui'
 
 const bubble = () => document.querySelector('.ui-tooltip')?.textContent
 
@@ -362,4 +376,25 @@ test('a rotation warns, asks to understand first, and only then rotates', async 
   expect(rotate.hasAttribute('aria-disabled')).toBe(false)
   await user.click(rotate)
   expect(onSubmit).toHaveBeenCalledTimes(1)
+})
+
+test('a choice tells its hint in a bubble, on focus of its box and on hover of the option', async () => {
+  render(
+    <Choices value={[]} onChange={() => {}}>
+      <Choice value="cdr:read" hint="cdr:read">
+        Lire
+      </Choice>
+    </Choices>,
+  )
+  const box = screen.getByRole('checkbox', { name: 'Lire' })
+  expect(document.querySelector('[title]')).toBeNull()
+  await userEvent.setup().tab()
+  expect(document.activeElement).toBe(box)
+  await waitFor(() => expect(bubble()).toBe('cdr:read'))
+  expect(explained(box)).toBe('cdr:read')
+  fireEvent.keyDown(box, { key: 'Escape' })
+  box.blur()
+  await waitFor(() => expect(document.querySelector('.ui-tooltip')).toBeNull())
+  await userEvent.setup().hover(screen.getByText('Lire'))
+  await waitFor(() => expect(bubble()).toBe('cdr:read'))
 })
