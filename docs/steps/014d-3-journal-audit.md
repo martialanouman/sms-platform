@@ -52,3 +52,20 @@ table, inchangés repliés, ligne sur les secrets) ; axe sans violation, aucun `
 - **Mutations** (toutes tuées, restauration vérifiée par `cmp`) : seuils 400 et 500, branche `outcome`, filtre des
   champs changés, compte et accord des champs inchangés, figé de « Retirer les filtres », libellés du pager par défaut
   et ceux des deux journaux, accord « 1 entrée affichée ».
+- **Correctif de revue 1** : une date s'applique en quittant le champ ou sur Entrée, jamais à chaque frappe. Au
+  clavier, le « 1 » de « 15 » formait déjà une date complète : le filtre naviguait, la clé du `fieldset` qui
+  dépendait des filtres remontait tout, le focus partait et chaque frappe ajoutait une entrée d'historique. Les
+  champs sont contrôlés et ne se remontent jamais ; le `Combobox` est contrôlé (`value`, `onChange` requis, sans
+  `name`) ; le focus reste en place après le choix d'un opérateur et après « Retirer les filtres ».
+- **Correctif de revue 2** : « Retirer les filtres » est figé dès que l'état vaut le défaut (aucun opérateur, Du et Au
+  à la date du jour), pas seulement quand l'adresse ne porte aucun filtre.
+- **Correctif de revue 3** : une modification sans champ lisible changé dit « Aucun champ lisible n'a changé. » au
+  lieu d'une table vide.
+- **Correctif de revue 4** : la modale suit la maquette : bouton « Fermer » en pied, Avant en rouge barré, Après en
+  vert (`.audit-before`, `.audit-after`, sur `--text-danger` et `--text-success`).
+- **Correctif de revue 5** : le nom de table est réellement en mono (la règle de `.audit-change__head h3` écrasait
+  `.ui-mono`) ; la modale reçoit l'entrée seule ; l'assertion d'absence du bouton « Filtrer » tombe ; les tests de
+  saisie quittent le champ (`user.tab()`).
+- **Mutations des correctifs** (toutes tuées, restauration vérifiée par `cmp`) : date appliquée à chaque frappe, figé
+  limité à l'absence de clés, retour de la clé du `fieldset`, ligne « aucun champ » retirée, pied sans « Fermer »,
+  classe Avant retirée.
