@@ -78,7 +78,7 @@ func (s server) proxy() (http.Handler, error) {
 			write(w, http.StatusInternalServerError, ErrorCodeInternalError, "Erreur interne.", nil)
 			return
 		}
-		if !current.Elevated && dashboard.RequiresMFA(current.Permissions) {
+		if !current.Elevated {
 			write(w, http.StatusForbidden, ErrorCodeMfaRequired, "Vérifiez d'abord votre second facteur.", nil)
 			return
 		}

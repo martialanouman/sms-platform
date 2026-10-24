@@ -100,31 +100,3 @@ func TestDefaultRolesHoldOnlyGeneratedPermissions(t *testing.T) {
 		}
 	}
 }
-
-func TestRequiresMFA(t *testing.T) {
-	for _, tc := range []struct {
-		held []string
-		want bool
-	}{
-		{nil, false},
-		{[]string{"billing:read", "traffic:read", "stream:read"}, false},
-		{[]string{"routes:read", "credentials:read", "jobs:read"}, false},
-		{[]string{"traffic:read", "routes:write"}, true},
-		{[]string{"operators:read"}, true},
-		{[]string{"gateway:personal_token"}, true},
-		{[]string{"content:read"}, true},
-		{[]string{"content:write"}, true},
-		{[]string{"content:erase"}, true},
-		{[]string{"gdpr:erase"}, true},
-		{[]string{"msisdn:reveal"}, true},
-		{[]string{"cdr:export_bulk"}, true},
-		{[]string{"audit:read"}, true},
-		{[]string{"routing-scripts:publish"}, true},
-		{[]string{"suppressions:delete"}, true},
-		{[]string{"billing:topup"}, true},
-	} {
-		if got := dashboard.RequiresMFA(tc.held); got != tc.want {
-			t.Errorf("RequiresMFA(%v) = %v, want %v", tc.held, got, tc.want)
-		}
-	}
-}

@@ -20,14 +20,6 @@ type Role struct {
 	Permissions []string
 }
 
-// RequiresMFA is whether held carries more than ordinary reads (spec 08 §8.3): a write, a sensitive scope of spec 07
-// §7.4 or a BFF permission.
-func RequiresMFA(held []string) bool {
-	return slices.ContainsFunc(held, func(p string) bool {
-		return strings.HasSuffix(p, ":write") || slices.Contains(scopes.Sensitive, p) || slices.Contains(scopes.Permissions, p)
-	})
-}
-
 func suffixed(suffix string, tags ...string) []string {
 	out := make([]string, len(tags))
 	for i, tag := range tags {

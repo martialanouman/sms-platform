@@ -13,7 +13,6 @@ function Home() {
     document.title = 'Accueil — Tableau de bord'
   }, [])
   useEffect(() => {
-    // debt: #155
     if (me.data && !me.data.elevated) {
       void navigate({ to: '/login', search: { notice: 'verification-interrupted' } })
     }

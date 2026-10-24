@@ -269,7 +269,7 @@ func (s server) session(next StrictHandlerFunc, operation string) StrictHandlerF
 		case err != nil:
 			return nil, err
 		}
-		if !s.auth[operation] && !current.Elevated && dashboard.RequiresMFA(current.Permissions) {
+		if !s.auth[operation] && !current.Elevated {
 			write(w, http.StatusForbidden, ErrorCodeMfaRequired, "Vérifiez d'abord votre second facteur.", nil)
 			return nil, nil
 		}
