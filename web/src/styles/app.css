@@ -1041,7 +1041,9 @@ button.ui-tabs__tab {
   flex-wrap: wrap;
   align-items: flex-end;
   gap: var(--sp-4);
-  margin-bottom: var(--sp-5);
+  margin: 0 0 var(--sp-5);
+  padding: 0;
+  border: 0;
 }
 
 .audit-id {

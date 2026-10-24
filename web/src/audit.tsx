@@ -66,10 +66,9 @@ export function AuditFilters({ search, onFilter }: { search: AuditSearch; onFilt
     }
   }
   return (
-    <div
+    <fieldset
       key={[search.operator, search.from, search.to].join('|')}
       className="audit-filters"
-      role="group"
       aria-label="Filtres du journal"
     >
       <Combobox
@@ -90,6 +89,6 @@ export function AuditFilters({ search, onFilter }: { search: AuditSearch; onFilt
       <Button blockedReason={filtered ? undefined : 'Aucun filtre actif.'} onClick={() => onFilter({})}>
         Retirer les filtres
       </Button>
-    </div>
+    </fieldset>
   )
 }
