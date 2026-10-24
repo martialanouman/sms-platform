@@ -215,6 +215,7 @@ export function Check({
   value?: string
   checked?: boolean
   disabled?: boolean
+  readOnly?: boolean
   onChange?: (checked: boolean) => void
   'aria-describedby'?: string
 }) {
@@ -230,18 +231,25 @@ export function Check({
 export function Choice({
   value,
   disabled,
+  readOnly,
   hint,
   children,
 }: {
   value: string
   disabled?: boolean
+  readOnly?: boolean
   hint?: ReactNode
   children: ReactNode
 }) {
   const id = useId()
   const option = (
     <label className="role-choice__option">
-      <Check value={value} disabled={disabled} aria-describedby={hint === undefined ? undefined : id} />
+      <Check
+        value={value}
+        disabled={disabled}
+        readOnly={readOnly}
+        aria-describedby={hint === undefined ? undefined : id}
+      />
       {children}
     </label>
   )

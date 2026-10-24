@@ -1,18 +1,18 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { type FormEvent, useEffect, useId, useRef, useState } from 'react'
-import { api, json, unreachable } from '../api'
+import { type FormEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react'
+import { api, json } from '../api'
 import type { components } from '../api.gen'
-import { permissionLabel } from '../permissions'
+import { Failure, useClosedOn } from '../list'
 import { PermissionPicker } from '../picker'
 import { rolesQuery } from '../queries'
-import { meQuery, Refused, Unauthenticated, useSessionClosed, useShellMe } from '../session'
+import { meQuery, useShellMe } from '../session'
 import {
   answered,
   Button,
+  Card,
   Confirmation,
   DataTable,
-  ErrorState,
   Field,
   Forbidden,
   LoadingState,
@@ -20,13 +20,14 @@ import {
   needs,
   PageHeader,
   useSubmission,
+  useToast,
 } from '../ui'
 
 type Role = components['schemas']['Role']
 
 export const Route = createFileRoute('/_shell/roles')({ component: Roles })
 
-type Pending = { kind: 'create' } | { kind: 'view' | 'edit' | 'delete'; role: Role }
+type Pending = { kind: 'create' } | { kind: 'open' | 'delete'; role: Role }
 
 const byDefault = 'Rôle par défaut : réécrit à chaque déploiement, il ne se modifie ni ne se supprime.'
 
@@ -35,29 +36,33 @@ function Roles() {
   const held = me.data?.permissions ?? []
   const readable = held.includes('roles:read')
   const roles = useQuery({ ...rolesQuery, enabled: readable })
-  const closed = useSessionClosed()
-  useEffect(() => {
-    if (roles.error instanceof Unauthenticated) {
-      closed()
-    }
-  }, [roles.error, closed])
+  useClosedOn(roles.error)
   const writes = held.includes('roles:write')
   const writable = writes ? undefined : needs('roles:write')
   const [pending, setPending] = useState<Pending>()
   const current = useRef(pending)
   current.current = pending
-  const [deleted, setDeleted] = useState(0)
   const title = useRef<HTMLHeadingElement>(null)
+  const notify = useToast()
+  const gone = useRef<string>(undefined)
 
   useEffect(() => {
-    if (deleted) {
+    if (gone.current && !roles.data?.some((r) => r.id === gone.current)) {
+      gone.current = undefined
       title.current?.focus()
     }
-  }, [deleted])
+  }, [roles.data])
 
   const open = (p: Pending) => () => setPending(p)
   const dismiss = (p: Pending) => () => setPending((now) => (now === p ? undefined : now))
   const catalog = roles.data?.find((r) => r.name === 'Propriétaire')?.permissions ?? []
+  const removable = (r: Role): ReactNode =>
+    r.isDefault
+      ? byDefault
+      : (writable ??
+        (r.holders.length > 0
+          ? `Détenu par ${r.holders.join(', ')} : il se retire d’abord à ces opérateurs.`
+          : undefined))
 
   return (
     <>
@@ -65,6 +70,10 @@ function Roles() {
         crumbs={['Rôles']}
         title="Rôles"
         titleRef={title}
+        meta={
+          readable &&
+          'Un rôle définit les permissions de la passerelle et du tableau de bord. Les rôles par défaut ne peuvent être modifiés.'
+        }
         actions={
           readable && (
             <Button
@@ -83,57 +92,74 @@ function Roles() {
           {roles.isPending ? (
             <LoadingState label="Chargement des rôles…" rows={3} />
           ) : roles.error ? (
-            <ErrorState as="h2" title="Les rôles n’ont pas pu être chargés" onRetry={() => void roles.refetch()}>
-              {roles.error instanceof Refused ? roles.error.message : unreachable}
-            </ErrorState>
+            <Failure
+              title="Les rôles n’ont pas pu être chargés"
+              error={roles.error}
+              retry={() => void roles.refetch()}
+            />
           ) : (
-            <DataTable
-              caption="Rôles du tableau de bord"
-              rows={roles.data}
-              rowKey={(r) => r.id}
-              columns={[
-                { header: 'Nom', cell: (r) => r.name },
-                { header: 'Description', cell: (r) => r.description },
-                { header: 'Permissions', cell: (r) => r.permissions.length, end: true },
-                { header: 'Détenteurs', cell: (r) => r.holders.length, end: true },
-                {
-                  header: 'Actions',
-                  cell: (r) => (
-                    <div className="row-actions">
-                      <Button size="sm" onClick={open({ kind: 'view', role: r })}>
-                        Voir les permissions
-                      </Button>
-                      <Button
-                        size="sm"
-                        blockedReason={r.isDefault ? byDefault : writable}
-                        onClick={open({ kind: 'edit', role: r })}
-                      >
-                        Modifier
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        blockedReason={
-                          r.isDefault
-                            ? byDefault
-                            : (writable ??
-                              (r.holders.length > 0
-                                ? `Détenu par ${r.holders.join(', ')} : il se retire d’abord à ces opérateurs.`
-                                : undefined))
-                        }
-                        onClick={open({ kind: 'delete', role: r })}
-                      >
-                        Supprimer
-                      </Button>
-                    </div>
-                  ),
-                },
-              ]}
+            <Card
+              flush
+              footer={
+                <span className="ui-muted">
+                  {roles.data.length} {roles.data.length === 1 ? 'rôle' : 'rôles'}
+                </span>
+              }
+            >
+              <DataTable
+                caption="Rôles du tableau de bord"
+                rows={roles.data}
+                rowKey={(r) => r.id}
+                columns={[
+                  {
+                    header: 'Nom',
+                    cell: (r) => (
+                      <button type="button" className="ui-link-button" onClick={open({ kind: 'open', role: r })}>
+                        {r.name}
+                      </button>
+                    ),
+                  },
+                  { header: 'Description', cell: (r) => <span className="ui-muted">{r.description}</span> },
+                  {
+                    header: 'Type',
+                    cell: (r) => <span className="ui-tag">{r.isDefault ? 'Par défaut' : 'Personnalisé'}</span>,
+                  },
+                  {
+                    header: 'Permissions',
+                    cell: (r) => <span className="ui-mono">{r.permissions.length}</span>,
+                    end: true,
+                  },
+                  { header: 'Détenteurs', cell: (r) => <span className="ui-mono">{r.holders.length}</span>, end: true },
+                  {
+                    header: 'Actions',
+                    cell: (r) => (
+                      <div className="row-actions">
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          blockedReason={removable(r)}
+                          onClick={open({ kind: 'delete', role: r })}
+                        >
+                          Supprimer
+                        </Button>
+                      </div>
+                    ),
+                  },
+                ]}
+              />
+            </Card>
+          )}
+          {pending?.kind === 'create' && <RoleForm catalog={catalog} writes={writes} onClose={dismiss(pending)} />}
+          {pending?.kind === 'open' && (
+            <RoleForm
+              role={pending.role}
+              catalog={catalog}
+              writes={writes}
+              removable={removable(pending.role)}
+              onClose={dismiss(pending)}
+              onDelete={open({ kind: 'delete', role: pending.role })}
             />
           )}
-          {pending?.kind === 'view' && <View role={pending.role} onClose={dismiss(pending)} />}
-          {pending?.kind === 'create' && <Editor catalog={catalog} onClose={dismiss(pending)} />}
-          {pending?.kind === 'edit' && <Editor role={pending.role} catalog={catalog} onClose={dismiss(pending)} />}
           {pending?.kind === 'delete' && (
             <Confirmation
               title={`Supprimer le rôle ${pending.role.name} ?`}
@@ -147,7 +173,8 @@ function Roles() {
               onDone={() => {
                 if (current.current === pending) {
                   setPending(undefined)
-                  setDeleted((n) => n + 1)
+                  gone.current = pending.role.id
+                  notify(`Rôle ${pending.role.name} supprimé.`)
                 }
               }}
             >
@@ -172,34 +199,30 @@ function Roles() {
   )
 }
 
-function View({ role, onClose }: { role: Role; onClose: () => void }) {
-  return (
-    <Modal title={`Rôle ${role.name}`} wide onClose={onClose} footer={<Button onClick={onClose}>Fermer</Button>}>
-      <p>{role.description}</p>
-      {/* biome-ignore lint/a11y/noNoninteractiveTabindex: la liste défile ; le clavier doit l’atteindre (WCAG 2.1.1) */}
-      <ul className="role-keys" aria-label={`Permissions du rôle ${role.name}`} tabIndex={0}>
-        {role.permissions.map((key) => {
-          const label = Object.values(permissionLabel(key)).filter(Boolean).join(' — ')
-          return (
-            <li key={key}>
-              {label && `${label} `}
-              <span className="role-keys__key">{key}</span>
-            </li>
-          )
-        })}
-      </ul>
-    </Modal>
-  )
-}
-
-function Editor({ role, catalog, onClose }: { role?: Role; catalog: string[]; onClose: () => void }) {
+function RoleForm({
+  role,
+  catalog,
+  writes,
+  removable,
+  onClose,
+  onDelete,
+}: {
+  role?: Role
+  catalog: string[]
+  writes: boolean
+  removable?: ReactNode
+  onClose: () => void
+  onDelete?: () => void
+}) {
   const queryClient = useQueryClient()
+  const notify = useToast()
   const { submit, waiting, refusal, describedBy } = useSubmission()
   const [name, setName] = useState('')
   const [description, setDescription] = useState(role?.description ?? '')
   const [permissions, setPermissions] = useState(role?.permissions ?? [])
   const form = useId()
   const keys = [...catalog].sort()
+  const locked = role !== undefined && !writes
 
   async function save(event: FormEvent) {
     event.preventDefault()
@@ -218,36 +241,61 @@ function Editor({ role, catalog, onClose }: { role?: Role; catalog: string[]; on
       }
     }
     if (outcome.failure === undefined) {
+      notify(role ? `Rôle ${role.name} enregistré.` : `Rôle ${name} créé.`)
       onClose()
     }
   }
 
+  const title = role ? (
+    <>
+      {role.name} <span className="ui-tag">{role.isDefault ? 'Par défaut' : 'Personnalisé'}</span>
+    </>
+  ) : (
+    'Nouveau rôle'
+  )
+
+  if (role?.isDefault) {
+    return (
+      <Modal title={title} wide onClose={onClose} footer={<Button onClick={onClose}>Fermer</Button>}>
+        <p>Les rôles par défaut ne se modifient pas : chaque déploiement les réécrit.</p>
+        <p className="ui-muted">{role.description}</p>
+        <PermissionPicker keys={keys} chosen={permissions} onChange={() => {}} readOnly streamFollowsTraffic />
+      </Modal>
+    )
+  }
+
   return (
     <Modal
-      title={role ? `Modifier ${role.name}` : 'Nouveau rôle'}
+      title={title}
       wide
       onClose={onClose}
       footer={
         <>
+          {role && (
+            <span className="ui-modal__aside">
+              <Button variant="danger" blockedReason={removable} onClick={onDelete}>
+                Supprimer
+              </Button>
+            </span>
+          )}
           <Button onClick={onClose}>Annuler</Button>
-          <Button variant="primary" type="submit" form={form} loading={waiting}>
-            {role ? 'Enregistrer le rôle' : 'Créer le rôle'}
+          <Button
+            variant="primary"
+            type="submit"
+            form={form}
+            loading={waiting}
+            blockedReason={locked ? needs('roles:write') : undefined}
+          >
+            {role ? 'Enregistrer' : 'Créer le rôle'}
           </Button>
         </>
       }
     >
       <form className="form" id={form} onSubmit={save}>
-        <p>
-          {role
-            ? 'Ses détenteurs reçoivent aussitôt les clés cochées.'
-            : 'Le rôle accorde exactement les clés cochées.'}{' '}
-          L’action est enregistrée dans le journal d’audit.
-        </p>
         {refusal}
         {!role && (
           <Field
             label="Nom"
-            className="ui-input ui-input--mono"
             required
             maxLength={100}
             value={name}
@@ -259,9 +307,16 @@ function Editor({ role, catalog, onClose }: { role?: Role; catalog: string[]; on
           label="Description"
           maxLength={500}
           value={description}
+          readOnly={locked}
           onChange={(e) => setDescription(e.target.value)}
         />
-        <PermissionPicker keys={keys} chosen={permissions} onChange={setPermissions} />
+        <PermissionPicker
+          keys={keys}
+          chosen={permissions}
+          onChange={setPermissions}
+          readOnly={locked}
+          streamFollowsTraffic
+        />
       </form>
     </Modal>
   )

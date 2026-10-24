@@ -818,36 +818,37 @@
 
 .permission-picker {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--sp-8);
 }
 
-.role-keys {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: var(--sp-4) var(--sp-8);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  color: var(--text-primary);
-  font: var(--text-body);
+.ui-tag--sensitive {
+  margin-left: var(--sp-2);
+  border-color: transparent;
+  background: var(--tint-amber);
+  color: var(--text-warning);
 }
 
-.ui-input--mono {
-  font: var(--text-data);
+.ui-link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ui-link-button:hover {
+  text-decoration: underline;
+}
+
+.ui-modal__aside {
+  margin-right: auto;
 }
 
 .role-keys__key {
   color: var(--text-muted);
   font: var(--text-data);
-}
-
-.role-choice__option .role-keys__key {
-  grid-column: 2;
-}
-
-.role-keys li .role-keys__key {
-  display: block;
 }
 
 .ui-field__error .ui-icon {

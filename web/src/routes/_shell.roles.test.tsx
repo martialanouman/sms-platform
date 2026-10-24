@@ -2,7 +2,7 @@ import { focusManager } from '@tanstack/react-query'
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
-import { explained, json, me, noSession, once, renderAt, stubFetch, violations } from '../test'
+import { explained, json, me, noSession, once, renderAt, stubFetch, toasted, violations } from '../test'
 
 const writer = { ...me, permissions: ['roles:read', 'roles:write'] }
 const owner = {
@@ -10,7 +10,18 @@ const owner = {
   name: 'Propriétaire',
   description: 'Tout.',
   isDefault: true,
-  permissions: ['accounts:read', 'accounts:write', 'roles:read', 'roles:write', 'traffic:read'],
+  permissions: [
+    'accounts:read',
+    'accounts:write',
+    'cdr:export_bulk',
+    'cdr:read',
+    'future:thing',
+    'msisdn:reveal',
+    'roles:read',
+    'roles:write',
+    'stream:read',
+    'traffic:read',
+  ],
   holders: ['operateur@example.test'],
 }
 const support = {
@@ -43,7 +54,7 @@ test('the rail leads to the roles for an operator who may read them', async () =
   await waitFor(() => expect(router.state.location.pathname).toBe('/roles'))
 })
 
-test('the roles are listed with their permissions and holders counted', async () => {
+test('the roles are listed in a card, typed, counted, with a footer that counts them', async () => {
   stubFetch({
     'GET /api/auth/me': () => json(200, writer),
     'GET /api/roles': () => json(200, [owner, support, readers]),
@@ -51,39 +62,53 @@ test('the roles are listed with their permissions and holders counted', async ()
   const { container } = renderAt('/roles')
   expect(await within(await screen.findByRole('main')).findByRole('heading', { level: 1, name: 'Rôles' })).toBeDefined()
   expect(within(screen.getByRole('navigation', { name: 'Fil d’Ariane' })).getByText('Rôles')).toBeDefined()
-  expect(await screen.findByRole('table', { name: 'Rôles du tableau de bord' })).toBeDefined()
+  const table = await screen.findByRole('table', { name: 'Rôles du tableau de bord' })
+  expect(table.closest('.ui-card')).not.toBeNull()
   expect(document.title).toBe('Rôles — Tableau de bord')
+  expect(within(row('Support')).getByRole('button', { name: 'Support' })).toBeDefined()
   const cells = within(row('Support'))
     .getAllByRole('cell')
-    .slice(0, 3)
+    .slice(0, 4)
     .map((c) => c.textContent)
-  expect(cells).toEqual(['Lit les comptes.', '2', '2'])
-  expect(within(row('Support')).getAllByRole('cell')[1]?.classList.contains('ui-table__cell--end')).toBe(true)
-  expect(screen.getByRole('columnheader', { name: 'Permissions' }).classList.contains('ui-table__cell--end')).toBe(true)
+  expect(cells).toEqual(['Lit les comptes.', 'Par défaut', '2', '2'])
+  expect(within(row('Lecteurs')).getByText('Personnalisé').className).toBe('ui-tag')
+  expect(within(row('Support')).getAllByRole('cell')[2]?.classList.contains('ui-table__cell--end')).toBe(true)
+  expect(screen.queryByRole('button', { name: 'Voir les permissions' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Modifier' })).toBeNull()
+  expect(screen.getByText('3 rôles')).toBeDefined()
   expect(await violations(container)).toEqual([])
 })
 
-test('the permissions of a role are told in French, each beside its key', async () => {
-  const future = { ...support, permissions: [...support.permissions, 'accounts:export', 'future:thing'] }
-  stubFetch({ 'GET /api/auth/me': () => json(200, writer), 'GET /api/roles': () => json(200, [owner, future]) })
+test('a single role is counted in the singular', async () => {
+  stubFetch({ 'GET /api/auth/me': () => json(200, writer), 'GET /api/roles': () => json(200, [owner]) })
   renderAt('/roles')
-  await screen.findByRole('rowheader', { name: 'Support' })
+  expect(await screen.findByText('1 rôle')).toBeDefined()
+})
+
+test('a default role opens read only, its keys still told', async () => {
+  stubFetch({ 'GET /api/auth/me': () => json(200, writer), 'GET /api/roles': () => json(200, [owner, support]) })
+  const { container } = renderAt('/roles')
   const user = userEvent.setup()
-  const opener = within(row('Support')).getByRole('button', { name: 'Voir les permissions' })
+  const opener = await screen.findByRole('button', { name: 'Support' })
   await user.click(opener)
-  const dialog = await screen.findByRole('dialog', { name: 'Rôle Support' })
-  expect(within(dialog).getByRole('list', { name: 'Permissions du rôle Support' }).tabIndex).toBe(0)
-  expect(
-    within(dialog)
-      .getAllByRole('listitem')
-      .map((i) => i.textContent),
-  ).toEqual(['Comptes — Lire accounts:read', 'Trafic — Lire traffic:read', 'Comptes accounts:export', 'future:thing'])
+  const dialog = await screen.findByRole('dialog', { name: 'Support Par défaut' })
+  expect(dialog.textContent).toContain('Les rôles par défaut ne se modifient pas : chaque déploiement les réécrit.')
+  expect(dialog.textContent).toContain('Lit les comptes.')
+  expect(within(dialog).queryByRole('textbox')).toBeNull()
+  const boxes = within(dialog).getAllByRole('checkbox')
+  expect(boxes.every((b) => b.getAttribute('aria-readonly') === 'true')).toBe(true)
+  const read = within(dialog).getByRole('group', { name: 'Comptes' })
+  expect(within(read).getByRole('checkbox', { name: 'Lire' }).getAttribute('aria-checked')).toBe('true')
+  expect(explained(within(read).getByRole('checkbox', { name: 'Lire' }))).toBe('accounts:read')
+  expect(within(dialog).queryByRole('button', { name: 'Enregistrer' })).toBeNull()
+  expect(within(dialog).queryByRole('button', { name: 'Supprimer' })).toBeNull()
+  expect(await violations(container)).toEqual([])
   await user.click(within(dialog).getAllByRole('button', { name: 'Fermer' })[1] as HTMLElement)
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(document.activeElement).toBe(opener)
 })
 
-test('a role is composed from the permissions of the owner, grouped by resource, in French', async () => {
+test('a role is composed in French, grouped in the order of the mockup, keys in bubbles, the sensitive ones tagged', async () => {
   let list = [support, owner]
   let reads = 0
   const calls = stubFetch({
@@ -108,14 +133,40 @@ test('a role is composed from the permissions of the owner, grouped by resource,
   const dialog = await screen.findByRole('dialog', { name: 'Nouveau rôle' })
   expect([...dialog.querySelectorAll('fieldset > legend')].map((l) => l.textContent)).toEqual([
     'Comptes',
-    'Rôles',
     'Trafic',
+    'Temps réel',
+    'CDR',
+    'Numéros des abonnés',
+    'Rôles',
+    'future',
   ])
-  expect(within(dialog).getAllByRole('checkbox').length).toBe(5)
+  expect(within(dialog).getAllByRole('checkbox').length).toBe(10)
+  expect(
+    within(within(dialog).getByRole('group', { name: 'CDR' })).getByRole('checkbox', {
+      name: 'Exporter en masse sensible',
+    }),
+  ).toBeDefined()
+  expect(within(dialog).getByRole('checkbox', { name: 'future:thing' })).toBeDefined()
+  expect(
+    [...dialog.querySelectorAll('.ui-tag--sensitive')].map((t) => t.closest('label')?.querySelector('[role=checkbox]')),
+  ).toEqual([
+    within(within(dialog).getByRole('group', { name: 'CDR' })).getByRole('checkbox', { name: /Exporter/ }),
+    within(dialog).getByRole('checkbox', { name: /Révéler/ }),
+  ])
+  const traffic = within(within(dialog).getByRole('group', { name: 'Trafic' })).getByRole('checkbox', { name: 'Lire' })
+  const stream = within(within(dialog).getByRole('group', { name: 'Temps réel' })).getByRole('checkbox', {
+    name: 'Lire',
+  })
+  expect(stream.getAttribute('aria-readonly')).toBe('true')
+  expect(explained(stream)).toBe('stream:read · compris avec la lecture du trafic')
+  expect(stream.getAttribute('aria-checked')).toBe('false')
+  traffic.focus()
+  await waitFor(() => expect(document.querySelector('.ui-tooltip')?.textContent).toBe('traffic:read'))
   expect(await violations(container)).toEqual([])
   await user.type(within(dialog).getByLabelText('Nom'), 'Support')
   await user.type(within(dialog).getByLabelText('Description'), 'Lit le trafic.')
-  await user.click(within(dialog).getByRole('checkbox', { name: 'Lire traffic:read' }))
+  await user.click(traffic)
+  expect(stream.getAttribute('aria-checked')).toBe('true')
   await user.click(within(dialog).getByRole('button', { name: 'Créer le rôle' }))
   expect((await within(dialog).findByRole('alert')).textContent).toBe('Un rôle porte déjà ce nom.')
   await user.clear(within(dialog).getByLabelText('Nom'))
@@ -124,17 +175,44 @@ test('a role is composed from the permissions of the owner, grouped by resource,
   expect(await screen.findByRole('rowheader', { name: 'Lecteurs' })).toBeDefined()
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(document.activeElement).toBe(opener)
+  expect(await toasted()).toEqual(['Rôle Lecteurs créé.'])
   const created = calls.filter((c) => c.method === 'POST' && c.url.endsWith('/api/roles'))
   expect(await created[1]?.json()).toEqual({
     name: 'Lecteurs',
     description: 'Lit le trafic.',
-    permissions: ['traffic:read'],
+    permissions: ['traffic:read', 'stream:read'],
   })
   expect(created[1]?.headers.get('Content-Type')).toBe('application/json')
   await waitFor(() => expect(reads).toBe(3))
 })
 
-test('a custom role is edited, and a refusal is told in its dialog', async () => {
+test('unchecking the traffic takes its stream with it', async () => {
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, writer),
+    'GET /api/roles': () => json(200, [owner, { ...readers, permissions: ['stream:read', 'traffic:read'] }]),
+    'PATCH /api/roles/r-readers': async (r) => json(200, { ...readers, ...(await r.clone().json()) }),
+  })
+  renderAt('/roles')
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('button', { name: 'Lecteurs' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Lecteurs Personnalisé' })
+  const stream = within(within(dialog).getByRole('group', { name: 'Temps réel' })).getByRole('checkbox', {
+    name: 'Lire',
+  })
+  expect(stream.getAttribute('aria-checked')).toBe('true')
+  await user.click(
+    within(within(dialog).getByRole('group', { name: 'Trafic' })).getByRole('checkbox', { name: 'Lire' }),
+  )
+  expect(stream.getAttribute('aria-checked')).toBe('false')
+  await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
+  await waitFor(() => expect(calls.some((c) => c.method === 'PATCH')).toBe(true))
+  expect(await calls.find((c) => c.method === 'PATCH')?.json()).toEqual({
+    description: 'Lit le trafic.',
+    permissions: [],
+  })
+})
+
+test('a custom role is edited in its dialog, and a refusal is told there', async () => {
   let list = [owner, readers]
   const calls = stubFetch({
     'GET /api/auth/me': () => json(200, writer),
@@ -150,26 +228,31 @@ test('a custom role is edited, and a refusal is told in its dialog', async () =>
   })
   renderAt('/roles')
   const user = userEvent.setup()
-  await screen.findByRole('rowheader', { name: 'Lecteurs' })
-  await user.click(within(row('Lecteurs')).getByRole('button', { name: 'Modifier' }))
-  const dialog = await screen.findByRole('dialog', { name: 'Modifier Lecteurs' })
+  const opener = await screen.findByRole('button', { name: 'Lecteurs' })
+  await user.click(opener)
+  const dialog = await screen.findByRole('dialog', { name: 'Lecteurs Personnalisé' })
   expect(within(dialog).queryByLabelText('Nom')).toBeNull()
-  const traffic = within(dialog).getByRole('checkbox', { name: 'Lire traffic:read' })
+  expect((within(dialog).getByLabelText('Description') as HTMLInputElement).value).toBe('Lit le trafic.')
+  const traffic = within(within(dialog).getByRole('group', { name: 'Trafic' })).getByRole('checkbox', { name: 'Lire' })
   expect(traffic.getAttribute('aria-checked')).toBe('true')
   await user.click(traffic)
-  await user.click(within(dialog).getByRole('button', { name: 'Enregistrer le rôle' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
   expect((await within(dialog).findByRole('alert')).textContent).toBe(
     'Ce changement vous retirerait la gestion des rôles.',
   )
-  await user.click(within(dialog).getByRole('checkbox', { name: 'Lire accounts:read' }))
-  await user.click(within(dialog).getByRole('button', { name: 'Enregistrer le rôle' }))
-  await waitFor(() => expect(within(row('Lecteurs')).getAllByRole('cell')[1]?.textContent).toBe('1'))
+  await user.click(
+    within(within(dialog).getByRole('group', { name: 'Comptes' })).getByRole('checkbox', { name: 'Lire' }),
+  )
+  await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
+  await waitFor(() => expect(within(row('Lecteurs')).getAllByRole('cell')[2]?.textContent).toBe('1'))
   expect(screen.queryByRole('dialog')).toBeNull()
+  expect(document.activeElement).toBe(opener)
+  expect(await toasted()).toEqual(['Rôle Lecteurs enregistré.'])
   const patches = calls.filter((c) => c.method === 'PATCH')
   expect(await patches[1]?.json()).toEqual({ description: 'Lit le trafic.', permissions: ['accounts:read'] })
 })
 
-test('a role nobody holds is deleted after a confirmation, and the focus goes to the title', async () => {
+test('a role nobody holds is deleted from the list after a confirmation, and the focus goes to the title', async () => {
   let list = [owner, readers]
   const calls = stubFetch({
     'GET /api/auth/me': () => json(200, writer),
@@ -189,7 +272,31 @@ test('a role nobody holds is deleted after a confirmation, and the focus goes to
   await user.click(within(dialog).getByRole('button', { name: 'Supprimer' }))
   await waitFor(() => expect(screen.queryByRole('rowheader', { name: 'Lecteurs' })).toBeNull())
   expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1, name: 'Rôles' }))
+  expect(await toasted()).toEqual(['Rôle Lecteurs supprimé.'])
   expect(calls.filter((c) => c.method === 'DELETE').length).toBe(1)
+})
+
+test('a role is deleted from its dialog, which closes on success', async () => {
+  let list = [owner, readers]
+  stubFetch({
+    'GET /api/auth/me': () => json(200, writer),
+    'GET /api/roles': () => json(200, list),
+    'DELETE /api/roles/r-readers': () => {
+      list = [owner]
+      return new Response(null, { status: 204 })
+    },
+  })
+  renderAt('/roles')
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('button', { name: 'Lecteurs' }))
+  const fiche = await screen.findByRole('dialog', { name: 'Lecteurs Personnalisé' })
+  await user.click(within(fiche).getByRole('button', { name: 'Supprimer' }))
+  const confirm = await screen.findByRole('alertdialog', { name: 'Supprimer le rôle Lecteurs ?' })
+  await user.click(within(confirm).getByRole('button', { name: 'Supprimer' }))
+  await waitFor(() => expect(screen.queryByRole('rowheader', { name: 'Lecteurs' })).toBeNull())
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(screen.queryByRole('alertdialog')).toBeNull()
+  expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1, name: 'Rôles' }))
 })
 
 test('a role held since the list was read is refused in its dialog, and the list read again', async () => {
@@ -223,17 +330,23 @@ test('a default role, a held role and a reader without roles:write are refused, 
   })
   const { container } = renderAt('/roles')
   await screen.findByRole('rowheader', { name: 'Support' })
-  const byDefault = 'Rôle par défaut : réécrit à chaque déploiement, il ne se modifie ni ne se supprime.'
-  for (const name of ['Modifier', 'Supprimer']) {
-    const button = within(row('Support')).getByRole('button', { name })
-    expect(button.getAttribute('aria-disabled')).toBe('true')
-    expect(explained(button)).toBe(byDefault)
-  }
-  expect(explained(within(row('Tenu')).getByRole('button', { name: 'Supprimer' }))).toBe(
+  const remove = (name: string) => within(row(name)).getByRole('button', { name: 'Supprimer' })
+  expect(remove('Support').getAttribute('aria-disabled')).toBe('true')
+  expect(explained(remove('Support'))).toBe(
+    'Rôle par défaut : réécrit à chaque déploiement, il ne se modifie ni ne se supprime.',
+  )
+  expect(explained(remove('Tenu'))).toBe(
     'Détenu par ada@example.test, zed@example.test : il se retire d’abord à ces opérateurs.',
   )
-  expect(within(row('Tenu')).getByRole('button', { name: 'Modifier' }).hasAttribute('aria-disabled')).toBe(false)
   expect(await violations(container)).toEqual([])
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('button', { name: 'Tenu' }))
+  const fiche = await screen.findByRole('dialog', { name: 'Tenu Personnalisé' })
+  expect(explained(within(fiche).getByRole('button', { name: 'Supprimer' }))).toBe(
+    'Détenu par ada@example.test, zed@example.test : il se retire d’abord à ces opérateurs.',
+  )
+  expect(within(fiche).getByRole('button', { name: 'Enregistrer' }).hasAttribute('aria-disabled')).toBe(false)
+  await user.keyboard('{Escape}')
   permissions = ['roles:read']
   act(() => {
     focusManager.setFocused(false)
@@ -244,12 +357,19 @@ test('a default role, a held role and a reader without roles:write are refused, 
       'La composition d’un rôle demande Rôles : modifier roles:write.',
     ),
   )
-  expect(explained(within(row('Tenu')).getByRole('button', { name: 'Modifier' }))).toBe(
-    'Cette action demande Rôles : modifier roles:write.',
-  )
+  expect(explained(remove('Tenu'))).toBe('Cette action demande Rôles : modifier roles:write.')
+  await user.click(screen.getByRole('button', { name: 'Tenu' }))
+  const locked = await screen.findByRole('dialog', { name: 'Tenu Personnalisé' })
   expect(
-    within(row('Support')).getByRole('button', { name: 'Voir les permissions' }).hasAttribute('aria-disabled'),
-  ).toBe(false)
+    within(locked)
+      .getAllByRole('checkbox')
+      .every((b) => b.getAttribute('aria-readonly') === 'true'),
+  ).toBe(true)
+  for (const name of ['Enregistrer', 'Supprimer']) {
+    expect(explained(within(locked).getByRole('button', { name }))).toBe(
+      'Cette action demande Rôles : modifier roles:write.',
+    )
+  }
 })
 
 test('an operator who may not read the roles is told why, without a request', async () => {
@@ -307,13 +427,13 @@ test('a deletion that succeeds after its dialog was closed moves nothing', async
   await user.click(within(row('Lecteurs')).getByRole('button', { name: 'Supprimer' }))
   await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Supprimer' }))
   await user.keyboard('{Escape}')
-  const view = within(row('Propriétaire')).getByRole('button', { name: 'Voir les permissions' })
+  const view = screen.getByRole('button', { name: 'Propriétaire' })
   view.focus()
   await act(async () => release())
   await waitFor(() => expect(screen.queryByRole('rowheader', { name: 'Lecteurs' })).toBeNull())
   expect(document.activeElement).toBe(view)
   await user.click(view)
-  await screen.findByRole('dialog', { name: 'Rôle Propriétaire' })
+  await screen.findByRole('dialog', { name: 'Propriétaire Par défaut' })
 })
 
 test.each([
