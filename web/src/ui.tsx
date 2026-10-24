@@ -568,7 +568,7 @@ export function needs(permission: string, subject = 'Cette action') {
   )
 }
 
-export function Hint({
+function Hint({
   hint,
   render,
   id,
@@ -600,7 +600,7 @@ export function Hint({
   )
 }
 
-export function Explained({ reason, render }: { reason?: ReactNode; render: ReactElement }) {
+function Explained({ reason, render }: { reason?: ReactNode; render: ReactElement }) {
   return <Hint hint={reason} render={render} aria-disabled={reason !== undefined || undefined} />
 }
 

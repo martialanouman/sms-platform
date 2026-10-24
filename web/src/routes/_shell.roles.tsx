@@ -31,6 +31,10 @@ type Pending = { kind: 'create' } | { kind: 'open' | 'delete'; role: Role }
 
 const byDefault = 'Rôle par défaut : réécrit à chaque déploiement, il ne se modifie ni ne se supprime.'
 
+const Kind = ({ role }: { role: Role }) => (
+  <span className="ui-tag">{role.isDefault ? 'Par défaut' : 'Personnalisé'}</span>
+)
+
 function Roles() {
   const me = useShellMe()
   const held = me.data?.permissions ?? []
@@ -122,7 +126,7 @@ function Roles() {
                   { header: 'Description', cell: (r) => <span className="ui-muted">{r.description}</span> },
                   {
                     header: 'Type',
-                    cell: (r) => <span className="ui-tag">{r.isDefault ? 'Par défaut' : 'Personnalisé'}</span>,
+                    cell: (r) => <Kind role={r} />,
                   },
                   {
                     header: 'Permissions',
@@ -221,8 +225,7 @@ function RoleForm({
   const [description, setDescription] = useState(role?.description ?? '')
   const [permissions, setPermissions] = useState(role?.permissions ?? [])
   const form = useId()
-  const keys = [...catalog].sort()
-  const locked = role !== undefined && !writes
+  const locked = !writes
 
   async function save(event: FormEvent) {
     event.preventDefault()
@@ -248,7 +251,7 @@ function RoleForm({
 
   const title = role ? (
     <>
-      {role.name} <span className="ui-tag">{role.isDefault ? 'Par défaut' : 'Personnalisé'}</span>
+      {role.name} <Kind role={role} />
     </>
   ) : (
     'Nouveau rôle'
@@ -259,7 +262,7 @@ function RoleForm({
       <Modal title={title} wide onClose={onClose} footer={<Button onClick={onClose}>Fermer</Button>}>
         <p>Les rôles par défaut ne se modifient pas : chaque déploiement les réécrit.</p>
         <p className="ui-muted">{role.description}</p>
-        <PermissionPicker keys={keys} chosen={permissions} onChange={() => {}} readOnly streamFollowsTraffic />
+        <PermissionPicker keys={catalog} chosen={permissions} onChange={() => {}} readOnly streamFollowsTraffic />
       </Modal>
     )
   }
@@ -311,7 +314,7 @@ function RoleForm({
           onChange={(e) => setDescription(e.target.value)}
         />
         <PermissionPicker
-          keys={keys}
+          keys={catalog}
           chosen={permissions}
           onChange={setPermissions}
           readOnly={locked}

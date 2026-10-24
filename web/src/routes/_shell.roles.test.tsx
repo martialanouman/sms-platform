@@ -148,7 +148,10 @@ test('a role is composed in French, grouped in the order of the mockup, keys in 
   ).toBeDefined()
   expect(within(dialog).getByRole('checkbox', { name: 'future:thing' })).toBeDefined()
   expect(
-    [...dialog.querySelectorAll('.ui-tag--sensitive')].map((t) => [t.parentElement?.tagName, t.parentElement?.textContent]),
+    [...dialog.querySelectorAll('.ui-tag--sensitive')].map((t) => [
+      t.parentElement?.tagName,
+      t.parentElement?.textContent,
+    ]),
   ).toEqual([
     ['SPAN', 'Exporter en masse sensible'],
     ['SPAN', 'Révéler sensible'],
@@ -270,7 +273,11 @@ test('within a group, Lire comes first, then Modifier, then the particular verb'
     within(within(dialog).getByRole('group', { name: group }))
       .getAllByRole('checkbox')
       .map((c) => c.closest('label')?.textContent)
-  expect(order('Facturation')).toEqual(['Lire', 'Modifier', 'Recharger, ajuster et fixer les conditions de crédit sensible'])
+  expect(order('Facturation')).toEqual([
+    'Lire',
+    'Modifier',
+    'Recharger, ajuster et fixer les conditions de crédit sensible',
+  ])
   expect(order('Désabonnements')).toEqual(['Lire', 'Modifier', 'Supprimer sensible'])
   expect(order('Corps des messages')).toEqual(['Lire sensible', 'Modifier sensible', 'Effacer sensible'])
   expect(order('CDR')).toEqual(['Lire', 'Exporter en masse sensible'])
