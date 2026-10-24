@@ -208,3 +208,28 @@ test('a blocked tab is a focusable button without href that explains itself', as
   await waitFor(() => expect(bubble()).toBe('Non.'))
   expect(explained(blocked)).toBe('Non.')
 })
+
+test('a blocked tab is marked current when its route is the one shown', async () => {
+  const root = createRootRoute({
+    component: () => (
+      <>
+        <Tabs
+          label="Sections"
+          tabs={[
+            { to: '/audit/access', label: 'A', blockedReason: 'Non.' },
+            { to: '/audit/control-plane', label: 'B', blockedReason: 'Non.' },
+          ]}
+        />
+        <Outlet />
+      </>
+    ),
+  })
+  const page = (path: string) => createRoute({ getParentRoute: () => root, path, component: () => null })
+  const router = createRouter({
+    routeTree: root.addChildren([page('audit/access'), page('audit/control-plane')]),
+    history: createMemoryHistory({ initialEntries: ['/audit/access'] }),
+  })
+  render(<RouterProvider router={router} />)
+  await waitFor(() => expect(screen.getByRole('button', { name: 'A' }).getAttribute('aria-current')).toBe('page'))
+  expect(screen.getByRole('button', { name: 'B' }).hasAttribute('aria-current')).toBe(false)
+})

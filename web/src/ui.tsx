@@ -10,7 +10,7 @@ import { Switch as BaseSwitch } from '@base-ui/react/switch'
 import { Toast } from '@base-ui/react/toast'
 import { Tooltip } from '@base-ui/react/tooltip'
 import { type QueryKey, useQueryClient } from '@tanstack/react-query'
-import { Link, type LinkProps } from '@tanstack/react-router'
+import { Link, type LinkProps, useMatchRoute } from '@tanstack/react-router'
 import {
   Children,
   type ComponentProps,
@@ -403,6 +403,7 @@ export function Tabs({
   tabs: { to: LinkProps['to']; label: string; blockedReason?: ReactNode }[]
   label: string
 }) {
+  const matchRoute = useMatchRoute()
   return (
     <nav className="ui-tabs" aria-label={label}>
       {tabs.map((tab) =>
@@ -415,7 +416,11 @@ export function Tabs({
             key={tab.label}
             reason={tab.blockedReason}
             render={
-              <button type="button" className="ui-tabs__tab">
+              <button
+                type="button"
+                className="ui-tabs__tab"
+                aria-current={matchRoute({ to: tab.to }) ? 'page' : undefined}
+              >
                 {tab.label}
               </button>
             }
