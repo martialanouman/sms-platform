@@ -141,7 +141,7 @@ Fable, 2026-10-24, sauf mention. Les décisions humaines du même jour sont marq
   table dans une `Card` (Opérateur : nom puis e-mail mono ; Statut ; Rôles en puces ; Second facteur ; Actions :
   Rôles, action de lien, Désactiver ou Réactiver), pied « N entrées affichées sur T » ; pilules 441 ; libellé 442 ;
   modales Nouvel opérateur et Rôles de {nom} (444) ; toasts 444 ; `useClosedOn` à la place de l'effet écrit à la main.
-- **`_shell.index.tsx`** : la marque `debt: #155` tombe, la redirection reste (432).
+- **`_shell.index.tsx`** : la marque de dette de #155 tombe, la redirection reste (432).
 - **Tests** : 449 pour la part 014d-1 ; mutation consignée ; preuve sur contabo169, captures dans `docs/steps/014d-1/`.
 
 ## Écarts au design, constatés à l'implémentation
