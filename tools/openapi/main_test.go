@@ -98,4 +98,9 @@ func TestRunWritesTheTypeScriptList(t *testing.T) {
 			t.Errorf("scopes.gen.ts lacks %s", scope)
 		}
 	}
+	want := "export const sensitive: readonly Scope[] = ['audit:read', 'billing:topup', 'cdr:export_bulk', 'content:erase', " +
+		"'content:read', 'content:write', 'gdpr:erase', 'msisdn:reveal', 'routing-scripts:publish', 'suppressions:delete']"
+	if !strings.Contains(string(data), want) {
+		t.Errorf("scopes.gen.ts lacks the ten sensitive scopes:\n%s", data)
+	}
 }

@@ -128,6 +128,9 @@ func generated(held []string) ([]string, error) {
 			return nil, InvalidField{Field: fmt.Sprintf("permissions[%d]", i)}
 		}
 	}
+	if slices.Contains(held, "traffic:read") {
+		held = append(slices.Clone(held), "stream:read")
+	}
 	return append([]string{}, permissions(held)...), nil
 }
 

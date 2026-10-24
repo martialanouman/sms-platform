@@ -113,7 +113,7 @@ Second tour, 2026-10-21 : aucun bloquant.
   accueil, `Button` bloqué (focalisable, clic neutre, raison décrite), modale (Fermer, Échap, focus rendu), écran
   (création par modale, statuts, confirmations, phrase générique du lien, actions bloquées et expliquées, refus du
   serveur). Mutation manuelle, consignée.
-- **Issue `debt` #155** : la redirection de `/` renvoie un rôle sans MFA ; `debt: #155` sur la redirection.
+- **Issue `debt` #155** : la redirection de `/` renvoie un rôle sans MFA ; marque de dette #155 sur la redirection (payée en 014d-1).
 
 ## Écarts au design, constatés à l'implémentation
 

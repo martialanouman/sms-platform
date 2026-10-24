@@ -1,7 +1,19 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
-import { challenge, empty, json, me, noSession, once, renderAt, stubFetch, stubPasskeys, violations } from '../test'
+import {
+  challenge,
+  empty,
+  explained,
+  json,
+  me,
+  noSession,
+  once,
+  renderAt,
+  stubFetch,
+  stubPasskeys,
+  violations,
+} from '../test'
 
 test('the dashboard shows who is signed in', async () => {
   stubFetch({ 'GET /api/auth/me': () => json(200, me) })
@@ -502,12 +514,11 @@ test('a personal token carries the scopes checked, among those it may carry', as
   const user = userEvent.setup()
   const picker = await screen.findByRole('group', { name: 'Scopes du jeton' })
   const boxes = within(picker).getAllByRole('checkbox')
-  expect(boxes.map((b) => (b.closest('label') as HTMLElement).textContent)).toEqual([
-    expect.stringContaining('accounts:read'),
-    expect.stringContaining('traffic:read'),
-  ])
+  expect(boxes.map(explained)).toEqual(['accounts:read', 'traffic:read'])
   expect(boxes.every((b) => b.getAttribute('aria-checked') === 'true')).toBe(true)
-  await user.click(within(picker).getByRole('checkbox', { name: /traffic:read/ }))
+  await user.click(
+    within(within(picker).getByRole('group', { name: 'Trafic' })).getByRole('checkbox', { name: 'Lire' }),
+  )
   await user.click(screen.getByRole('button', { name: 'Délivrer' }))
   await screen.findByRole('dialog')
   const posted = calls.find((c) => c.url.endsWith('/api/gateway-token'))
@@ -522,8 +533,11 @@ test('the scopes of a personal token are sent sorted, whatever the order they we
   renderAt('/account')
   const user = userEvent.setup()
   const picker = await screen.findByRole('group', { name: 'Scopes du jeton' })
-  await user.click(within(picker).getByRole('checkbox', { name: /accounts:read/ }))
-  await user.click(within(picker).getByRole('checkbox', { name: /accounts:read/ }))
+  const accounts = within(within(picker).getByRole('group', { name: 'Comptes' })).getByRole('checkbox', {
+    name: 'Lire',
+  })
+  await user.click(accounts)
+  await user.click(accounts)
   await user.click(screen.getByRole('button', { name: 'Délivrer' }))
   await screen.findByRole('dialog')
   const posted = calls.find((c) => c.url.endsWith('/api/gateway-token'))
@@ -569,7 +583,7 @@ test('without gateway:personal_token, the delivery is refused and explained', as
   const issue = await screen.findByRole('button', { name: 'Délivrer' })
   expect(issue.getAttribute('aria-disabled')).toBe('true')
   expect(document.getElementById(issue.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
-    'Cette action demande Jeton personnel : se délivrer gateway:personal_token. Seul le rôle Propriétaire la détient par défaut ; un administrateur peut l’accorder.',
+    'Cette action demande Jeton personnel : émettre gateway:personal_token. Seul le rôle Propriétaire la détient par défaut ; un administrateur peut l’accorder.',
   )
   await userEvent.setup().click(issue)
   expect(calls.some((c) => c.url.endsWith('/api/gateway-token'))).toBe(false)

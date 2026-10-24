@@ -215,7 +215,9 @@ export function Check({
   value?: string
   checked?: boolean
   disabled?: boolean
+  readOnly?: boolean
   onChange?: (checked: boolean) => void
+  'aria-describedby'?: string
 }) {
   return (
     <Checkbox.Root {...rest} onCheckedChange={onChange} className="ui-check">
@@ -226,13 +228,32 @@ export function Check({
   )
 }
 
-export function Choice({ value, disabled, children }: { value: string; disabled?: boolean; children: ReactNode }) {
-  return (
+export function Choice({
+  value,
+  disabled,
+  readOnly,
+  hint,
+  children,
+}: {
+  value: string
+  disabled?: boolean
+  readOnly?: boolean
+  hint?: ReactNode
+  children: ReactNode
+}) {
+  const id = useId()
+  const option = (
     <label className="role-choice__option">
-      <Check value={value} disabled={disabled} />
+      <Check
+        value={value}
+        disabled={disabled}
+        readOnly={readOnly}
+        aria-describedby={hint === undefined ? undefined : id}
+      />
       {children}
     </label>
   )
+  return hint === undefined ? option : <Hint hint={hint} id={id} render={option} aria-describedby={undefined} />
 }
 
 export function useSubmission() {
@@ -547,30 +568,40 @@ export function needs(permission: string, subject = 'Cette action') {
   )
 }
 
-export function Explained({ reason, render }: { reason?: ReactNode; render: ReactElement }) {
-  const id = useId()
-  const blocked = reason !== undefined
+function Hint({
+  hint,
+  render,
+  id,
+  ...trigger
+}: { hint?: ReactNode; render: ReactElement; id?: string } & ComponentProps<typeof Tooltip.Trigger>) {
+  const own = useId()
+  const described = id ?? own
+  const shown = hint !== undefined
   return (
-    <Tooltip.Root disabled={!blocked}>
+    <Tooltip.Root disabled={!shown}>
       <Tooltip.Trigger
         delay={0}
         closeOnClick={false}
         render={render}
-        aria-disabled={blocked || undefined}
-        aria-describedby={blocked ? id : undefined}
+        aria-describedby={shown ? described : undefined}
+        {...trigger}
       />
-      {blocked && (
-        <span className="ui-visually-hidden" id={id}>
-          {reason}
+      {shown && (
+        <span className="ui-visually-hidden" id={described}>
+          {hint}
         </span>
       )}
       <Tooltip.Portal>
         <Tooltip.Positioner className="ui-tooltip__positioner" side="bottom" align="end" sideOffset={6}>
-          <Tooltip.Popup className="ui-tooltip">{reason}</Tooltip.Popup>
+          <Tooltip.Popup className="ui-tooltip">{hint}</Tooltip.Popup>
         </Tooltip.Positioner>
       </Tooltip.Portal>
     </Tooltip.Root>
   )
+}
+
+function Explained({ reason, render }: { reason?: ReactNode; render: ReactElement }) {
+  return <Hint hint={reason} render={render} aria-disabled={reason !== undefined || undefined} />
 }
 
 export function Switch({

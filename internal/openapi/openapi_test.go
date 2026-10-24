@@ -426,8 +426,10 @@ export type Scope = 'audit:read' | 'msisdn:reveal' | 'operators:read'
 export const adminScopes: readonly Scope[] = ['audit:read', 'msisdn:reveal']
 
 export const personalExcluded: readonly Scope[] = ['msisdn:reveal']
+
+export const sensitive: readonly Scope[] = ['audit:read', 'msisdn:reveal']
 `
-	got := openapi.TS([]string{"msisdn:reveal", "audit:read"}, []string{"operators:read"}, []string{"msisdn:reveal"})
+	got := openapi.TS([]string{"msisdn:reveal", "audit:read"}, []string{"operators:read"}, []string{"msisdn:reveal"}, []string{"msisdn:reveal", "audit:read"})
 	if string(got) != want {
 		t.Errorf("TS() =\n%s\nwant\n%s", got, want)
 	}

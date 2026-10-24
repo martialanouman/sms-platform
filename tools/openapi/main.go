@@ -9,6 +9,7 @@ import (
 
 	"github.com/martialanouman/sms-platform/internal/dashboard/personal"
 	"github.com/martialanouman/sms-platform/internal/openapi"
+	platformscopes "github.com/martialanouman/sms-platform/internal/platform/scopes"
 )
 
 const (
@@ -55,7 +56,7 @@ func run(root, gen, ts string) []error {
 			}
 		}
 		if ts != "" {
-			if err := os.WriteFile(ts, openapi.TS(scopes, permissions, personal.Excluded), 0o600); err != nil {
+			if err := os.WriteFile(ts, openapi.TS(scopes, permissions, personal.Excluded, platformscopes.Sensitive), 0o600); err != nil {
 				return []error{err}
 			}
 		}
