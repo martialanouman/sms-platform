@@ -431,7 +431,7 @@ function Roles({
       )}
       {roles.isPending && <LoadingState label="Chargement des rôles…" rows={2} line />}
       {roles.data && (
-        <fieldset className="role-choice">
+        <fieldset className="role-choice role-choice--boxed">
           <legend>Rôles détenus</legend>
           <Choices value={chosen} onChange={setChosen}>
             {roles.data.map((r) => (

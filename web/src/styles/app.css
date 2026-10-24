@@ -919,6 +919,16 @@
   height: 12px;
 }
 
+.role-choice--boxed .role-choice__option {
+  padding: var(--sp-4) var(--sp-5);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-input);
+}
+
+.role-choice--boxed .role-choice__option + .role-choice__option {
+  margin-top: var(--sp-3);
+}
+
 .role-choice__description {
   grid-column: 2;
   color: var(--text-muted);

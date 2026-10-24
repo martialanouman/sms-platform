@@ -230,6 +230,7 @@ test('the roles are replaced in a dialog that gives the focus back', async () =>
   const dialog = await screen.findByRole('dialog', { name: 'Rôles de Ada' })
   expect((await within(dialog).findByRole('checkbox', { name: /Support/ })).getAttribute('aria-checked')).toBe('true')
   expect(dialog.textContent).toContain('L’action est enregistrée dans le journal d’audit.')
+  expect(within(dialog).getByRole('group', { name: 'Rôles détenus' }).className).toBe('role-choice role-choice--boxed')
   await user.click(within(dialog).getByRole('checkbox', { name: /Audit/ }))
   await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
   await waitFor(() => expect(cells('ada@example.test')[1]).toBe('AuditSupport'))
