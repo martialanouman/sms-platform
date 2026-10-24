@@ -49,6 +49,13 @@ function invalidity(validity: ValidityState) {
 
 export function Field({ label, ...input }: { label: string } & ComponentProps<'input'>) {
   const [error, setError] = useState('')
+  const typed = useRef(input.value)
+  useEffect(() => {
+    if (input.value !== typed.current) {
+      typed.current = input.value
+      setError('')
+    }
+  }, [input.value])
   return (
     <BaseField.Root className="ui-field" invalid={error !== ''}>
       <BaseField.Label className="ui-field__label">{label}</BaseField.Label>
@@ -63,6 +70,7 @@ export function Field({ label, ...input }: { label: string } & ComponentProps<'i
           }
         }}
         onInput={(e) => {
+          typed.current = e.currentTarget.value
           if (error) {
             setError(e.currentTarget.validity.valid ? '' : invalidity(e.currentTarget.validity))
           }

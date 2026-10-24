@@ -362,7 +362,7 @@ function CreateBind({
             onChange={(e) => setSystemId(e.target.value)}
             aria-describedby={describedBy}
           />
-          <Button onClick={() => setSystemId(systemIdFrom(accountName, Math.random))}>Générer</Button>
+          <Button onClick={() => setSystemId(systemIdFrom(accountName, Math.random))}>Générer un System ID</Button>
         </div>
         <p>Le secret est généré par la passerelle et montré une seule fois.</p>
       </form>
