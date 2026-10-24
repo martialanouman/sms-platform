@@ -36,3 +36,16 @@ Humain, 2026-10-24, sur recommandation.
 - **Aucun changement de contrat ni de Go.**
 - **Tests** : textes de 452 ; `systemIdFrom` (racine, coupe, chiffres, borne de 15, racine de repli) ; « Générer »
   remplit le champ ; 454 par statut ; mutation consignée ; preuve sur contabo169, captures dans `docs/steps/014e/`.
+
+## Écarts au design, constatés à l'implémentation
+
+- **Lettres accentuées** : le nom est décomposé (NFD) avant d'être réduit à `[a-z0-9]` ; « Société » donne `societe`,
+  pas `socit`.
+- **`.form__inline`** : une rangée du formulaire où le champ prend la place et « Générer » s'aligne en bas, à la
+  hauteur du champ (`--control-height` des deux côtés).
+- **Une seule action, un seul bouton** (454) : le bouton garde sa place et change de libellé ; après une suspension,
+  le focus reste sur lui, devenu « Réactiver ». Les raisons « Déjà suspendu. » et « Déjà actif. » tombent.
+- **455 vérifié au rendu** : CSS construite, deux cartes de corps inégaux côte à côte dans `agent-browser` ; les deux
+  pieds ont le même haut (245 px) et la même hauteur (53 px), boutons à 13 et 12 px des bords.
+- **Pas de `min-height` sur le pied** : les deux pieds portent les mêmes boutons, donc la même hauteur ; le pied
+  poussé en bas suffit (455).
