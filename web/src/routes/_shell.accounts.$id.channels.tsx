@@ -55,7 +55,7 @@ function AccountChannels() {
         checked={enabled[name]}
         onChange={(on) => void turn(name, on)}
         busy={busy === name}
-        blockedReason={frozen ?? (enabled[name] && !other ? lastChannel : undefined)}
+        blockedReason={frozen ?? (!other ? lastChannel : undefined)}
       />
     )
   }

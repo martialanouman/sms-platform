@@ -34,7 +34,7 @@ function AccountSessions() {
       }),
     )
     if (outcome.failure === undefined) {
-      void queryClient.invalidateQueries({ queryKey: accountsKey })
+      queryClient.setQueryData([...accountsKey, account.id], outcome.data)
       notify('Limites de session enregistrées.')
     }
   }

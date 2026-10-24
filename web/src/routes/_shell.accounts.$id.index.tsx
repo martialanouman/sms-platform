@@ -5,13 +5,10 @@ export const Route = createFileRoute('/_shell/accounts/$id/')({ component: Accou
 
 function AccountIndex() {
   const { id } = Route.useParams()
-  const me = useShellMe()
-  if (!me.data) {
-    return null
-  }
+  const held = useShellMe().data?.permissions ?? []
   return (
     <Navigate
-      to={me.data.permissions.includes('credentials:read') ? '/accounts/$id/credentials' : '/accounts/$id/channels'}
+      to={held.includes('credentials:read') ? '/accounts/$id/credentials' : '/accounts/$id/channels'}
       params={{ id }}
       replace
     />

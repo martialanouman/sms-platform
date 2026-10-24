@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
 import { atMinute } from '../audit'
@@ -307,6 +307,11 @@ test('the channels and SMPP operations are switches read from their own fields',
     'Les binds SMPP de ce compte ne sont acceptés que si ce canal est activé.',
   )
   expect(explained(await toggle('cancel_sm autorisé'))).toBe('Le changement déconnecte les binds ouverts du compte.')
+  expect(
+    within(await toggle('cancel_sm autorisé').then((t) => t.closest('.ui-switch') as HTMLElement)).getByText(
+      'cancel_sm',
+    ).className,
+  ).toBe('ui-mono')
   expect(await violations(container)).toEqual([])
 })
 
@@ -338,6 +343,15 @@ test('a channel switch applies at once, takes the answer as the account, and is 
   expect(await sent(calls, 'PATCH', '/channels')).toEqual({ smpp_enabled: true, rest_enabled: true })
   expect(await toasted()).toEqual(['Canal REST activé.'])
   await waitFor(() => expect((smpp as HTMLElement).hasAttribute('aria-disabled')).toBe(false))
+})
+
+test('disabling REST keeps SMPP as it is', async () => {
+  const calls = stub({ ...api, rest_enabled: true }, { [`PATCH ${path}/channels`]: () => json(200, api) })
+  const user = userEvent.setup()
+  renderAt(`${page}/channels`)
+  await user.click(await toggle('Canal REST'))
+  expect(await toasted()).toEqual(['Canal REST désactivé.'])
+  expect(await sent(calls, 'PATCH', '/channels')).toEqual({ smpp_enabled: true, rest_enabled: false })
 })
 
 test('disabling SMPP sends REST alone and is told in a toast', async () => {
@@ -384,6 +398,7 @@ test('an SMPP operation switch asks first, and Annuler sends nothing', async () 
   await user.click(query)
   const dialog = await screen.findByRole('alertdialog', { name: 'Interdire query_sm' })
   expect(dialog.textContent).toContain('Les drapeaux se lisent au bind : les binds ouverts du compte sont déconnectés.')
+  expect(within(dialog).getByRole('button', { name: 'Interdire' })).toBeDefined()
   await user.click(within(dialog).getByRole('button', { name: 'Annuler' }))
   await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
   expect(query.getAttribute('aria-checked')).toBe('true')
@@ -437,7 +452,9 @@ test('the sessions tab shows its limits in place and the live binds as not yet i
     ['', 'false'],
     ['', 'true'],
   ])
-  expect(within(types).getByRole('checkbox', { name: 'Émetteur transmitter' })).toBeDefined()
+  expect(within(types).getByRole('checkbox', { name: 'Émetteur transmitter' }).getAttribute('data-disabled')).toBeNull()
+  expect(within(types).getByText('transmitter').className).toBe('ui-mono ui-muted')
+  expect(max.className).toContain('ui-mono')
   expect(within(types).getByRole('checkbox', { name: 'Récepteur receiver' })).toBeDefined()
   expect(within(types).getByRole('checkbox', { name: 'Émetteur-récepteur transceiver' })).toBeDefined()
   expect(limits.textContent).toContain('Au moins un type reste autorisé.')
@@ -449,7 +466,7 @@ test('the sessions tab shows its limits in place and the live binds as not yet i
 })
 
 test('the session limits are sent with the bind types in a fixed order and told in a toast', async () => {
-  const calls = stub(api, { [`PATCH ${path}/session-limits`]: () => json(200, api) })
+  const calls = stub(api, { [`PATCH ${path}/session-limits`]: () => json(200, { ...api, max_sessions: 0 }) })
   const user = userEvent.setup()
   renderAt(`${page}/sessions`)
   const limits = await card('Limites de session')
@@ -460,6 +477,7 @@ test('the session limits are sent with the bind types in a fixed order and told 
   await user.click(within(limits).getByRole('checkbox', { name: 'Émetteur transmitter' }))
   await user.click(within(limits).getByRole('button', { name: 'Enregistrer' }))
   expect(await toasted()).toEqual(['Limites de session enregistrées.'])
+  expect((await card('Binds vivants')).querySelector('.ui-card__head .ui-why')?.textContent).toBe('limite 0')
   expect(await sent(calls, 'PATCH', '/session-limits')).toEqual({
     max_sessions: 0,
     allowed_bind_types: ['transmitter', 'receiver', 'transceiver'],
@@ -480,7 +498,9 @@ test('the last bind type cannot be removed, and a refused limit is said in its c
   await user.click(within(limits).getByRole('button', { name: 'Enregistrer' }))
   const alert = await within(limits).findByRole('alert')
   expect(alert.textContent).toBe('Limite refusée.')
+  expect(screen.queryByRole('region', { name: 'Notifications' })?.querySelector('.ui-toast')).toBeFalsy()
   expect(within(limits).getByRole('group', { name: 'Types de bind' }).getAttribute('aria-describedby')).toBe(alert.id)
+  expect(fireEvent.submit(limits.querySelector('form') as HTMLFormElement)).toBe(false)
 })
 
 test('the session limits are frozen on a closed account and without accounts:write', async () => {
