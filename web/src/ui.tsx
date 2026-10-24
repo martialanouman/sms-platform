@@ -6,6 +6,7 @@ import { Combobox as BaseCombobox } from '@base-ui/react/combobox'
 import { Dialog } from '@base-ui/react/dialog'
 import { Field as BaseField } from '@base-ui/react/field'
 import { Select as BaseSelect } from '@base-ui/react/select'
+import { Switch as BaseSwitch } from '@base-ui/react/switch'
 import { Toast } from '@base-ui/react/toast'
 import { Tooltip } from '@base-ui/react/tooltip'
 import { type QueryKey, useQueryClient } from '@tanstack/react-query'
@@ -389,14 +390,32 @@ export function useToast() {
   return (text: string) => void add({ description: text })
 }
 
-export function Tabs({ tabs, label }: { tabs: { to: LinkProps['to']; label: string }[]; label: string }) {
+export function Tabs({
+  tabs,
+  label,
+}: {
+  tabs: { to: LinkProps['to']; params?: LinkProps['params']; label: string; blockedReason?: ReactNode }[]
+  label: string
+}) {
   return (
     <nav className="ui-tabs" aria-label={label}>
-      {tabs.map((tab) => (
-        <Link key={tab.label} className="ui-tabs__tab" to={tab.to}>
-          {tab.label}
-        </Link>
-      ))}
+      {tabs.map((tab) =>
+        tab.blockedReason === undefined ? (
+          <Link key={tab.label} className="ui-tabs__tab" to={tab.to} params={tab.params}>
+            {tab.label}
+          </Link>
+        ) : (
+          <Explained
+            key={tab.label}
+            reason={tab.blockedReason}
+            render={
+              <button type="button" className="ui-tabs__tab">
+                {tab.label}
+              </button>
+            }
+          />
+        ),
+      )}
     </nav>
   )
 }
@@ -528,6 +547,51 @@ export function Explained({ reason, render }: { reason?: ReactNode; render: Reac
         </Tooltip.Positioner>
       </Tooltip.Portal>
     </Tooltip.Root>
+  )
+}
+
+export function Switch({
+  label,
+  about,
+  checked,
+  onChange,
+  blockedReason,
+  busy,
+}: {
+  label: ReactNode
+  about: ReactNode
+  checked: boolean
+  onChange: (checked: boolean) => void
+  blockedReason?: ReactNode
+  busy?: boolean
+}) {
+  const id = useId()
+  const blocked = blockedReason !== undefined
+  return (
+    <div className="ui-switch">
+      <Explained
+        reason={blockedReason}
+        render={
+          <BaseSwitch.Root
+            className="ui-switch__control"
+            checked={checked}
+            onCheckedChange={(next) => onChange(next)}
+            readOnly={blocked || busy}
+            aria-busy={busy || undefined}
+            aria-labelledby={`${id}-label`}
+            {...(!blocked && { 'aria-describedby': `${id}-about` })}
+          >
+            <BaseSwitch.Thumb className="ui-switch__thumb" />
+          </BaseSwitch.Root>
+        }
+      />
+      <span className="ui-switch__text">
+        <span id={`${id}-label`}>{label}</span>
+        <span className="ui-why" id={`${id}-about`}>
+          {about}
+        </span>
+      </span>
+    </div>
   )
 }
 
