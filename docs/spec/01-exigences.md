@@ -176,7 +176,7 @@ identifiant de bind SMPP et exactement une clé
 | Disponibilité | 99,9 %, en topologie multi-instance (au moins deux BFF) |
 | Portée d'une panne | La visualisation seule ; jamais le débit ni la détection (**I15**) |
 | Fraîcheur de recherche | CDR cherchable 10 à 30 s après traitement |
-| Sécurité | Autorisation dans la passerelle (**I12**), MFA pour les rôles privilégiés, corps et secrets jamais exposés hors permission (**I1**, **I2**) |
+| Sécurité | Autorisation dans la passerelle (**I12**), MFA pour tout opérateur, corps et secrets jamais exposés hors permission (**I1**, **I2**) |
 | Réactivité | Bureau d'abord ; dégradation propre sur tablette |
 | Accessibilité | WCAG 2.1 AA sur les parcours principaux |
 

@@ -231,6 +231,13 @@ func TestTheListTellsTheStateOfTheAccessLinkAndOfTheSecondFactor(t *testing.T) {
 		!slices.Equal(owner.Roles, []dashboard.RoleRef{{ID: owner.Roles[0].ID, Name: dashboard.Owner}}) {
 		t.Fatalf("owner %+v", owner)
 	}
+	if h.find(t, "ada@example.test").Activated {
+		t.Fatal("an operator without a password is not activated")
+	}
+	h.exec(t, `UPDATE dashboard.operators SET password_hash = 'x' WHERE id = $1`, created.ID)
+	if !h.find(t, "ada@example.test").Activated {
+		t.Fatal("a password set activates the operator")
+	}
 	h.exec(t, `INSERT INTO dashboard.webauthn_credentials (operator_id, credential_id, name, credential) VALUES ($1, '\x01', 'k', '{}')`, created.ID)
 	if !h.find(t, "ada@example.test").SecondFactor {
 		t.Fatal("a passkey alone is a second factor a reset would remove")

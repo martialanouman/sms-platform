@@ -21,28 +21,20 @@ func (a *api) holdOnly(t *testing.T, roles ...string) {
 	}
 }
 
-func TestASessionNotElevatedReachesOnlyAuthWhenItsRolesRequireMFA(t *testing.T) {
+func TestASessionNotElevatedReachesOnlyAuthWhateverItsRoles(t *testing.T) {
 	a := newAPI(t, netip.MustParsePrefix("127.0.0.0/8"))
 	a.activate(t)
 	s := a.signIn(t)
-	for _, tc := range []struct {
-		roles        []string
-		status       int
-		code, reason string
-	}{
-		{[]string{"Audit"}, 403, "mfa_required", "audit:read is sensitive"},
-		{[]string{"Propriétaire"}, 403, "mfa_required", "the owner writes"},
-		{[]string{"Reporting", "Clientèle"}, 403, "mfa_required", "a write among ordinary reads"},
-		{[]string{"Reporting"}, 403, "forbidden_scope", "ordinary reads are not confined, and lack audit:read"},
-		{nil, 403, "forbidden_scope", "no role"},
-	} {
-		a.holdOnly(t, tc.roles...)
-		got := a.do(t, call{method: "GET", path: "/api/access-log", cookie: s.cookie})
-		if got.status != tc.status || got.code() != tc.code || tc.code == "forbidden_scope" && !strings.Contains(got.raw, "audit:read") {
-			t.Errorf("%v (%s): access log %d %s", tc.roles, tc.reason, got.status, got.raw)
+	for _, roles := range [][]string{{"Reporting"}, nil} {
+		a.holdOnly(t, roles...)
+		if got := a.do(t, call{method: "GET", path: "/api/access-log", cookie: s.cookie}); got.status != 403 || got.code() != "mfa_required" {
+			t.Errorf("%v: access log %d %s", roles, got.status, got.raw)
+		}
+		if got := a.do(t, call{method: "GET", path: "/api/gw/admin/customers", cookie: s.cookie}); got.status != 403 || got.code() != "mfa_required" {
+			t.Errorf("%v: proxy %d %s", roles, got.status, got.raw)
 		}
 		if got := a.do(t, call{method: "GET", path: "/api/auth/me", cookie: s.cookie}); got.status != 200 || got.body["permissions"] == nil {
-			t.Errorf("%v: me %d %s", tc.roles, got.status, got.raw)
+			t.Errorf("%v: me %d %s", roles, got.status, got.raw)
 		}
 	}
 
@@ -63,6 +55,10 @@ func TestASessionNotElevatedReachesOnlyAuthWhenItsRolesRequireMFA(t *testing.T) 
 	}
 	if got := a.do(t, call{method: "GET", path: "/api/access-log", cookie: verified.cookies[0].Value}); got.status != 200 {
 		t.Errorf("access log once elevated: %d %s", got.status, got.raw)
+	}
+	a.holdOnly(t)
+	if got := a.do(t, call{method: "GET", path: "/api/access-log", cookie: verified.cookies[0].Value}); got.status != 403 || got.code() != "forbidden_scope" || !strings.Contains(got.raw, "audit:read") {
+		t.Errorf("an elevated session without a role meets its scope: %d %s", got.status, got.raw)
 	}
 }
 
@@ -93,7 +89,7 @@ func TestTheAuditDirectoryNamesEveryOperatorAndNothingMore(t *testing.T) {
 	if fmt.Sprint(status) != "map[ada@example.test Ada:disabled owner@example.test owner@example.test:active]" {
 		t.Errorf("directory %s", got.raw)
 	}
-	for _, leak := range []string{"roles", "accessLink", "secondFactorEnrolled"} {
+	for _, leak := range []string{"roles", "accessLink", "secondFactorEnrolled", "activated"} {
 		if strings.Contains(got.raw, leak) {
 			t.Errorf("directory %s leaks %s", got.raw, leak)
 		}

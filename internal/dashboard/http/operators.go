@@ -21,7 +21,7 @@ func actor(ctx context.Context) string {
 
 func operatorDTO(o dashboard.OperatorRecord) Operator {
 	dto := Operator{Id: o.ID, Email: o.Email, DisplayName: o.DisplayName, Status: OperatorStatusDisabled, Roles: make([]RoleRef, len(o.Roles)),
-		SecondFactorEnrolled: o.SecondFactor}
+		SecondFactorEnrolled: o.SecondFactor, Activated: o.Activated}
 	if o.Active {
 		dto.Status = OperatorStatusActive
 	}

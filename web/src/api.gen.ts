@@ -752,6 +752,8 @@ export interface components {
             roles: components["schemas"]["RoleRef"][];
             /** @description A secret set, even unconfirmed, or a passkey; what a reset link would remove. */
             secondFactorEnrolled: boolean;
+            /** @description A password set; an access link for this operator is then a reset, otherwise an activation. */
+            activated: boolean;
             /** @description Null when no link is queued or awaiting use. */
             accessLink: components["schemas"]["AccessLink"] | null;
         };

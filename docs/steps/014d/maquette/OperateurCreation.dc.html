@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Nouvel opérateur</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#06080b}
+a{color:#2dd4bf;text-decoration:none}
+.sg{font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:13px;line-height:1.5;color:#e6edf3;background:rgba(6,8,11,.92);font-variant-numeric:tabular-nums}
+.sg .mono{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px}
+.sg .modal{width:520px;max-width:100%;background:#11161e;border:1px solid #232b36;border-radius:12px;box-shadow:0 24px 64px rgba(0,0,0,.6)}
+.sg .mh{display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #1c242f}
+.sg .mh h2{font-size:15px;font-weight:600;margin:0}
+.sg .x{width:28px;height:28px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;color:#8b95a3;font-size:16px}
+.sg .mb{padding:16px;display:flex;flex-direction:column;gap:16px}
+.sg .mf{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 16px;border-top:1px solid #1c242f}
+.sg .btn{height:34px;padding:0 14px;border-radius:7px;border:1px solid #2c3542;background:transparent;color:#e6edf3;font:inherit;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.sg .btn.primary{border-color:#2dd4bf;background:rgba(45,212,191,.14);color:#2dd4bf}
+.sg .field{display:flex;flex-direction:column;gap:6px}
+.sg .field label{font-size:12px;font-weight:500;color:#c4ccd6}
+.sg .field label .req{color:#8b95a3;font-weight:400}
+.sg input.txt,.sg textarea{width:100%;box-sizing:border-box;height:34px;padding:0 10px;border-radius:7px;border:1px solid #2c3542;background:#0c1017;color:#e6edf3;font:inherit;font-size:13px}
+.sg textarea{height:auto;padding:8px 10px;resize:vertical;line-height:1.5}
+.sg .why{font-size:11.5px;color:#8b95a3}
+.sg .lbl{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8b95a3}
+.sg .tag{display:inline-block;padding:0 6px;border-radius:5px;font-size:11px;background:rgba(240,184,74,.14);color:#f0b84a;white-space:nowrap}
+
+</style>
+</helmet>
+<div class="sg" style="min-height: 960px; display: flex; align-items: flex-start; justify-content: center; padding: 120px 40px; box-sizing: border-box">
+<section class="modal" role="dialog" aria-modal="true" aria-labelledby="h-new">
+<div class="mh"><h2 id="h-new">Nouvel opérateur</h2><a class="x" href="Main.dc.html" aria-label="Fermer">×</a></div>
+<div class="mb">
+<div class="field"><label for="name">Nom affiché</label><input class="txt" id="name" type="text" maxlength="200" value="Aïcha Bamba"></div>
+<div class="field"><label for="mail">Adresse e-mail</label><input class="txt mono" id="mail" type="email" maxlength="320" value="aicha.bamba@example.test" aria-describedby="mail-why"><span class="why" id="mail-why">Le lien d’activation part à cette adresse.</span></div>
+<div class="why">L’opérateur naît sans rôle : attribuez-les ensuite par « Rôles » dans la liste. La création est enregistrée dans le journal d’audit.</div>
+</div>
+<div class="mf" style="justify-content: flex-end"><span style="display: flex; gap: 8px"><a class="btn" href="Main.dc.html">Annuler</a><button class="btn primary" type="button">Créer et inviter</button></span></div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

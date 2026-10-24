@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Rôles</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#0c0f14}
+a{color:#2dd4bf;text-decoration:none}a:hover{color:#5eead4;text-decoration:underline}
+.sg{font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:13px;line-height:1.5;color:#e6edf3;background:#0c0f14;font-variant-numeric:tabular-nums}
+.sg .mono{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px}
+.sg .rail{flex:0 0 236px;background:#0a0d12;border-right:1px solid #1c242f;padding:16px 12px;box-sizing:border-box}
+.sg .logo{display:flex;align-items:center;gap:10px;padding:4px 8px 20px;font-weight:600;font-size:14px}
+.sg .tile{width:28px;height:28px;border-radius:7px;background:linear-gradient(140deg,#5eead4,#0f766e);color:#0a0d12;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
+.sg .navh{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8b95a3;padding:16px 8px 6px}
+.sg .nav a{display:block;padding:7px 8px;border-radius:7px;color:#c4ccd6}
+.sg .nav a:hover{background:#151b24;text-decoration:none;color:#e6edf3}
+.sg .nav a.on{background:rgba(45,212,191,.14);color:#2dd4bf}
+.sg .main{flex:999 1 560px;min-width:0}
+.sg .top{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:1px solid #1c242f;background:#0a0d12;box-sizing:border-box}
+.sg .crumb{font-size:12px;color:#8b95a3}
+.sg .content{padding:24px 40px 40px;max-width:1600px;box-sizing:border-box}
+.sg h1{font-size:28px;font-weight:600;margin:0;line-height:1.2}
+.sg .sub{color:#8b95a3;font-size:12px}
+.sg .card{background:#11161e;border:1px solid #232b36;border-radius:12px}
+.sg .btn{height:28px;padding:0 12px;border-radius:7px;border:1px solid #2c3542;background:transparent;color:#e6edf3;font:inherit;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.sg .btn.primary{border-color:#2dd4bf;background:rgba(45,212,191,.14);color:#2dd4bf}
+.sg .btn.danger{border-color:#e5484d;color:#ff8589}
+.sg .btn[aria-disabled=true]{background:#0c1017;border-color:#1c242f;color:#6b7684;cursor:not-allowed}
+.sg .tbl{width:100%;border-collapse:collapse}
+.sg .tbl th{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8b95a3;text-align:left;padding:8px 12px;border-bottom:1px solid #232b36}
+.sg .tbl td{padding:8px 12px;border-bottom:1px solid #1c242f;vertical-align:middle}
+.sg .tbl tr:last-child td{border-bottom:0}
+.sg .chip{display:inline-block;padding:0 8px;border-radius:6px;border:1px solid #2c3542;font-size:12px;color:#c4ccd6;white-space:nowrap}
+.sg .tag{display:inline-block;padding:0 6px;border-radius:5px;font-size:11px;background:rgba(240,184,74,.14);color:#f0b84a;white-space:nowrap}
+.sg .muted{color:#8b95a3}
+.sg .num{text-align:right}
+.sg .acts{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+.sg .foot{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-top:1px solid #1c242f}
+</style>
+</helmet>
+<div class="sg" style="display: flex; flex-wrap: wrap; min-height: 960px">
+<nav class="rail" aria-label="Navigation principale">
+<div class="logo"><span class="tile">SG</span>SMS Gateway</div>
+<div class="nav">
+<div class="navh">Clients</div>
+<a href="#">Clients</a>
+<a href="#">Comptes</a>
+<a href="#">Groupes</a>
+<div class="navh">Administration</div>
+<a href="Main.dc.html">Opérateurs</a>
+<a class="on" href="RolesListe.dc.html" aria-current="page">Rôles</a>
+<a href="AuditAdmin.dc.html">Journal d’audit</a>
+</div>
+</nav>
+<div class="main">
+<header class="top">
+<nav class="crumb" aria-label="Fil d’Ariane">Rôles</nav>
+<div class="crumb">A. Kouadio · Propriétaire</div>
+</header>
+<main class="content" style="display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h1>Rôles</h1>
+<div class="sub">Un rôle définit les permissions de la passerelle et du tableau de bord. Les rôles par défaut ne peuvent être modifiés.</div>
+</div>
+<a class="btn primary" href="RoleCreation.dc.html">Nouveau rôle</a>
+</div>
+<section class="card" aria-label="Rôles">
+<div style="overflow-x: auto">
+<table class="tbl">
+<thead><tr><th scope="col">Nom</th><th scope="col">Description</th><th scope="col">Type</th><th scope="col" class="num">Permissions</th><th scope="col" class="num">Détenteurs</th><th scope="col" style="text-align: right">Actions</th></tr></thead>
+<tbody>
+<tr><td><a href="RoleFiche.dc.html">Propriétaire</a></td><td class="muted">Tout, y compris les opérateurs, les rôles et les sessions.</td><td><span class="chip">Par défaut</span></td><td class="num mono">57</td><td class="num mono">1</td><td><div class="acts"><button class="btn danger" type="button" aria-disabled="true">Supprimer</button></div></td></tr>
+<tr><td><a href="RoleFiche.dc.html">Exploitation</a></td><td class="muted">Écriture du routage, des connecteurs, des sessions SMPP et de l’anti-spam ; lecture ailleurs.</td><td><span class="chip">Par défaut</span></td><td class="num mono">38</td><td class="num mono">1</td><td><div class="acts"><button class="btn danger" type="button" aria-disabled="true">Supprimer</button></div></td></tr>
+<tr><td><a href="RoleFiche.dc.html">Scripts</a></td><td class="muted">Écriture des scripts de routage, sans publication ; lecture du trafic.</td><td><span class="chip">Par défaut</span></td><td class="num mono">4</td><td class="num mono">0</td><td><div class="acts"><button class="btn danger" type="button" aria-disabled="true">Supprimer</button></div></td></tr>
+<tr><td><a href="RoleFiche.dc.html">Support</a></td><td class="muted">Lecture des comptes, du routage, des CDR et de la facturation ; jamais le corps.</td><td><span class="chip">Par défaut</span></td><td class="num mono">14</td><td class="num mono">0</td><td><div class="acts"><button class="btn danger" type="button" aria-disabled="true">Supprimer</button></div></td></tr>
+<tr><td><a href="RoleFiche.dc.html">Finance</a></td><td class="muted">Facturation complète ; lecture ailleurs comme Support.</td><td><span class="chip">Par défaut</span></td><td class="num mono">16</td><td class="num mono">1</td><td><div class="acts"><button class="btn danger" type="button" aria-disabled="true">Supprimer</button></div></td></tr>
+<tr><td><a href="RoleFiche.dc.html">Reporting</a></td><td class="muted">Lecture de la facturation et du trafic.</td><td><span class="chip">Par défaut</span></td><td class="num mono">3</td><td class="num mono">0</td><td><div class="acts"><button class="btn danger" type="button" aria-disabled="true">Supprimer</button></div></td></tr>
+<tr><td><a href="RoleFiche.dc.html">Clientèle</a></td><td class="muted">Écriture des clients, comptes, identifiants, groupes et de la facturation.</td><td><span class="chip">Par défaut</span></td><td class="num mono">10</td><td class="num mono">1</td><td><div class="acts"><button class="btn danger" type="button" aria-disabled="true">Supprimer</button></div></td></tr>
+<tr><td><a href="RoleFiche.dc.html">Conformité</a></td><td class="muted">Désabonnements, effacements, révélation des numéros et export des CDR.</td><td><span class="chip">Par défaut</span></td><td class="num mono">12</td><td class="num mono">0</td><td><div class="acts"><button class="btn danger" type="button" aria-disabled="true">Supprimer</button></div></td></tr>
+<tr><td><a href="RoleFiche.dc.html">Audit</a></td><td class="muted">Lecture du journal d’audit seule.</td><td><span class="chip">Par défaut</span></td><td class="num mono">1</td><td class="num mono">0</td><td><div class="acts"><button class="btn danger" type="button" aria-disabled="true">Supprimer</button></div></td></tr>
+<tr><td><a href="RoleFiche.dc.html">noc</a></td><td class="muted">Temps réel et lectures, aucune écriture.</td><td><span class="chip">Par défaut</span></td><td class="num mono">24</td><td class="num mono">0</td><td><div class="acts"><button class="btn danger" type="button" aria-disabled="true">Supprimer</button></div></td></tr>
+<tr><td><a href="RoleFiche.dc.html">Nuit · astreinte</a></td><td class="muted">Connecteurs et sessions SMPP pour l’astreinte de nuit.</td><td><span class="chip">Personnalisé</span></td><td class="num mono">7</td><td class="num mono">1</td><td><div class="acts"><button class="btn danger" type="button" aria-disabled="true">Supprimer</button></div></td></tr>
+<tr><td><a href="RoleFiche.dc.html">Lecture trafic</a></td><td class="muted">Lecture du trafic et des CDR.</td><td><span class="chip">Personnalisé</span></td><td class="num mono">3</td><td class="num mono">0</td><td><div class="acts"><button class="btn danger" type="button">Supprimer</button></div></td></tr>
+</tbody>
+</table>
+</div>
+<div class="foot"><span class="muted">12 rôles</span></div>
+</section>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

@@ -75,7 +75,7 @@ func (t tx) Operators(ctx context.Context, id string, maxAttempts int) ([]dashbo
 	out := make([]dashboard.OperatorRecord, len(rows))
 	for i, r := range rows {
 		out[i] = dashboard.OperatorRecord{ID: r.ID, Email: r.Email, DisplayName: r.DisplayName, Active: r.Active,
-			Roles: make([]dashboard.RoleRef, len(r.RoleIds)), SecondFactor: r.SecondFactor}
+			Roles: make([]dashboard.RoleRef, len(r.RoleIds)), SecondFactor: r.SecondFactor, Activated: r.Activated}
 		for j := range r.RoleIds {
 			out[i].Roles[j] = dashboard.RoleRef{ID: r.RoleIds[j], Name: r.RoleNames[j]}
 		}

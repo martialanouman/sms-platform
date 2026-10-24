@@ -198,7 +198,7 @@ func TestTheProxyRelaysTheMediaOfTheOperationUncapped(t *testing.T) {
 func TestAReportingOperatorIsRelayedAndTheGatewayDecides(t *testing.T) {
 	a := newAPI(t, netip.MustParsePrefix("127.0.0.0/8"))
 	a.activate(t)
-	c := a.signIn(t).cookie
+	c := a.elevated(t)
 	a.holdOnly(t, "Reporting")
 
 	if got := a.do(t, call{method: "GET", path: "/api/gw/admin/audit-log", cookie: c}); got.status != 200 {

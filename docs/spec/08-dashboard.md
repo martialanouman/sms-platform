@@ -36,9 +36,8 @@ Email et mot de passe, puis MFA, sans fournisseur d'identité externe. Tout vit 
   monotone (zéro constant admis) ; défis à usage unique liés à la session et à leur objet.
 - **Remplacer ou ajouter un facteur** exige une session élevée ; le nouveau attend sa confirmation,
   l'ancien reste seul en vigueur jusque-là. Retirer le dernier facteur est refusé.
-- **MFA obligatoire** pour tout rôle qui porte autre chose que des lectures ordinaires : un scope `:write`,
-  un scope sensible (chapitre 7 §7.4) ou une permission du BFF. Tant que sa session n'est pas élevée, elle
-  n'atteint que `/auth/*` ; ailleurs, proxy compris, `mfa_required`.
+- **MFA obligatoire** pour tout opérateur, quel que soit son rôle. Tant que sa session n'est pas élevée,
+  elle n'atteint que `/auth/*` ; ailleurs, proxy compris, `mfa_required`.
 
 **Session** (décision 8, P7) : 15 min d'inactivité la ferment ; seul un geste de l'opérateur la
 prolonge (`POST /auth/activity`), jamais une interrogation automatique. Le rôle `noc` n'a pas de délai

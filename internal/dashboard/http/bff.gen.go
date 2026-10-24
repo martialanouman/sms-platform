@@ -500,11 +500,14 @@ type MfaVerificationMethod string
 // Operator No secret, no hash.
 type Operator struct {
 	// AccessLink Null when no link is queued or awaiting use.
-	AccessLink  *AccessLink `json:"accessLink"`
-	DisplayName string      `json:"displayName"`
-	Email       string      `json:"email"`
-	Id          string      `json:"id"`
-	Roles       []RoleRef   `json:"roles"`
+	AccessLink *AccessLink `json:"accessLink"`
+
+	// Activated A password set; an access link for this operator is then a reset, otherwise an activation.
+	Activated   bool      `json:"activated"`
+	DisplayName string    `json:"displayName"`
+	Email       string    `json:"email"`
+	Id          string    `json:"id"`
+	Roles       []RoleRef `json:"roles"`
 
 	// SecondFactorEnrolled A secret set, even unconfirmed, or a passkey; what a reset link would remove.
 	SecondFactorEnrolled bool           `json:"secondFactorEnrolled"`

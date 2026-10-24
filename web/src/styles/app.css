@@ -545,8 +545,7 @@
 
 .ui-table__caption,
 .ui-loading__label,
-.ui-visually-hidden,
-.page__note:empty {
+.ui-visually-hidden {
   position: absolute;
   overflow: hidden;
   width: 1px;
@@ -568,11 +567,6 @@
   box-shadow: var(--shadow-3);
   color: var(--text-primary);
   font: var(--text-caption);
-}
-
-.page__note {
-  margin: 0;
-  color: var(--text-secondary);
 }
 
 .ui-table {
@@ -923,6 +917,16 @@
 .ui-check__mark .ui-icon {
   width: 12px;
   height: 12px;
+}
+
+.role-choice--boxed .role-choice__option {
+  padding: var(--sp-4) var(--sp-5);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-input);
+}
+
+.role-choice--boxed .role-choice__option + .role-choice__option {
+  margin-top: var(--sp-3);
 }
 
 .role-choice__description {
@@ -1401,6 +1405,23 @@ button.ui-tabs__tab {
   width: auto;
   height: var(--control-height-sm);
   font-size: var(--fs-12);
+}
+
+.ui-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.ui-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-input);
+  color: var(--text-secondary);
+  font-size: var(--fs-12);
+  white-space: nowrap;
 }
 
 .ui-chip {

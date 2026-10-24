@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Modifications d’une requête</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#06080b}
+a{color:#2dd4bf;text-decoration:none}a:hover{color:#5eead4;text-decoration:underline}
+.sg{font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:13px;line-height:1.5;color:#e6edf3;background:rgba(6,8,11,.92);font-variant-numeric:tabular-nums}
+.sg .mono{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px}
+.sg .modal{width:760px;max-width:100%;background:#11161e;border:1px solid #232b36;border-radius:12px;box-shadow:0 24px 64px rgba(0,0,0,.6)}
+.sg .mh{display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #1c242f}
+.sg .mh h2{font-size:15px;font-weight:600;margin:0}
+.sg .x{width:28px;height:28px;border-radius:7px;border:0;background:transparent;color:#8b95a3;font:inherit;font-size:16px;cursor:pointer}
+.sg .mb{padding:16px;display:flex;flex-direction:column;gap:16px}
+.sg .mf{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid #1c242f}
+.sg .btn{height:34px;padding:0 14px;border-radius:7px;border:1px solid #2c3542;background:transparent;color:#e6edf3;font:inherit;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.sg .kv{display:grid;grid-template-columns:110px minmax(0,1fr);gap:6px 12px;margin:0}
+.sg .kv dt{color:#8b95a3;font-size:12px}
+.sg .kv dd{margin:0}
+.sg .change{border:1px solid #232b36;border-radius:10px}
+.sg .ch{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid #1c242f}
+.sg .op{display:inline-block;padding:0 8px;border-radius:20px;font-size:12px}
+.sg .upd{background:rgba(127,178,255,.14);color:#7fb2ff}
+.sg .diff{width:100%;border-collapse:collapse}
+.sg .diff th{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8b95a3;text-align:left;padding:6px 12px;border-bottom:1px solid #232b36}
+.sg .diff td{padding:6px 12px;border-bottom:1px solid #1c242f;vertical-align:top;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px}
+.sg .diff tr:last-child td{border-bottom:0}
+.sg .before{color:#ff8589;text-decoration:line-through;text-decoration-color:rgba(255,133,137,.6)}
+.sg .after{color:#2fd18a}
+.sg .null{color:#8b95a3;font-style:italic}
+.sg .why{font-size:11.5px;color:#8b95a3}
+.sg details{padding:8px 12px;border-top:1px solid #1c242f}
+.sg summary{cursor:pointer;color:#8b95a3;font-size:12px}
+</style>
+</helmet>
+<div class="sg" style="min-height: 960px; display: flex; align-items: flex-start; justify-content: center; padding: 64px 40px; box-sizing: border-box">
+<section class="modal" role="dialog" aria-modal="true" aria-labelledby="h-mod">
+<div class="mh"><h2 id="h-mod">Modifications de <span class="mono">rotate-credential</span></h2><a class="x" href="AuditAdmin.dc.html" aria-label="Fermer">×</a></div>
+<div class="mb">
+<dl class="kv">
+<dt>Date</dt><dd class="mono">24/10/2026 01:47:12</dd>
+<dt>Opérateur</dt><dd>Awa Kouadio</dd>
+<dt>Requête</dt><dd class="mono">0d4c9a1e-…-7f21</dd>
+</dl>
+<div class="change">
+<div class="ch"><span class="op upd">Modification</span><span class="mono">credentials</span><span class="mono" style="color: #8b95a3">01a16b96-…-2cde</span></div>
+<table class="diff">
+<thead><tr><th scope="col">Champ</th><th scope="col">Avant</th><th scope="col">Après</th></tr></thead>
+<tbody>
+<tr><td>rotated_at</td><td class="null">vide</td><td class="after">2026-10-24 01:47:12</td></tr>
+<tr><td>grace_expires_at</td><td class="null">vide</td><td class="after">2026-10-25 01:47:12</td></tr>
+<tr><td>updated_at</td><td class="before">2026-10-24 01:47:02</td><td class="after">2026-10-24 01:47:12</td></tr>
+</tbody>
+</table>
+<details><summary>6 champs inchangés</summary></details>
+</div>
+<div class="why">Les secrets et leurs empreintes ne sont jamais journalisés : seuls les champs lisibles apparaissent.</div>
+</div>
+<div class="mf"><a class="btn" href="AuditAdmin.dc.html" style="text-decoration: none">Fermer</a></div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
