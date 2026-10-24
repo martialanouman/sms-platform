@@ -41,6 +41,8 @@ une autre peut s'ajouter au démarrage d'une step, comme au socle.
 | 013 | `admin-api-svc` : autorisation, audit, proxy ; écran Audit | Fondations |
 | 014a | Clients, groupes, comptes | Tranche |
 | 014b | Identifiants, webhooks | Tranche |
+| 014c | Clients et comptes sur la maquette | Tranche |
+| 014d | Opérateurs, rôles et audit sur la maquette ; totaux de pagination | Tranche |
 | 015 | Plateforme, sender IDs, débits | Tranche |
 | 016 | Connecteurs, comptes opérateur, réécriture | Tranche |
 | 017 | Routage déclaratif et numéros exacts | Tranche |
@@ -187,6 +189,14 @@ arrive avec son service (017 → 022, 020 → 029b).
   webhooks au secret scellé.
   Coupée en deux (humain, 2026-10-23) : identifiants (`docs/steps/014b-1-identifiants.md`) ; webhooks
   (`docs/steps/014b-2-webhooks.md`).
+- **014c — Clients et comptes sur la maquette** : step corrective après l'essai humain ; kit de la charte, listes,
+  fiche client, fiche compte en onglets, identifiants et webhooks. Coupée en trois (humain, 2026-10-23) :
+  `docs/steps/014c-1-kit-listes-et-fiche-client.md`, `014c-2-fiche-compte-onglets.md`,
+  `014c-3-identifiants-et-webhooks.md`.
+- **014d — Opérateurs, rôles et audit sur la maquette** : second facteur pour tout opérateur, écrans Opérateurs,
+  Rôles et Journal d'audit sur la charte, totaux en pied des listes Clients, Comptes et Groupes. Coupée en quatre
+  (humain, 2026-10-24) : Opérateurs (`docs/steps/014d-1-operateurs.md`, qui porte les arbitrages de toute la 014d),
+  Rôles, Journal d'audit, totaux.
 - **015 — Plateforme, sender IDs, débits** : `platform_policy` (quiet hours, politique de contenu,
   `billing_enabled`), sender IDs et catégories, `rate_limits`.
   `sender_ids.customer_id` en `ON DELETE RESTRICT` : un client qui a envoyé ne se supprime pas (014a-1, 296).
