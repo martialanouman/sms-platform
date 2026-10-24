@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Rôles d’un opérateur</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#06080b}
+a{color:#2dd4bf;text-decoration:none}a:hover{color:#5eead4;text-decoration:underline}
+.sg{font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:13px;line-height:1.5;color:#e6edf3;background:rgba(6,8,11,.92);font-variant-numeric:tabular-nums}
+.sg .mono{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px}
+.sg .modal{width:560px;max-width:100%;background:#11161e;border:1px solid #232b36;border-radius:12px;box-shadow:0 24px 64px rgba(0,0,0,.6)}
+.sg .mh{display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #1c242f}
+.sg .mh h2{font-size:15px;font-weight:600;margin:0}
+.sg .x{width:28px;height:28px;border-radius:7px;border:0;background:transparent;color:#8b95a3;font:inherit;font-size:16px;cursor:pointer}
+.sg .mb{padding:16px;display:flex;flex-direction:column;gap:14px}
+.sg .mf{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid #1c242f}
+.sg .btn{height:34px;padding:0 14px;border-radius:7px;border:1px solid #2c3542;background:transparent;color:#e6edf3;font:inherit;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.sg .btn.primary{border-color:#2dd4bf;background:rgba(45,212,191,.14);color:#2dd4bf}
+.sg .why{font-size:11.5px;color:#8b95a3}
+.sg .lbl{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8b95a3;margin:0 0 6px}
+.sg .chk{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:7px;border:1px solid #1c242f}
+.sg .chk input{appearance:none;flex:0 0 16px;width:16px;height:16px;border-radius:4px;border:1px solid #2c3542;background:#0c1017;margin:2px 0 0;position:relative}
+.sg .chk input:checked{background:rgba(45,212,191,.14);border-color:#2dd4bf}
+.sg .chk input:checked::after{content:'';position:absolute;left:4px;top:1px;width:5px;height:9px;border:solid #2dd4bf;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.sg .chk span.t{display:flex;flex-direction:column;gap:1px}
+.sg .tag{display:inline-block;margin-left:6px;padding:0 6px;border-radius:5px;font-size:11px;background:rgba(240,184,74,.14);color:#f0b84a}
+.sg .list{display:flex;flex-direction:column;gap:6px;}
+</style>
+</helmet>
+<div class="sg" style="min-height: 1040px; display: flex; align-items: flex-start; justify-content: center; padding: 40px 40px; box-sizing: border-box">
+<section class="modal" role="dialog" aria-modal="true" aria-labelledby="h-roles">
+<div class="mh"><h2 id="h-roles">Rôles de Koffi Yao</h2><a class="x" href="Main.dc.html" aria-label="Fermer">×</a></div>
+<div class="mb">
+<fieldset style="border: 0; padding: 0; margin: 0">
+<legend class="lbl">Rôles détenus</legend>
+<div class="list">
+<label class="chk"><input type="checkbox"><span class="t"><span>Propriétaire</span><span class="why">Tout, y compris les opérateurs, les rôles et les sessions.</span></span></label>
+<label class="chk"><input type="checkbox" checked><span class="t"><span>Exploitation</span><span class="why">Écriture du routage, des connecteurs, des sessions SMPP et de l’anti-spam ; lecture ailleurs.</span></span></label>
+<label class="chk"><input type="checkbox"><span class="t"><span>Scripts</span><span class="why">Écriture des scripts de routage, sans publication ; lecture du trafic.</span></span></label>
+<label class="chk"><input type="checkbox"><span class="t"><span>Support</span><span class="why">Lecture des comptes, du routage, des CDR et de la facturation ; jamais le corps.</span></span></label>
+<label class="chk"><input type="checkbox"><span class="t"><span>Finance</span><span class="why">Facturation complète ; lecture ailleurs comme Support.</span></span></label>
+<label class="chk"><input type="checkbox"><span class="t"><span>Reporting</span><span class="why">Lecture de la facturation et du trafic.</span></span></label>
+<label class="chk"><input type="checkbox"><span class="t"><span>Clientèle</span><span class="why">Écriture des clients, comptes, identifiants, groupes et de la facturation.</span></span></label>
+<label class="chk"><input type="checkbox"><span class="t"><span>Conformité</span><span class="why">Désabonnements, effacements, révélation des numéros et export des CDR.</span></span></label>
+<label class="chk"><input type="checkbox"><span class="t"><span>Audit</span><span class="why">Lecture du journal d’audit seule.</span></span></label>
+<label class="chk"><input type="checkbox"><span class="t"><span>noc</span><span class="why">Temps réel et lectures, aucune écriture.</span></span></label>
+<label class="chk"><input type="checkbox" checked><span class="t"><span>Nuit · astreinte</span><span class="why">Connecteurs et sessions SMPP pour l’astreinte de nuit.</span></span></label>
+<label class="chk"><input type="checkbox"><span class="t"><span>Lecture trafic</span><span class="why">Lecture du trafic et des CDR.</span></span></label>
+</div>
+</fieldset>
+<div class="why">L’action est enregistrée dans le journal d’audit.</div>
+</div>
+<div class="mf"><a class="btn" href="Main.dc.html" style="text-decoration: none">Annuler</a><button class="btn primary" type="button">Enregistrer</button></div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1040}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

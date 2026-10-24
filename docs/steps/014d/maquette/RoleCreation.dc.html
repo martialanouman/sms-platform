@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Nouveau rôle</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#06080b}
+a{color:#2dd4bf;text-decoration:none}
+.sg{font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:13px;line-height:1.5;color:#e6edf3;background:rgba(6,8,11,.92);font-variant-numeric:tabular-nums}
+.sg .mono{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px}
+.sg .modal{width:840px;max-width:100%;display:flex;flex-direction:column;background:#11161e;border:1px solid #232b36;border-radius:12px;box-shadow:0 24px 64px rgba(0,0,0,.6)}
+.sg .mh{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #1c242f}
+.sg .mh h2{font-size:15px;font-weight:600;margin:0}
+.sg .x{width:28px;height:28px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;color:#8b95a3;font-size:16px}
+.sg .mb{padding:16px 20px;display:flex;flex-direction:column;gap:16px;}
+.sg .mf{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:12px 20px;border-top:1px solid #1c242f}
+.sg .btn{height:34px;padding:0 14px;border-radius:7px;border:1px solid #2c3542;background:transparent;color:#e6edf3;font:inherit;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.sg .btn.primary{border-color:#2dd4bf;background:rgba(45,212,191,.14);color:#2dd4bf}
+.sg .btn.danger{border-color:#e5484d;color:#ff8589}
+.sg .btn[aria-disabled=true]{background:#0c1017;border-color:#1c242f;color:#6b7684;cursor:not-allowed}
+.sg .chip{display:inline-block;padding:0 8px;border-radius:6px;border:1px solid #2c3542;font-size:12px;color:#c4ccd6;white-space:nowrap}
+.sg .why{font-size:12.5px;color:#8b95a3}
+.sg .lbl{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8b95a3}
+.sg .field{display:flex;flex-direction:column;gap:6px}
+.sg input.txt{width:100%;box-sizing:border-box;height:34px;padding:0 10px;border-radius:7px;border:1px solid #2c3542;background:#0c1017;color:#e6edf3;font:inherit;font-size:13px}
+.sg .tag{display:inline-block;padding:0 6px;border-radius:5px;font-size:11px;background:rgba(240,184,74,.14);color:#f0b84a;white-space:nowrap}
+.sg .tip{cursor:help}
+.sg .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 24px}
+.sg .grp{border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:6px;min-width:0}
+.sg .grp legend{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8b95a3;padding:0;margin-bottom:6px}
+.sg .perm{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.sg .perm input{appearance:none;flex:0 0 16px;width:16px;height:16px;border-radius:4px;border:1px solid #2c3542;background:#0c1017;margin:2px 0 0;position:relative}
+.sg .perm input:checked{background:rgba(45,212,191,.14);border-color:#2dd4bf}
+.sg .perm input:checked::after{content:'';position:absolute;left:4px;top:1px;width:5px;height:9px;border:solid #2dd4bf;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.sg .perm input:disabled{opacity:.5}
+.sg .perm .tip{flex:1 1 0;min-width:0}
+</style>
+</helmet>
+<div class="sg" style="min-height: 1340px; display: flex; align-items: flex-start; justify-content: center; padding: 48px 40px; box-sizing: border-box">
+<section class="modal" role="dialog" aria-modal="true" aria-labelledby="h-role">
+<div class="mh"><h2 id="h-role">Nouveau rôle</h2><a class="x" href="RolesListe.dc.html" aria-label="Fermer">×</a></div>
+<div class="mb">
+
+<div class="field"><label class="lbl" for="rname">Nom</label><input class="txt" id="rname" type="text" maxlength="100"></div>
+<div class="field"><label class="lbl" for="rdesc">Description</label><input class="txt" id="rdesc" type="text" maxlength="500"></div>
+<div class="grid">
+<fieldset class="grp"><legend>Clients</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="customers:read">Lire</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="customers:write">Modifier</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Comptes</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="accounts:read">Lire</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="accounts:write">Modifier</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Identifiants</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="credentials:read">Lire</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="credentials:write">Modifier</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Groupes de clients</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="customer-groups:read">Lire</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="customer-groups:write">Modifier</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Routes</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="routes:read">Lire</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="routes:write">Modifier</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Numéros exacts</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="exact-routes:read">Lire</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="exact-routes:write">Modifier</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Scripts de routage</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="routing-scripts:read">Lire</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="routing-scripts:write">Modifier</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="routing-scripts:publish">Publier</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Connecteurs</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="connectors:read">Lire</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="connectors:write">Modifier</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Sessions SMPP</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="smpp-sessions:read">Lire</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="smpp-sessions:write">Modifier</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Sender IDs</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="sender-ids:read">Lire</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="sender-ids:write">Modifier</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Réécriture</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="sender-rewrite:read">Lire</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="sender-rewrite:write">Modifier</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Numéros entrants</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="inbound-numbers:read">Lire</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="inbound-numbers:write">Modifier</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Trafic</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="traffic:read">Lire</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Temps réel</legend>
+<label class="perm"><input type="checkbox" disabled=""><span class="tip" title="stream:read · compris avec la lecture du trafic">Lire</span></label>
+</fieldset>
+<fieldset class="grp"><legend>CDR</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="cdr:read">Lire</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="cdr:export_bulk">Exporter en masse</span><span class="tag">sensible</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Messages en échec</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="dead-letters:read">Lire</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="dead-letters:write">Modifier</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Tâches</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="jobs:read">Lire</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Anti-spam</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="antispam:read">Lire</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="antispam:write">Modifier</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Mots d’opt-out</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="opt-out-keywords:read">Lire</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="opt-out-keywords:write">Modifier</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Désabonnements</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="suppressions:read">Lire</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="suppressions:write">Modifier</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="suppressions:delete">Supprimer</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Corps des messages</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="content:read">Lire</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="content:write">Modifier</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="content:erase">Effacer</span><span class="tag">sensible</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Numéros des abonnés</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="msisdn:reveal">Révéler</span><span class="tag">sensible</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Données personnelles</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="gdpr:erase">Effacer</span><span class="tag">sensible</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Facturation</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="billing:read">Lire</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="billing:write">Modifier</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="billing:topup">Recharger, ajuster et fixer les conditions de crédit</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Plateforme</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="platform:read">Lire</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="platform:write">Modifier</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Journal d’audit</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="audit:read">Lire</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Opérateurs</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="operators:read">Lire</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="operators:write">Modifier</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Rôles</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="roles:read">Lire</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="roles:write">Modifier</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Sessions du tableau de bord</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="sessions:read">Lire</span></label>
+<label class="perm"><input type="checkbox"><span class="tip" title="sessions:write">Modifier</span></label>
+</fieldset>
+<fieldset class="grp"><legend>Jeton personnel</legend>
+<label class="perm"><input type="checkbox"><span class="tip" title="gateway:personal_token">Émettre</span></label>
+</fieldset>
+</div>
+</div>
+<div class="mf"><a class="btn" href="RolesListe.dc.html">Annuler</a><button class="btn primary" type="button">Créer le rôle</button></div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1340}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
