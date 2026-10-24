@@ -62,3 +62,18 @@ Humain, 2026-10-24, sur recommandation.
 - **Correctif de revue 4** : l'action de statut d'un compte se fige sur la seule permission, comme le client ; la
   raison « Fermé définitivement. » ne pouvait plus s'y afficher.
 - **Correctif de revue 5** : deux assertions du compte fermé, doublons du test par statut, retirées.
+
+## Preuve sur contabo169
+
+2026-10-24, image construite depuis la branche, déploiement automatique suspendu le temps de la preuve. Compte de
+preuve `ada.preuve`, mot de passe et second facteur neufs, identifiants effacés ensuite.
+
+- Compte « Marketing » : « System ID » dans la carte du bind ; les deux pieds commencent à 427 px et font 53 px,
+  boutons centrés ; une seule action de statut, « Suspendre » ; axe sans violation (`01-identifiants.png`).
+- Fiche client « Commerce Exemple » : « Suspendre » seul (`02-fiche-client.png`).
+- Compte de preuve « Société Démo » créé pour ouvrir « Nouveau bind SMPP » (laissé sur contabo169, sans bind) :
+  « Créer » à vide → « Ce champ est obligatoire. », le bouton reste sur la ligne de la saisie (`03-erreur.png`) ;
+  « Générer un System ID » → `societedem_0834`, champ redevenu valide, `aria-invalid` retiré ; axe sans violation
+  (`04-generer.png`).
+- Vu à la preuve et corrigé : sans colonne imposée, le bouton prenait la première colonne et repoussait le champ ;
+  champ en colonne 1, bouton en colonne 2.
