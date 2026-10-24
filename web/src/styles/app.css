@@ -883,6 +883,10 @@
   cursor: pointer;
 }
 
+.permission-picker .role-choice__option {
+  justify-self: start;
+}
+
 .ui-check {
   display: flex;
   flex: none;
@@ -1457,4 +1461,8 @@ button.ui-tabs__tab {
 
 .ui-chip__remove:hover {
   background: var(--tint-teal-strong);
+}
+
+.permission-picker .ui-check[data-readonly] {
+  opacity: 0.5;
 }
