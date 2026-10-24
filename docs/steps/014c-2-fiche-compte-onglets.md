@@ -70,3 +70,50 @@ Fable, 2026-10-24, dans le cadre de 393 à 396 ; brouillon relu et corrigé par 
 - **Canaux et opérations** : 407, 408 ; **Sessions** : 409 ; figé : 410 ; retraits : 411.
 - **Aucun changement de contrat ni de Go.**
 - **Tests** : 412 ; captures dans `docs/steps/014c-2/`.
+
+## Écarts au design, constatés à l'implémentation
+
+- **422 des canaux** (407) : l'API n'en rend qu'un, la contrainte `accounts_channel_check` (les deux canaux coupés) ;
+  `closed_is_final` ne garde que le statut, aucun 422 de compte fermé n'existe sur `/channels`. Un 422 s'y dit donc
+  « Au moins un canal reste activé. » ; tout autre refus garde le message de la passerelle. Les bascules d'un compte
+  fermé sont figées côté écran (410). De même, `/smpp-ops` ne rend 422 que sans drapeau, ce que l'écran n'envoie
+  jamais : la confirmation n'a pas de refus traduit.
+- **Raison de l'onglet figé** : `needs('credentials:read', 'Cet onglet')`, « Cet onglet demande Identifiants : lire
+  `credentials:read`. » ; « Cette action » ne nomme pas un onglet.
+- **`Tabs` sans `params`** : un `Link` hérite des paramètres de l'adresse courante ; la prop ajoutée a survécu à sa
+  mutation et est retirée.
+- **Index sans garde sur `me`** : la mise en page ne rend l'`Outlet` qu'une fois `me` et le compte chargés ; la garde
+  « rien avant `me` » était morte (mutant survivant) et tombe.
+- **Limites de session** (409) : au 200, la réponse remplace le compte dans le cache, comme les canaux (407), plutôt
+  qu'une invalidation ; l'aside « limite N » suit sans relecture.
+- **Titre mono** : `PageHeader({ mono })` pose `.page-header__title--mono` (famille seule) ; `.ui-mono` ramènerait le
+  titre à 12 px.
+- **Focus après suppression** : `customerQuery(id)` est partagée par `customers.tsx` ; la suppression précharge le
+  client avant de naviguer, sinon le `h1` provisoire « Client » prendrait le focus puis serait remplacé.
+- **En-tête provisoire** (chargement, refus, échec) : « Clients › Compte », Clients en lien sous `customers:read`.
+- **Textes choisis** : toasts « Compte {nom} suspendu|réactivé|fermé|supprimé. », « Canal SMPP|REST
+  activé|désactivé. », « {opération} autorisé|interdit. », « Limites de session enregistrées. » ; confirmations
+  « Autoriser|Interdire {opération} » ; explication muette du canal SMPP, absente de la maquette (elle le montre
+  figé) : « Les binds SMPP de ce compte ne sont acceptés que si ce canal est activé. »
+- **`max_sessions`** : la valeur est en mono ; le libellé reste en texte (`Field.label` est une chaîne).
+- **Libellé d'une bascule** : nommé par `aria-labelledby`, il n'est pas cliquable.
+- **Non fait ici** : la preuve sur contabo169 et ses captures (`docs/steps/014c-2/`), à la main de l'humain avant le
+  merge.
+
+## Mutations
+
+À la main, une ligne à la fois, restauration vérifiée par `cmp` ; suite Vitest ciblée.
+
+| Unité | Tués | Survivants |
+|---|---|---|
+| `Switch`, `Tabs` figé, `PageHeader({ mono })` (`ui.tsx`) | 9/10 | `params` de `Tabs` : retiré (écart ci-dessus) |
+| Mise en page (`_shell.accounts.$id.tsx`) | 20/21 | 1 équivalent |
+| Canaux et opérations | 30/30 | 4 au premier passage : `smpp_enabled` sur une bascule REST, verbe de l'action, mono de l'opération (tests ajoutés) ; `enabled[name] &&` retiré, équivalent sous la contrainte d'un canal au moins |
+| Sessions | 18/18 | 6 au premier passage : relecture après enregistrement (réponse mise en cache, testée), aucun toast sur refus, mono de la valeur et des types, dernier type seul figé, `preventDefault` (tests ajoutés) |
+| Index | 2/2 | la garde sur `me`, morte, est retirée |
+| Onglets Identifiants et Webhooks | 2/2 | — |
+| `customerQuery` | 0/1 | 1 équivalent |
+
+**Équivalents nommés** : `readable && account.data` → `account.data` (la requête est désactivée sans
+`accounts:read`, aucune donnée n'existe alors) ; la clé de `customerQuery` (partagée par ses deux lecteurs, toujours
+sous `customersKey`, que les écritures invalident).
