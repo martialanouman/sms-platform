@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { type FormEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import { api, json, unreachable } from '../api'
 import type { components } from '../api.gen'
-import { NoResults, text, useClosedOn } from '../list'
+import { Failure, NoResults, text, useClosedOn } from '../list'
 import { operatorsQuery, rolesQuery } from '../queries'
 import { meQuery, Refused, useShellMe } from '../session'
 import {
@@ -56,6 +56,21 @@ function Status({ operator }: { operator: Operator }) {
   return <StatusPill tone="ok">Actif</StatusPill>
 }
 
+const link = (o: Operator) =>
+  o.activated
+    ? {
+        action: 'Réinitialiser l’accès',
+        sent: `Lien de réinitialisation envoyé à ${o.email}.`,
+        title: `Envoyer un lien de réinitialisation à ${o.displayName} ?`,
+        effect: `Un lien de réinitialisation sera envoyé à ${o.email} ; il restera valable 1 heure. Son mot de passe, son second facteur et ses sessions resteront valables jusqu’à son usage. À l’usage, l’opérateur définira un nouveau mot de passe, son second facteur sera retiré et ses sessions seront fermées.`,
+      }
+    : {
+        action: 'Renvoyer l’activation',
+        sent: `Lien d’activation renvoyé à ${o.email}.`,
+        title: `Envoyer un lien d’activation à ${o.displayName} ?`,
+        effect: `Un lien d’activation sera envoyé à ${o.email} ; il restera valable 72 heures.`,
+      }
+
 const shown = (n: number, total: number) => `${n} ${n === 1 ? 'entrée affichée' : 'entrées affichées'} sur ${total}`
 
 type Pending = { kind: 'create' } | { kind: 'roles' | 'disable' | 'link'; operator: Operator }
@@ -94,9 +109,13 @@ function Operators() {
       (search.status === undefined || o.status === search.status) &&
       (search.role === undefined || o.roles.some((r) => r.id === search.role)),
   )
+  const names = new Map(all.flatMap((o) => o.roles).map((r) => [r.id, r.name]))
+  if (search.role !== undefined && !names.has(search.role)) {
+    names.set(search.role, 'Rôle sans détenteur')
+  }
   const roleFilters = [
     { value: '', label: 'Tous' },
-    ...[...new Map(all.flatMap((o) => o.roles).map((r) => [r.id, r.name])).entries()]
+    ...[...names.entries()]
       .sort(([, a], [, b]) => a.localeCompare(b, 'fr'))
       .map(([value, label]) => ({ value, label })),
   ]
@@ -107,6 +126,10 @@ function Operators() {
         crumbs={['Opérateurs']}
         title="Opérateurs"
         titleRef={title}
+        meta={
+          readable &&
+          'Les personnes qui se connectent au tableau de bord. Un opérateur se désactive, il ne se supprime pas : le journal tient ses auteurs.'
+        }
         actions={
           readable && (
             <Button
@@ -139,13 +162,11 @@ function Operators() {
           {operators.isPending ? (
             <LoadingState label="Chargement des opérateurs…" rows={3} />
           ) : operators.error ? (
-            <ErrorState
-              as="h2"
+            <Failure
               title="Les opérateurs n’ont pas pu être chargés"
-              onRetry={() => void operators.refetch()}
-            >
-              {operators.error instanceof Refused ? operators.error.message : unreachable}
-            </ErrorState>
+              error={operators.error}
+              retry={() => void operators.refetch()}
+            />
           ) : rows.length === 0 && (search.status !== undefined || search.role !== undefined) ? (
             <NoResults clear={clear} />
           ) : rows.length === 0 ? (
@@ -216,7 +237,7 @@ function Operators() {
                           }
                           onClick={open({ kind: 'link', operator: o })}
                         >
-                          {o.activated ? 'Réinitialiser l’accès' : 'Renvoyer l’activation'}
+                          {link(o).action}
                         </Button>
                         <Toggle
                           operator={o}
@@ -263,13 +284,7 @@ function Operators() {
             <AccessLink
               operator={pending.operator}
               onClose={dismiss(pending)}
-              onDone={() =>
-                notify(
-                  pending.operator.activated
-                    ? `Lien de réinitialisation envoyé à ${pending.operator.email}.`
-                    : `Lien d’activation renvoyé à ${pending.operator.email}.`,
-                )
-              }
+              onDone={() => notify(link(pending.operator).sent)}
             />
           )}
         </section>
@@ -461,12 +476,7 @@ function Disable({ operator, onClose, onDone }: { operator: Operator; onClose: (
 }
 
 function AccessLink({ operator, onClose, onDone }: { operator: Operator; onClose: () => void; onDone: () => void }) {
-  const title = operator.activated
-    ? `Envoyer un lien de réinitialisation à ${operator.displayName} ?`
-    : `Envoyer un lien d’activation à ${operator.displayName} ?`
-  const effect = operator.activated
-    ? `Un lien de réinitialisation sera envoyé à ${operator.email} ; il restera valable 1 heure. Son mot de passe, son second facteur et ses sessions resteront valables jusqu’à son usage. À l’usage, l’opérateur définira un nouveau mot de passe, son second facteur sera retiré et ses sessions seront fermées.`
-    : `Un lien d’activation sera envoyé à ${operator.email} ; il restera valable 72 heures.`
+  const { title, effect } = link(operator)
 
   return (
     <Confirmation

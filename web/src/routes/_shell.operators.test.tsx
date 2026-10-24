@@ -44,8 +44,6 @@ const zed = {
 }
 const links = [
   { link: { kind: 'activation', state: 'queued' }, text: 'Actif', tone: 'ok' },
-  { link: { kind: 'reset', state: 'queued' }, text: 'Actif', tone: 'ok' },
-  { link: { kind: 'reset', state: 'sent' }, text: 'Actif', tone: 'ok' },
   { link: { kind: 'activation', state: 'failed' }, text: 'Envoi en échec', tone: 'warn' },
   { link: null, text: 'Actif', tone: 'ok' },
 ]
@@ -53,12 +51,6 @@ const links = [
 function row(email: string) {
   return screen.getByText(email).closest('tr') as HTMLTableRowElement
 }
-
-const described = (field: HTMLElement) =>
-  (field.getAttribute('aria-describedby') ?? '')
-    .split(' ')
-    .map((id) => document.getElementById(id)?.textContent)
-    .join(' ')
 
 const tones = (email: string) =>
   [...row(email).querySelectorAll('.ui-pill')].map((p) => p.className.replace('ui-pill ui-pill--', ''))
@@ -90,6 +82,11 @@ test('the operators are listed with their status, roles and factor', async () =>
   expect(tones('operateur@example.test')).toEqual(['ok', 'ok'])
   expect(within(row('ada@example.test')).getByText('Support').className).toBe('ui-chip')
   expect(screen.getByText('3 entrées affichées sur 3')).toBeDefined()
+  expect(
+    screen.getByText(
+      'Les personnes qui se connectent au tableau de bord. Un opérateur se désactive, il ne se supprime pas : le journal tient ses auteurs.',
+    ),
+  ).toBeDefined()
   expect(await violations(container)).toEqual([])
 })
 
@@ -106,6 +103,16 @@ test('each state of the access link is told', async () => {
   await screen.findByText('l0@example.test')
   expect(links.map((_, i) => cells(`l${i}@example.test`)[0])).toEqual(links.map((l) => l.text))
   expect(links.map((_, i) => tones(`l${i}@example.test`)[0])).toEqual(links.map((l) => l.tone))
+})
+
+test('a disabled account is told disabled, even when its link failed', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, owner),
+    'GET /api/operators': () => json(200, [{ ...zed, accessLink: { kind: 'reset', state: 'failed' } }]),
+  })
+  renderAt('/operators')
+  await screen.findByText('zed@example.test')
+  expect(cells('zed@example.test')[0]).toBe('Désactivé')
 })
 
 test('a list that cannot be read is told, with a retry', async () => {
@@ -149,7 +156,7 @@ test('an operator is created in a dialog, and a refusal is told there', async ()
     'Nom affiché',
     'Adresse e-mail',
   ])
-  expect(described(within(dialog).getByLabelText('Adresse e-mail'))).toBe('Le lien d’activation part à cette adresse.')
+  expect(explained(within(dialog).getByLabelText('Adresse e-mail'))).toBe('Le lien d’activation part à cette adresse.')
   expect(await violations(container)).toEqual([])
   await user.type(within(dialog).getByLabelText('Adresse e-mail'), 'taken@example.test')
   await user.type(within(dialog).getByLabelText('Nom affiché'), 'Ada')
@@ -741,7 +748,7 @@ test('an empty creation is refused field by field, in French and in colour, with
   expect(document.activeElement).toBe(name)
   expect(email.getAttribute('aria-invalid')).toBe('true')
   expect(name.getAttribute('aria-invalid')).toBe('true')
-  expect(described(email)).toBe('Le lien d’activation part à cette adresse. Ce champ est obligatoire.')
+  expect(explained(email)).toBe('Le lien d’activation part à cette adresse. Ce champ est obligatoire.')
   expect(explained(name)).toBe('Ce champ est obligatoire.')
   expect(
     within(dialog)
@@ -750,10 +757,10 @@ test('an empty creation is refused field by field, in French and in colour, with
   ).toEqual(['Ce champ est obligatoire.', 'Ce champ est obligatoire.'])
   expect(await violations(container)).toEqual([])
   await user.type(email, 'ada')
-  expect(described(email)).toBe('Le lien d’activation part à cette adresse. Adresse e-mail invalide.')
+  expect(explained(email)).toBe('Le lien d’activation part à cette adresse. Adresse e-mail invalide.')
   await user.type(email, '@example.test')
   expect(email.hasAttribute('aria-invalid')).toBe(false)
-  expect(described(email)).toBe('Le lien d’activation part à cette adresse.')
+  expect(explained(email)).toBe('Le lien d’activation part à cette adresse.')
   expect(name.getAttribute('aria-invalid')).toBe('true')
   expect(calls.some((c) => c.method === 'POST' && c.url.includes('/api/operators'))).toBe(false)
 })
@@ -787,4 +794,32 @@ test('the status filter keeps the disabled operators only', async () => {
   await screen.findByText('zed@example.test')
   expect(screen.queryByText('ada@example.test')).toBeNull()
   expect(screen.getByText('1 entrée affichée sur 3')).toBeDefined()
+})
+
+test('a status filter that keeps nobody tells no result, not an empty list', async () => {
+  stubFetch({ 'GET /api/auth/me': () => json(200, owner), 'GET /api/operators': () => json(200, [self, ada]) })
+  renderAt('/operators?status=disabled')
+  expect(await screen.findByText('Aucun résultat')).toBeDefined()
+})
+
+test('a role nobody holds any more is offered by name, and tells no result', async () => {
+  stubFetch({ 'GET /api/auth/me': () => json(200, owner), 'GET /api/operators': () => json(200, [self, ada]) })
+  renderAt('/operators?role=r-gone')
+  expect(await screen.findByText('Aucun résultat')).toBeDefined()
+  expect(screen.getByRole('combobox', { name: 'Rôle' }).textContent).toContain('Rôle sans détenteur')
+  expect(screen.queryByText('r-gone')).toBeNull()
+})
+
+test('the roles offered by the filter are sorted and each told once', async () => {
+  const bea = { ...ada, id: 'o-bea', email: 'bea@example.test', displayName: 'Bea', roles: [support, audit] }
+  stubFetch({ 'GET /api/auth/me': () => json(200, owner), 'GET /api/operators': () => json(200, [ada, bea, self]) })
+  renderAt('/operators')
+  await screen.findByText('bea@example.test')
+  await userEvent.setup().click(screen.getByRole('combobox', { name: 'Rôle' }))
+  expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual([
+    'Tous',
+    'Audit',
+    'Propriétaire',
+    'Support',
+  ])
 })

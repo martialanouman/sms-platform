@@ -99,8 +99,12 @@ export const cached = (queryClient: QueryClient) =>
       .map((q) => q.state.data),
   )
 
-export const explained = (button: HTMLElement) =>
-  document.getElementById(button.getAttribute('aria-describedby') ?? '')?.textContent
+export const explained = (control: HTMLElement) =>
+  control
+    .getAttribute('aria-describedby')
+    ?.split(' ')
+    .map((id) => document.getElementById(id)?.textContent)
+    .join(' ')
 
 export const noSession = () => json(401, { code: 'unauthenticated', message: 'Aucune session ouverte.' })
 
