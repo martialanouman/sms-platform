@@ -545,8 +545,7 @@
 
 .ui-table__caption,
 .ui-loading__label,
-.ui-visually-hidden,
-.page__note:empty {
+.ui-visually-hidden {
   position: absolute;
   overflow: hidden;
   width: 1px;
@@ -568,11 +567,6 @@
   box-shadow: var(--shadow-3);
   color: var(--text-primary);
   font: var(--text-caption);
-}
-
-.page__note {
-  margin: 0;
-  color: var(--text-secondary);
 }
 
 .ui-table {
@@ -1401,6 +1395,12 @@ button.ui-tabs__tab {
   width: auto;
   height: var(--control-height-sm);
   font-size: var(--fs-12);
+}
+
+.ui-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
 }
 
 .ui-chip {

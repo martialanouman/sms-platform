@@ -3,10 +3,12 @@ import { createFileRoute } from '@tanstack/react-router'
 import { type FormEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import { api, json, unreachable } from '../api'
 import type { components } from '../api.gen'
+import { NoResults, text, useClosedOn } from '../list'
 import { operatorsQuery, rolesQuery } from '../queries'
-import { meQuery, Refused, Unauthenticated, useSessionClosed, useShellMe } from '../session'
+import { meQuery, Refused, useShellMe } from '../session'
 import {
   Button,
+  Card,
   Choice,
   Choices,
   Confirmation,
@@ -20,29 +22,41 @@ import {
   needs,
   OperatorCell,
   PageHeader,
+  Select,
+  StatusPill,
   useSubmission,
+  useToast,
 } from '../ui'
 
 type Operator = components['schemas']['Operator']
+type OperatorStatus = Operator['status']
+type OperatorsSearch = { status?: OperatorStatus; role?: string }
 
-export const Route = createFileRoute('/_shell/operators')({ component: Operators })
+export const Route = createFileRoute('/_shell/operators')({
+  validateSearch: (s: Record<string, unknown>): OperatorsSearch => ({
+    status: s.status === 'active' || s.status === 'disabled' ? s.status : undefined,
+    role: text(s.role),
+  }),
+  component: Operators,
+})
 
-function status(o: Operator) {
-  if (o.status === 'disabled') {
-    return 'Désactivé'
+const statuses = [
+  { value: '', label: 'Tous' },
+  { value: 'active', label: 'Actifs' },
+  { value: 'disabled', label: 'Désactivés' },
+]
+
+function Status({ operator }: { operator: Operator }) {
+  if (operator.status === 'disabled') {
+    return <StatusPill tone="neutral">Désactivé</StatusPill>
   }
-  const link = o.accessLink
-  if (!link) {
-    return 'Actif'
+  if (operator.accessLink?.state === 'failed') {
+    return <StatusPill tone="warn">Envoi en échec</StatusPill>
   }
-  if (link.state === 'failed') {
-    return 'Envoi en échec'
-  }
-  if (link.state === 'sent') {
-    return 'Lien envoyé'
-  }
-  return link.kind === 'activation' ? 'Activation en attente' : 'Envoi en attente'
+  return <StatusPill tone="ok">Actif</StatusPill>
 }
+
+const shown = (n: number, total: number) => `${n} ${n === 1 ? 'entrée affichée' : 'entrées affichées'} sur ${total}`
 
 type Pending = { kind: 'create' } | { kind: 'roles' | 'disable' | 'link'; operator: Operator }
 
@@ -51,17 +65,14 @@ function Operators() {
   const held = me.data?.permissions ?? []
   const readable = held.includes('operators:read')
   const operators = useQuery({ ...operatorsQuery, enabled: readable })
-  const closed = useSessionClosed()
-  useEffect(() => {
-    if (operators.error instanceof Unauthenticated) {
-      closed()
-    }
-  }, [operators.error, closed])
+  useClosedOn(operators.error)
+  const search = Route.useSearch()
+  const navigate = Route.useNavigate()
+  const notify = useToast()
   const writes = held.includes('operators:write')
   const writable = writes ? undefined : needs('operators:write')
   const readsRoles = held.includes('roles:read')
   const [pending, setPending] = useState<Pending>()
-  const [note, setNote] = useState('')
 
   const title = useRef<HTMLHeadingElement>(null)
   const wasReadable = useRef(readable)
@@ -75,6 +86,20 @@ function Operators() {
 
   const open = (p: Pending) => () => setPending(p)
   const dismiss = (p: Pending) => () => setPending((now) => (now === p ? undefined : now))
+  const filter = (next: OperatorsSearch) => void navigate({ search: { ...search, ...next } })
+  const clear = () => void navigate({ search: {} }).then(() => title.current?.focus())
+  const all = operators.data ?? []
+  const rows = all.filter(
+    (o) =>
+      (search.status === undefined || o.status === search.status) &&
+      (search.role === undefined || o.roles.some((r) => r.id === search.role)),
+  )
+  const roleFilters = [
+    { value: '', label: 'Tous' },
+    ...[...new Map(all.flatMap((o) => o.roles).map((r) => [r.id, r.name])).entries()]
+      .sort(([, a], [, b]) => a.localeCompare(b, 'fr'))
+      .map(([value, label]) => ({ value, label })),
+  ]
 
   return (
     <>
@@ -97,9 +122,20 @@ function Operators() {
       />
       {readable ? (
         <section className="page">
-          <p className="page__note" role="status">
-            {note}
-          </p>
+          <div className="ui-filters">
+            <Select
+              label="Statut"
+              items={statuses}
+              value={search.status ?? ''}
+              onChange={(status) => filter({ status: status === '' ? undefined : (status as OperatorStatus) })}
+            />
+            <Select
+              label="Rôle"
+              items={roleFilters}
+              value={search.role ?? ''}
+              onChange={(role) => filter({ role: role === '' ? undefined : role })}
+            />
+          </div>
           {operators.isPending ? (
             <LoadingState label="Chargement des opérateurs…" rows={3} />
           ) : operators.error ? (
@@ -110,72 +146,102 @@ function Operators() {
             >
               {operators.error instanceof Refused ? operators.error.message : unreachable}
             </ErrorState>
-          ) : operators.data.length === 0 ? (
+          ) : rows.length === 0 && (search.status !== undefined || search.role !== undefined) ? (
+            <NoResults clear={clear} />
+          ) : rows.length === 0 ? (
             <EmptyState title="Aucun opérateur" />
           ) : (
-            <DataTable
-              caption="Opérateurs du tableau de bord"
-              rows={operators.data}
-              rowKey={(o) => o.id}
-              columns={[
-                {
-                  header: 'Opérateur',
-                  cell: (o) => <OperatorCell name={o.displayName} email={o.email} />,
-                },
-                { header: 'Statut', cell: status },
-                {
-                  header: 'Rôles',
-                  cell: (o) => (o.roles.length > 0 ? o.roles.map((r) => r.name).join(', ') : 'Aucun rôle'),
-                },
-                {
-                  header: 'Second facteur',
-                  cell: (o) => (o.secondFactorEnrolled ? 'Configuré' : 'Aucun'),
-                },
-                {
-                  header: 'Actions',
-                  cell: (o) => (
-                    <div className="row-actions">
-                      <Button
-                        size="sm"
-                        blockedReason={
-                          writable ?? (readsRoles ? undefined : needs('roles:read', 'La liste des rôles à attribuer'))
-                        }
-                        onClick={open({ kind: 'roles', operator: o })}
-                      >
-                        Modifier les rôles
-                      </Button>
-                      <Status
-                        operator={o}
-                        blockedReason={
-                          writable ??
-                          (o.id === me.data?.operator.id
-                            ? 'Le compte de la session ne se désactive pas ici : un autre détenteur de operators:write peut le faire.'
-                            : undefined)
-                        }
-                        onDisable={open({ kind: 'disable', operator: o })}
-                      />
-                      <Button
-                        size="sm"
-                        blockedReason={
-                          writable ??
-                          (o.status === 'disabled'
-                            ? 'Le compte est désactivé : réactivez-le avant d’envoyer un lien.'
-                            : undefined)
-                        }
-                        onClick={open({ kind: 'link', operator: o })}
-                      >
-                        Envoyer un lien
-                      </Button>
-                    </div>
-                  ),
-                },
-              ]}
-            />
+            <Card
+              flush
+              footer={
+                <div className="ui-pager">
+                  <span>{shown(rows.length, all.length)}</span>
+                </div>
+              }
+            >
+              <DataTable
+                caption="Opérateurs du tableau de bord"
+                rows={rows}
+                rowKey={(o) => o.id}
+                columns={[
+                  {
+                    header: 'Opérateur',
+                    cell: (o) => <OperatorCell name={o.displayName} email={o.email} />,
+                  },
+                  { header: 'Statut', cell: (o) => <Status operator={o} /> },
+                  {
+                    header: 'Rôles',
+                    cell: (o) =>
+                      o.roles.length > 0 ? (
+                        <span className="ui-chips">
+                          {o.roles.map((r) => (
+                            <span className="ui-chip" key={r.id}>
+                              {r.name}
+                            </span>
+                          ))}
+                        </span>
+                      ) : (
+                        <span className="ui-muted">Aucun rôle</span>
+                      ),
+                  },
+                  {
+                    header: 'Second facteur',
+                    cell: (o) =>
+                      o.secondFactorEnrolled ? (
+                        <StatusPill tone="ok">Enrôlé</StatusPill>
+                      ) : (
+                        <StatusPill tone="neutral">Aucun</StatusPill>
+                      ),
+                  },
+                  {
+                    header: 'Actions',
+                    cell: (o) => (
+                      <div className="row-actions">
+                        <Button
+                          size="sm"
+                          blockedReason={
+                            writable ?? (readsRoles ? undefined : needs('roles:read', 'La liste des rôles à attribuer'))
+                          }
+                          onClick={open({ kind: 'roles', operator: o })}
+                        >
+                          Rôles
+                        </Button>
+                        <Button
+                          size="sm"
+                          blockedReason={
+                            writable ??
+                            (o.status === 'disabled'
+                              ? 'Le compte est désactivé : réactivez-le avant d’envoyer un lien.'
+                              : undefined)
+                          }
+                          onClick={open({ kind: 'link', operator: o })}
+                        >
+                          {o.activated ? 'Réinitialiser l’accès' : 'Renvoyer l’activation'}
+                        </Button>
+                        <Toggle
+                          operator={o}
+                          onEnabled={() => notify(`${o.displayName} réactivé.`)}
+                          blockedReason={
+                            writable ??
+                            (o.id === me.data?.operator.id
+                              ? 'Le compte de la session ne se désactive pas ici : un autre détenteur de operators:write peut le faire.'
+                              : undefined)
+                          }
+                          onDisable={open({ kind: 'disable', operator: o })}
+                        />
+                      </div>
+                    ),
+                  },
+                ]}
+              />
+            </Card>
           )}
           {pending?.kind === 'create' && (
             <Creation
               onClose={dismiss(pending)}
-              onCreated={(email) => setNote(`Compte créé. Le lien d’activation part à ${email} ; il vaut 72 heures.`)}
+              onCreated={(o) =>
+                notify(`Opérateur ${o.displayName} créé. Le lien d’activation part à ${o.email} ; il vaut 72 heures.`)
+              }
             />
           )}
           {pending?.kind === 'roles' && (
@@ -183,10 +249,29 @@ function Operators() {
               operator={pending.operator}
               self={pending.operator.id === me.data?.operator.id}
               onClose={dismiss(pending)}
+              onSaved={() => notify(`Rôles de ${pending.operator.displayName} enregistrés.`)}
             />
           )}
-          {pending?.kind === 'disable' && <Disable operator={pending.operator} onClose={dismiss(pending)} />}
-          {pending?.kind === 'link' && <AccessLink operator={pending.operator} onClose={dismiss(pending)} />}
+          {pending?.kind === 'disable' && (
+            <Disable
+              operator={pending.operator}
+              onClose={dismiss(pending)}
+              onDone={() => notify(`${pending.operator.displayName} désactivé.`)}
+            />
+          )}
+          {pending?.kind === 'link' && (
+            <AccessLink
+              operator={pending.operator}
+              onClose={dismiss(pending)}
+              onDone={() =>
+                notify(
+                  pending.operator.activated
+                    ? `Lien de réinitialisation envoyé à ${pending.operator.email}.`
+                    : `Lien d’activation renvoyé à ${pending.operator.email}.`,
+                )
+              }
+            />
+          )}
         </section>
       ) : (
         <section className="page">
@@ -202,19 +287,20 @@ function Operators() {
   )
 }
 
-function Creation({ onClose, onCreated }: { onClose: () => void; onCreated: (email: string) => void }) {
+function Creation({ onClose, onCreated }: { onClose: () => void; onCreated: (operator: Operator) => void }) {
   const queryClient = useQueryClient()
   const { submit, waiting, refusal, describedBy } = useSubmission()
   const [email, setEmail] = useState('')
   const [displayName, setDisplayName] = useState('')
   const form = useId()
+  const hint = useId()
 
   async function create(event: FormEvent) {
     event.preventDefault()
     const outcome = await submit(() => api.POST('/operators', { body: { email, displayName }, headers: json }))
     if (outcome.failure === undefined) {
       void queryClient.invalidateQueries({ queryKey: operatorsQuery.queryKey })
-      onCreated(outcome.data.email)
+      onCreated(outcome.data)
       onClose()
     }
   }
@@ -227,26 +313,13 @@ function Creation({ onClose, onCreated }: { onClose: () => void; onCreated: (ema
         <>
           <Button onClick={onClose}>Annuler</Button>
           <Button variant="primary" type="submit" form={form} loading={waiting}>
-            Créer l’opérateur
+            Créer et inviter
           </Button>
         </>
       }
     >
       <form className="form" id={form} onSubmit={create}>
-        <p>
-          Le compte naît actif, sans rôle ni mot de passe : son titulaire le définit par un lien d’activation reçu par
-          e-mail, puis enrôle son second facteur. L’action est enregistrée dans le journal d’audit.
-        </p>
         {refusal}
-        <Field
-          label="Adresse e-mail"
-          type="email"
-          required
-          autoComplete="off"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          aria-describedby={describedBy}
-        />
         <Field
           label="Nom affiché"
           required
@@ -254,12 +327,41 @@ function Creation({ onClose, onCreated }: { onClose: () => void; onCreated: (ema
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
         />
+        <div>
+          <Field
+            label="Adresse e-mail"
+            className="ui-input ui-mono"
+            type="email"
+            required
+            autoComplete="off"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            aria-describedby={describedBy ? `${hint} ${describedBy}` : hint}
+          />
+          <p className="ui-why" id={hint}>
+            Le lien d’activation part à cette adresse.
+          </p>
+        </div>
+        <p>
+          L’opérateur naît sans rôle : attribuez-les ensuite par « Rôles » dans la liste. La création est enregistrée
+          dans le journal d’audit.
+        </p>
       </form>
     </Modal>
   )
 }
 
-function Roles({ operator, self, onClose }: { operator: Operator; self: boolean; onClose: () => void }) {
+function Roles({
+  operator,
+  self,
+  onClose,
+  onSaved,
+}: {
+  operator: Operator
+  self: boolean
+  onClose: () => void
+  onSaved: () => void
+}) {
   const queryClient = useQueryClient()
   const roles = useQuery(rolesQuery)
   const [chosen, setChosen] = useState(operator.roles.map((r) => r.id))
@@ -278,6 +380,7 @@ function Roles({ operator, self, onClose }: { operator: Operator; self: boolean;
       if (self) {
         void queryClient.invalidateQueries({ queryKey: meQuery.queryKey })
       }
+      onSaved()
       onClose()
     }
   }
@@ -297,7 +400,7 @@ function Roles({ operator, self, onClose }: { operator: Operator; self: boolean;
             }
             onClick={() => void save()}
           >
-            Enregistrer les rôles
+            Enregistrer
           </Button>
         </>
       }
@@ -314,11 +417,7 @@ function Roles({ operator, self, onClose }: { operator: Operator; self: boolean;
       {roles.isPending && <LoadingState label="Chargement des rôles…" rows={2} line />}
       {roles.data && (
         <fieldset className="role-choice">
-          <legend>Rôles</legend>
-          <p>
-            Les permissions s’additionnent : l’opérateur détient l’union de ses rôles, dès sa prochaine requête.
-            L’action est enregistrée dans le journal d’audit.
-          </p>
+          <legend>Rôles détenus</legend>
           <Choices value={chosen} onChange={setChosen}>
             {roles.data.map((r) => (
               <Choice value={r.id} key={r.id}>
@@ -326,15 +425,20 @@ function Roles({ operator, self, onClose }: { operator: Operator; self: boolean;
               </Choice>
             ))}
           </Choices>
+          <p>L’action est enregistrée dans le journal d’audit.</p>
         </fieldset>
       )}
     </Modal>
   )
 }
 
-function Disable({ operator, onClose }: { operator: Operator; onClose: () => void }) {
+function Disable({ operator, onClose, onDone }: { operator: Operator; onClose: () => void; onDone: () => void }) {
   return (
     <Confirmation
+      onDone={() => {
+        onDone()
+        onClose()
+      }}
       invalidate={operatorsQuery.queryKey}
       title={`Désactiver ${operator.displayName} ?`}
       action="Désactiver"
@@ -356,21 +460,20 @@ function Disable({ operator, onClose }: { operator: Operator; onClose: () => voi
   )
 }
 
-function AccessLink({ operator, onClose }: { operator: Operator; onClose: () => void }) {
-  const kind = operator.accessLink?.kind ?? 'unknown'
-  const title = {
-    activation: `Envoyer un lien d’activation à ${operator.displayName} ?`,
-    reset: `Envoyer un lien de réinitialisation à ${operator.displayName} ?`,
-    unknown: `Envoyer un lien à ${operator.displayName} ?`,
-  }[kind]
-  const effect = {
-    activation: `Un lien d’activation sera envoyé à ${operator.email} ; il restera valable 72 heures.`,
-    reset: `Un lien de réinitialisation sera envoyé à ${operator.email} ; il restera valable 1 heure. Son mot de passe, son second facteur et ses sessions resteront valables jusqu’à son usage. À l’usage, l’opérateur définira un nouveau mot de passe, son second facteur sera retiré et ses sessions seront fermées.`,
-    unknown: `${operator.email} recevra un lien à usage unique : activation (72 h) si le compte n’a pas encore de mot de passe, réinitialisation (1 h) sinon.`,
-  }[kind]
+function AccessLink({ operator, onClose, onDone }: { operator: Operator; onClose: () => void; onDone: () => void }) {
+  const title = operator.activated
+    ? `Envoyer un lien de réinitialisation à ${operator.displayName} ?`
+    : `Envoyer un lien d’activation à ${operator.displayName} ?`
+  const effect = operator.activated
+    ? `Un lien de réinitialisation sera envoyé à ${operator.email} ; il restera valable 1 heure. Son mot de passe, son second facteur et ses sessions resteront valables jusqu’à son usage. À l’usage, l’opérateur définira un nouveau mot de passe, son second facteur sera retiré et ses sessions seront fermées.`
+    : `Un lien d’activation sera envoyé à ${operator.email} ; il restera valable 72 heures.`
 
   return (
     <Confirmation
+      onDone={() => {
+        onDone()
+        onClose()
+      }}
       invalidate={operatorsQuery.queryKey}
       title={title}
       action="Envoyer"
@@ -387,14 +490,16 @@ function AccessLink({ operator, onClose }: { operator: Operator; onClose: () => 
   )
 }
 
-function Status({
+function Toggle({
   operator,
   blockedReason,
   onDisable,
+  onEnabled,
 }: {
   operator: Operator
   blockedReason?: ReactNode
   onDisable: () => void
+  onEnabled: () => void
 }) {
   const queryClient = useQueryClient()
   const { submit, waiting, refusal } = useSubmission()
@@ -410,6 +515,7 @@ function Status({
     )
     if (outcome.failure === undefined) {
       void queryClient.invalidateQueries({ queryKey: operatorsQuery.queryKey })
+      onEnabled()
     }
   }
 
