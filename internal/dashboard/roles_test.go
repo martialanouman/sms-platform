@@ -100,3 +100,11 @@ func TestDefaultRolesHoldOnlyGeneratedPermissions(t *testing.T) {
 		}
 	}
 }
+
+func TestEveryDefaultRoleThatReadsTheTrafficReadsItsStream(t *testing.T) {
+	for _, r := range dashboard.DefaultRoles() {
+		if slices.Contains(r.Permissions, "traffic:read") && !slices.Contains(r.Permissions, "stream:read") {
+			t.Errorf("%s reads the traffic without its stream", r.Name)
+		}
+	}
+}

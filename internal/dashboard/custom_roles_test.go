@@ -163,3 +163,21 @@ func TestOnlyACustomRoleNobodyHoldsIsDeleted(t *testing.T) {
 		t.Fatalf("deleted twice: %v", err)
 	}
 }
+
+func TestARoleThatReadsTheTrafficReadsItsStreamToo(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	actor := h.actor(t)
+	created, err := h.svc.CreateRole(ctx, actor, "Trafic", "", []string{"traffic:read"})
+	if err != nil || !slices.Equal(created.Permissions, []string{"stream:read", "traffic:read"}) {
+		t.Fatalf("created %+v, %v", created, err)
+	}
+	updated, err := h.svc.UpdateRole(ctx, actor, created.ID, "", []string{"cdr:read", "traffic:read"})
+	if err != nil || !slices.Equal(updated.Permissions, []string{"cdr:read", "stream:read", "traffic:read"}) {
+		t.Fatalf("updated %+v, %v", updated, err)
+	}
+	alone, err := h.svc.UpdateRole(ctx, actor, created.ID, "", []string{"stream:read"})
+	if err != nil || !slices.Equal(alone.Permissions, []string{"stream:read"}) {
+		t.Fatalf("a stream alone stays alone: %+v, %v", alone, err)
+	}
+}
