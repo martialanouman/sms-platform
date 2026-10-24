@@ -72,3 +72,25 @@ et au focus, les dix sensibles étiquetées ; cocher Trafic › Lire coche et fi
   §8.5 et jamais vu échouer, tombe.
 - **Rôles déjà en base** : ceux qui portent `traffic:read` sans `stream:read` ne sont pas réalignés ; ils le seront à
   leur prochaine écriture. Aucun rattrapage (433) : pas de production, contabo169 se réinitialise.
+
+## Preuve sur contabo169
+
+2026-10-24, image construite depuis la branche, déploiement automatique suspendu le temps de la preuve. Compte de
+preuve `ada.preuve` (Propriétaire) : lien de réinitialisation, mot de passe et second facteur neufs, session élevée ;
+identifiants gardés dans le scratchpad puis effacés.
+
+- Liste : carte, noms en boutons, étiquettes de type, nombres, Supprimer figé sauf pour un rôle personnalisé sans
+  détenteur, pied « 11 rôles » ; axe sans violation, aucun `[title]` (`01-roles.png`).
+- Création : Nom, Description, groupes sur trois colonnes dans l'ordre de la maquette, Lire puis Modifier puis le verbe
+  particulier, étiquettes « sensible » à côté de leur libellé (`02-nouveau-role.png`).
+- Trafic › Lire cochée : Temps réel cochée, figée et grisée, bulle « stream:read · compris avec la lecture du trafic »
+  au survol (`03-trafic-temps-reel.png`). Rôle « Recouvrement » créé avec la seule case Trafic : toast « Rôle
+  Recouvrement créé. » (`04-toast-creation.png`), et en base `{stream:read,traffic:read}`.
+- Fiche du rôle par défaut Propriétaire : modale en lecture seule, ligne « Les rôles par défaut ne se modifient pas :
+  chaque déploiement les réécrit. », pied « Fermer » seul ; axe sans violation (`05-role-par-defaut.png`).
+- Suppression de « Recouvrement » : confirmation (`06-supprimer.png`). Le clic de confirmation n'a pas été rejoué
+  dans le navigateur (la suppression, son toast et le focus sont prouvés par les tests) ; le rôle reste sur
+  contabo169.
+- Pendant la preuve : « 11 rôles » collait au bord de la carte (pied passé à `.ui-pager`) ; la bulle d'une permission
+  se centrait sur toute la largeur de l'option et une case figée ne se voyait pas figée (option à la largeur de son
+  libellé, case figée grisée).
