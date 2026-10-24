@@ -45,7 +45,7 @@ func TestAnElevatedOwnerManagesOperators(t *testing.T) {
 	created := a.do(t, call{method: "POST", path: "/api/operators", cookie: c, body: `{"email":"Ada@example.test","displayName":"Ada"}`})
 	link, _ := created.body["accessLink"].(map[string]any)
 	if created.status != 201 || created.body["email"] != "ada@example.test" || created.body["displayName"] != "Ada" || created.body["status"] != "active" ||
-		fmt.Sprint(created.body["roles"]) != "[]" || created.body["secondFactorEnrolled"] != false || link["kind"] != "activation" || link["state"] != "queued" {
+		fmt.Sprint(created.body["roles"]) != "[]" || created.body["secondFactorEnrolled"] != false || created.body["activated"] != false || link["kind"] != "activation" || link["state"] != "queued" {
 		t.Fatalf("create: %d %s", created.status, created.raw)
 	}
 	id := created.body["id"].(string)
@@ -95,7 +95,7 @@ func TestAnElevatedOwnerManagesOperators(t *testing.T) {
 	}
 	list := a.do(t, call{method: "GET", path: "/api/operators", cookie: c})
 	if list.status != 200 || !strings.Contains(list.raw, `"email":"ada@example.test"`) || !strings.Contains(list.raw, `"email":"owner@example.test"`) ||
-		strings.Count(list.raw, `"secondFactorEnrolled":true`) != 1 || !strings.Contains(list.raw, `"accessLink":null`) {
+		strings.Count(list.raw, `"secondFactorEnrolled":true`) != 1 || strings.Count(list.raw, `"activated":true`) != 1 || !strings.Contains(list.raw, `"accessLink":null`) {
 		t.Fatalf("list: %d %s", list.status, list.raw)
 	}
 }

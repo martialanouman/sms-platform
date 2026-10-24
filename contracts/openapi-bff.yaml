@@ -980,12 +980,13 @@ components:
         status: { type: string, enum: [active, disabled] }
         roles: { type: array, items: { $ref: '#/components/schemas/RoleRef' } }
         secondFactorEnrolled: { type: boolean, description: 'A secret set, even unconfirmed, or a passkey; what a reset link would remove.' }
+        activated: { type: boolean, description: 'A password set; an access link for this operator is then a reset, otherwise an activation.' }
         accessLink:
           description: Null when no link is queued or awaiting use.
           oneOf:
             - $ref: '#/components/schemas/AccessLink'
             - type: "null"
-      required: [id, email, displayName, status, roles, secondFactorEnrolled, accessLink]
+      required: [id, email, displayName, status, roles, secondFactorEnrolled, activated, accessLink]
 
     AccessLink:
       type: object

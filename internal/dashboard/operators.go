@@ -49,6 +49,7 @@ type OperatorRecord struct {
 	Active       bool
 	Roles        []RoleRef
 	SecondFactor bool
+	Activated    bool
 	Link         *LinkState
 }
 

@@ -209,6 +209,7 @@ SELECT o.id::text AS id, o.email, o.display_name, o.status = 'active' AS active,
     WHERE x.operator_id = o.id), '{}')::text[] AS role_names,
   (EXISTS (SELECT 1 FROM dashboard.totp_factors f WHERE f.operator_id = o.id)
     OR EXISTS (SELECT 1 FROM dashboard.webauthn_credentials w WHERE w.operator_id = o.id))::bool AS second_factor,
+  (o.password_hash IS NOT NULL)::bool AS activated,
   coalesce(l.kind, '')::text AS link_kind,
   (CASE
     WHEN l.operator_id IS NULL THEN ''

@@ -100,7 +100,7 @@ func TestTheAuditDirectoryNamesEveryOperatorAndNothingMore(t *testing.T) {
 	if fmt.Sprint(status) != "map[ada@example.test Ada:disabled owner@example.test owner@example.test:active]" {
 		t.Errorf("directory %s", got.raw)
 	}
-	for _, leak := range []string{"roles", "accessLink", "secondFactorEnrolled"} {
+	for _, leak := range []string{"roles", "accessLink", "secondFactorEnrolled", "activated"} {
 		if strings.Contains(got.raw, leak) {
 			t.Errorf("directory %s leaks %s", got.raw, leak)
 		}
