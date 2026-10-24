@@ -144,3 +144,39 @@ Deux revues en lecture seule.
 9. **Tests** : « aucun toast » lit la région Notifications, qui doit exister (`getByRole`, `toHaveLength(0)`).
 10. **Tests** : colonne `textContent` vide retirée des types de bind ; requêtes en double retirées.
 11. **Tests** : « sends REST alone » corrigé en une boucle sur les deux canaux ; cast inutile retiré.
+
+## Revue, tour 2
+
+Relecture des onze correctifs : aucun défaut introduit.
+
+## Preuve dans le navigateur
+
+Sur contabo169, `Propriétaire` (compte de preuve), image du dashboard construite depuis la branche, fenêtre
+1440 × 960 ; comptes de preuve `preuve-014c-2` et `preuve-014c-2b` créés sous Arolitec puis supprimés. Captures dans
+`docs/steps/014c-2/`.
+
+- index : `/accounts/{id}` mène à `/credentials` ; en-tête de la maquette (fil d'Ariane Clients › Arolitec ›
+  `preuve-014c-2`, titre mono, pilule, « Compte de Arolitec · créé le … · Renommer », actions) ;
+- Canaux : REST coupé à la barre d'espace, sans modale ; toast « Canal REST désactivé. », focus sur la bascule ;
+  SMPP aussitôt figé, sa raison « Au moins un canal reste activé. » seule en `aria-describedby` ; REST rallumé ;
+- Opérations SMPP : `cancel_sm` basculé, confirmation « Interdire cancel_sm » ; Annuler n'envoie rien et la bascule
+  garde sa valeur ; confirmé, « cancel_sm interdit. » ;
+- Sessions : `max_sessions` 4 et « Émetteur » ajouté, « Limites de session enregistrées. », aside « limite 4 » ;
+  « Binds vivants » en module désactivé ;
+- Webhooks : l'onglet rend le composant existant ;
+- Suspendre : toast, pilule ambre, focus gardé, bascules libres ; Clôturer : Renommer, Suspendre, Réactiver,
+  Clôturer et les quatre bascules figés par « Fermé définitivement. », Supprimer libre ; Supprimer : retour sur la
+  fiche client, focus sur son titre, toast « Compte preuve-014c-2 supprimé. » ;
+- aucun attribut `title` ; axe (WCAG 2.1 AA) sur les quatre onglets et la fiche client : aucune violation après les
+  deux correctifs ci-dessous.
+
+Deux défauts que le DOM de test ne voit pas, trouvés par la preuve et corrigés (rouge lu, puis vert) :
+
+- `link-in-text-block` (axe, sérieux) : le lien du client dans la ligne méta ne se distinguait que par la couleur ;
+  `.page-header__meta a` est souligné (`styles.test.ts`) ;
+- libellé et terme d'un type de bind éclatés sur deux lignes : la grille de `.role-choice__option` plaçait le texte
+  et le `span` mono dans des cellules distinctes ; ils sont enveloppés dans un seul `span` (test : le terme a un
+  `span` pour parent ; rouge sans le correctif).
+
+Reste visible, sans défaut : le champ `max_sessions` occupe la largeur de la carte, là où la maquette le borne ;
+les cartes suivent la grille `.ui-cards` du kit plutôt que la colonne de 340 px de la maquette.
