@@ -10,6 +10,36 @@ import (
 	"time"
 )
 
+const countCustomers = `-- name: CountCustomers :one
+SELECT count(*) FROM control_plane.customers
+WHERE ($1::uuid IS NULL OR group_id = $1)
+  AND ($2::text IS NULL OR status = $2)
+`
+
+type CountCustomersParams struct {
+	GroupID *string
+	Status  *string
+}
+
+func (q *Queries) CountCustomers(ctx context.Context, db DBTX, arg CountCustomersParams) (int64, error) {
+	row := db.QueryRow(ctx, countCustomers, arg.GroupID, arg.Status)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countGroups = `-- name: CountGroups :one
+SELECT count(*) FROM control_plane.customer_groups g
+WHERE $1::text IS NULL OR g.status = $1
+`
+
+func (q *Queries) CountGroups(ctx context.Context, db DBTX, status *string) (int64, error) {
+	row := db.QueryRow(ctx, countGroups, status)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createCustomer = `-- name: CreateCustomer :one
 INSERT INTO control_plane.customers (name, group_id, max_age_otp, max_age_transactional, max_age_marketing)
 VALUES ($1, $2, $3, $4, $5)

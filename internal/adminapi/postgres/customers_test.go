@@ -28,6 +28,7 @@ type customerBody struct {
 type customerPage struct {
 	Data       []customerBody `json:"data"`
 	NextCursor *string        `json:"next_cursor"`
+	Total      *int           `json:"total"`
 }
 
 func (g gateway) createCustomer(t *testing.T, body string) customerBody {
@@ -142,12 +143,20 @@ func TestCustomersAreFilteredByGroupAndStatusAndPaged(t *testing.T) {
 	names := func(path string) []string {
 		var out []string
 		cursor := ""
+		totals := map[int]bool{}
 		for range 5 {
 			p := as[customerPage](t, g.send(t, http.MethodGet, path+"&limit=1&cursor="+cursor, "customers:read", ""), http.StatusOK)
+			if p.Total == nil {
+				t.Fatalf("%s: no total", path)
+			}
+			totals[*p.Total] = true
 			for _, c := range p.Data {
 				out = append(out, c.Name)
 			}
 			if p.NextCursor == nil {
+				if len(totals) != 1 || !totals[len(out)] {
+					t.Errorf("%s: totals %v for %d rows", path, totals, len(out))
+				}
 				return out
 			}
 			cursor = *p.NextCursor

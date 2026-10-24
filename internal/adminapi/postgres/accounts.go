@@ -8,6 +8,11 @@ import (
 	errs "github.com/martialanouman/sms-platform/internal/platform/errors"
 )
 
+func (t tx) CountAccounts(ctx context.Context, f adminapi.AccountFilter) (int, error) {
+	n, err := queries.CountAccounts(ctx, t.db, sqlc.CountAccountsParams{CustomerID: f.CustomerID, GroupID: f.GroupID, Status: f.Status})
+	return int(n), err
+}
+
 func (t tx) Accounts(ctx context.Context, f adminapi.AccountFilter, after *adminapi.Key, limit int) ([]adminapi.Account, error) {
 	p := sqlc.AccountsParams{CustomerID: f.CustomerID, GroupID: f.GroupID, Status: f.Status, Lim: int64(limit)}
 	if after != nil {

@@ -137,6 +137,24 @@ func TestTheServedContractIsASubsetOfTheFile(t *testing.T) {
 	}
 }
 
+func TestTheCountedPagesAreServedWithTheirTotal(t *testing.T) {
+	want := map[string]bool{"list-customer-groups": true, "list-customers": true, "list-group-customers": true, "list-accounts": true}
+	for _, s := range servedOperations(t) {
+		if !want[s.op.OperationID] {
+			continue
+		}
+		delete(want, s.op.OperationID)
+		ok := s.op.Responses.Status(http.StatusOK)
+		body := ok.Value.Content.Get("application/json").Schema.Value
+		if !slices.Contains(body.Required, "total") || body.Properties["total"] == nil {
+			t.Errorf("%s: required %v", s.op.OperationID, body.Required)
+		}
+	}
+	if len(want) != 0 {
+		t.Errorf("not served: %v", want)
+	}
+}
+
 type memory struct {
 	mu      sync.Mutex
 	entries []adminapi.Entry

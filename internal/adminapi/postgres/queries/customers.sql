@@ -7,6 +7,10 @@ WHERE (sqlc.narg(status)::text IS NULL OR g.status = sqlc.narg(status))
 ORDER BY g.created_at DESC, g.id DESC
 LIMIT sqlc.arg(lim)::bigint;
 
+-- name: CountGroups :one
+SELECT count(*) FROM control_plane.customer_groups g
+WHERE sqlc.narg(status)::text IS NULL OR g.status = sqlc.narg(status);
+
 -- name: Group :one
 SELECT g.id, g.name, g.description, g.status, g.created_by, g.created_at, g.updated_at,
   (SELECT count(*) FROM control_plane.customers c WHERE c.group_id = g.id) AS member_count
@@ -35,6 +39,11 @@ WHERE (sqlc.narg(group_id)::uuid IS NULL OR group_id = sqlc.narg(group_id))
   AND (sqlc.narg(after_at)::timestamptz IS NULL OR (created_at, id) < (sqlc.narg(after_at), sqlc.narg(after_id)::uuid))
 ORDER BY created_at DESC, id DESC
 LIMIT sqlc.arg(lim)::bigint;
+
+-- name: CountCustomers :one
+SELECT count(*) FROM control_plane.customers
+WHERE (sqlc.narg(group_id)::uuid IS NULL OR group_id = sqlc.narg(group_id))
+  AND (sqlc.narg(status)::text IS NULL OR status = sqlc.narg(status));
 
 -- name: Customer :one
 SELECT id, name, status, group_id, max_age_otp, max_age_transactional, max_age_marketing, created_at, updated_at

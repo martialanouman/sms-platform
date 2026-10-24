@@ -136,6 +136,26 @@ func (q *Queries) Accounts(ctx context.Context, db DBTX, arg AccountsParams) ([]
 	return items, nil
 }
 
+const countAccounts = `-- name: CountAccounts :one
+SELECT count(*) FROM control_plane.accounts a JOIN control_plane.customers c ON c.id = a.customer_id
+WHERE ($1::uuid IS NULL OR a.customer_id = $1)
+  AND ($2::uuid IS NULL OR c.group_id = $2)
+  AND ($3::text IS NULL OR a.status = $3)
+`
+
+type CountAccountsParams struct {
+	CustomerID *string
+	GroupID    *string
+	Status     *string
+}
+
+func (q *Queries) CountAccounts(ctx context.Context, db DBTX, arg CountAccountsParams) (int64, error) {
+	row := db.QueryRow(ctx, countAccounts, arg.CustomerID, arg.GroupID, arg.Status)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createAccount = `-- name: CreateAccount :one
 INSERT INTO control_plane.accounts (customer_id, name, smpp_enabled, rest_enabled, query_sm_enabled, cancel_sm_enabled,
   allowed_bind_types, max_sessions)
