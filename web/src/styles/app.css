@@ -575,18 +575,6 @@
   color: var(--text-secondary);
 }
 
-.ui-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--sp-4);
-  min-height: var(--subbar-height);
-  padding: var(--sp-4) var(--sp-7);
-  border-bottom: 1px solid var(--border-default);
-  background: var(--surface-page);
-}
-
 .ui-table {
   width: 100%;
   border-collapse: collapse;

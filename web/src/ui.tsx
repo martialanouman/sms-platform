@@ -690,10 +690,6 @@ export function LoadingState({ label, rows, line }: { label: string; rows: numbe
   )
 }
 
-export function Toolbar({ children }: { children: ReactNode }) {
-  return <div className="ui-toolbar">{children}</div>
-}
-
 export function DataTable<Row>({
   caption,
   columns,
