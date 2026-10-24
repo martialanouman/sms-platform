@@ -58,7 +58,7 @@ export function Webhooks() {
   const path = (w: Webhook) => ({ params: { path: { id: account.id, webhook_id: w.id } } })
   const reveal = (secret: Shown) => {
     void queryClient.invalidateQueries({ queryKey: key })
-    setPending(undefined)
+    close()
     setShown({ secret, opener: pending?.opener ?? null })
   }
   const done = (text: string) => () => {

@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { type FormEvent, type ReactNode, useId, useState } from 'react'
-import { type Account, accountsKey } from './accounts'
+import { accountsKey, useAccount } from './accounts'
 import type { components } from './admin.gen'
 import { atMinute } from './audit'
 import { gw } from './gw'
@@ -65,7 +65,8 @@ const when = (iso: string | null) =>
 
 const mono = (text: string) => <span className="ui-mono">{text}</span>
 
-export function Credentials({ account }: { account: Account }) {
+export function Credentials() {
+  const { account } = useAccount()
   const me = useShellMe()
   const held = me.data?.permissions ?? []
   const key = [...accountsKey, account.id, 'credentials']
@@ -88,7 +89,7 @@ export function Credentials({ account }: { account: Account }) {
   const path = (c: Credential) => ({ params: { path: { id: account.id, credential_id: c.id } } })
   const reveal = (secret: Shown) => {
     void queryClient.invalidateQueries({ queryKey: key })
-    setPending(undefined)
+    close()
     setShown({ secret, opener: pending?.opener ?? null })
   }
   const done = (c: Credential, verb: string) => () => {
