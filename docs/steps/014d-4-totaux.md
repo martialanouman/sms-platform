@@ -42,3 +42,15 @@ le même sur toutes les pages ; le contrat Admin servi déclare `total` requis s
   COMMITTED ; une écriture entre les deux peut décaler le total d'une ligne, le temps d'une requête. Passer la
   transaction de lecture en REPEATABLE READ toucherait toutes les transactions d'admin-api-svc pour un écart passager
   et sans effet sur les données : non retenu.
+
+## Preuve sur contabo169
+
+2026-10-24, admin-api-svc et dashboard construits depuis la branche, déploiement automatique suspendu le temps de la
+preuve (un déploiement déjà en cours a d'abord remis admin-api-svc sur la version publiée ; redéployé). Compte de
+preuve `ada.preuve`, mot de passe et second facteur neufs, identifiants effacés ensuite.
+
+- API servie : `GET /admin/customers?limit=1` → une ligne, `next_cursor` posé, `total: 3` ; la page suivante → une
+  ligne, `total: 3`.
+- Pieds : Clients « 3 entrées affichées sur 3 » (`customers.png`), Comptes « 6 entrées affichées sur 6 »
+  (`accounts.png`), Groupes « 1 entrée affichée sur 1 » (`groups.png`) ; filtre `?status=active` sur Clients : « 1
+  entrée affichée sur 1 » (`customers-actifs.png`) ; axe sans violation.
