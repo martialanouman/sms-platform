@@ -97,7 +97,7 @@ test('the two cards show a filled credential as the mock-up, never a secret', as
   const smpp = await bindCard()
   const rest = await keyCard()
   expect(screen.queryByRole('heading', { name: 'Identifiants' })).toBeNull()
-  expect(value(smpp, 'system_id')?.innerHTML).toBe('<span class="ui-mono">acme01</span>')
+  expect(value(smpp, 'System ID')?.innerHTML).toBe('<span class="ui-mono">acme01</span>')
   expect(value(smpp, 'Dernière utilisation')?.firstElementChild?.className).toBe('ui-mono')
   expect(value(smpp, 'Dernière utilisation')?.textContent).toContain('22/10/2026')
   expect(value(smpp, 'Dernière rotation')?.firstElementChild?.className).toBe('ui-mono')
@@ -106,7 +106,7 @@ test('the two cards show a filled credential as the mock-up, never a secret', as
   expect(value(smpp, 'Ancien secret')?.querySelector('.ui-mono')?.textContent).toMatch(/^24\/10\/2099/)
   expect(value(smpp, 'Créé le')?.firstElementChild?.className).toBe('ui-mono ui-muted')
   expect(value(smpp, 'Créé le')?.textContent).toContain('12/10/2026')
-  expect(value(rest, 'system_id')).toBeUndefined()
+  expect(value(rest, 'System ID')).toBeUndefined()
   expect(value(rest, 'Ancien secret')).toBeUndefined()
   for (const label of ['Dernière utilisation', 'Dernière rotation']) {
     expect(value(rest, label)?.innerHTML).toBe('<span class="ui-muted">jamais</span>')
@@ -131,7 +131,7 @@ test('an expired grace is history: no old secret line, no expired date', async (
   stub([{ ...bind, grace_expires_at: '2026-01-02T12:00:00Z' }])
   renderAt(`/accounts/${api.id}/credentials`)
   const smpp = await bindCard()
-  expect(within(smpp).getByText('system_id')).toBeDefined()
+  expect(within(smpp).getByText('System ID')).toBeDefined()
   expect(value(smpp, 'Ancien secret')).toBeUndefined()
   expect(smpp.textContent).not.toContain('02/01/2026')
 })
@@ -181,7 +181,7 @@ test('a new SMPP bind asks its system_id alone, shows its password once, then th
   await user.click(within(await bindCard()).getByRole('button', { name: 'Créer un bind SMPP' }))
   const dialog = await screen.findByRole('dialog', { name: 'Nouveau bind SMPP' })
   expect(within(dialog).queryByRole('combobox')).toBeNull()
-  const field = within(dialog).getByRole('textbox', { name: 'system_id' }) as HTMLInputElement
+  const field = within(dialog).getByRole('textbox', { name: 'System ID' }) as HTMLInputElement
   expect([field.required, field.maxLength, field.pattern]).toEqual([true, 15, '[!-~]{1,15}'])
   expect(dialog.textContent).toContain('Le secret est généré par la passerelle et montré une seule fois.')
   await user.type(field, 'acme01')
@@ -189,7 +189,7 @@ test('a new SMPP bind asks its system_id alone, shows its password once, then th
   const once = await screen.findByRole('dialog', { name: 'Nouveau mot de passe' })
   expect(within(once).getByText('Ab3dEf7h')).toBeDefined()
   expect(value(once, 'Compte')?.innerHTML).toBe('<span class="ui-mono">api-acme</span>')
-  expect(value(once, 'system_id')?.innerHTML).toBe('<span class="ui-mono">acme01</span>')
+  expect(value(once, 'System ID')?.innerHTML).toBe('<span class="ui-mono">acme01</span>')
   expect(await sent(calls, 'POST')).toEqual({ type: 'smpp_bind', system_id: 'acme01' })
   await waitFor(() =>
     expect(within(screen.getByRole('region', { name: 'Bind SMPP', hidden: true })).getByText('acme01')).toBeDefined(),
@@ -218,7 +218,7 @@ test('a new API key is asked by its button alone and shown once, without a toast
   expect(screen.getAllByRole('dialog')).toHaveLength(1)
   expect(within(once).getByText(`smsgw_${'k'.repeat(43)}`)).toBeDefined()
   expect(value(once, 'Compte')?.textContent).toBe('api-acme')
-  expect(value(once, 'system_id')).toBeUndefined()
+  expect(value(once, 'System ID')).toBeUndefined()
   expect(await sent(calls, 'POST')).toEqual({ type: 'api_key' })
   expect(cached(queryClient)).not.toContain('smsgw_')
   await waitFor(() =>
@@ -237,9 +237,9 @@ test('a taken system_id and a closed account are said in the creation dialog', a
   renderAt(`/accounts/${api.id}/credentials`)
   await user.click(within(await bindCard()).getByRole('button', { name: 'Créer un bind SMPP' }))
   const dialog = await screen.findByRole('dialog', { name: 'Nouveau bind SMPP' })
-  await user.type(within(dialog).getByRole('textbox', { name: 'system_id' }), 'acme01')
+  await user.type(within(dialog).getByRole('textbox', { name: 'System ID' }), 'acme01')
   await user.click(within(dialog).getByRole('button', { name: 'Créer' }))
-  expect((await within(dialog).findByRole('alert')).textContent).toBe('Ce system_id est déjà pris.')
+  expect((await within(dialog).findByRole('alert')).textContent).toBe('Ce System ID est déjà pris.')
   answer = 422
   await user.click(within(dialog).getByRole('button', { name: 'Créer' }))
   expect(await within(dialog).findByText('Ce compte est fermé ou n’existe plus.')).toBeDefined()
@@ -328,7 +328,7 @@ test('a revoked card reads, only rotates, and its rotation has no grace', async 
   })
   renderAt(`/accounts/${api.id}/credentials`)
   const smpp = await bindCard()
-  expect(value(smpp, 'system_id')?.textContent).toBe('acme01')
+  expect(value(smpp, 'System ID')?.textContent).toBe('acme01')
   expect(value(smpp, 'Ancien secret')).toBeUndefined()
   expect(within(smpp).queryByRole('button', { name: /^Créer/ })).toBeNull()
   expect(explained(within(smpp).getByRole('button', { name: 'Activer' }))).toBe(
@@ -403,7 +403,7 @@ test('disabling or revoking a bind says what it does to its binds and its system
   renderAt(`/accounts/${api.id}/credentials`)
   await user.click(within(await bindCard()).getByRole('button', { name: 'Révoquer' }))
   expect((await screen.findByRole('alertdialog')).textContent).toContain(
-    'Le system_id acme01 reste réservé à ce compte.',
+    'Le System ID acme01 reste réservé à ce compte.',
   )
   await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Annuler' }))
   await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
