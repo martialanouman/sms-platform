@@ -59,3 +59,16 @@ et au focus, les dix sensibles étiquetées ; cocher Trafic › Lire coche et fi
   focus de la modale vers son ouvreur l'emporte, puis la ligne disparaît et le focus tombe sur `body`.
 - **Ordre envoyé** : `stream:read` suit `traffic:read` dans le corps ; le serveur trie (`generated()`).
 - **Nom en police courante** : `.ui-input--mono` n'avait plus d'appelant.
+- **Correctif de revue 1** : dans un groupe, les cases suivent l'ordre de la maquette — Lire, Modifier, puis le verbe
+  particulier — pour les rôles comme pour le jeton personnel ; le catalogue passe tel quel, le sélecteur ordonne.
+- **Correctif de revue 2** (révise 433 sur un point) : Temps réel n'est cochée et figée que si Trafic › Lire l'est ;
+  sinon c'est une case libre, et un `stream:read` coché seul n'est jamais retiré — décocher Trafic laisse Temps réel
+  cochée. L'écran suit ainsi le serveur, qui garde un `stream:read` seul tel quel ; avant, changer une autre case d'un
+  tel rôle lui retirait le temps réel sans bruit.
+- **Correctif de revue 3** : libellé et étiquette « sensible » dans un seul `span` ; la grille de l'option renvoyait
+  l'étiquette sous la case. L'espace du texte remplace la marge CSS.
+- **Correctif de revue 4** : `Hint` et `Explained` ne sont plus exportés ; `locked` vaut `!writes` ; le type d'un rôle
+  s'écrit une fois (`Kind`) ; le test « tout rôle par défaut au trafic porte `stream:read` », recouvert par la table de
+  §8.5 et jamais vu échouer, tombe.
+- **Rôles déjà en base** : ceux qui portent `traffic:read` sans `stream:read` ne sont pas réalignés ; ils le seront à
+  leur prochaine écriture. Aucun rattrapage (433) : pas de production, contabo169 se réinitialise.
