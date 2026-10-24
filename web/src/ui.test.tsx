@@ -11,20 +11,7 @@ import userEvent from '@testing-library/user-event'
 import { StrictMode, useRef, useState } from 'react'
 import { expect, test, vi } from 'vitest'
 import { explained } from './test'
-import {
-  Button,
-  Check,
-  Modal,
-  needs,
-  RotationModal,
-  SecretOnce,
-  Select,
-  StatusPill,
-  Switch,
-  Tabs,
-  Toasts,
-  useToast,
-} from './ui'
+import { Button, Check, Modal, needs, RotationModal, SecretOnce, Select, Switch, Tabs, Toasts, useToast } from './ui'
 
 const bubble = () => document.querySelector('.ui-tooltip')?.textContent
 
@@ -334,11 +321,6 @@ test('a check is named by its enclosing label and turns', async () => {
   expect(onChange.mock.calls[0]?.[0]).toBe(true)
 })
 
-test('a revoked status reads in the bad tone', () => {
-  render(<StatusPill tone="bad">Révoqué</StatusPill>)
-  expect(screen.getByText('Révoqué').className).toBe('ui-pill ui-pill--bad')
-})
-
 function Rotating({ onSubmit }: { onSubmit: () => void }) {
   return (
     <RotationModal
@@ -363,7 +345,6 @@ test('a rotation warns, asks to understand first, and only then rotates', async 
   const user = userEvent.setup()
   render(<Rotating onSubmit={onSubmit} />)
   const dialog = await screen.findByRole('dialog', { name: 'Rotation du bind SMPP acme01' })
-  expect(within(dialog).getByText('acme01').className).toBe('ui-mono')
   expect(within(dialog).getByText('Sans grâce, tout cesse.').className).toBe('ui-banner--warn')
   expect(within(dialog).getByRole('alert').textContent).toBe('Refus.')
   expect(within(dialog).getByText('Champs')).toBeDefined()

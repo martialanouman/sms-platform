@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
 import { atMinute } from '../audit'
-import { explained, json, me, once, renderAt, stubFetch, toasted, violations } from '../test'
+import { explained, json, me, noToast, once, renderAt, stubFetch, toasted, violations } from '../test'
 
 const reader = { ...me, permissions: ['customers:read', 'customer-groups:read'] }
 const writer = { ...reader, permissions: [...reader.permissions, 'customers:write'] }
@@ -389,5 +389,5 @@ test('a creation the gateway fails keeps the dialog open with the refusal, and t
   await user.click(within(dialog).getByRole('button', { name: 'Créer le client' }))
   expect(await within(dialog).findByRole('alert')).toBeDefined()
   expect(screen.getByRole('dialog', { name: 'Nouveau client' })).toBe(dialog)
-  expect(screen.getByRole('region', { name: 'Notifications' }).querySelectorAll('.ui-toast')).toHaveLength(0)
+  noToast()
 })

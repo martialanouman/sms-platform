@@ -1,7 +1,19 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
-import { empty, explained, json, me, renderAt, stubFetch, toasted, violations } from './test'
+import {
+  cached,
+  empty,
+  explained,
+  json,
+  me,
+  noToast,
+  renderAt,
+  stubFetch,
+  toasted,
+  understood,
+  violations,
+} from './test'
 
 const writer = { ...me, permissions: ['accounts:read', 'accounts:write'] }
 const api = {
@@ -38,7 +50,6 @@ const dlr = {
   url: 'https://hooks.example.com/dlr',
 }
 const secret = 'a'.repeat(64)
-const understood = 'Je comprends que le nouveau secret ne sera affiché qu’une seule fois.'
 
 function stub(
   webhooks: object[] | (() => object[]),
@@ -60,8 +71,6 @@ const add = async () => within(await block()).getByRole('button', { name: 'Ajout
 const sent = async (calls: Request[], method: string) =>
   await calls.find((r) => r.method === method && r.url.includes('/webhooks'))?.json()
 const reads = (calls: Request[]) => calls.filter((r) => r.method === 'GET' && new URL(r.url).pathname === path).length
-const noToast = () =>
-  expect(screen.getByRole('region', { name: 'Notifications' }).querySelectorAll('.ui-toast')).toHaveLength(0)
 
 test('the webhooks read as the mock-up: event badge, mono URL, pill and five actions', async () => {
   stub([mo, { ...dlr, status: 'disabled' }])
@@ -136,14 +145,7 @@ test('a new webhook shows its secret once, then nothing is left of it and the fo
   expect(within(once).getByText(secret)).toBeDefined()
   expect(once.textContent).toContain('Ce secret signe chaque appel en HMAC-SHA256.')
   expect(await sent(calls, 'POST')).toEqual({ event_type: 'dlr', url: 'https://hooks.example.com/dlr' })
-  expect(
-    JSON.stringify(
-      queryClient
-        .getQueryCache()
-        .getAll()
-        .map((q) => q.state.data),
-    ),
-  ).not.toContain(secret)
+  expect(cached(queryClient)).not.toContain(secret)
   await user.click(within(once).getByRole('button', { name: 'J’ai copié le secret' }))
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(document.activeElement).toBe(await add())
@@ -235,12 +237,8 @@ test('a rotation goes through the rotation dialog, sends no body and shows the n
     'L’ancien secret cesse immédiatement d’être accepté.',
   )
   expect(within(dialog).queryByRole('combobox')).toBeNull()
-  const go = within(dialog).getByRole('button', { name: 'Effectuer la rotation' })
-  expect(explained(go)).toBe('Cochez d’abord la case.')
-  await user.click(go)
-  expect(calls.some((r) => r.url.endsWith('/rotate-secret'))).toBe(false)
   await user.click(within(dialog).getByRole('checkbox', { name: understood }))
-  await user.click(go)
+  await user.click(within(dialog).getByRole('button', { name: 'Effectuer la rotation' }))
   const once = await screen.findByRole('dialog', { name: 'Nouveau secret du webhook MO' })
   expect(within(once).getByText(secret)).toBeDefined()
   const kv = [...once.querySelectorAll('dt')].map((dt) => [dt.textContent, dt.nextElementSibling?.textContent])

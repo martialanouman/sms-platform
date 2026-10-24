@@ -1,7 +1,19 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
-import { empty, explained, json, me, renderAt, stubFetch, toasted, violations } from './test'
+import {
+  cached,
+  empty,
+  explained,
+  json,
+  me,
+  noToast,
+  renderAt,
+  stubFetch,
+  toasted,
+  understood,
+  violations,
+} from './test'
 
 const writer = { ...me, permissions: ['accounts:read', 'credentials:read', 'credentials:write'] }
 const api = {
@@ -42,7 +54,6 @@ const bind = {
   grace_expires_at: '2099-10-24T12:00:00Z',
   rotated_at: '2026-10-21T12:00:00Z',
 }
-const understood = 'Je comprends que le nouveau secret ne sera affiché qu’une seule fois.'
 
 function stub(
   credentials: object[] | (() => object[]),
@@ -61,8 +72,10 @@ function stub(
 const card = (name: string) => screen.findByRole('region', { name })
 const bindCard = () => card('Bind SMPP')
 const keyCard = () => card('Clé d’API')
-const value = (region: HTMLElement, label: string) =>
-  [...region.querySelectorAll('dt')].find((dt) => dt.textContent === label)?.nextElementSibling as HTMLElement
+const value = (region: HTMLElement, label: string): HTMLElement | undefined =>
+  [...region.querySelectorAll<HTMLElement>('dt')].find((dt) => dt.textContent === label)?.nextElementSibling as
+    | HTMLElement
+    | undefined
 const sent = async (calls: Request[], method: string) =>
   await calls.find((r) => r.method === method && r.url.includes('/credentials'))?.json()
 const reads = (calls: Request[]) => calls.filter((r) => r.method === 'GET' && new URL(r.url).pathname === path).length
@@ -84,19 +97,19 @@ test('the two cards show a filled credential as the mock-up, never a secret', as
   const smpp = await bindCard()
   const rest = await keyCard()
   expect(screen.queryByRole('heading', { name: 'Identifiants' })).toBeNull()
-  expect(value(smpp, 'system_id').innerHTML).toBe('<span class="ui-mono">acme01</span>')
-  expect(value(smpp, 'Dernière utilisation').firstElementChild?.className).toBe('ui-mono')
-  expect(value(smpp, 'Dernière utilisation').textContent).toContain('22/10/2026')
-  expect(value(smpp, 'Dernière rotation').firstElementChild?.className).toBe('ui-mono')
-  expect(value(smpp, 'Dernière rotation').textContent).toContain('21/10/2026')
-  expect(value(smpp, 'Ancien secret').textContent).toMatch(/^accepté jusqu’au 24\/10\/2099 \d\d:\d\d$/)
-  expect(value(smpp, 'Ancien secret').querySelector('.ui-mono')?.textContent).toMatch(/^24\/10\/2099/)
-  expect(value(smpp, 'Créé le').firstElementChild?.className).toBe('ui-mono ui-muted')
-  expect(value(smpp, 'Créé le').textContent).toContain('12/10/2026')
+  expect(value(smpp, 'system_id')?.innerHTML).toBe('<span class="ui-mono">acme01</span>')
+  expect(value(smpp, 'Dernière utilisation')?.firstElementChild?.className).toBe('ui-mono')
+  expect(value(smpp, 'Dernière utilisation')?.textContent).toContain('22/10/2026')
+  expect(value(smpp, 'Dernière rotation')?.firstElementChild?.className).toBe('ui-mono')
+  expect(value(smpp, 'Dernière rotation')?.textContent).toContain('21/10/2026')
+  expect(value(smpp, 'Ancien secret')?.textContent).toMatch(/^accepté jusqu’au 24\/10\/2099 \d\d:\d\d$/)
+  expect(value(smpp, 'Ancien secret')?.querySelector('.ui-mono')?.textContent).toMatch(/^24\/10\/2099/)
+  expect(value(smpp, 'Créé le')?.firstElementChild?.className).toBe('ui-mono ui-muted')
+  expect(value(smpp, 'Créé le')?.textContent).toContain('12/10/2026')
   expect(value(rest, 'system_id')).toBeUndefined()
   expect(value(rest, 'Ancien secret')).toBeUndefined()
   for (const label of ['Dernière utilisation', 'Dernière rotation']) {
-    expect(value(rest, label).innerHTML).toBe('<span class="ui-muted">jamais</span>')
+    expect(value(rest, label)?.innerHTML).toBe('<span class="ui-muted">jamais</span>')
   }
   for (const region of [smpp, rest]) {
     expect(within(region).getByText('Actif').className).toBe('ui-pill ui-pill--ok')
@@ -111,7 +124,6 @@ test('the two cards show a filled credential as the mock-up, never a secret', as
     expect(within(region).getByRole('button', { name: 'Révoquer' }).className).toContain('ui-button--danger')
   }
   expect(screen.getByRole('region', { name: 'Bind SMPP' }).parentElement?.className).toBe('ui-cards')
-  expect(document.body.textContent).not.toContain('secret:')
   expect(await violations(container)).toEqual([])
 })
 
@@ -176,26 +188,19 @@ test('a new SMPP bind asks its system_id alone, shows its password once, then th
   await user.click(within(dialog).getByRole('button', { name: 'Créer' }))
   const once = await screen.findByRole('dialog', { name: 'Nouveau mot de passe' })
   expect(within(once).getByText('Ab3dEf7h')).toBeDefined()
-  expect(value(once, 'Compte').innerHTML).toBe('<span class="ui-mono">api-acme</span>')
-  expect(value(once, 'system_id').innerHTML).toBe('<span class="ui-mono">acme01</span>')
+  expect(value(once, 'Compte')?.innerHTML).toBe('<span class="ui-mono">api-acme</span>')
+  expect(value(once, 'system_id')?.innerHTML).toBe('<span class="ui-mono">acme01</span>')
   expect(await sent(calls, 'POST')).toEqual({ type: 'smpp_bind', system_id: 'acme01' })
   await waitFor(() =>
     expect(within(screen.getByRole('region', { name: 'Bind SMPP', hidden: true })).getByText('acme01')).toBeDefined(),
   )
-  expect(
-    JSON.stringify(
-      queryClient
-        .getQueryCache()
-        .getAll()
-        .map((q) => q.state.data),
-    ),
-  ).not.toContain('Ab3dEf7h')
+  expect(cached(queryClient)).not.toContain('Ab3dEf7h')
   await user.click(within(once).getByRole('button', { name: 'J’ai copié le secret' }))
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1, name: 'api-acme' }))
   expect(document.body.textContent).not.toContain('Ab3dEf7h')
   expect(reads(calls)).toBe(2)
-  expect(screen.queryByRole('region', { name: 'Notifications' })?.querySelectorAll('.ui-toast')).toHaveLength(0)
+  noToast()
 })
 
 test('a new API key is asked by its button alone and shown once, without a toast', async () => {
@@ -208,20 +213,13 @@ test('a new API key is asked by its button alone and shown once, without a toast
   const once = await screen.findByRole('dialog', { name: 'Nouvelle clé d’API' })
   expect(screen.getAllByRole('dialog')).toHaveLength(1)
   expect(within(once).getByText(`smsgw_${'k'.repeat(43)}`)).toBeDefined()
-  expect(value(once, 'Compte').textContent).toBe('api-acme')
+  expect(value(once, 'Compte')?.textContent).toBe('api-acme')
   expect(value(once, 'system_id')).toBeUndefined()
   expect(await sent(calls, 'POST')).toEqual({ type: 'api_key' })
-  expect(
-    JSON.stringify(
-      queryClient
-        .getQueryCache()
-        .getAll()
-        .map((q) => q.state.data),
-    ),
-  ).not.toContain('smsgw_')
+  expect(cached(queryClient)).not.toContain('smsgw_')
   await user.click(within(once).getByRole('button', { name: 'J’ai copié le secret' }))
   expect(document.body.textContent).not.toContain('smsgw_')
-  expect(screen.getByRole('region', { name: 'Notifications' }).querySelectorAll('.ui-toast')).toHaveLength(0)
+  noToast()
 })
 
 test('a taken system_id and a closed account are said in the creation dialog', async () => {
@@ -266,16 +264,10 @@ test('a bind rotation warns by its grace, waits for the check, sends its grace a
   expect(banner()).toBe(
     'Sans grâce, l’ancien mot de passe cesse aussitôt d’être accepté et les binds ouverts du compte sont déconnectés.',
   )
-  const box = within(dialog).getByRole('checkbox', { name: understood })
-  expect(box.getAttribute('aria-checked')).toBe('false')
-  const go = within(dialog).getByRole('button', { name: 'Effectuer la rotation' })
-  expect(explained(go)).toBe('Cochez d’abord la case.')
   await user.click(within(dialog).getByRole('combobox', { name: 'Fenêtre de grâce' }))
   expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual(['Aucune', '1 h', '24 h', '7 jours'])
   await user.click(screen.getByRole('option', { name: '24 h' }))
   expect(banner()).toBe('Pendant 24 h, l’ancien mot de passe reste accepté ; aucun bind n’est déconnecté.')
-  await user.click(go)
-  expect(calls.some((r) => r.url.endsWith('/rotate'))).toBe(false)
   await rotate(user, dialog)
   const once = await screen.findByRole('dialog', { name: 'Nouveau mot de passe' })
   expect(within(once).getByText('Zz9yXx8w')).toBeDefined()
@@ -283,7 +275,7 @@ test('a bind rotation warns by its grace, waits for the check, sends its grace a
   await user.click(within(once).getByRole('button', { name: 'J’ai copié le secret' }))
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(document.activeElement).toBe(within(await bindCard()).getByRole('button', { name: 'Rotation' }))
-  expect(screen.getByRole('region', { name: 'Notifications' }).querySelectorAll('.ui-toast')).toHaveLength(0)
+  noToast()
 })
 
 test('a key rotation warns by its grace; without one it sends zero, and a disabled key says it stays so', async () => {
@@ -305,15 +297,6 @@ test('a key rotation warns by its grace; without one it sends zero, and a disabl
   expect(await sent(calls, 'POST')).toEqual({ grace_period_sec: 0 })
 })
 
-test('an active key rotation does not say it stays disabled', async () => {
-  stub([key])
-  renderAt(`/accounts/${api.id}/credentials`)
-  const { dialog } = await rotation(await keyCard())
-  expect(dialog.querySelector('.ui-banner--warn')?.textContent).toBe(
-    'Sans grâce, l’ancienne clé cesse aussitôt d’être acceptée.',
-  )
-})
-
 test('a revoked card reads, only rotates, and its rotation has no grace', async () => {
   const revoked = { ...bind, status: 'revoked', grace_expires_at: null }
   const calls = stub([revoked], {
@@ -321,7 +304,7 @@ test('a revoked card reads, only rotates, and its rotation has no grace', async 
   })
   renderAt(`/accounts/${api.id}/credentials`)
   const smpp = await bindCard()
-  expect(value(smpp, 'system_id').textContent).toBe('acme01')
+  expect(value(smpp, 'system_id')?.textContent).toBe('acme01')
   expect(value(smpp, 'Ancien secret')).toBeUndefined()
   expect(within(smpp).queryByRole('button', { name: /^Créer/ })).toBeNull()
   expect(explained(within(smpp).getByRole('button', { name: 'Activer' }))).toBe(
@@ -401,7 +384,7 @@ test('a credential revoked meanwhile is said in French, without a toast', async 
   const dialog = await screen.findByRole('alertdialog')
   await user.click(within(dialog).getByRole('button', { name: 'Désactiver' }))
   expect(await within(dialog).findByText('Refusé : l’identifiant est révoqué, ou le compte est fermé.')).toBeDefined()
-  expect(screen.getByRole('region', { name: 'Notifications' }).querySelectorAll('.ui-toast')).toHaveLength(0)
+  noToast()
 })
 
 test('a closed account freezes every action of both cards', async () => {

@@ -86,6 +86,19 @@ export function stubPasskeys() {
   return device
 }
 
+export const understood = 'Je comprends que le nouveau secret ne sera affiché qu’une seule fois.'
+
+export const noToast = () =>
+  expect(screen.getByRole('region', { name: 'Notifications' }).querySelectorAll('.ui-toast')).toHaveLength(0)
+
+export const cached = (queryClient: QueryClient) =>
+  JSON.stringify(
+    queryClient
+      .getQueryCache()
+      .getAll()
+      .map((q) => q.state.data),
+  )
+
 export const explained = (button: HTMLElement) =>
   document.getElementById(button.getAttribute('aria-describedby') ?? '')?.textContent
 
