@@ -36,3 +36,9 @@ le même sur toutes les pages ; le contrat Admin servi déclare `total` requis s
   générique coûterait plus qu'il n'épargne. `counted` est l'enveloppe huma.
 - **Les tests de pagination existants exigent le total** à chaque page (même total d'une page à l'autre, égal au
   nombre de lignes parcourues, pour chaque filtre) au lieu d'un test neuf par liste.
+- **Correctif de revue 1** : le test du pied des Groupes passe un total distinct du nombre de lignes (« 2 entrées
+  affichées sur 17 ») ; un total pris dans la page le fait tomber.
+- **Instantané du compte, accepté** : la page et son compte sont deux instructions d'une même transaction en READ
+  COMMITTED ; une écriture entre les deux peut décaler le total d'une ligne, le temps d'une requête. Passer la
+  transaction de lecture en REPEATABLE READ toucherait toutes les transactions d'admin-api-svc pour un écart passager
+  et sans effet sur les données : non retenu.

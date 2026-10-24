@@ -56,7 +56,7 @@ test('without customer-groups:read the screen says why and asks nothing', async 
 test('the groups are listed with their status and member count', async () => {
   stubFetch({
     'GET /api/auth/me': () => json(200, reader),
-    'GET /api/gw/admin/customer-groups': () => page([banks, telcos]),
+    'GET /api/gw/admin/customer-groups': () => page([banks, telcos], null, 17),
   })
   const { container } = renderAt('/groups')
   expect(await screen.findByRole('table', { name: 'Groupes de clients' })).toBeDefined()
@@ -84,7 +84,7 @@ test('the groups are listed with their status and member count', async () => {
   expect((await row('Banques')).getByRole('button', { name: 'Supprimer' }).className).toContain('ui-button--danger')
   expect((await row('Banques')).getByRole('button', { name: 'Modifier' }).closest('.row-actions')).not.toBeNull()
   const table = screen.getByRole('table', { name: 'Groupes de clients' })
-  expect(screen.getByText('2 entrées affichées sur 2').closest('.ui-card')).toBe(table.closest('.ui-card'))
+  expect(screen.getByText('2 entrées affichées sur 17').closest('.ui-card')).toBe(table.closest('.ui-card'))
   expect(await violations(container)).toEqual([])
 })
 
