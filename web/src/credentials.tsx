@@ -65,6 +65,16 @@ const when = (iso: string | null) =>
 
 const mono = (text: string) => <span className="ui-mono">{text}</span>
 
+export function systemIdFrom(name: string, random: () => number) {
+  const root =
+    name
+      .normalize('NFD')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '')
+      .slice(0, 10) || 'bind'
+  return `${root}_${String(Math.floor(random() * 10000)).padStart(4, '0')}`
+}
+
 export function Credentials() {
   const { account } = useAccount()
   const me = useShellMe()
@@ -154,7 +164,9 @@ export function Credentials() {
           )
         })}
       </div>
-      {pending?.action === 'create' && <CreateBind accountId={account.id} onClose={close} onCreated={reveal} />}
+      {pending?.action === 'create' && (
+        <CreateBind accountId={account.id} accountName={account.name} onClose={close} onCreated={reveal} />
+      )}
       {pending?.action === 'rotate' && pending.c && (
         <Rotate accountId={account.id} credential={pending.c} onClose={close} onRotated={reveal} />
       )}
@@ -292,10 +304,12 @@ function Empty({
 
 function CreateBind({
   accountId,
+  accountName,
   onClose,
   onCreated,
 }: {
   accountId: string
+  accountName: string
   onClose: () => void
   onCreated: (s: Shown) => void
 }) {
@@ -337,16 +351,19 @@ function CreateBind({
     >
       <form className="form" id={form} onSubmit={save}>
         {refusal}
-        <Field
-          label="System ID"
-          required
-          maxLength={15}
-          pattern="[!-~]{1,15}"
-          autoComplete="off"
-          value={systemId}
-          onChange={(e) => setSystemId(e.target.value)}
-          aria-describedby={describedBy}
-        />
+        <div className="form__inline">
+          <Field
+            label="System ID"
+            required
+            maxLength={15}
+            pattern="[!-~]{1,15}"
+            autoComplete="off"
+            value={systemId}
+            onChange={(e) => setSystemId(e.target.value)}
+            aria-describedby={describedBy}
+          />
+          <Button onClick={() => setSystemId(systemIdFrom(accountName, Math.random))}>Générer</Button>
+        </div>
         <p>Le secret est généré par la passerelle et montré une seule fois.</p>
       </form>
     </Modal>

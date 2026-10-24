@@ -816,6 +816,16 @@
   font: var(--text-body);
 }
 
+.form__inline {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-4);
+}
+
+.form__inline .ui-field {
+  flex: 1;
+}
+
 .permission-picker {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

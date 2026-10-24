@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
+import { systemIdFrom } from './credentials'
 import {
   cached,
   empty,
@@ -184,6 +185,9 @@ test('a new SMPP bind asks its system_id alone, shows its password once, then th
   const field = within(dialog).getByRole('textbox', { name: 'System ID' }) as HTMLInputElement
   expect([field.required, field.maxLength, field.pattern]).toEqual([true, 15, '[!-~]{1,15}'])
   expect(dialog.textContent).toContain('Le secret est généré par la passerelle et montré une seule fois.')
+  await user.click(within(dialog).getByRole('button', { name: 'Générer' }))
+  expect(field.value).toMatch(/^apiacme_\d{4}$/)
+  await user.clear(field)
   await user.type(field, 'acme01')
   await user.click(within(dialog).getByRole('button', { name: 'Créer' }))
   const once = await screen.findByRole('dialog', { name: 'Nouveau mot de passe' })
@@ -526,4 +530,12 @@ test('a key creation slowed down by a Retry-After frees the bind card once answe
       .getByRole('button', { name: 'Rotation' })
       .hasAttribute('aria-disabled'),
   ).toBe(false)
+})
+
+test('a generated System ID is the account name in lower case, cut at ten, then four digits', () => {
+  expect(systemIdFrom('BICICI', () => 0.1123)).toBe('bicici_1123')
+  expect(systemIdFrom('Société Générale Côte d’Ivoire', () => 0.0042)).toBe('societegen_0042')
+  expect(systemIdFrom('api-acme', () => 0.99999)).toBe('apiacme_9999')
+  expect(systemIdFrom('—', () => 0)).toBe('bind_0000')
+  expect(systemIdFrom('x'.repeat(40), () => 0.5)).toHaveLength(15)
 })
