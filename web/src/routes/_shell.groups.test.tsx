@@ -83,7 +83,7 @@ test('the groups are listed with their status and member count', async () => {
   expect((await row('Banques')).getByRole('button', { name: 'Supprimer' }).className).toContain('ui-button--danger')
   expect((await row('Banques')).getByRole('button', { name: 'Modifier' }).closest('.row-actions')).not.toBeNull()
   const table = screen.getByRole('table', { name: 'Groupes de clients' })
-  expect(screen.getByText('2 groupes affichés').closest('.ui-card')).toBe(table.closest('.ui-card'))
+  expect(screen.getByText('2 entrées affichées').closest('.ui-card')).toBe(table.closest('.ui-card'))
   expect(await violations(container)).toEqual([])
 })
 

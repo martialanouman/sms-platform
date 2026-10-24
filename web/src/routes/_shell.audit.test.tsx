@@ -1,7 +1,7 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
-import { json, me, once, renderAt, stubFetch, violations } from '../test'
+import { explained, json, me, once, renderAt, stubFetch, violations } from '../test'
 
 const auditor = { ...me, permissions: ['audit:read'] }
 const ada = '01a159b0-0000-7000-8000-00000000000a'
@@ -55,7 +55,7 @@ test('the control plane tab lists the gateway journal, newest first', async () =
     'page',
   )
   expect(screen.getByRole('navigation', { name: 'Navigation principale' }).textContent).toContain('Journal d’audit')
-  expect(cells('create-route').slice(0, 4)).toEqual([ada, 'create-route', '/admin/routes', '403'])
+  expect(cells('create-route').slice(0, 4)).toEqual([ada, 'create-route', '/admin/routes', '403 refusé'])
   expect(calls.some((r) => ['/api/access-log', '/api/operators'].includes(new URL(r.url).pathname))).toBe(false)
   expect(await violations(container)).toEqual([])
 })
@@ -107,7 +107,6 @@ test('the operator is chosen among every operator, by name or email, and sent by
   await waitFor(() => expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Adaada@example.test']))
   await user.click(screen.getByRole('option', { name: /^Ada/ }))
   expect(await violations(container)).toEqual([])
-  await user.click(screen.getByRole('button', { name: 'Filtrer' }))
   await waitFor(() => expect(new URL(calls.at(-1)?.url ?? '').searchParams.get('operator')).toBe(ada))
 })
 
@@ -136,9 +135,9 @@ test('the period defaults to today, from its start to its end', async () => {
   await screen.findByText('list-audit-log')
   const q = new URL(calls.at(-1)?.url ?? '').searchParams
   expect([q.get('from_date'), q.get('to_date')]).toEqual([local(today), local(tomorrow)])
-  expect((screen.getByLabelText('Depuis') as HTMLInputElement).value).toBe(today)
-  expect((screen.getByLabelText('Jusqu’à') as HTMLInputElement).value).toBe(today)
-  expect((screen.getByLabelText('Depuis') as HTMLInputElement).type).toBe('date')
+  expect((screen.getByLabelText('Du') as HTMLInputElement).value).toBe(today)
+  expect((screen.getByLabelText('Au') as HTMLInputElement).value).toBe(today)
+  expect((screen.getByLabelText('Du') as HTMLInputElement).type).toBe('date')
 })
 
 test('the filters and the cursor travel in the request', async () => {
@@ -151,16 +150,17 @@ test('the filters and the cursor travel in the request', async () => {
   renderAt('/audit/control-plane')
   const user = userEvent.setup()
   await screen.findByText('list-audit-log')
-  await user.click(screen.getByRole('button', { name: 'Suivant' }))
+  await user.click(screen.getByRole('button', { name: 'Plus anciennes' }))
   expect(await screen.findByText('create-route')).toBeDefined()
   expect(new URL(calls.at(-1)?.url ?? '').searchParams.get('cursor')).toBe('next-1')
 
   await choose(user, 'ada', 'Ada')
-  await user.clear(screen.getByLabelText('Depuis'))
-  await user.type(screen.getByLabelText('Depuis'), '2026-10-20')
-  await user.clear(screen.getByLabelText('Jusqu’à'))
-  await user.type(screen.getByLabelText('Jusqu’à'), '2026-10-21')
-  await user.click(screen.getByRole('button', { name: 'Filtrer' }))
+  await user.clear(screen.getByLabelText('Du'))
+  await user.type(screen.getByLabelText('Du'), '2026-10-20')
+  await user.tab()
+  await user.clear(screen.getByLabelText('Au'))
+  await user.type(screen.getByLabelText('Au'), '2026-10-21')
+  await user.tab()
   await waitFor(() => {
     const q = new URL(calls.at(-1)?.url ?? '').searchParams
     expect([q.get('operator'), q.get('from_date'), q.get('to_date'), q.get('cursor')]).toEqual([
@@ -187,24 +187,26 @@ test('Previous walks back the pages one at a time, and shows only when there is 
   const user = userEvent.setup()
   const cursor = () => new URL(calls.at(-1)?.url ?? '').searchParams.get('cursor')
   await screen.findByText('list-audit-log')
-  expect(screen.getByRole('button', { name: 'Précédent' }).getAttribute('aria-disabled')).toBe('true')
-  await user.click(screen.getByRole('button', { name: 'Suivant' }))
+  expect(screen.getByRole('button', { name: 'Plus récentes' }).getAttribute('aria-disabled')).toBe('true')
+  await user.click(screen.getByRole('button', { name: 'Plus anciennes' }))
   await screen.findByText('create-route')
-  await user.click(screen.getByRole('button', { name: 'Suivant' }))
+  await user.click(screen.getByRole('button', { name: 'Plus anciennes' }))
   await screen.findByText('delete-route')
-  expect(screen.getByRole('button', { name: 'Suivant' }).getAttribute('aria-disabled')).toBe('true')
-  await user.click(screen.getByRole('button', { name: 'Précédent' }))
+  expect(screen.getByRole('button', { name: 'Plus anciennes' }).getAttribute('aria-disabled')).toBe('true')
+  await user.click(screen.getByRole('button', { name: 'Plus récentes' }))
   await screen.findByText('create-route')
   expect(cursor()).toBe('next-1')
-  await user.click(screen.getByRole('button', { name: 'Précédent' }))
+  await user.click(screen.getByRole('button', { name: 'Plus récentes' }))
   await screen.findByText('list-audit-log')
   expect(cursor()).toBeNull()
-  expect(screen.getByRole('button', { name: 'Précédent' }).getAttribute('aria-disabled')).toBe('true')
-  await user.click(screen.getByRole('button', { name: 'Suivant' }))
+  expect(screen.getByRole('button', { name: 'Plus récentes' }).getAttribute('aria-disabled')).toBe('true')
+  await user.click(screen.getByRole('button', { name: 'Plus anciennes' }))
   await screen.findByText('create-route')
-  await user.click(screen.getByRole('button', { name: 'Filtrer' }))
+  await user.clear(screen.getByLabelText('Du'))
+  await user.type(screen.getByLabelText('Du'), '2026-10-20')
+  await user.tab()
   await screen.findByText('list-audit-log')
-  expect(screen.getByRole('button', { name: 'Précédent' }).getAttribute('aria-disabled')).toBe('true')
+  expect(screen.getByRole('button', { name: 'Plus récentes' }).getAttribute('aria-disabled')).toBe('true')
 })
 
 test('the changes of a request show before and after, the changed columns marked', async () => {
@@ -236,21 +238,41 @@ test('the changes of a request show before and after, the changed columns marked
       name: 'Modifications',
     }),
   )
-  const dialog = await screen.findByRole('dialog', { name: 'Modifications de la requête r-write' })
-  expect(await within(dialog).findByText('routes')).toBeDefined()
-  const changed = within(dialog).getByText('name').closest('div') as HTMLElement
-  expect(changed.className).toContain('changed')
-  expect(changed.textContent).toContain('"a"')
-  expect(changed.textContent).toContain('"b"')
-  expect((within(dialog).getByText('priority').closest('div') as HTMLElement).className).not.toContain('changed')
-  await user.click(within(dialog).getByRole('button', { name: 'Fermer' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Modifications de create-route' })
+  expect(await within(dialog).findByRole('heading', { name: 'routes' })).toBeDefined()
+  expect(within(dialog).getByText('Requête').nextElementSibling?.textContent).toBe('r-write')
+  expect(within(dialog).getByText('Opérateur').nextElementSibling?.textContent).toBe(ada)
+  expect(within(dialog).getByText('Modification').className).toBe('ui-tag')
+  expect(within(dialog).getByText('{"id": 7}')).toBeDefined()
+  const table = within(dialog).getByRole('table', { name: 'Champs modifiés de routes' })
+  expect(
+    within(table)
+      .getAllByRole('columnheader')
+      .map((h) => h.textContent),
+  ).toEqual(['Champ', 'Avant', 'Après'])
+  expect(
+    within(table)
+      .getAllByRole('row')
+      .slice(1)
+      .map((r) => r.textContent),
+  ).toEqual(['nameab'])
+  expect(within(table).getByText('a').className).toBe('ui-mono audit-before')
+  expect(within(table).getByText('b').className).toBe('ui-mono audit-after')
+  const unchanged = within(dialog).getByText('1 champ inchangé').closest('details') as HTMLElement
+  expect(unchanged.textContent).toBe('1 champ inchangépriority1')
+  expect(dialog.textContent).toContain(
+    'Les secrets et leurs empreintes ne sont jamais journalisés : seuls les champs lisibles apparaissent.',
+  )
+  await user.click(
+    within(dialog.querySelector('.ui-modal__foot') as HTMLElement).getByRole('button', { name: 'Fermer' }),
+  )
 
   await user.click(
     within(screen.getByText('list-audit-log').closest('tr') as HTMLElement).getByRole('button', {
       name: 'Modifications',
     }),
   )
-  const none = await screen.findByRole('dialog', { name: 'Modifications de la requête r-read' })
+  const none = await screen.findByRole('dialog', { name: 'Modifications de list-audit-log' })
   expect(await within(none).findByText('Aucune modification enregistrée')).toBeDefined()
 })
 
@@ -307,9 +329,9 @@ test('the access tab is filtered by operator and period like the other', async (
   let q = new URL(calls.at(-1)?.url ?? '').searchParams
   expect([q.get('actor'), q.get('fromDate'), q.get('toDate')]).toEqual([null, local(today), local(tomorrow)])
   await choose(user, 'ada', 'Ada')
-  await user.clear(screen.getByLabelText('Depuis'))
-  await user.type(screen.getByLabelText('Depuis'), '2026-10-20')
-  await user.click(screen.getByRole('button', { name: 'Filtrer' }))
+  await user.clear(screen.getByLabelText('Du'))
+  await user.type(screen.getByLabelText('Du'), '2026-10-20')
+  await user.tab()
   await waitFor(() => {
     q = new URL(calls.at(-1)?.url ?? '').searchParams
     expect([q.get('actor'), q.get('fromDate'), q.get('toDate')]).toEqual([ada, local('2026-10-20'), local(tomorrow)])
@@ -337,11 +359,14 @@ test('the access tab lists the dashboard journal in French, on its own', async (
   expect(screen.getByText('1 entrée affichée')).toBeDefined()
   expect(screen.getByRole('link', { name: 'Accès au dashboard' }).getAttribute('aria-current')).toBe('page')
   expect(cells('Jeton personnel délivré')).toEqual([ada, 'Jeton personnel délivré', '—', 'Réussi'])
+  expect(screen.getByText('Réussi').closest('.ui-pill')?.className).toBe('ui-pill ui-pill--ok')
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'Suivant' }))
+  await user.click(screen.getByRole('button', { name: 'Plus anciennes' }))
   await screen.findByText('Connexion')
-  expect(cells('Connexion')).toEqual(['—', 'Connexion', '—', 'Échec'])
-  await user.click(screen.getByRole('button', { name: 'Précédent' }))
+  expect(cells('Connexion')).toEqual(['inconnu', 'Connexion', '—', 'Échec'])
+  expect(screen.getByText('Échec').closest('.ui-pill')?.className).toBe('ui-pill ui-pill--warn')
+  expect(screen.getByRole('table').closest('.ui-card')).not.toBeNull()
+  await user.click(screen.getByRole('button', { name: 'Plus récentes' }))
   await screen.findByText('Jeton personnel délivré')
   expect(new URL(calls.at(-1)?.url ?? '').searchParams.get('cursor')).toBeNull()
   expect(calls.some((r) => new URL(r.url).pathname.startsWith('/api/gw/'))).toBe(false)
@@ -358,9 +383,9 @@ test('the filters shown follow the address, back to today when the tab is opened
   await waitFor(() =>
     expect((screen.getByRole('combobox', { name: 'Opérateur' }) as HTMLInputElement).value).toBe('Ada'),
   )
-  expect((screen.getByLabelText('Depuis') as HTMLInputElement).value).toBe('2026-10-01')
+  expect((screen.getByLabelText('Du') as HTMLInputElement).value).toBe('2026-10-01')
   await userEvent.setup().click(screen.getByRole('link', { name: 'Administration de la passerelle' }))
-  await waitFor(() => expect((screen.getByLabelText('Depuis') as HTMLInputElement).value).toBe(today))
+  await waitFor(() => expect((screen.getByLabelText('Du') as HTMLInputElement).value).toBe(today))
   expect((screen.getByRole('combobox', { name: 'Opérateur' }) as HTMLInputElement).value).toBe('')
 })
 
@@ -374,8 +399,8 @@ test('a day the address cannot carry falls back to today, the screen standing', 
   await screen.findByText('Aucune entrée')
   const q = new URL(calls.at(-1)?.url ?? '').searchParams
   expect([q.get('fromDate'), q.get('toDate')]).toEqual([local(today), local(tomorrow)])
-  expect((screen.getByLabelText('Depuis') as HTMLInputElement).value).toBe(today)
-  expect((screen.getByLabelText('Jusqu’à') as HTMLInputElement).value).toBe(today)
+  expect((screen.getByLabelText('Du') as HTMLInputElement).value).toBe(today)
+  expect((screen.getByLabelText('Au') as HTMLInputElement).value).toBe(today)
 })
 
 test('the changes of a request are paged, and two changes of one row both show', async () => {
@@ -400,13 +425,20 @@ test('the changes of a request are paged, and two changes of one row both show',
   renderAt('/audit/control-plane')
   const user = userEvent.setup()
   await user.click(await screen.findByRole('button', { name: 'Modifications' }))
-  const dialog = await screen.findByRole('dialog', { name: 'Modifications de la requête r-write' })
+  const dialog = await screen.findByRole('dialog', { name: 'Modifications de create-route' })
   await waitFor(() => expect(within(dialog).getAllByRole('heading', { name: 'routes' }).length).toBe(2))
-  expect(within(dialog).getByText('2 modifications affichées')).toBeDefined()
+  expect(within(dialog).getByText('2 entrées affichées')).toBeDefined()
   expect(errors.mock.calls.some((c) => String(c[0]).includes('same key'))).toBe(false)
-  const inserted = within(dialog).getAllByText('name')[0]?.closest('div') as HTMLElement
-  expect(inserted.className).toContain('changed')
-  expect(inserted.textContent).toBe('name—"a"')
+  const [inserted, updated] = within(dialog).getAllByRole('table', { name: 'Champs modifiés de routes' })
+  expect(within(inserted as HTMLElement).getAllByRole('row')[1]?.textContent).toBe('namevidea')
+  expect(within(inserted as HTMLElement).getByText('vide').className).toBe('ui-muted')
+  expect(within(updated as HTMLElement).getAllByRole('row')[1]?.textContent).toBe('nameab')
+  expect(
+    within(dialog)
+      .getAllByText(/^(Création|Modification)$/)
+      .map((t) => t.textContent),
+  ).toEqual(['Création', 'Modification'])
+  expect(within(dialog).queryByText(/inchangé/)).toBeNull()
   expect(within(dialog).getByRole('button', { name: 'Précédent' }).getAttribute('aria-disabled')).toBe('true')
   await user.click(within(dialog).getByRole('button', { name: 'Suivant' }))
   expect(await within(dialog).findByRole('heading', { name: 'customers' })).toBeDefined()
@@ -461,22 +493,55 @@ test('the changes that cannot be read are told, with a retry', async () => {
   expect(await within(dialog).findByText('Aucune modification enregistrée')).toBeDefined()
 })
 
-test('a row tells its date in French, its outcome beside its status, and a call without request no changes', async () => {
+test('a row tells its date in French and its result in a pill, and a call without request no changes', async () => {
+  const results = [
+    { status: 200, outcome: null, text: '200', tone: 'ok' },
+    { status: 201, outcome: null, text: '201', tone: 'ok' },
+    { status: 399, outcome: null, text: '399', tone: 'ok' },
+    { status: 400, outcome: null, text: '400 refusé', tone: 'warn' },
+    { status: 409, outcome: null, text: '409 refusé', tone: 'warn' },
+    { status: 499, outcome: null, text: '499 refusé', tone: 'warn' },
+    { status: 500, outcome: null, text: '500 erreur', tone: 'bad' },
+    { status: 200, outcome: 'granted', text: 'lecture accordée', tone: 'ok' },
+    { status: 200, outcome: 'unreadable', text: 'illisible', tone: 'warn' },
+    { status: 404, outcome: 'not_found', text: 'introuvable', tone: 'warn' },
+  ]
   stubFetch({
     'GET /api/auth/me': () => json(200, auditor),
     'GET /api/gw/admin/audit-log': () =>
       page([
-        { ...refused, outcome: 'forbidden_scope' },
+        ...results.map((r, i) => ({
+          ...refused,
+          id: `e${i}`,
+          operation_id: `op-${i}`,
+          status: r.status,
+          outcome: r.outcome,
+        })),
         { ...entry, request_id: null },
       ]),
   })
   renderAt('/audit/control-plane')
-  await screen.findByText('create-route')
-  expect(cells('create-route')[3]).toBe('403 forbidden_scope')
+  await screen.findByText('op-0')
+  expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).toEqual([
+    'Date',
+    'Opérateur',
+    'Opération',
+    'Cible',
+    'Résultat',
+    'Détail',
+  ])
+  expect(
+    results.map((_, i) => [
+      cells(`op-${i}`)[3],
+      screen.getByText(`op-${i}`).closest('tr')?.querySelector('.ui-pill')?.className,
+    ]),
+  ).toEqual(results.map((r) => [r.text, `ui-pill ui-pill--${r.tone}`]))
   const plain = screen.getByText('list-audit-log').closest('tr') as HTMLElement
   expect(within(plain).queryByRole('button', { name: 'Modifications' })).toBeNull()
+  expect(cells('list-audit-log')[4]).toBe('aucune')
   const date = within(plain).getByRole('rowheader').textContent ?? ''
   expect(date).toMatch(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/)
+  expect(screen.getByRole('table').closest('.ui-card')).not.toBeNull()
 })
 
 test('the target of a dashboard fact is named from the directory', async () => {
@@ -490,7 +555,9 @@ test('the target of a dashboard fact is named from the directory', async () => {
       }),
   })
   renderAt('/audit/access')
-  await waitFor(() => expect(cells('Rôles modifiés')).toEqual(['—', 'Rôles modifiés', 'Adaada@example.test', 'Réussi']))
+  await waitFor(() =>
+    expect(cells('Rôles modifiés')).toEqual(['inconnu', 'Rôles modifiés', 'Adaada@example.test', 'Réussi']),
+  )
 })
 
 test('a trail the address cannot carry offers no way back', async () => {
@@ -500,7 +567,7 @@ test('a trail the address cannot carry offers no way back', async () => {
   })
   renderAt('/audit/control-plane?trail=%5B1%5D')
   await screen.findByText('list-audit-log')
-  expect(screen.getByRole('button', { name: 'Précédent' }).getAttribute('aria-disabled')).toBe('true')
+  expect(screen.getByRole('button', { name: 'Plus récentes' }).getAttribute('aria-disabled')).toBe('true')
 })
 
 test('the access tab counts the entries it shows', async () => {
@@ -517,4 +584,153 @@ test('the access tab counts the entries it shows', async () => {
   })
   renderAt('/audit/access')
   expect(await screen.findByText('2 entrées affichées')).toBeDefined()
+})
+
+test('the filters apply as they change, and are taken away at once, frozen when none is set', async () => {
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, auditor),
+    'GET /api/gw/admin/audit-log': () => page([entry]),
+    'GET /api/audit/operators': directory,
+  })
+  const { router } = renderAt('/audit/control-plane')
+  const user = userEvent.setup()
+  await screen.findByText('list-audit-log')
+  const clear = screen.getByRole('button', { name: 'Retirer les filtres' })
+  expect(clear.getAttribute('aria-disabled')).toBe('true')
+  expect(explained(clear)).toBe('Aucun filtre actif.')
+  await choose(user, 'ada', 'Ada')
+  await waitFor(() => expect(router.state.location.search).toEqual({ operator: ada }))
+  await user.clear(screen.getByLabelText('Au'))
+  await user.type(screen.getByLabelText('Au'), '2026-10-21')
+  await user.tab()
+  await waitFor(() => expect(router.state.location.search).toEqual({ operator: ada, to: '2026-10-21' }))
+  expect(new URL(calls.at(-1)?.url ?? '').searchParams.get('to_date')).toBe(local('2026-10-22'))
+  await user.click(screen.getByRole('button', { name: 'Retirer les filtres' }))
+  await waitFor(() => expect(router.state.location.search).toEqual({}))
+  expect((screen.getByLabelText('Au') as HTMLInputElement).value).toBe(today)
+  expect((screen.getByRole('combobox', { name: 'Opérateur' }) as HTMLInputElement).value).toBe('')
+  expect(screen.getByRole('button', { name: 'Retirer les filtres' }).getAttribute('aria-disabled')).toBe('true')
+})
+
+test('a deletion shows what was there, unchanged fields counted in the plural and objects told as JSON', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, auditor),
+    'GET /api/gw/admin/audit-log': () => page([refused]),
+    'GET /api/gw/admin/audit-log/r-write/changes': () =>
+      page([
+        {
+          actor: ada,
+          table: 'routes',
+          pk: '{"id": 7}',
+          op: 'delete',
+          before: { name: 'a', rule: { to: 'x' } },
+          after: null,
+          at: entry.at,
+        },
+        {
+          actor: ada,
+          table: 'customers',
+          pk: '{"id": 8}',
+          op: 'update',
+          before: { name: 'c', status: 'active', group_id: null, rule: { to: 'x' } },
+          after: { name: 'd', status: 'active', group_id: null, rule: { to: 'x' } },
+          at: entry.at,
+        },
+      ]),
+  })
+  renderAt('/audit/control-plane')
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('button', { name: 'Modifications' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Modifications de create-route' })
+  const deleted = await within(dialog).findByRole('table', { name: 'Champs modifiés de routes' })
+  expect(
+    within(deleted)
+      .getAllByRole('row')
+      .slice(1)
+      .map((r) => r.textContent),
+  ).toEqual(['nameavide', 'rule{"to":"x"}vide'])
+  expect(within(dialog).getByText('Suppression').className).toBe('ui-tag')
+  const unchanged = within(dialog).getByText('3 champs inchangés').closest('details') as HTMLElement
+  expect(unchanged.textContent).toBe('3 champs inchangésstatusactivegroup_idviderule{"to":"x"}')
+})
+
+test('a day typed does not filter until the field is left or Enter pressed, and nothing is mounted again', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, auditor),
+    'GET /api/gw/admin/audit-log': () => page([entry]),
+    'GET /api/audit/operators': directory,
+  })
+  const { router } = renderAt('/audit/control-plane')
+  const user = userEvent.setup()
+  await screen.findByText('list-audit-log')
+  const from = screen.getByLabelText('Du') as HTMLInputElement
+  const to = screen.getByLabelText('Au') as HTMLInputElement
+  from.focus()
+  fireEvent.change(from, { target: { value: '2026-10-01' } })
+  fireEvent.change(from, { target: { value: '2026-10-15' } })
+  expect(router.state.location.search).toEqual({})
+  expect(from.value).toBe('2026-10-15')
+  fireEvent.blur(from)
+  await waitFor(() => expect(router.state.location.search).toEqual({ from: '2026-10-15' }))
+  fireEvent.change(to, { target: { value: '2026-10-20' } })
+  fireEvent.keyDown(to, { key: 'Enter' })
+  await waitFor(() => expect(router.state.location.search).toEqual({ from: '2026-10-15', to: '2026-10-20' }))
+  expect(screen.getByLabelText('Du')).toBe(from)
+  expect(screen.getByLabelText('Au')).toBe(to)
+  const operator = screen.getByRole('combobox', { name: 'Opérateur' })
+  await choose(user, 'ada', 'Ada')
+  await waitFor(() =>
+    expect(router.state.location.search).toEqual({ operator: ada, from: '2026-10-15', to: '2026-10-20' }),
+  )
+  expect(screen.getByRole('combobox', { name: 'Opérateur' })).toBe(operator)
+  expect(screen.getByLabelText('Du')).toBe(from)
+  const clear = screen.getByRole('button', { name: 'Retirer les filtres' })
+  await user.click(clear)
+  await waitFor(() => expect(router.state.location.search).toEqual({}))
+  expect(screen.getByLabelText('Du')).toBe(from)
+  expect(from.value).toBe(today)
+  expect((operator as HTMLInputElement).value).toBe('')
+  expect(document.activeElement).toBe(clear)
+})
+
+test('filters equal to the default leave nothing to take away', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, auditor),
+    'GET /api/gw/admin/audit-log': () => page([entry]),
+    'GET /api/audit/operators': directory,
+  })
+  renderAt(`/audit/control-plane?from=${today}&to=${today}`)
+  await screen.findByText('list-audit-log')
+  const clear = screen.getByRole('button', { name: 'Retirer les filtres' })
+  expect(clear.getAttribute('aria-disabled')).toBe('true')
+  expect(explained(clear)).toBe('Aucun filtre actif.')
+})
+
+test('a modification that changed no readable field says so, and the dialog closes from its foot', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, auditor),
+    'GET /api/gw/admin/audit-log': () => page([refused]),
+    'GET /api/gw/admin/audit-log/r-write/changes': () =>
+      page([
+        {
+          actor: ada,
+          table: 'webhooks',
+          pk: '{"id": 9}',
+          op: 'update',
+          before: { url: 'u' },
+          after: { url: 'u' },
+          at: entry.at,
+        },
+      ]),
+  })
+  renderAt('/audit/control-plane')
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('button', { name: 'Modifications' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Modifications de create-route' })
+  expect(await within(dialog).findByText('Aucun champ lisible n’a changé.')).toBeDefined()
+  expect(within(dialog).queryByRole('table', { name: 'Champs modifiés de webhooks' })).toBeNull()
+  await user.click(
+    within(dialog.querySelector('.ui-modal__foot') as HTMLElement).getByRole('button', { name: 'Fermer' }),
+  )
+  expect(screen.queryByRole('dialog')).toBeNull()
 })

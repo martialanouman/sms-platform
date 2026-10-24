@@ -37,20 +37,20 @@ export function Pager<Search extends Paged>({
   next,
   go,
   count,
-  noun,
+  labels = ['Précédent', 'Suivant'],
 }: {
   search: Search
   next?: string | null
   go: (next: Search) => void
   count: number
-  noun: [one: string, many: string]
+  labels?: [back: string, forward: string]
 }) {
   const trail = search.trail ?? []
   const back = trail.at(-1)
   return (
     <div className="ui-pager">
       <span>
-        {count} {count === 1 ? noun[0] : noun[1]}
+        {count} {count === 1 ? 'entrée affichée' : 'entrées affichées'}
       </span>
       <span className="ui-pager__nav">
         <Button
@@ -64,14 +64,14 @@ export function Pager<Search extends Paged>({
             })
           }
         >
-          Précédent
+          {labels[0]}
         </Button>
         <Button
           size="sm"
           blockedReason={next ? undefined : 'Dernière page.'}
           onClick={() => go({ ...search, cursor: next ?? undefined, trail: [...trail, search.cursor ?? first] })}
         >
-          Suivant
+          {labels[1]}
         </Button>
       </span>
     </div>

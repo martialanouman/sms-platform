@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import type { FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 import type { components } from './api.gen'
 import { type Paged, paged, text } from './list'
 import { auditOperatorsQuery } from './queries'
@@ -57,33 +57,49 @@ const sought = (o: Operator, query: string) =>
 
 export function AuditFilters({ search, onFilter }: { search: AuditSearch; onFilter: (next: AuditSearch) => void }) {
   const operators = useQuery(auditOperatorsQuery).data ?? []
-  const filter = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const form = new FormData(event.currentTarget)
-    onFilter({ operator: text(form.get('operator')), from: day(form.get('from')), to: day(form.get('to')) })
-  }
+  const shown = { operator: search.operator, from: search.from, to: search.to }
+  const filtered =
+    search.operator !== undefined || [search.from, search.to].some((d) => d !== undefined && d !== today())
   return (
-    <form
-      key={[search.operator, search.from, search.to].join('|')}
-      className="audit-filters"
-      aria-label="Filtres du journal"
-      onSubmit={filter}
-    >
+    <fieldset className="audit-filters" aria-label="Filtres du journal">
       <Combobox
-        key={operators.length}
         label="Opérateur"
-        name="operator"
         items={operators}
-        defaultValue={operators.find((o) => o.id === search.operator) ?? null}
+        value={operators.find((o) => o.id === search.operator) ?? null}
         itemLabel={named}
         itemValue={(o) => o.id}
         itemDetail={(o) => o.email}
         matches={sought}
         empty="Aucun opérateur"
+        onChange={(o) => onFilter({ ...shown, operator: o?.id })}
       />
-      <Field label="Depuis" name="from" type="date" defaultValue={search.from ?? today()} />
-      <Field label="Jusqu’à" name="to" type="date" defaultValue={search.to ?? today()} />
-      <Button type="submit">Filtrer</Button>
-    </form>
+      <Day label="Du" value={search.from} onApply={(from) => onFilter({ ...shown, from })} />
+      <Day label="Au" value={search.to} onApply={(to) => onFilter({ ...shown, to })} />
+      <Button blockedReason={filtered ? undefined : 'Aucun filtre actif.'} onClick={() => onFilter({})}>
+        Retirer les filtres
+      </Button>
+    </fieldset>
+  )
+}
+
+function Day({ label, value, onApply }: { label: string; value?: string; onApply: (day: string) => void }) {
+  const shown = value ?? today()
+  const [draft, setDraft] = useState(shown)
+  useEffect(() => setDraft(shown), [shown])
+  const apply = () => {
+    const chosen = day(draft)
+    if (chosen && chosen !== shown) {
+      onApply(chosen)
+    }
+  }
+  return (
+    <Field
+      label={label}
+      type="date"
+      value={draft}
+      onChange={(e) => setDraft(e.currentTarget.value)}
+      onBlur={apply}
+      onKeyDown={(e) => e.key === 'Enter' && apply()}
+    />
   )
 }
