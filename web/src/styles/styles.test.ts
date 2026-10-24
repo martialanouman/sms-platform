@@ -47,3 +47,7 @@ test('a field draws its boundary with the tokens that reach 3:1', () => {
   expect(rule('\\.ui-input')).toMatch(/border: 1px solid var\(--border-field\);/)
   expect(rule('\\.ui-input:hover')).toMatch(/border-color: var\(--border-field-hover\);/)
 })
+
+test('a link in the page header meta line is underlined, not told apart by colour alone', () => {
+  expect(read('./app.css')).toMatch(/\.page-header__meta a\s*\{[^}]*text-decoration:\s*underline/)
+})

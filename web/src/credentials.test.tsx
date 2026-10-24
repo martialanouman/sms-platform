@@ -64,7 +64,7 @@ const row = async (name: RegExp) => within(await block()).findByRole('row', { na
 
 test('the credentials of an account show their status, grace and rotation, never a secret', async () => {
   stub([key, bind])
-  const { container } = renderAt(`/accounts/${api.id}`)
+  const { container } = renderAt(`/accounts/${api.id}/credentials`)
   const keyRow = await row(/Clé d’API/)
   expect(within(keyRow).getByText('Actif')).toBeDefined()
   const bindRow = await row(/Bind SMPP/)
@@ -82,7 +82,7 @@ test('a new SMPP bind shows its password once, then nothing is left of it', asyn
     [`POST ${path}`]: () => json(201, { ...bind, secret: 'Ab3dEf7h' }, { 'Cache-Control': 'no-store' }),
   })
   const user = userEvent.setup()
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/credentials`)
   await user.click(within(await block()).getByRole('button', { name: 'Nouvel identifiant' }))
   const dialog = await screen.findByRole('dialog', { name: 'Nouvel identifiant' })
   expect(within(dialog).getByRole('combobox', { name: 'Type' }).textContent).toContain('Bind SMPP')
@@ -106,7 +106,7 @@ test('a new API key needs no system_id', async () => {
     [`POST ${path}`]: () => json(201, { ...key, secret: `smsgw_${'k'.repeat(43)}` }),
   })
   const user = userEvent.setup()
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/credentials`)
   await user.click(within(await block()).getByRole('button', { name: 'Nouvel identifiant' }))
   const dialog = await screen.findByRole('dialog', { name: 'Nouvel identifiant' })
   expect(within(dialog).queryByRole('textbox', { name: 'system_id' })).toBeNull()
@@ -123,7 +123,7 @@ test('a taken system_id and a closed account are said in French', async () => {
     [`POST ${path}`]: () => json(answer, { code: 'x', message: 'refused', errors: [] }),
   })
   const user = userEvent.setup()
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/credentials`)
   await user.click(within(await block()).getByRole('button', { name: 'Nouvel identifiant' }))
   const dialog = await screen.findByRole('dialog', { name: 'Nouvel identifiant' })
   await user.type(within(dialog).getByRole('textbox', { name: 'system_id' }), 'acme01')
@@ -139,7 +139,7 @@ test('a rotation sends its grace and shows the new secret once', async () => {
     [`POST ${path}/${bind.id}/rotate`]: () => json(200, { ...bind, secret: 'Zz9yXx8w' }),
   })
   const user = userEvent.setup()
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/credentials`)
   await user.click(within(await row(/Bind SMPP/)).getByRole('button', { name: 'Rotation' }))
   const dialog = await screen.findByRole('dialog', { name: 'Rotation du bind SMPP acme01' })
   expect(dialog.textContent).toContain('Sans grâce, les binds ouverts sont déconnectés.')
@@ -159,7 +159,7 @@ test('a rotation without grace sends none, and a disabled credential says it sta
     [`POST ${path}/${key.id}/rotate`]: () => json(200, { ...key, status: 'disabled', secret: 'smsgw_x' }),
   })
   const user = userEvent.setup()
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/credentials`)
   await user.click(within(await row(/Clé d’API/)).getByRole('button', { name: 'Rotation' }))
   const dialog = await screen.findByRole('dialog', { name: 'Rotation de la clé d’API' })
   expect(dialog.textContent).toContain('L’identifiant reste désactivé.')
@@ -177,7 +177,7 @@ test('disabling, enabling and revoking are confirmed, and a revoked credential o
     [`DELETE ${path}/${key.id}`]: () => empty(204),
   })
   const user = userEvent.setup()
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/credentials`)
   const revoked = await row(/Bind SMPP/)
   expect(explained(within(revoked).getByRole('button', { name: 'Activer' }))).toBe(
     'Révoqué : seule une rotation le ravive.',
@@ -200,7 +200,7 @@ test('a credential revoked meanwhile is said in French', async () => {
     [`PATCH ${path}/${key.id}`]: () => json(409, { code: 'conflict', message: 'revoked', errors: [] }),
   })
   const user = userEvent.setup()
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/credentials`)
   await user.click(within(await row(/Clé d’API/)).getByRole('button', { name: 'Désactiver' }))
   const dialog = await screen.findByRole('alertdialog')
   await user.click(within(dialog).getByRole('button', { name: 'Désactiver' }))
@@ -209,7 +209,7 @@ test('a credential revoked meanwhile is said in French', async () => {
 
 test('a closed account freezes its credentials', async () => {
   stub([key], {}, writer, { ...api, status: 'closed' })
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/credentials`)
   const keyRow = await row(/Clé d’API/)
   for (const name of ['Rotation', 'Désactiver', 'Révoquer']) {
     expect(explained(within(keyRow).getByRole('button', { name }))).toBe('Fermé définitivement.')
@@ -221,13 +221,13 @@ test('a closed account freezes its credentials', async () => {
 
 test('without credentials:write every change is blocked, and without credentials:read nothing is asked', async () => {
   stub([key], {}, { ...me, permissions: ['accounts:read', 'credentials:read'] })
-  const { unmount } = renderAt(`/accounts/${api.id}`)
+  const { unmount } = renderAt(`/accounts/${api.id}/credentials`)
   expect(explained(within(await row(/Clé d’API/)).getByRole('button', { name: 'Rotation' }))).toBe(
     'Cette action demande Identifiants : modifier credentials:write.',
   )
   unmount()
   const calls = stub([key], {}, { ...me, permissions: ['accounts:read'] })
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/credentials`)
   expect(within(await block()).getByText('Les identifiants demandent credentials:read.')).toBeDefined()
   expect(calls.some((r) => r.url.includes('/credentials'))).toBe(false)
 })
@@ -237,7 +237,7 @@ test('a disabled credential is enabled, and an expired grace says so', async () 
     [`PATCH ${path}/${key.id}`]: () => json(200, key),
   })
   const user = userEvent.setup()
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/credentials`)
   const keyRow = await row(/Clé d’API/)
   expect(keyRow.textContent).toContain('expirée le 02/01/2026')
   expect(within(keyRow).getByText('Désactivé')).toBeDefined()
@@ -250,7 +250,7 @@ test('a disabled credential is enabled, and an expired grace says so', async () 
 test('a type taken meanwhile is said in French', async () => {
   stub([bind], { [`POST ${path}`]: () => json(409, { code: 'conflict', message: 'taken', errors: [] }) })
   const user = userEvent.setup()
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/credentials`)
   await user.click(within(await block()).getByRole('button', { name: 'Nouvel identifiant' }))
   const dialog = await screen.findByRole('dialog', { name: 'Nouvel identifiant' })
   await user.click(within(dialog).getByRole('button', { name: 'Créer' }))
@@ -260,7 +260,7 @@ test('a type taken meanwhile is said in French', async () => {
 test('a revoked credential rotates without grace, and revoking or disabling a bind says what it does', async () => {
   stub([{ ...key, status: 'revoked' }, bind])
   const user = userEvent.setup()
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/credentials`)
   await user.click(within(await row(/Clé d’API/)).getByRole('button', { name: 'Rotation' }))
   const rotation = await screen.findByRole('dialog')
   expect(rotation.textContent).toContain('Révoqué : il redevient actif avec un secret neuf, sans grâce.')
@@ -278,7 +278,7 @@ test('a revoked credential rotates without grace, and revoking or disabling a bi
 
 test('credentials that cannot be read are said, with a retry', async () => {
   stub([], { [`GET ${path}`]: () => json(500, { code: 'internal', message: 'boom', errors: [] }) })
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/credentials`)
   expect(await within(await block()).findByText('Les identifiants n’ont pas pu être chargés')).toBeDefined()
 })
 
@@ -287,7 +287,7 @@ test('a rotation refused because the account closed meanwhile is said in French'
     [`POST ${path}/${key.id}/rotate`]: () => json(409, { code: 'conflict', message: 'not allowed', errors: [] }),
   })
   const user = userEvent.setup()
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/credentials`)
   await user.click(within(await row(/Clé d’API/)).getByRole('button', { name: 'Rotation' }))
   const dialog = await screen.findByRole('dialog')
   await user.click(within(dialog).getByRole('button', { name: 'Tourner le secret' }))

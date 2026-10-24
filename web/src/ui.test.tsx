@@ -11,7 +11,7 @@ import userEvent from '@testing-library/user-event'
 import { useRef } from 'react'
 import { expect, test, vi } from 'vitest'
 import { explained } from './test'
-import { Button, needs, Select, Tabs, Toasts, useToast } from './ui'
+import { Button, needs, Select, Switch, Tabs, Toasts, useToast } from './ui'
 
 const bubble = () => document.querySelector('.ui-tooltip')?.textContent
 
@@ -129,4 +129,107 @@ test('a free button carries no reason and opens no bubble, even focused', async 
 test('a loading button stays inert', () => {
   render(<Button loading>Enregistrer</Button>)
   expect(screen.getByRole('button', { name: 'Enregistrer' }).getAttribute('aria-disabled')).toBe('true')
+})
+
+test('a free switch is named by its label, described by its explanation, and turns', async () => {
+  const onChange = vi.fn()
+  render(
+    <Switch
+      label="Canal REST"
+      about="La clé d’API n’est acceptée que si ce canal est activé."
+      checked={false}
+      onChange={onChange}
+    />,
+  )
+  const toggle = screen.getByRole('switch', { name: 'Canal REST' })
+  expect(toggle.getAttribute('aria-checked')).toBe('false')
+  expect(explained(toggle)).toBe('La clé d’API n’est acceptée que si ce canal est activé.')
+  expect(toggle.hasAttribute('aria-disabled')).toBe(false)
+  await userEvent.setup().click(toggle)
+  expect(onChange.mock.calls[0]?.[0]).toBe(true)
+})
+
+test('a blocked switch is described by its reason alone, opens its bubble, and does not turn', async () => {
+  const onChange = vi.fn()
+  render(
+    <Switch
+      label="Canal SMPP"
+      about="Muet."
+      checked
+      onChange={onChange}
+      blockedReason="Au moins un canal reste activé."
+    />,
+  )
+  const toggle = screen.getByRole('switch', { name: 'Canal SMPP' })
+  expect(toggle.getAttribute('aria-disabled')).toBe('true')
+  expect(toggle.getAttribute('aria-describedby')?.split(' ')).toHaveLength(1)
+  expect(explained(toggle)).toBe('Au moins un canal reste activé.')
+  const user = userEvent.setup()
+  await user.tab()
+  expect(document.activeElement).toBe(toggle)
+  await waitFor(() => expect(bubble()).toBe('Au moins un canal reste activé.'))
+  await user.click(toggle)
+  await user.keyboard(' ')
+  expect(onChange).not.toHaveBeenCalled()
+  expect(toggle.getAttribute('aria-checked')).toBe('true')
+})
+
+test('a busy switch is read-only and says so', async () => {
+  const onChange = vi.fn()
+  render(<Switch label="Canal REST" about="Muet." checked={false} onChange={onChange} busy />)
+  const toggle = screen.getByRole('switch', { name: 'Canal REST' })
+  expect(toggle.getAttribute('aria-busy')).toBe('true')
+  expect(toggle.getAttribute('aria-readonly')).toBe('true')
+  await userEvent.setup().click(toggle)
+  expect(onChange).not.toHaveBeenCalled()
+})
+
+test('a blocked tab is a focusable button without href that explains itself', async () => {
+  const root = createRootRoute({
+    component: () => (
+      <Tabs
+        label="Sections"
+        tabs={[
+          { to: '/audit/access', label: 'A', blockedReason: 'Non.' },
+          { to: '/audit/control-plane', label: 'B' },
+        ]}
+      />
+    ),
+  })
+  const router = createRouter({ routeTree: root, history: createMemoryHistory({ initialEntries: ['/'] }) })
+  render(<RouterProvider router={router} />)
+  const blocked = await screen.findByRole('button', { name: 'A' })
+  expect(blocked.className).toBe('ui-tabs__tab')
+  expect(blocked.hasAttribute('href')).toBe(false)
+  expect(screen.queryByRole('link', { name: 'A' })).toBeNull()
+  expect(screen.getByRole('link', { name: 'B' })).toBeDefined()
+  await userEvent.setup().tab()
+  expect(document.activeElement).toBe(blocked)
+  await waitFor(() => expect(bubble()).toBe('Non.'))
+  expect(explained(blocked)).toBe('Non.')
+})
+
+test('a blocked tab is marked current when its route is the one shown', async () => {
+  const root = createRootRoute({
+    component: () => (
+      <>
+        <Tabs
+          label="Sections"
+          tabs={[
+            { to: '/audit/access', label: 'A', blockedReason: 'Non.' },
+            { to: '/audit/control-plane', label: 'B', blockedReason: 'Non.' },
+          ]}
+        />
+        <Outlet />
+      </>
+    ),
+  })
+  const page = (path: string) => createRoute({ getParentRoute: () => root, path, component: () => null })
+  const router = createRouter({
+    routeTree: root.addChildren([page('audit/access'), page('audit/control-plane')]),
+    history: createMemoryHistory({ initialEntries: ['/audit/access'] }),
+  })
+  render(<RouterProvider router={router} />)
+  await waitFor(() => expect(screen.getByRole('button', { name: 'A' }).getAttribute('aria-current')).toBe('page'))
+  expect(screen.getByRole('button', { name: 'B' }).hasAttribute('aria-current')).toBe(false)
 })
