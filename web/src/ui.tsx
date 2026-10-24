@@ -78,9 +78,8 @@ export function Field({ label, ...input }: { label: string } & ComponentProps<'i
 
 export function Combobox<Item>({
   label,
-  name,
   items,
-  defaultValue,
+  value,
   itemLabel,
   itemValue,
   itemDetail,
@@ -89,23 +88,21 @@ export function Combobox<Item>({
   onChange,
 }: {
   label: string
-  name: string
   items: Item[]
-  defaultValue?: Item | null
+  value: Item | null
   itemLabel: (item: Item) => string
   itemValue: (item: Item) => string
   itemDetail: (item: Item) => ReactNode
   matches: (item: Item, query: string) => boolean
   empty: string
-  onChange?: (item: Item | null) => void
+  onChange: (item: Item | null) => void
 }) {
   const id = useId()
   return (
     <BaseCombobox.Root
       items={items}
-      name={name}
-      defaultValue={defaultValue}
-      onValueChange={(item) => onChange?.(item as Item | null)}
+      value={value}
+      onValueChange={(item) => onChange(item as Item | null)}
       itemToStringLabel={itemLabel}
       itemToStringValue={itemValue}
       filter={matches}
