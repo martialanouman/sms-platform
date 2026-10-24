@@ -89,7 +89,6 @@ function Loaded({ account, held }: { account: Account; held: string[] }) {
   ) : (
     account.customer_name
   )
-  const params = { id: account.id }
 
   return (
     <>
@@ -149,13 +148,12 @@ function Loaded({ account, held }: { account: Account; held: string[] }) {
           tabs={[
             {
               to: '/accounts/$id/credentials',
-              params,
               label: 'Identifiants',
               blockedReason: held.includes('credentials:read') ? undefined : needs('credentials:read', 'Cet onglet'),
             },
-            { to: '/accounts/$id/channels', params, label: 'Canaux & opérations' },
-            { to: '/accounts/$id/sessions', params, label: 'Sessions' },
-            { to: '/accounts/$id/webhooks', params, label: 'Webhooks MO/DLR' },
+            { to: '/accounts/$id/channels', label: 'Canaux & opérations' },
+            { to: '/accounts/$id/sessions', label: 'Sessions' },
+            { to: '/accounts/$id/webhooks', label: 'Webhooks MO/DLR' },
           ]}
         />
         <AccountContext.Provider value={{ account, frozen }}>

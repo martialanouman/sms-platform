@@ -400,14 +400,14 @@ export function Tabs({
   tabs,
   label,
 }: {
-  tabs: { to: LinkProps['to']; params?: LinkProps['params']; label: string; blockedReason?: ReactNode }[]
+  tabs: { to: LinkProps['to']; label: string; blockedReason?: ReactNode }[]
   label: string
 }) {
   return (
     <nav className="ui-tabs" aria-label={label}>
       {tabs.map((tab) =>
         tab.blockedReason === undefined ? (
-          <Link key={tab.label} className="ui-tabs__tab" to={tab.to} params={tab.params}>
+          <Link key={tab.label} className="ui-tabs__tab" to={tab.to}>
             {tab.label}
           </Link>
         ) : (
