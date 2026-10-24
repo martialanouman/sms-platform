@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { type FormEvent, useId, useState } from 'react'
-import { accountsKey, useAccount } from '../accounts'
+import { accountQuery, accountsKey, useAccount } from '../accounts'
 import { gw } from '../gw'
 import { Button, Card, Choice, Choices, EmptyState, Field, useSubmission, useToast } from '../ui'
 
@@ -34,7 +34,7 @@ function AccountSessions() {
       }),
     )
     if (outcome.failure === undefined) {
-      queryClient.setQueryData([...accountsKey, account.id], outcome.data)
+      queryClient.setQueryData(accountQuery(account.id).queryKey, outcome.data)
       void queryClient.invalidateQueries({ queryKey: accountsKey })
       notify('Limites de session enregistrées.')
     }

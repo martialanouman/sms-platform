@@ -1,14 +1,21 @@
-import { useQueryClient } from '@tanstack/react-query'
+import { queryOptions, useQueryClient } from '@tanstack/react-query'
 import { createContext, type FormEvent, type ReactNode, useContext, useId, useState } from 'react'
 import type { components } from './admin.gen'
 import { Status as CustomerStatus, customersKey } from './customers'
 import { gw } from './gw'
+import { read } from './queries'
 import { Button, Field, Modal, useSubmission, useToast } from './ui'
 
 export type Account = components['schemas']['Account']
 type Status = Account['status']
 
 export const accountsKey = [...customersKey, 'accounts']
+
+export const accountQuery = (id: string) =>
+  queryOptions({
+    queryKey: [...accountsKey, id],
+    queryFn: () => read(gw.GET('/admin/accounts/{id}', { params: { path: { id } } }), 'account'),
+  })
 
 export const AccountContext = createContext<{ account: Account; frozen?: ReactNode } | undefined>(undefined)
 

@@ -1,18 +1,26 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, Outlet, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
-import { type Account, AccountContext, AccountForm, accountsKey, EffectiveStatus } from '../accounts'
+import { type Account, AccountContext, AccountForm, accountQuery, accountsKey, EffectiveStatus } from '../accounts'
 import { atMinute } from '../audit'
 import { customerQuery } from '../customers'
 import { gw } from '../gw'
 import { Failure, useClosedOn } from '../list'
-import { read } from '../queries'
 import { useShellMe } from '../session'
 import { Button, Confirmation, Forbidden, LoadingState, needs, PageHeader, Tabs, useToast } from '../ui'
 
 export const Route = createFileRoute('/_shell/accounts/$id')({ component: AccountPage })
 
 const closedFinal = 'Ce compte est fermé définitivement.'
+
+const customersCrumb = (held: string[]) =>
+  held.includes('customers:read') ? (
+    <Link key="customers" to="/customers">
+      Clients
+    </Link>
+  ) : (
+    'Clients'
+  )
 
 type Pending = 'rename' | 'suspend' | 'reactivate' | 'close' | 'delete'
 
@@ -21,11 +29,7 @@ function AccountPage() {
   const me = useShellMe()
   const held = me.data?.permissions ?? []
   const readable = held.includes('accounts:read')
-  const account = useQuery({
-    queryKey: [...accountsKey, id],
-    queryFn: () => read(gw.GET('/admin/accounts/{id}', { params: { path: { id } } }), 'account'),
-    enabled: readable,
-  })
+  const account = useQuery({ ...accountQuery(id), enabled: readable })
   useClosedOn(account.error)
 
   if (readable && account.data) {
@@ -33,19 +37,7 @@ function AccountPage() {
   }
   return (
     <>
-      <PageHeader
-        crumbs={[
-          held.includes('customers:read') ? (
-            <Link key="customers" to="/customers">
-              Clients
-            </Link>
-          ) : (
-            'Clients'
-          ),
-          'Compte',
-        ]}
-        title="Compte"
-      />
+      <PageHeader crumbs={[customersCrumb(held), 'Compte']} title="Compte" />
       <section className="page">
         {!readable ? (
           <Forbidden
@@ -94,13 +86,7 @@ function Loaded({ account, held }: { account: Account; held: string[] }) {
     <>
       <PageHeader
         crumbs={[
-          held.includes('customers:read') ? (
-            <Link key="customers" to="/customers">
-              Clients
-            </Link>
-          ) : (
-            'Clients'
-          ),
+          customersCrumb(held),
           customer,
           <span key="account" className="ui-mono">
             {account.name}

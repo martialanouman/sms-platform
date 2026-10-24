@@ -146,7 +146,7 @@ test('a free switch is named by its label, described by its explanation, and tur
   expect(explained(toggle)).toBe('La clé d’API n’est acceptée que si ce canal est activé.')
   expect(toggle.hasAttribute('aria-disabled')).toBe(false)
   await userEvent.setup().click(toggle)
-  expect(onChange).toHaveBeenCalledWith(true)
+  expect(onChange.mock.calls[0]?.[0]).toBe(true)
 })
 
 test('a blocked switch is described by its reason alone, opens its bubble, and does not turn', async () => {

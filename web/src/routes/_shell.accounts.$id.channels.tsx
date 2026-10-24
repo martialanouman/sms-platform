@@ -1,14 +1,13 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
-import { accountsKey, useAccount } from '../accounts'
+import { accountQuery, accountsKey, useAccount } from '../accounts'
 import { gw } from '../gw'
 import { Card, Confirmation, Switch, useSubmission, useToast } from '../ui'
 
 export const Route = createFileRoute('/_shell/accounts/$id/channels')({ component: AccountChannels })
 
 const lastChannel = 'Au moins un canal reste activé.'
-const disconnects = 'Le changement déconnecte les binds ouverts du compte.'
 
 type Channel = 'smpp' | 'rest'
 type Operation = 'query_sm' | 'cancel_sm'
@@ -20,7 +19,7 @@ function AccountChannels() {
   const { submit, refusal, fail } = useSubmission()
   const [busy, setBusy] = useState(false)
   const [asked, setAsked] = useState<{ operation: Operation; on: boolean }>()
-  const key = [...accountsKey, account.id]
+  const key = accountQuery(account.id).queryKey
   const enabled = { smpp: account.smpp_enabled, rest: account.rest_enabled }
 
   async function turn(channel: Channel, on: boolean) {
@@ -68,7 +67,7 @@ function AccountChannels() {
           <span className="ui-mono">{name}</span> autorisé
         </>
       }
-      about={disconnects}
+      about="Le changement déconnecte les binds ouverts du compte."
       checked={on}
       onChange={(next) => setAsked({ operation: name, on: next })}
       blockedReason={frozen}

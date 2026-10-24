@@ -586,7 +586,7 @@ export function Switch({
           <BaseSwitch.Root
             className="ui-switch__control"
             checked={checked}
-            onCheckedChange={(next) => onChange(next)}
+            onCheckedChange={onChange}
             readOnly={blocked || busy}
             aria-busy={busy || undefined}
             aria-labelledby={`${id}-label`}
