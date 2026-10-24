@@ -84,10 +84,11 @@ export function Credentials() {
   const close = () => setPending(undefined)
   const ask = (action: Action, c?: Credential) => setPending({ action, c, opener: document.activeElement })
   const creation = useSubmission()
+  const [creating, setCreating] = useState(false)
   const blocked =
     (held.includes('credentials:write') ? undefined : needs('credentials:write')) ??
     (account.status === 'closed' ? 'Fermé définitivement.' : undefined) ??
-    (creation.waiting ? 'Une clé d’API est en cours de création.' : undefined)
+    (creating ? 'Une clé d’API est en cours de création.' : undefined)
   const path = (c: Credential) => ({ params: { path: { id: account.id, credential_id: c.id } } })
   const reveal = (secret: Shown) => {
     void queryClient.invalidateQueries({ queryKey: key })
@@ -95,16 +96,18 @@ export function Credentials() {
     setShown({ secret, opener: pending?.opener ?? null })
   }
   async function createKey() {
+    setCreating(true)
     const outcome = await creation.submit(() =>
       gw.POST('/admin/accounts/{id}/credentials', { params: { path: { id: account.id } }, body: { type: 'api_key' } }),
     )
+    setCreating(false)
     const status = outcome.response?.status
     if (status === 409) {
+      document.querySelector<HTMLElement>('#contenu h1')?.focus()
       void queryClient.invalidateQueries({ queryKey: key })
     }
-    const said = { 409: 'Ce compte a déjà une clé d’API.', 422: 'Ce compte est fermé ou n’existe plus.' }[status ?? 0]
-    if (said) {
-      creation.fail(said)
+    if (status === 422) {
+      creation.fail('Ce compte est fermé ou n’existe plus.')
     }
     if ('data' in outcome) {
       reveal(outcome.data)

@@ -245,7 +245,7 @@ test('a taken system_id and a closed account are said in the creation dialog', a
   expect(await within(dialog).findByText('Ce compte est fermé ou n’existe plus.')).toBeDefined()
 })
 
-test('a key taken meanwhile reads the list again and shows the key', async () => {
+test('a key taken meanwhile reads the list again, shows the key and gives the focus to the title', async () => {
   let list: object[] = [bind]
   const calls = stub(() => list, {
     [`POST ${path}`]: () => {
@@ -260,19 +260,18 @@ test('a key taken meanwhile reads the list again and shows the key', async () =>
     expect(within(screen.getByRole('region', { name: 'Clé d’API' })).getByText('Actif')).toBeDefined(),
   )
   expect(reads(calls)).toBe(2)
+  expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1, name: 'api-acme' }))
+  expect(screen.queryByRole('alert')).toBeNull()
+  noToast()
 })
 
-test('a key taken meanwhile and a closed account are said in its card', async () => {
-  let answer = 409
-  stub([bind], { [`POST ${path}`]: () => json(answer, { code: 'x', message: 'refused', errors: [] }) })
+test('a closed account is said in the key card', async () => {
+  stub([bind], { [`POST ${path}`]: () => json(422, { code: 'x', message: 'refused', errors: [] }) })
   const user = userEvent.setup()
   renderAt(`/accounts/${api.id}/credentials`)
   const rest = await keyCard()
   await user.click(within(rest).getByRole('button', { name: 'Créer une clé d’API' }))
-  expect((await within(rest).findByRole('alert')).textContent).toBe('Ce compte a déjà une clé d’API.')
-  answer = 422
-  await user.click(within(rest).getByRole('button', { name: 'Créer une clé d’API' }))
-  await waitFor(() => expect(within(rest).getByRole('alert').textContent).toBe('Ce compte est fermé ou n’existe plus.'))
+  expect((await within(rest).findByRole('alert')).textContent).toBe('Ce compte est fermé ou n’existe plus.')
   expect(screen.queryByRole('dialog')).toBeNull()
 })
 
@@ -509,4 +508,22 @@ test('while a key is being created, an empty bind card cannot be created either'
   await waitFor(() => expect(explained(create)).toBe('Une clé d’API est en cours de création.'))
   answer(json(201, { ...key, secret: 'smsgw_y' }))
   await screen.findByRole('dialog', { name: 'Nouvelle clé d’API' })
+})
+
+test('a key creation slowed down by a Retry-After frees the bind card once answered', async () => {
+  stub([bind], {
+    [`POST ${path}`]: () =>
+      json(429, { code: 'rate_limited', message: 'Trop de requêtes.', errors: [] }, { 'Retry-After': '30' }),
+  })
+  const user = userEvent.setup()
+  renderAt(`/accounts/${api.id}/credentials`)
+  const create = within(await keyCard()).getByRole('button', { name: 'Créer une clé d’API' })
+  await user.click(create)
+  expect(await within(await keyCard()).findByRole('alert')).toBeDefined()
+  expect(create.getAttribute('aria-busy')).toBe('true')
+  expect(
+    within(await bindCard())
+      .getByRole('button', { name: 'Rotation' })
+      .hasAttribute('aria-disabled'),
+  ).toBe(false)
 })
