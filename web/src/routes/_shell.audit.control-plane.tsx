@@ -6,7 +6,7 @@ import { AuditFilters, type AuditSearch, at, auditSearch, period, useOperatorNam
 import { gw } from '../gw'
 import { Failure, Pager, useClosedOn } from '../list'
 import { read } from '../queries'
-import { Button, Card, DataTable, EmptyState, LoadingState, Modal, StatusPill, type Tone } from '../ui'
+import { Button, Card, DataTable, EmptyState, KeyValue, LoadingState, Modal, StatusPill, type Tone } from '../ui'
 
 type Entry = components['schemas']['AuditEntry']
 export const Route = createFileRoute('/_shell/audit/control-plane')({
@@ -18,7 +18,7 @@ function ControlPlane() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
   const name = useOperatorName()
-  const [changes, setChanges] = useState<string>()
+  const [changes, setChanges] = useState<Entry>()
   const { from, to } = period(search)
   const log = useQuery({
     queryKey: ['audit', 'control-plane', search, from, to],
@@ -72,7 +72,7 @@ function ControlPlane() {
                 header: 'Détail',
                 cell: (e) =>
                   e.request_id ? (
-                    <Button size="sm" onClick={() => setChanges(e.request_id ?? undefined)}>
+                    <Button size="sm" onClick={() => setChanges(e)}>
                       Modifications
                     </Button>
                   ) : (
@@ -83,7 +83,9 @@ function ControlPlane() {
           />
         </Card>
       )}
-      {changes && <Changes requestId={changes} onClose={() => setChanges(undefined)} />}
+      {changes?.request_id && (
+        <Changes entry={changes} requestId={changes.request_id} onClose={() => setChanges(undefined)} />
+      )}
     </>
   )
 }
@@ -106,7 +108,52 @@ function Result({ entry }: { entry: Entry }) {
   return <StatusPill tone={tone}>{said}</StatusPill>
 }
 
-function Changes({ requestId, onClose }: { requestId: string; onClose: () => void }) {
+type Change = components['schemas']['AuditChange']
+
+const ops: Record<Change['op'], string> = { insert: 'Création', update: 'Modification', delete: 'Suppression' }
+
+const shown = (v: unknown) =>
+  v === null || v === undefined ? (
+    <span className="ui-muted">vide</span>
+  ) : (
+    <span className="ui-mono">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
+  )
+
+function Diff({ change }: { change: Change }) {
+  const before = change.before ?? {}
+  const after = change.after ?? {}
+  const fields = [...new Set([...Object.keys(before), ...Object.keys(after)])]
+  const same = (k: string) => JSON.stringify(before[k]) === JSON.stringify(after[k])
+  const kept = fields.filter(same)
+  return (
+    <section className="audit-change">
+      <div className="audit-change__head">
+        <span className="ui-tag">{ops[change.op]}</span>
+        <h3 className="ui-mono">{change.table}</h3>
+        <span className="audit-id">{change.pk}</span>
+      </div>
+      <DataTable<string>
+        caption={`Champs modifiés de ${change.table}`}
+        rows={fields.filter((k) => !same(k))}
+        rowKey={(k) => k}
+        columns={[
+          { header: 'Champ', cell: (k) => <span className="ui-mono">{k}</span> },
+          { header: 'Avant', cell: (k) => shown(before[k]) },
+          { header: 'Après', cell: (k) => shown(after[k]) },
+        ]}
+      />
+      {kept.length > 0 && (
+        <details>
+          <summary>{kept.length === 1 ? '1 champ inchangé' : `${kept.length} champs inchangés`}</summary>
+          <KeyValue items={kept.map((k) => ({ label: k, value: shown(before[k]) }))} />
+        </details>
+      )}
+    </section>
+  )
+}
+
+function Changes({ entry, requestId, onClose }: { entry: Entry; requestId: string; onClose: () => void }) {
+  const name = useOperatorName()
   const [position, setPosition] = useState<AuditSearch>({})
   const list = useQuery({
     queryKey: ['audit', 'changes', requestId, position.cursor],
@@ -120,7 +167,14 @@ function Changes({ requestId, onClose }: { requestId: string; onClose: () => voi
   })
   useClosedOn(list.error)
   return (
-    <Modal title={`Modifications de la requête ${requestId}`} wide onClose={onClose} footer={null}>
+    <Modal title={`Modifications de ${entry.operation_id}`} wide onClose={onClose} footer={null}>
+      <KeyValue
+        items={[
+          { label: 'Date', value: <span className="ui-mono">{at(entry.at)}</span> },
+          { label: 'Opérateur', value: name(entry.operator) },
+          { label: 'Requête', value: <span className="ui-mono">{requestId}</span> },
+        ]}
+      />
       {list.isPending ? (
         <LoadingState label="Chargement des modifications…" rows={2} />
       ) : list.error ? (
@@ -132,35 +186,11 @@ function Changes({ requestId, onClose }: { requestId: string; onClose: () => voi
       ) : list.data.data.length === 0 ? (
         <EmptyState title="Aucune modification enregistrée" />
       ) : (
-        list.data.data.map((c, i) => {
-          const columns = [...new Set([...Object.keys(c.before ?? {}), ...Object.keys(c.after ?? {})])]
-          return (
-            <section className="audit-change" key={`${i}${c.table}${c.pk}`}>
-              <h3 className="audit-change__table">{c.table}</h3>
-              <p className="audit-change__meta">
-                <span className="audit-id">{c.pk}</span> · {c.op} · <span className="audit-id">{c.actor}</span> ·{' '}
-                {at(c.at)}
-              </p>
-              <dl className="audit-diff">
-                {columns.map((k) => {
-                  const before = JSON.stringify(c.before?.[k]) ?? '—'
-                  const after = JSON.stringify(c.after?.[k]) ?? '—'
-                  return (
-                    <div
-                      className={before === after ? 'audit-diff__row' : 'audit-diff__row audit-diff__row--changed'}
-                      key={k}
-                    >
-                      <dt>{k}</dt>
-                      <dd className="audit-id">{before}</dd>
-                      <dd className="audit-id">{after}</dd>
-                    </div>
-                  )
-                })}
-              </dl>
-            </section>
-          )
-        })
+        list.data.data.map((c, i) => <Diff change={c} key={`${i}${c.table}${c.pk}`} />)
       )}
+      <p className="ui-muted">
+        Les secrets et leurs empreintes ne sont jamais journalisés : seuls les champs lisibles apparaissent.
+      </p>
       {list.data && (
         <Pager search={position} next={list.data.next_cursor} go={setPosition} count={list.data.data.length} />
       )}

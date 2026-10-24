@@ -1054,37 +1054,17 @@ button.ui-tabs__tab {
   margin-top: var(--sp-6);
 }
 
-.audit-change__table {
-  font: var(--text-card-title);
-  color: var(--text-primary);
-}
-
-.audit-change__meta {
-  color: var(--text-muted);
-  font: var(--text-caption);
-}
-
-.audit-diff {
-  display: grid;
-  gap: var(--sp-1);
-  margin: var(--sp-4) 0 0;
-}
-
-.audit-diff__row {
-  display: grid;
-  grid-template-columns: minmax(8rem, 1fr) 2fr 2fr;
+.audit-change__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--sp-4);
-  padding: var(--sp-1) var(--sp-3);
-  border-radius: var(--r-field);
+  margin-bottom: var(--sp-3);
 }
 
-.audit-diff__row dd {
+.audit-change__head h3 {
   margin: 0;
-}
-
-.audit-diff__row--changed {
-  background: var(--surface-sunken);
-  color: var(--text-primary);
+  font: var(--text-card-title);
 }
 
 .token-scopes {

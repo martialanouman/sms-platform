@@ -235,13 +235,29 @@ test('the changes of a request show before and after, the changed columns marked
       name: 'Modifications',
     }),
   )
-  const dialog = await screen.findByRole('dialog', { name: 'Modifications de la requête r-write' })
-  expect(await within(dialog).findByText('routes')).toBeDefined()
-  const changed = within(dialog).getByText('name').closest('div') as HTMLElement
-  expect(changed.className).toContain('changed')
-  expect(changed.textContent).toContain('"a"')
-  expect(changed.textContent).toContain('"b"')
-  expect((within(dialog).getByText('priority').closest('div') as HTMLElement).className).not.toContain('changed')
+  const dialog = await screen.findByRole('dialog', { name: 'Modifications de create-route' })
+  expect(await within(dialog).findByRole('heading', { name: 'routes' })).toBeDefined()
+  expect(within(dialog).getByText('Requête').nextElementSibling?.textContent).toBe('r-write')
+  expect(within(dialog).getByText('Opérateur').nextElementSibling?.textContent).toBe(ada)
+  expect(within(dialog).getByText('Modification').className).toBe('ui-tag')
+  expect(within(dialog).getByText('{"id": 7}')).toBeDefined()
+  const table = within(dialog).getByRole('table', { name: 'Champs modifiés de routes' })
+  expect(
+    within(table)
+      .getAllByRole('columnheader')
+      .map((h) => h.textContent),
+  ).toEqual(['Champ', 'Avant', 'Après'])
+  expect(
+    within(table)
+      .getAllByRole('row')
+      .slice(1)
+      .map((r) => r.textContent),
+  ).toEqual(['nameab'])
+  const unchanged = within(dialog).getByText('1 champ inchangé').closest('details') as HTMLElement
+  expect(unchanged.textContent).toBe('1 champ inchangépriority1')
+  expect(dialog.textContent).toContain(
+    'Les secrets et leurs empreintes ne sont jamais journalisés : seuls les champs lisibles apparaissent.',
+  )
   await user.click(within(dialog).getByRole('button', { name: 'Fermer' }))
 
   await user.click(
@@ -249,7 +265,7 @@ test('the changes of a request show before and after, the changed columns marked
       name: 'Modifications',
     }),
   )
-  const none = await screen.findByRole('dialog', { name: 'Modifications de la requête r-read' })
+  const none = await screen.findByRole('dialog', { name: 'Modifications de list-audit-log' })
   expect(await within(none).findByText('Aucune modification enregistrée')).toBeDefined()
 })
 
@@ -401,13 +417,20 @@ test('the changes of a request are paged, and two changes of one row both show',
   renderAt('/audit/control-plane')
   const user = userEvent.setup()
   await user.click(await screen.findByRole('button', { name: 'Modifications' }))
-  const dialog = await screen.findByRole('dialog', { name: 'Modifications de la requête r-write' })
+  const dialog = await screen.findByRole('dialog', { name: 'Modifications de create-route' })
   await waitFor(() => expect(within(dialog).getAllByRole('heading', { name: 'routes' }).length).toBe(2))
   expect(within(dialog).getByText('2 entrées affichées')).toBeDefined()
   expect(errors.mock.calls.some((c) => String(c[0]).includes('same key'))).toBe(false)
-  const inserted = within(dialog).getAllByText('name')[0]?.closest('div') as HTMLElement
-  expect(inserted.className).toContain('changed')
-  expect(inserted.textContent).toBe('name—"a"')
+  const [inserted, updated] = within(dialog).getAllByRole('table', { name: 'Champs modifiés de routes' })
+  expect(within(inserted as HTMLElement).getAllByRole('row')[1]?.textContent).toBe('namevidea')
+  expect(within(inserted as HTMLElement).getByText('vide').className).toBe('ui-muted')
+  expect(within(updated as HTMLElement).getAllByRole('row')[1]?.textContent).toBe('nameab')
+  expect(
+    within(dialog)
+      .getAllByText(/^(Création|Modification)$/)
+      .map((t) => t.textContent),
+  ).toEqual(['Création', 'Modification'])
+  expect(within(dialog).queryByText(/inchangé/)).toBeNull()
   expect(within(dialog).getByRole('button', { name: 'Précédent' }).getAttribute('aria-disabled')).toBe('true')
   await user.click(within(dialog).getByRole('button', { name: 'Suivant' }))
   expect(await within(dialog).findByRole('heading', { name: 'customers' })).toBeDefined()
@@ -579,4 +602,46 @@ test('the filters apply as they change, and are taken away at once, frozen when 
   expect((screen.getByLabelText('Au') as HTMLInputElement).value).toBe(today)
   expect((screen.getByRole('combobox', { name: 'Opérateur' }) as HTMLInputElement).value).toBe('')
   expect(screen.getByRole('button', { name: 'Retirer les filtres' }).getAttribute('aria-disabled')).toBe('true')
+})
+
+test('a deletion shows what was there, unchanged fields counted in the plural and objects told as JSON', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, auditor),
+    'GET /api/gw/admin/audit-log': () => page([refused]),
+    'GET /api/gw/admin/audit-log/r-write/changes': () =>
+      page([
+        {
+          actor: ada,
+          table: 'routes',
+          pk: '{"id": 7}',
+          op: 'delete',
+          before: { name: 'a', rule: { to: 'x' } },
+          after: null,
+          at: entry.at,
+        },
+        {
+          actor: ada,
+          table: 'customers',
+          pk: '{"id": 8}',
+          op: 'update',
+          before: { name: 'c', status: 'active', group_id: null, rule: { to: 'x' } },
+          after: { name: 'd', status: 'active', group_id: null, rule: { to: 'x' } },
+          at: entry.at,
+        },
+      ]),
+  })
+  renderAt('/audit/control-plane')
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('button', { name: 'Modifications' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Modifications de create-route' })
+  const deleted = await within(dialog).findByRole('table', { name: 'Champs modifiés de routes' })
+  expect(
+    within(deleted)
+      .getAllByRole('row')
+      .slice(1)
+      .map((r) => r.textContent),
+  ).toEqual(['nameavide', 'rule{"to":"x"}vide'])
+  expect(within(dialog).getByText('Suppression').className).toBe('ui-tag')
+  const unchanged = within(dialog).getByText('3 champs inchangés').closest('details') as HTMLElement
+  expect(unchanged.textContent).toBe('3 champs inchangésstatusactivegroup_idviderule{"to":"x"}')
 })
