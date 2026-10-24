@@ -143,3 +143,47 @@ Fable, 2026-10-24, dans le cadre de 398 et 399.
 - **Routes** `_shell.accounts.$id.credentials.tsx` et `.webhooks.tsx` : inchangées.
 - **Aucun changement de contrat ni de Go.**
 - **Tests** : 424 ; captures dans `docs/steps/014c-3/`.
+
+## Écarts au design, constatés à l'implémentation
+
+- **Raison de l'onglet sans `credentials:read`** (413) : `needs('credentials:read', 'Cet onglet')`, « Cet onglet
+  demande Identifiants : lire `credentials:read`. », comme l'onglet figé de 014c-2 ; `needs` conjugue au singulier,
+  « Les identifiants demande » serait fautif.
+- **`opener` relayé par `SecretOnce` seul** (421) : `RotationModal` est toujours ouverte par un bouton de la page,
+  l'élément actif à son montage est déjà l'ouvreur ; sa prop `opener` survivait à sa mutation et est retirée. Le relais
+  de `SecretOnce` est nécessaire : sous `StrictMode`, la modale du secret retient sinon le bouton de la modale fermée,
+  et le focus irait au titre au lieu de « Rotation » (test du kit rendu sous `StrictMode`, comme l'application).
+  Base UI rend aussi le focus, mais de façon asynchrone ; le retour synchrone du kit reste.
+- **Route Webhooks** : `component: Webhooks`, qui lit `useAccount()` (compte et `frozen`, 422) ; l'enveloppe qui
+  passait le compte en prop tombe. La route Identifiants est inchangée.
+- **Rotation d'un révoqué** (419) : le corps est `{}`.
+- **Bandeau d'un identifiant désactivé** : deux paragraphes dans `.ui-banner--warn`, la grâce puis « L'identifiant
+  reste désactivé. ».
+- **Classes** : `.ui-badge` porte la forme commune, `--mo` et `--dlr` la teinte (`--tint-blue` existait déjà, avec
+  `--text-info`) ; état vide de carte en `.ui-card__empty` et `.ui-card__empty-title` ; la ligne de la case réutilise
+  `.role-choice__option`, texte enveloppé dans un `span` (grille à deux colonnes). Paires de contraste ajoutées :
+  avertissement sur ambre, info sur bleu, accent sur teal.
+- **Biome** : `inputComponents` passe de `CheckboxRoot` à `Check` ; l'alias `CheckboxRoot` tombe.
+- **`renderAt`** rend aussi son `QueryClient`, pour prouver que le secret n'entre pas dans le cache (420).
+- **Textes choisis** : Select de création « MO (SMS entrants) », « DLR (accusés de réception) » ; titres « Nouveau
+  bind SMPP », « Modifier l'URL du webhook MO|DLR », « Rotation du secret du webhook MO|DLR », « Nouveau secret du
+  webhook MO|DLR » (création comme rotation) ; confirmations d'identifiant gardant leur titre de 014b-1
+  (« Désactiver : Bind SMPP acme01 »).
+- **Refus** : le `return` après un refus traduit tombe (création, rotation) ; un refus n'a jamais de `data`, le
+  mutant était équivalent.
+- **Non repris** : la phrase de pied de la maquette des identifiants (« Aucune action ne révèle un secret
+  existant… »), absente des arbitrages.
+- **Non fait ici** : la preuve sur contabo169 et ses captures (`docs/steps/014c-3/`), à la main de l'humain avant le
+  merge.
+
+## Mutations
+
+À la main, une ligne à la fois, restauration vérifiée par `cmp` ; suite Vitest ciblée.
+
+| Unité | Tués | Survivants |
+|---|---|---|
+| Kit : `Modal` (ouvreur, titre), `SecretOnce`, `RotationModal`, `Check`, `Choice` (`ui.tsx`) | 22/22 | 3 au premier passage : relais `opener` de `SecretOnce` (test du kit passé sous `StrictMode`), `opener` de `RotationModal` (retiré, écart ci-dessus) |
+| Identifiants (`credentials.tsx`) | 69/69 | 5 au premier passage : texte « Ses binds ouverts » hors désactivation d'un bind, bouton occupé pendant la création d'une clé (tests ajoutés) ; `return` après refus et `opener` de la rotation (retirés) |
+| Webhooks (`webhooks.tsx`) | 48/48 | 2 au premier passage : refus d'une modification d'URL, colonne Actions alignée en fin (tests ajoutés) |
+
+**Équivalents nommés** : aucun.
