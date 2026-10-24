@@ -481,6 +481,7 @@ test('the sessions tab shows its limits in place and the live binds as not yet i
   ).toEqual(['true', 'false', 'true'])
   expect(within(types).getByRole('checkbox', { name: 'Émetteur transmitter' }).getAttribute('data-disabled')).toBeNull()
   expect(within(types).getByText('transmitter').className).toBe('ui-mono ui-muted')
+  expect(within(types).getByText('transmitter').parentElement?.tagName).toBe('SPAN')
   expect(max.className).toContain('ui-mono')
   expect(limits.textContent).toContain('Au moins un type reste autorisé.')
   const live = await card('Binds vivants')

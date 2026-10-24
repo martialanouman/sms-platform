@@ -71,7 +71,9 @@ function AccountSessions() {
                   key={t.value}
                   disabled={frozen !== undefined || (types.length === 1 && types.includes(t.value))}
                 >
-                  {t.label} <span className="ui-mono ui-muted">{t.value}</span>
+                  <span>
+                    {t.label} <span className="ui-mono ui-muted">{t.value}</span>
+                  </span>
                 </Choice>
               ))}
             </Choices>
