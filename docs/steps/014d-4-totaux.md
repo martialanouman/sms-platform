@@ -27,3 +27,12 @@ le même sur toutes les pages ; le contrat Admin servi déclare `total` requis s
   affichée sur T »). Clients, Comptes et Groupes passent `total` (aucun écran ne lit encore `list-group-customers`).
 - **Tests SPA** : pied « sur T » sur chaque liste ; mutation consignée ; preuve sur contabo169, captures dans
   `docs/steps/014d-4/`.
+
+## Écarts au design, constatés à l'implémentation
+
+- **Trois requêtes de compte, pas quatre** : `list-group-customers` passe par `CustomersPage` avec le filtre de groupe ;
+  `CountCustomers` le compte, `CountGroupCustomers` serait un doublon.
+- **Pas de `counted()` dans le cœur** : chaque page appelle `page()` puis le compte de son port, trois lignes ; un
+  générique coûterait plus qu'il n'épargne. `counted` est l'enveloppe huma.
+- **Les tests de pagination existants exigent le total** à chaque page (même total d'une page à l'autre, égal au
+  nombre de lignes parcourues, pour chaque filtre) au lieu d'un test neuf par liste.
