@@ -93,8 +93,7 @@ function PersonalToken({ held }: { held: string[] }) {
       {issued && (
         <SecretOnce title="Jeton d’API personnel" secret={issued.token} onClose={() => setIssued(undefined)}>
           <p>
-            Ce jeton ne sera plus jamais affiché. Il expire à {expiry.format(new Date(issued.expiresAt))} et ouvre :{' '}
-            {issued.scopes.join(', ')}.
+            Il expire à {expiry.format(new Date(issued.expiresAt))} et ouvre : {issued.scopes.join(', ')}.
           </p>
         </SecretOnce>
       )}

@@ -23,7 +23,7 @@
         "noLabelWithoutControl": {
           "level": "error",
           "options": {
-            "inputComponents": ["CheckboxRoot"]
+            "inputComponents": ["Check"]
           }
         }
       }

@@ -208,16 +208,28 @@ export function Choices({
   )
 }
 
-const CheckboxRoot = Checkbox.Root
+export function Check({
+  onChange,
+  ...rest
+}: {
+  value?: string
+  checked?: boolean
+  disabled?: boolean
+  onChange?: (checked: boolean) => void
+}) {
+  return (
+    <Checkbox.Root {...rest} onCheckedChange={onChange} className="ui-check">
+      <Checkbox.Indicator className="ui-check__mark">
+        <Icon name="check" />
+      </Checkbox.Indicator>
+    </Checkbox.Root>
+  )
+}
 
 export function Choice({ value, disabled, children }: { value: string; disabled?: boolean; children: ReactNode }) {
   return (
     <label className="role-choice__option">
-      <CheckboxRoot value={value} disabled={disabled} className="ui-check">
-        <Checkbox.Indicator className="ui-check__mark">
-          <Icon name="check" />
-        </Checkbox.Indicator>
-      </CheckboxRoot>
+      <Check value={value} disabled={disabled} />
       {children}
     </label>
   )
@@ -431,7 +443,7 @@ export function Tabs({
   )
 }
 
-export type Tone = 'ok' | 'warn' | 'neutral'
+export type Tone = 'ok' | 'warn' | 'bad' | 'neutral'
 
 export function StatusPill({ tone, children }: { tone: Tone; children: ReactNode }) {
   return <span className={`ui-pill ui-pill--${tone}`}>{children}</span>
@@ -734,19 +746,24 @@ export function Modal({
   title,
   wide,
   alert,
+  opener: given,
   onClose,
   footer,
   children,
 }: {
-  title: string
+  title: ReactNode
   wide?: boolean
   alert?: boolean
+  opener?: Element | null
   onClose: () => void
   footer: ReactNode
   children: ReactNode
 }) {
-  const [opener] = useState(() => document.activeElement as HTMLElement | null)
-  useEffect(() => () => opener?.focus(), [opener])
+  const [opener] = useState(() => (given ?? document.activeElement) as HTMLElement | null)
+  useEffect(
+    () => () => (opener?.isConnected ? opener : document.querySelector<HTMLElement>('#contenu h1'))?.focus(),
+    [opener],
+  )
   const Kind = alert ? AlertDialog : Dialog
   return (
     <Kind.Root open onOpenChange={(open) => !open && onClose()}>
@@ -854,17 +871,20 @@ export function CopyButton({ label, value }: { label: string; value: string }) {
 export function SecretOnce({
   title,
   secret,
+  opener,
   onClose,
   children,
 }: {
   title: string
   secret: string
+  opener?: Element | null
   onClose: () => void
   children: ReactNode
 }) {
   return (
     <Modal
       title={title}
+      opener={opener}
       onClose={onClose}
       footer={
         <>
@@ -877,6 +897,58 @@ export function SecretOnce({
     >
       {children}
       <code className="auth__secret">{secret}</code>
+      <p className="ui-why">Ce secret ne sera plus jamais affiché. Fermer cette fenêtre l’efface de l’écran.</p>
+    </Modal>
+  )
+}
+
+export function RotationModal({
+  title,
+  warning,
+  opener,
+  onClose,
+  onSubmit,
+  waiting,
+  refusal,
+  children,
+}: {
+  title: ReactNode
+  warning: ReactNode
+  opener?: Element | null
+  onClose: () => void
+  onSubmit: () => void
+  waiting: boolean
+  refusal: ReactNode
+  children?: ReactNode
+}) {
+  const [understood, setUnderstood] = useState(false)
+  return (
+    <Modal
+      title={title}
+      opener={opener}
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose}>Annuler</Button>
+          <Button
+            variant="danger"
+            loading={waiting}
+            blockedReason={understood ? undefined : 'Cochez d’abord la case.'}
+            onClick={onSubmit}
+          >
+            Effectuer la rotation
+          </Button>
+        </>
+      }
+    >
+      {refusal}
+      <div className="ui-banner--warn">{warning}</div>
+      {children}
+      <label className="role-choice__option">
+        <Check checked={understood} onChange={setUnderstood} />
+        <span>Je comprends que le nouveau secret ne sera affiché qu’une seule fois.</span>
+      </label>
+      <p className="ui-why">L’action est enregistrée dans le journal d’audit.</p>
     </Modal>
   )
 }
