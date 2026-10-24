@@ -10,6 +10,8 @@ const rank = (resource: string) => {
   return i === -1 ? resourceOrder.length : i
 }
 
+const verbRank = (key: string) => ['read', 'write'].indexOf(key.split(':')[1] ?? '') >>> 0
+
 export function PermissionPicker({
   keys,
   chosen,
@@ -26,13 +28,9 @@ export function PermissionPicker({
   const resources = [...new Set(keys.map((key) => key.split(':')[0] ?? key))].sort(
     (a, b) => rank(a) - rank(b) || a.localeCompare(b),
   )
-  const derived = (key: string) => streamFollowsTraffic && key === stream
+  const derived = (key: string) => streamFollowsTraffic && key === stream && chosen.includes(traffic)
   const derive = (next: string[]) =>
-    onChange(
-      streamFollowsTraffic
-        ? [...next.filter((key) => key !== stream), ...(next.includes(traffic) ? [stream] : [])]
-        : next,
-    )
+    onChange(streamFollowsTraffic && next.includes(traffic) && !next.includes(stream) ? [...next, stream] : next)
   return (
     <Choices value={chosen} onChange={derive} className="permission-picker">
       {resources.map((resource) => (
@@ -40,6 +38,7 @@ export function PermissionPicker({
           <legend>{permissionLabel(`${resource}:`).resource ?? resource}</legend>
           {keys
             .filter((key) => key.startsWith(`${resource}:`))
+            .sort((a, b) => verbRank(a) - verbRank(b) || a.localeCompare(b))
             .map((key) => (
               <Choice
                 value={key}

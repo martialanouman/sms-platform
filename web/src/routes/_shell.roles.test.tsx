@@ -157,8 +157,8 @@ test('a role is composed in French, grouped in the order of the mockup, keys in 
   const stream = within(within(dialog).getByRole('group', { name: 'Temps réel' })).getByRole('checkbox', {
     name: 'Lire',
   })
-  expect(stream.getAttribute('aria-readonly')).toBe('true')
-  expect(explained(stream)).toBe('stream:read · compris avec la lecture du trafic')
+  expect(stream.getAttribute('aria-readonly')).toBeNull()
+  expect(explained(stream)).toBe('stream:read')
   expect(stream.getAttribute('aria-checked')).toBe('false')
   traffic.focus()
   await waitFor(() => expect(document.querySelector('.ui-tooltip')?.textContent).toBe('traffic:read'))
@@ -167,6 +167,8 @@ test('a role is composed in French, grouped in the order of the mockup, keys in 
   await user.type(within(dialog).getByLabelText('Description'), 'Lit le trafic.')
   await user.click(traffic)
   expect(stream.getAttribute('aria-checked')).toBe('true')
+  expect(stream.getAttribute('aria-readonly')).toBe('true')
+  expect(explained(stream)).toBe('stream:read · compris avec la lecture du trafic')
   await user.click(within(dialog).getByRole('button', { name: 'Créer le rôle' }))
   expect((await within(dialog).findByRole('alert')).textContent).toBe('Un rôle porte déjà ce nom.')
   await user.clear(within(dialog).getByLabelText('Nom'))
@@ -186,7 +188,7 @@ test('a role is composed in French, grouped in the order of the mockup, keys in 
   await waitFor(() => expect(reads).toBe(3))
 })
 
-test('unchecking the traffic takes its stream with it', async () => {
+test('unchecking the traffic leaves its stream checked, and free', async () => {
   const calls = stubFetch({
     'GET /api/auth/me': () => json(200, writer),
     'GET /api/roles': () => json(200, [owner, { ...readers, permissions: ['stream:read', 'traffic:read'] }]),
@@ -199,17 +201,73 @@ test('unchecking the traffic takes its stream with it', async () => {
   const stream = within(within(dialog).getByRole('group', { name: 'Temps réel' })).getByRole('checkbox', {
     name: 'Lire',
   })
-  expect(stream.getAttribute('aria-checked')).toBe('true')
+  expect(stream.getAttribute('aria-readonly')).toBe('true')
   await user.click(
     within(within(dialog).getByRole('group', { name: 'Trafic' })).getByRole('checkbox', { name: 'Lire' }),
   )
+  expect(stream.getAttribute('aria-checked')).toBe('true')
+  expect(stream.getAttribute('aria-readonly')).toBeNull()
+  await user.click(stream)
   expect(stream.getAttribute('aria-checked')).toBe('false')
+  await user.click(stream)
+  expect(stream.getAttribute('aria-checked')).toBe('true')
   await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
   await waitFor(() => expect(calls.some((c) => c.method === 'PATCH')).toBe(true))
   expect(await calls.find((c) => c.method === 'PATCH')?.json()).toEqual({
     description: 'Lit le trafic.',
-    permissions: [],
+    permissions: ['stream:read'],
   })
+})
+
+test('a stream checked alone survives a change to another key', async () => {
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, writer),
+    'GET /api/roles': () => json(200, [owner, { ...readers, permissions: ['cdr:read', 'stream:read'] }]),
+    'PATCH /api/roles/r-readers': async (r) => json(200, { ...readers, ...(await r.clone().json()) }),
+  })
+  renderAt('/roles')
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('button', { name: 'Lecteurs' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Lecteurs Personnalisé' })
+  await user.click(within(within(dialog).getByRole('group', { name: 'CDR' })).getByRole('checkbox', { name: 'Lire' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
+  await waitFor(() => expect(calls.some((c) => c.method === 'PATCH')).toBe(true))
+  expect(await calls.find((c) => c.method === 'PATCH')?.json()).toEqual({
+    description: 'Lit le trafic.',
+    permissions: ['stream:read'],
+  })
+})
+
+test('within a group, Lire comes first, then Modifier, then the particular verb', async () => {
+  const catalog = {
+    ...owner,
+    permissions: [
+      'billing:read',
+      'billing:topup',
+      'billing:write',
+      'cdr:export_bulk',
+      'cdr:read',
+      'content:erase',
+      'content:read',
+      'content:write',
+      'suppressions:delete',
+      'suppressions:read',
+      'suppressions:write',
+    ],
+  }
+  stubFetch({ 'GET /api/auth/me': () => json(200, writer), 'GET /api/roles': () => json(200, [catalog]) })
+  renderAt('/roles')
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('button', { name: 'Nouveau rôle' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Nouveau rôle' })
+  const order = (group: string) =>
+    within(within(dialog).getByRole('group', { name: group }))
+      .getAllByRole('checkbox')
+      .map((c) => c.closest('label')?.textContent)
+  expect(order('Facturation')).toEqual(['Lire', 'Modifier', 'Recharger, ajuster et fixer les conditions de crédit sensible'])
+  expect(order('Désabonnements')).toEqual(['Lire', 'Modifier', 'Supprimer sensible'])
+  expect(order('Corps des messages')).toEqual(['Lire sensible', 'Modifier sensible', 'Effacer sensible'])
+  expect(order('CDR')).toEqual(['Lire', 'Exporter en masse sensible'])
 })
 
 test('a custom role is edited in its dialog, and a refusal is told there', async () => {
