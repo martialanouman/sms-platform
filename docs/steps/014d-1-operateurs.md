@@ -146,7 +146,8 @@ Fable, 2026-10-24, sauf mention. Les décisions humaines du même jour sont marq
 
 ## Écarts au design, constatés à l'implémentation
 
-- **`.ui-chips`** : un conteneur flex de quatre lignes pour les puces de rôles ; `.ui-chip` existait, pas son alignement.
+- **`.ui-tags` et `.ui-tag`** : les rôles d'un opérateur sont des étiquettes neutres, pas la puce turquoise `.ui-chip`
+  d'un filtre qu'on retire (vu à la preuve).
 - **Aide de l'adresse e-mail** : liée au champ par `aria-describedby` avec l'erreur de saisie, qui s'y ajoute ; le
   lecteur d'écran annonce les deux. `explained` (`web/src/test.tsx`) lit désormais tous les identifiants décrits.
 - **Ordre des champs** : Nom affiché, puis Adresse e-mail, comme la maquette ; le focus d'un formulaire vide va au nom.
@@ -161,3 +162,24 @@ Fable, 2026-10-24, sauf mention. Les décisions humaines du même jour sont marq
 - **Correctif de revue 5** : le test Go de la MFA ne garde que les cas qui comptent, un rôle à lectures ordinaires et
   aucun rôle ; les raisons de l'ancienne règle tombent.
 - **Correctif de revue 6** : les textes du lien (action, toast, titre, effet) viennent d'un seul objet selon `activated`.
+- **Correctif de preuve** : dans « Rôles de {nom} », chaque rôle est une option encadrée, comme la maquette
+  (`.role-choice--boxed`).
+
+## Preuve sur contabo169
+
+2026-10-24, image construite depuis la branche, déploiement automatique suspendu le temps de la preuve. Compte de
+preuve `ada.preuve` (Propriétaire) : lien de réinitialisation, nouveau mot de passe, second facteur enrôlé, session
+élevée ; identifiants gardés dans le scratchpad puis effacés.
+
+- Liste : carte, pilules, étiquettes de rôles, sous-titre, pied « 4 entrées affichées sur 4 » ; axe sans violation,
+  aucun `[title]` (`01-operateurs.png`).
+- Filtre `?status=disabled` : « 1 entrée affichée sur 4 » (`02-filtre-desactives.png`).
+- Création d'« Aïcha Bamba » dans sa modale (`03-nouvel-operateur.png`), toast « Opérateur Aïcha Bamba créé. Le lien
+  d'activation part à aicha.bamba@example.test ; il vaut 72 heures. », action « Renvoyer l'activation »
+  (`04-toast-creation.png`).
+- Rôles de l'opérateur en options encadrées, axe sans violation (`05-roles-operateur.png`) ; Support attribué, toast
+  « Rôles de Aïcha Bamba enregistrés. ».
+- Second facteur pour tous : Aïcha, rôle Support seul (lectures ordinaires), activée puis connectée sans facteur :
+  `GET /api/gw/admin/accounts` → 403 `mfa_required`, `GET /api/auth/me` → 200. Dans la liste, elle est « Actif »,
+  second facteur « Aucun », et son action devient « Réinitialiser l'accès » : le cas où l'heuristique du facteur
+  aurait menti (442) (`06-active-sans-facteur.png`).
