@@ -69,3 +69,21 @@ table, inchangés repliés, ligne sur les secrets) ; axe sans violation, aucun `
 - **Mutations des correctifs** (toutes tuées, restauration vérifiée par `cmp`) : date appliquée à chaque frappe, figé
   limité à l'absence de clés, retour de la clé du `fieldset`, ligne « aucun champ » retirée, pied sans « Fermer »,
   classe Avant retirée.
+
+## Preuve sur contabo169
+
+2026-10-24, image construite depuis la branche, déploiement automatique suspendu le temps de la preuve. Compte de
+preuve `ada.preuve` (Propriétaire), mot de passe et second facteur neufs, identifiants effacés ensuite.
+
+- Onglet Administration : sans phrase d'introduction, filtres Opérateur, Du, Au, « Retirer les filtres » figé au
+  défaut, table dans une carte, pilules 200 et 201, colonne Détail ; axe sans violation, aucun `[title]`
+  (`01-administration.png`).
+- Saisie clavier (le défaut bloquant de la revue) : dans « Du », taper « 1 » puis « 5 » laisse le champ à
+  `2026-10-15` sans naviguer ; à la sortie du champ, l'adresse devient `?from=2026-10-15` et le focus passe à « Au »
+  (`02-filtre-date.png`). « Retirer les filtres » ramène au défaut, garde le focus et se fige.
+- Modifications d'un `update-account` : Date, Opérateur nommé, Requête ; étiquette « Modification », table et `pk` en
+  mono ; `status` et `updated_at` en Avant barré rouge, Après vert ; « 10 champs inchangés » repliés ; ligne sur les
+  secrets ; « Fermer » ; axe sans violation (`03-modifications.png`).
+- Onglet Accès : pilules « Réussi », acteurs nommés ; axe sans violation (`04-acces.png`).
+- Hors périmètre, relevé : la cible d'un événement « Rôle créé » s'affiche par son identifiant (l'annuaire de l'audit
+  ne nomme que les opérateurs).
