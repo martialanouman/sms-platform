@@ -37,3 +37,18 @@ table, inchangés repliés, ligne sur les secrets) ; axe sans violation, aucun `
 - **Tests** : 449 pour la part 014d-3 (table de la pilule Résultat : 200, 201, 409, 500, `granted` ; champs changés
   contre repliés ; « Retirer les filtres » figé au défaut ; libellés du pager) ; mutation consignée ; preuve sur
   contabo169, captures dans `docs/steps/014d-3/`.
+
+## Écarts au design, constatés à l'implémentation
+
+- **`Combobox` prend un `onChange`** (`onValueChange` de Base UI) : sans formulaire ni « Filtrer », le choix d'un
+  opérateur doit naviguer de lui-même.
+- **Rangée des filtres** : `.audit-filters` gardée plutôt que `.ui-filters` ; les champs de l'audit portent leur
+  libellé au-dessus, que `.ui-filters` centrerait contre le bouton.
+- **Dates des filtres** : seule une date complète navigue ; une saisie partielle ou vidée ne change rien.
+- **Modale des modifications** : elle reçoit l'entrée et son `request_id` ; l'acteur et la date par changement tombent
+  (ceux de la requête suffisent). Un champ se compare par son JSON ; la garde « avant et après présents » est tombée,
+  la mutation l'ayant montrée sans effet (les clés viennent de l'union des deux côtés).
+- **CSS** : `.audit-change__table`, `.audit-change__meta` et `.audit-diff*` supprimées ; `.audit-change__head` ajoutée.
+- **Mutations** (toutes tuées, restauration vérifiée par `cmp`) : seuils 400 et 500, branche `outcome`, filtre des
+  champs changés, compte et accord des champs inchangés, figé de « Retirer les filtres », libellés du pager par défaut
+  et ceux des deux journaux, accord « 1 entrée affichée ».
