@@ -203,9 +203,13 @@ test('a new SMPP bind asks its system_id alone, shows its password once, then th
   noToast()
 })
 
-test('a new API key is asked by its button alone and shown once, without a toast', async () => {
-  const calls = stub([bind], {
-    [`POST ${path}`]: () => json(201, { ...key, secret: `smsgw_${'k'.repeat(43)}` }),
+test('a new API key is asked by its button alone and shown once, without a toast, then the focus goes to the title', async () => {
+  let list: object[] = [bind]
+  const calls = stub(() => list, {
+    [`POST ${path}`]: () => {
+      list = [bind, key]
+      return json(201, { ...key, secret: `smsgw_${'k'.repeat(43)}` })
+    },
   })
   const user = userEvent.setup()
   const { queryClient } = renderAt(`/accounts/${api.id}/credentials`)
@@ -217,7 +221,11 @@ test('a new API key is asked by its button alone and shown once, without a toast
   expect(value(once, 'system_id')).toBeUndefined()
   expect(await sent(calls, 'POST')).toEqual({ type: 'api_key' })
   expect(cached(queryClient)).not.toContain('smsgw_')
+  await waitFor(() =>
+    expect(within(screen.getByRole('region', { name: 'Clé d’API', hidden: true })).getByText('Actif')).toBeDefined(),
+  )
   await user.click(within(once).getByRole('button', { name: 'J’ai copié le secret' }))
+  expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1, name: 'api-acme' }))
   expect(document.body.textContent).not.toContain('smsgw_')
   noToast()
 })
@@ -235,6 +243,23 @@ test('a taken system_id and a closed account are said in the creation dialog', a
   answer = 422
   await user.click(within(dialog).getByRole('button', { name: 'Créer' }))
   expect(await within(dialog).findByText('Ce compte est fermé ou n’existe plus.')).toBeDefined()
+})
+
+test('a key taken meanwhile reads the list again and shows the key', async () => {
+  let list: object[] = [bind]
+  const calls = stub(() => list, {
+    [`POST ${path}`]: () => {
+      list = [bind, key]
+      return json(409, { code: 'conflict', message: 'taken', errors: [] })
+    },
+  })
+  const user = userEvent.setup()
+  renderAt(`/accounts/${api.id}/credentials`)
+  await user.click(within(await keyCard()).getByRole('button', { name: 'Créer une clé d’API' }))
+  await waitFor(() =>
+    expect(within(screen.getByRole('region', { name: 'Clé d’API' })).getByText('Actif')).toBeDefined(),
+  )
+  expect(reads(calls)).toBe(2)
 })
 
 test('a key taken meanwhile and a closed account are said in its card', async () => {
@@ -333,18 +358,31 @@ test('a rotation refused because the account closed meanwhile is said in place',
 })
 
 test('disabling, enabling and revoking are confirmed, then told in a toast', async () => {
-  const calls = stub([key, { ...bind, status: 'disabled' }], {
-    [`PATCH ${path}/${key.id}`]: () => json(200, { ...key, status: 'disabled' }),
-    [`PATCH ${path}/${bind.id}`]: () => json(200, { ...bind, status: 'active' }),
-    [`DELETE ${path}/${key.id}`]: () => empty(204),
-  })
+  let keyStatus = 'active'
+  const calls = stub(
+    () => [
+      { ...key, status: keyStatus },
+      { ...bind, status: 'disabled' },
+    ],
+    {
+      [`PATCH ${path}/${key.id}`]: () => {
+        keyStatus = 'disabled'
+        return json(200, { ...key, status: 'disabled' })
+      },
+      [`PATCH ${path}/${bind.id}`]: () => json(200, { ...bind, status: 'active' }),
+      [`DELETE ${path}/${key.id}`]: () => empty(204),
+    },
+  )
   const user = userEvent.setup()
   renderAt(`/accounts/${api.id}/credentials`)
-  await user.click(within(await keyCard()).getByRole('button', { name: 'Désactiver' }))
+  const toggle = within(await keyCard()).getByRole('button', { name: 'Désactiver' })
+  await user.click(toggle)
   const keyOff = await screen.findByRole('alertdialog', { name: 'Désactiver : Clé d’API' })
   expect(keyOff.textContent).not.toContain('binds')
   await user.click(within(keyOff).getByRole('button', { name: 'Désactiver' }))
   expect(await toasted()).toContain('Clé d’API désactivée.')
+  await waitFor(() => expect(toggle.textContent).toBe('Activer'))
+  expect(document.activeElement).toBe(toggle)
   expect(await sent(calls, 'PATCH')).toEqual({ status: 'disabled' })
   await user.click(within(await bindCard()).getByRole('button', { name: 'Activer' }))
   const bindOn = await screen.findByRole('alertdialog', { name: 'Activer : Bind SMPP acme01' })
@@ -441,4 +479,34 @@ test('a key being created holds its button busy', async () => {
   await waitFor(() => expect(create.getAttribute('aria-busy')).toBe('true'))
   answer(json(201, { ...key, secret: 'smsgw_y' }))
   expect(await screen.findByRole('dialog', { name: 'Nouvelle clé d’API' })).toBeDefined()
+})
+
+test('while a key is being created, the bind card waits and says why', async () => {
+  let answer: (r: Response) => void = () => {}
+  stub([bind], { [`POST ${path}`]: () => new Promise<Response>((resolve) => (answer = resolve)) })
+  const user = userEvent.setup()
+  renderAt(`/accounts/${api.id}/credentials`)
+  await user.click(within(await keyCard()).getByRole('button', { name: 'Créer une clé d’API' }))
+  const smpp = await bindCard()
+  const waiting = 'Une clé d’API est en cours de création.'
+  for (const name of ['Rotation', 'Désactiver', 'Révoquer']) {
+    await waitFor(() => expect(explained(within(smpp).getByRole('button', { name }))).toBe(waiting))
+  }
+  await user.click(within(smpp).getByRole('button', { name: 'Rotation' }))
+  expect(screen.queryByRole('dialog')).toBeNull()
+  answer(json(201, { ...key, secret: 'smsgw_y' }))
+  expect(await screen.findByRole('dialog', { name: 'Nouvelle clé d’API' })).toBeDefined()
+  expect(within(smpp).getByRole('button', { name: 'Rotation', hidden: true }).hasAttribute('aria-disabled')).toBe(false)
+})
+
+test('while a key is being created, an empty bind card cannot be created either', async () => {
+  let answer: (r: Response) => void = () => {}
+  stub([], { [`POST ${path}`]: () => new Promise<Response>((resolve) => (answer = resolve)) })
+  const user = userEvent.setup()
+  renderAt(`/accounts/${api.id}/credentials`)
+  await user.click(within(await keyCard()).getByRole('button', { name: 'Créer une clé d’API' }))
+  const create = within(await bindCard()).getByRole('button', { name: 'Créer un bind SMPP' })
+  await waitFor(() => expect(explained(create)).toBe('Une clé d’API est en cours de création.'))
+  answer(json(201, { ...key, secret: 'smsgw_y' }))
+  await screen.findByRole('dialog', { name: 'Nouvelle clé d’API' })
 })

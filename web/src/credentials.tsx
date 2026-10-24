@@ -83,14 +83,32 @@ export function Credentials() {
   const [shown, setShown] = useState<{ secret: Shown; opener: Element | null }>()
   const close = () => setPending(undefined)
   const ask = (action: Action, c?: Credential) => setPending({ action, c, opener: document.activeElement })
+  const creation = useSubmission()
   const blocked =
     (held.includes('credentials:write') ? undefined : needs('credentials:write')) ??
-    (account.status === 'closed' ? 'Fermé définitivement.' : undefined)
+    (account.status === 'closed' ? 'Fermé définitivement.' : undefined) ??
+    (creation.waiting ? 'Une clé d’API est en cours de création.' : undefined)
   const path = (c: Credential) => ({ params: { path: { id: account.id, credential_id: c.id } } })
   const reveal = (secret: Shown) => {
     void queryClient.invalidateQueries({ queryKey: key })
     close()
     setShown({ secret, opener: pending?.opener ?? null })
+  }
+  async function createKey() {
+    const outcome = await creation.submit(() =>
+      gw.POST('/admin/accounts/{id}/credentials', { params: { path: { id: account.id } }, body: { type: 'api_key' } }),
+    )
+    const status = outcome.response?.status
+    if (status === 409) {
+      void queryClient.invalidateQueries({ queryKey: key })
+    }
+    const said = { 409: 'Ce compte a déjà une clé d’API.', 422: 'Ce compte est fermé ou n’existe plus.' }[status ?? 0]
+    if (said) {
+      creation.fail(said)
+    }
+    if ('data' in outcome) {
+      reveal(outcome.data)
+    }
   }
   const done = (c: Credential, verb: string) => () => {
     notify(`${kinds[c.type]} ${verb}${c.type === 'api_key' ? 'e' : ''}.`)
@@ -125,10 +143,10 @@ export function Credentials() {
             <Empty
               key={kind}
               kind={kind}
-              accountId={account.id}
               blocked={blocked}
-              onAsk={() => ask('create')}
-              onCreated={reveal}
+              waiting={kind === 'api_key' && creation.waiting}
+              refusal={kind === 'api_key' && creation.refusal}
+              onCreate={kind === 'smpp_bind' ? () => ask('create') : () => void createKey()}
             />
           )
         })}
@@ -243,48 +261,25 @@ function Filled({
 
 function Empty({
   kind,
-  accountId,
   blocked,
-  onAsk,
-  onCreated,
+  waiting,
+  refusal,
+  onCreate,
 }: {
   kind: Kind
-  accountId: string
   blocked: ReactNode
-  onAsk: () => void
-  onCreated: (s: Shown) => void
+  waiting: boolean
+  refusal: ReactNode
+  onCreate: () => void
 }) {
-  const { submit, waiting, refusal, fail } = useSubmission()
   const { title, about, create } = empty[kind]
-
-  async function createKey() {
-    const outcome = await submit(() =>
-      gw.POST('/admin/accounts/{id}/credentials', { params: { path: { id: accountId } }, body: { type: kind } }),
-    )
-    const said = { 409: 'Ce compte a déjà une clé d’API.', 422: 'Ce compte est fermé ou n’existe plus.' }[
-      outcome.response?.status ?? 0
-    ]
-    if (said) {
-      fail(said)
-    }
-    if ('data' in outcome) {
-      onCreated(outcome.data)
-    }
-  }
-
   return (
     <Card title={kinds[kind]}>
       <div className="ui-card__empty">
         <p className="ui-card__empty-title">{title}</p>
         <p className="ui-muted">{about}</p>
         {refusal}
-        <Button
-          variant="primary"
-          size="sm"
-          loading={waiting}
-          blockedReason={blocked}
-          onClick={kind === 'smpp_bind' ? onAsk : () => void createKey()}
-        >
+        <Button variant="primary" size="sm" loading={waiting} blockedReason={blocked} onClick={onCreate}>
           {create}
         </Button>
       </div>
