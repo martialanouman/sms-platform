@@ -143,3 +143,21 @@ Fable, 2026-10-24, sauf mention. Les décisions humaines du même jour sont marq
   modales Nouvel opérateur et Rôles de {nom} (444) ; toasts 444 ; `useClosedOn` à la place de l'effet écrit à la main.
 - **`_shell.index.tsx`** : la marque `debt: #155` tombe, la redirection reste (432).
 - **Tests** : 449 pour la part 014d-1 ; mutation consignée ; preuve sur contabo169, captures dans `docs/steps/014d-1/`.
+
+## Écarts au design, constatés à l'implémentation
+
+- **`.ui-chips`** : un conteneur flex de quatre lignes pour les puces de rôles ; `.ui-chip` existait, pas son alignement.
+- **Aide de l'adresse e-mail** : liée au champ par `aria-describedby` avec l'erreur de saisie, qui s'y ajoute ; le
+  lecteur d'écran annonce les deux. `explained` (`web/src/test.tsx`) lit désormais tous les identifiants décrits.
+- **Ordre des champs** : Nom affiché, puis Adresse e-mail, comme la maquette ; le focus d'un formulaire vide va au nom.
+- **Titres de confirmation du lien** : « Envoyer un lien d'activation / de réinitialisation à {nom} ? », bouton
+  « Envoyer » ; seule la branche `unknown` tombe.
+- **Correctif de revue 1** : le sous-titre de la maquette passe par `meta` de `PageHeader`.
+- **Correctif de revue 2** : un filtre Rôle que plus aucun opérateur listé ne détient s'offre sous « Rôle sans
+  détenteur », jamais par son identifiant brut.
+- **Correctif de revue 3** : tests durcis — un compte désactivé au lien en échec reste « Désactivé » ; « Aucun
+  résultat » prouvé filtre par filtre ; options de rôle triées et dédoublonnées.
+- **Correctif de revue 4** : l'échec de lecture de la liste passe par `Failure` (`list.tsx`), comme Clients et Comptes.
+- **Correctif de revue 5** : le test Go de la MFA ne garde que les cas qui comptent, un rôle à lectures ordinaires et
+  aucun rôle ; les raisons de l'ancienne règle tombent.
+- **Correctif de revue 6** : les textes du lien (action, toast, titre, effet) viennent d'un seul objet selon `activated`.
