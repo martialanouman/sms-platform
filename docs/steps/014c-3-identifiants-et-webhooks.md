@@ -220,3 +220,47 @@ Deux revues en lecture seule et une première passe dans le navigateur.
 12. **B10, B11, tests** : aides `noToast`, `cached(queryClient)` et `understood` dans `web/src/test.tsx`, adoptées par
     les tests des identifiants, des webhooks, de la fiche compte et de la liste Clients ; `value()` typé
     `HTMLElement | undefined`.
+
+## Preuve dans le navigateur
+
+Sur contabo169, `Propriétaire` (compte de preuve), image du dashboard construite depuis la branche, fenêtre
+1440 × 960 ; compte de preuve `preuve-014c-3` créé sous Arolitec, puis clôturé et supprimé (ses identifiants et
+webhooks partent avec lui). Captures dans `docs/steps/014c-3/` ; sur celle du secret, le secret est masqué avant la
+prise.
+
+- Identifiants vides : deux cartes, « Aucun bind SMPP » et « Aucune clé d'API », chacune avec son bouton de création ;
+- bind créé (`system_id` seul), « Nouveau mot de passe » avec Compte et `system_id`, secret absent du DOM après
+  « J'ai copié le secret », focus sur le titre, carte renseignée (mono, « jamais », « Créé le ») ;
+- rotation : « Effectuer la rotation » figé « Cochez d'abord la case. » et sans effet au clic ; grâce 24 h, bandeau
+  « Pendant 24 h, l'ancien mot de passe reste accepté ; aucun bind n'est déconnecté. » ; après le secret, focus sur
+  « Rotation », aucun toast, « Ancien secret accepté jusqu'au … » ;
+- clé d'API créée sans modale, puis révoquée : toast « Clé d'API révoquée. », focus sur « Révoquer », pilule rouge,
+  « Activer » et « Révoquer » figés et expliqués, « Rotation » libre ;
+- webhooks MO et DLR créés (scellement réel par `content-key-svc`), « Ajouter » alors figé « Un webhook par événement
+  au plus. » ; MO désactivé (toast, focus sur « Activer ») ; secret du DLR tourné (bandeau « L'ancien secret cesse
+  immédiatement d'être accepté. », focus sur « Rotation du secret ») ; MO supprimé (toast, focus sur le titre) ;
+  actions alignées en fin de ligne après correctif ;
+- compte fermé : « Ajouter », « Rotation du secret » et les six actions des identifiants figés « Fermé définitivement. » ;
+  « Désactiver », « Modifier l'URL », « Supprimer » d'un webhook libres (366) ;
+- aucun attribut `title` ; axe (WCAG 2.1 AA) sur les deux onglets : aucune violation.
+
+Incident de preuve : la lecture de la modale du premier secret par l'outil a recopié le mot de passe du bind de preuve
+dans le journal de session (hors dépôt). Le bind a été tourné aussitôt, puis supprimé avec son compte ; la capture de
+cette modale masque le secret.
+
+## Correctifs de revue, tour 2
+
+Une revue des correctifs du tour 1 : deux défauts bas, introduits par lui.
+
+1. **C1** : un 409 à la création d'une clé focalisait son alerte, que la relecture démontait ; le focus tombait sur
+   `body`. Le 409 ne pose plus de message traduit : il rend le focus au `h1` (421) et relit la liste, et la carte
+   montre la clé existante. Test : après un 409 dont la relecture rend la clé, focus au titre, aucune alerte, aucun
+   toast (397). Mutant tué : focus au titre retiré. L'erreur brute posée par `useSubmission` reste dans l'état de
+   `Credentials`, sans lecteur : la carte vide de la clé ne revient jamais après un 409 (un identifiant ne se supprime
+   pas, un révoqué garde sa carte). Un `fail('')` qui l'effaçait a survécu à sa mutation, équivalent, et est retiré.
+   Si la relecture ne montrait pas la clé, le message de la passerelle resterait lisible dans la carte.
+2. **C2** : un 429 avec `Retry-After` gardait `waiting` vrai N secondes et figeait toutes les cartes avec une raison
+   fausse. Les cartes sont figées par un booléen `creating`, vrai le temps du seul POST ; le bouton de la clé garde
+   son attente. Test : après un 429 à `Retry-After: 30`, le bouton de la clé est occupé, « Rotation » du bind est
+   libre. Mutants tués : `setCreating(true)` retiré, `setCreating(false)` retiré, raison d'attente retirée, garde du
+   422.
