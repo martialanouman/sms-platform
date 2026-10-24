@@ -44,3 +44,18 @@ et au focus, les dix sensibles étiquetées ; cocher Trafic › Lire coche et fi
   « Rôle {nom} enregistré. », « Rôle {nom} supprimé. » (397) ;
   `useClosedOn`. « Voir les permissions », « Modifier », `View` et `.role-keys` tombent.
 - **Tests** : 449 pour la part 014d-2 ; mutation consignée ; preuve sur contabo169, captures dans `docs/steps/014d-2/`.
+
+## Écarts au design, constatés à l'implémentation
+
+- **Cases figées par `readOnly`, pas `disabled`** : une case `disabled` sort de l'ordre de tabulation et sa bulle de
+  clé ne s'ouvre plus au clavier ; `readOnly` (Base UI, `aria-readonly`) la garde focalisable. Vaut pour un rôle par
+  défaut, un rôle personnalisé sans `roles:write` et la case Temps réel.
+- **`streamFollowsTraffic`** : la dérivation de Temps réel est une option du sélecteur, que seul l'écran Rôles allume ;
+  le sélecteur du jeton personnel (014a) n'y gagne aucune règle que 433 ne lui donne pas.
+- **Bulle sur l'option entière** : un test montre que la bulle s'ouvre au focus de la case quand le déclencheur est le
+  `label` ; la clé est liée à la case par `aria-describedby` (`Hint` reçoit l'`id`).
+- **Nom accessible de la fiche** : l'étiquette de type est dans le titre ; la modale s'annonce « Support Par défaut ».
+- **Focus après suppression** : il va au `h1` quand la liste relue ne contient plus le rôle ; plus tôt, le retour de
+  focus de la modale vers son ouvreur l'emporte, puis la ligne disparaît et le focus tombe sur `body`.
+- **Ordre envoyé** : `stream:read` suit `traffic:read` dans le corps ; le serveur trie (`generated()`).
+- **Nom en police courante** : `.ui-input--mono` n'avait plus d'appelant.
