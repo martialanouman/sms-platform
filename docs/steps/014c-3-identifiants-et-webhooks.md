@@ -154,8 +154,8 @@ Fable, 2026-10-24, dans le cadre de 398 et 399.
   de `SecretOnce` est nécessaire : sous `StrictMode`, la modale du secret retient sinon le bouton de la modale fermée,
   et le focus irait au titre au lieu de « Rotation » (test du kit rendu sous `StrictMode`, comme l'application).
   Base UI rend aussi le focus, mais de façon asynchrone ; le retour synchrone du kit reste.
-- **Route Webhooks** : `component: Webhooks`, qui lit `useAccount()` (compte et `frozen`, 422) ; l'enveloppe qui
-  passait le compte en prop tombe. La route Identifiants est inchangée.
+- **Routes Identifiants et Webhooks** : `component: Credentials` et `component: Webhooks`, qui lisent `useAccount()`
+  (Webhooks y prend aussi `frozen`, 422) ; les enveloppes qui passaient le compte en prop tombent (correctif B2).
 - **Rotation d'un révoqué** (419) : le corps est `{}`.
 - **Bandeau d'un identifiant désactivé** : deux paragraphes dans `.ui-banner--warn`, la grâce puis « L'identifiant
   reste désactivé. ».
@@ -187,3 +187,36 @@ Fable, 2026-10-24, dans le cadre de 398 et 399.
 | Webhooks (`webhooks.tsx`) | 48/48 | 2 au premier passage : refus d'une modification d'URL, colonne Actions alignée en fin (tests ajoutés) |
 
 **Équivalents nommés** : aucun.
+
+## Correctifs de revue, tour 1
+
+Deux revues en lecture seule et une première passe dans le navigateur.
+
+1. **A1, moyenne** : pendant le POST de « Créer une clé d'API », une rotation ou une création de bind pouvait partir ;
+   sa réponse écrasait le secret de la clé et fermait la modale ouverte. La création de la clé remonte dans
+   `Credentials` ; tant qu'elle attend, toutes les actions des cartes sont figées, « Une clé d'API est en cours de
+   création. ». Tests : actions du bind et « Créer un bind SMPP » figés pendant l'attente, aucun dialogue ouvert, puis
+   libres. Mutant tué : raison d'attente retirée. La garde « ne jamais écraser un secret montré » n'est pas ajoutée :
+   la course fermée, aucun chemin ne l'atteint et son mutant serait équivalent.
+2. **A2, basse** : « Ajouter » n'est rendu qu'une fois la liste lue (ni au chargement, ni après un échec). Tests :
+   chargement en attente puis bouton, échec sans bouton. Mutant tué : `webhooks.data &&` → `true &&`.
+3. **A3, basse** : un 409 à la création d'une clé relit la liste ; la carte montre la clé existante. Mutant tué :
+   invalidation retirée.
+4. **A4, assumé** : une grâce qui échoit sur une page laissée ouverte reste affichée jusqu'à la relecture ;
+   `refetchOnWindowFocus` la rattrape.
+5. **A5, test** : clé créée, la liste passe à `[bind, key]` et le focus va au `h1` à la fermeture du secret. Mutant
+   tué : `opener?.isConnected` → `opener`.
+6. **A6, test** : après la confirmation Désactiver, le focus reste sur la bascule, devenue « Activer ». Mutant tué :
+   retour toujours au titre.
+7. **A7, navigateur** : la colonne Actions des webhooks n'était pas alignée en fin (`.row-actions` en flex ignorait
+   `text-align`) ; `.ui-table__cell--end .row-actions { justify-content: flex-end }`. Le test précédent (classe de
+   l'en-tête) passait malgré ce rendu ; la règle est testée dans `styles.test.ts`. Mutant tué : `flex-start`.
+8. **B1, code en trop** : `Toolbar`, `.ui-toolbar` et `--subbar-height` retirés, sans lecteur.
+9. **B2, code en trop** : `Credentials` lit `useAccount()`, la route devient `component: Credentials`.
+10. **B3, code en trop** : `close()` au lieu de `setPending(undefined)`.
+11. **B4 à B9, tests** : retirés car creux ou en double : `not.toContain('secret:')`, mono de la fixture du kit,
+    rotation d'une clé active, porte de la case reprise dans les identifiants et les webhooks (gardée dans le kit),
+    pilule `bad` du kit, deux lignes de la phrase du jeton personnel.
+12. **B10, B11, tests** : aides `noToast`, `cached(queryClient)` et `understood` dans `web/src/test.tsx`, adoptées par
+    les tests des identifiants, des webhooks, de la fiche compte et de la liste Clients ; `value()` typé
+    `HTMLElement | undefined`.
