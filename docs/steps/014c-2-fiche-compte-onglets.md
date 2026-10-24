@@ -117,3 +117,30 @@ Fable, 2026-10-24, dans le cadre de 393 à 396 ; brouillon relu et corrigé par 
 **Équivalents nommés** : `readable && account.data` → `account.data` (la requête est désactivée sans
 `accounts:read`, aucune donnée n'existe alors) ; la clé de `customerQuery` (partagée par ses deux lecteurs, toujours
 sous `customersKey`, que les écritures invalident).
+
+## Correctifs de revue, tour 1
+
+Deux revues en lecture seule.
+
+1. **Moyenne** : deux bascules de canal pouvaient partir ensemble et se contredire (`busy` ne tenait qu'un canal,
+   l'autre lu du cache). Les deux bascules de canal sont tenues (`readOnly`, `aria-busy`) tant qu'un appel est en vol.
+   Test : pendant l'appel SMPP, REST est tenue et un clic n'envoie rien. Mutants tués : `busy={false}`, sans
+   `setBusy(true)`, sans `setBusy(false)`.
+2. **Basse** : après une bascule de canal ou l'enregistrement des limites, la réponse reste mise en cache et
+   `accountsKey` est invalidée, pour la fiche client et la liste Comptes. Test : la relecture est en attente, la
+   bascule et « limite 0 » montrent déjà la réponse, et le compte est relu. Mutants tués : sans `setQueryData`, sans
+   invalidation (canaux et sessions).
+3. **Basse** : l'onglet figé de la route affichée (`/credentials` tapée sans `credentials:read`) porte
+   `aria-current="page"` (`useMatchRoute`). Tests dans le kit et sur la fiche. Mutants tués : sans `aria-current`,
+   `aria-current` toujours posé.
+4. **Code en trop** : miette « Clients » définie une fois (`customersCrumb`).
+5. **Code en trop** : `accountQuery(id)` dans `accounts.tsx`, sur le modèle de `customerQuery` ; sa clé sert la mise
+   en page, les canaux et les sessions. Mutation de la clé : équivalente (partagée, toujours sous `accountsKey`).
+6. **Code en trop** : constante `disconnects` en ligne.
+7. **Code en trop** : `onCheckedChange={onChange}` sans relais ; le test lit le premier argument. Mutant tué :
+   `onChange(false)`.
+8. **Tests** : retirés, car couverts ailleurs : identifiants tapés sans permission (`credentials.test.tsx`), onglet
+   Webhooks (`webhooks.test.tsx`).
+9. **Tests** : « aucun toast » lit la région Notifications, qui doit exister (`getByRole`, `toHaveLength(0)`).
+10. **Tests** : colonne `textContent` vide retirée des types de bind ; requêtes en double retirées.
+11. **Tests** : « sends REST alone » corrigé en une boucle sur les deux canaux ; cast inutile retiré.
