@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { type FormEvent, useId, useState } from 'react'
 import type { components } from './admin.gen'
@@ -12,6 +12,12 @@ export type Group = components['schemas']['CustomerGroup']
 type Ages = components['schemas']['MaxAgeOverride']
 
 export const customersKey = ['customers']
+
+export const customerQuery = (id: string) =>
+  queryOptions({
+    queryKey: [...customersKey, id],
+    queryFn: () => read(gw.GET('/admin/customers/{id}', { params: { path: { id } } }), 'customer'),
+  })
 
 export const groupsKey = ['customer-groups']
 

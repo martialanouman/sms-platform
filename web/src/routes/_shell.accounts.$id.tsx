@@ -1,39 +1,20 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { type ComponentProps, type FormEvent, type ReactNode, useId, useState } from 'react'
-import { type Account, AccountForm, accountsKey, EffectiveStatus } from '../accounts'
-import { at } from '../audit'
-import { Credentials } from '../credentials'
+import { createFileRoute, Link, Outlet, useNavigate } from '@tanstack/react-router'
+import { useState } from 'react'
+import { type Account, AccountContext, AccountForm, accountsKey, EffectiveStatus } from '../accounts'
+import { atMinute } from '../audit'
+import { customerQuery } from '../customers'
 import { gw } from '../gw'
 import { Failure, useClosedOn } from '../list'
 import { read } from '../queries'
 import { useShellMe } from '../session'
-import {
-  Button,
-  Choice,
-  Choices,
-  Confirmation,
-  Field,
-  Forbidden,
-  LoadingState,
-  Modal,
-  needs,
-  PageHeader,
-  Toolbar,
-  useSubmission,
-} from '../ui'
-import { Webhooks } from '../webhooks'
+import { Button, Confirmation, Forbidden, LoadingState, needs, PageHeader, Tabs, useToast } from '../ui'
 
 export const Route = createFileRoute('/_shell/accounts/$id')({ component: AccountPage })
 
 const closedFinal = 'Ce compte est fermé définitivement.'
-const bindTypes = ['transmitter', 'receiver', 'transceiver'] as const
-const onOff = (on: boolean) => (on ? 'Activé' : 'Désactivé')
-const checked = (...pairs: [boolean, string][]) => pairs.filter(([on]) => on).map(([, value]) => value)
 
-type AccountPath = { params: { path: { id: string } } }
-
-type Pending = 'rename' | 'channels' | 'sessions' | 'ops' | 'suspend' | 'reactivate' | 'close' | 'delete'
+type Pending = 'rename' | 'suspend' | 'reactivate' | 'close' | 'delete'
 
 function AccountPage() {
   const { id } = Route.useParams()
@@ -47,20 +28,23 @@ function AccountPage() {
   })
   useClosedOn(account.error)
 
+  if (readable && account.data) {
+    return <Loaded account={account.data} held={held} />
+  }
   return (
     <>
       <PageHeader
         crumbs={[
-          readable ? (
-            <Link key="accounts" to="/accounts">
-              Comptes
+          held.includes('customers:read') ? (
+            <Link key="customers" to="/customers">
+              Clients
             </Link>
           ) : (
-            'Comptes'
+            'Clients'
           ),
-          account.data?.name ?? 'Compte',
+          'Compte',
         ]}
-        title={account.data?.name ?? 'Compte'}
+        title="Compte"
       />
       <section className="page">
         {!readable ? (
@@ -70,8 +54,6 @@ function AccountPage() {
             permission="accounts:read"
             grantedBy="Exploitation"
           />
-        ) : account.isPending ? (
-          <LoadingState label="Chargement du compte…" rows={3} />
         ) : account.error ? (
           <Failure
             title="Ce compte n’a pas pu être chargé"
@@ -79,150 +61,115 @@ function AccountPage() {
             retry={() => void account.refetch()}
           />
         ) : (
-          <Loaded account={account.data} writes={held.includes('accounts:write')} />
+          <LoadingState label="Chargement du compte…" rows={3} />
         )}
       </section>
     </>
   )
 }
 
-function Block({ title, edit, children }: { title: string; edit: ReactNode; children: ReactNode }) {
-  const heading = useId()
-  return (
-    <section aria-labelledby={heading}>
-      <h2 id={heading}>{title}</h2>
-      {edit}
-      <dl>{children}</dl>
-    </section>
-  )
-}
-
-function Loaded({ account, writes }: { account: Account; writes: boolean }) {
+function Loaded({ account, held }: { account: Account; held: string[] }) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const notify = useToast()
   const [pending, setPending] = useState<Pending>()
   const close = () => setPending(undefined)
-  const write = writes ? undefined : needs('accounts:write')
+  const done = (text: string) => () => {
+    notify(`Compte ${account.name} ${text}.`)
+    close()
+  }
+  const write = held.includes('accounts:write') ? undefined : needs('accounts:write')
   const frozen = write ?? (account.status === 'closed' ? 'Fermé définitivement.' : undefined)
   const path = { params: { path: { id: account.id } } }
   const status = (body: { status: 'active' | 'closed' }) => () => gw.PATCH('/admin/accounts/{id}', { ...path, body })
-  const edit = (next: Pending) => (
-    <Button size="sm" blockedReason={frozen} onClick={() => setPending(next)}>
-      Modifier
-    </Button>
+  const customer = held.includes('customers:read') ? (
+    <Link to="/customers/$id" params={{ id: account.customer_id }}>
+      {account.customer_name}
+    </Link>
+  ) : (
+    account.customer_name
   )
+  const params = { id: account.id }
 
   return (
     <>
-      <Link to="/customers/$id" params={{ id: account.customer_id }}>
-        ← {account.customer_name}
-      </Link>
-      <Toolbar>
-        <Button
-          size="sm"
-          blockedReason={frozen ?? (account.status === 'suspended' ? 'Déjà suspendu.' : undefined)}
-          onClick={() => setPending('suspend')}
-        >
-          Suspendre
-        </Button>
-        <Button
-          size="sm"
-          blockedReason={frozen ?? (account.status === 'active' ? 'Déjà actif.' : undefined)}
-          onClick={() => setPending('reactivate')}
-        >
-          Réactiver
-        </Button>
-        <Button size="sm" variant="danger" blockedReason={frozen} onClick={() => setPending('close')}>
-          Clôturer
-        </Button>
-        <Button size="sm" variant="danger" blockedReason={write} onClick={() => setPending('delete')}>
-          Supprimer
-        </Button>
-      </Toolbar>
-      <Block title="Identité" edit={edit('rename')}>
-        <dt>Statut</dt>
-        <dd>
-          <EffectiveStatus status={account.status} customer={account.customer_status} />
-        </dd>
-        <dt>Créé le</dt>
-        <dd>{at(account.created_at)}</dd>
-        <dt>Modifié le</dt>
-        <dd>{at(account.updated_at)}</dd>
-      </Block>
-      <Block title="Canaux" edit={edit('channels')}>
-        <dt>SMPP</dt>
-        <dd>{onOff(account.smpp_enabled)}</dd>
-        <dt>REST</dt>
-        <dd>{onOff(account.rest_enabled)}</dd>
-      </Block>
-      <Block title="Sessions" edit={edit('sessions')}>
-        <dt>Sessions simultanées</dt>
-        <dd>{account.max_sessions}</dd>
-        <dt>Types de bind</dt>
-        <dd>{account.allowed_bind_types.join(', ')}</dd>
-      </Block>
-      <Block title="Opérations SMPP" edit={edit('ops')}>
-        <dt>query_sm</dt>
-        <dd>{onOff(account.query_sm_enabled)}</dd>
-        <dt>cancel_sm</dt>
-        <dd>{onOff(account.cancel_sm_enabled)}</dd>
-      </Block>
-      <Credentials account={account} />
-      <Webhooks account={account} />
+      <PageHeader
+        crumbs={[
+          held.includes('customers:read') ? (
+            <Link key="customers" to="/customers">
+              Clients
+            </Link>
+          ) : (
+            'Clients'
+          ),
+          customer,
+          <span key="account" className="ui-mono">
+            {account.name}
+          </span>,
+        ]}
+        title={account.name}
+        mono
+        status={<EffectiveStatus status={account.status} customer={account.customer_status} />}
+        meta={
+          <>
+            Compte de {customer} · créé le <span className="ui-mono">{atMinute(account.created_at)}</span> ·{' '}
+            <Button size="sm" blockedReason={frozen} onClick={() => setPending('rename')}>
+              Renommer
+            </Button>
+          </>
+        }
+        actions={
+          <>
+            <Button
+              size="sm"
+              blockedReason={frozen ?? (account.status === 'suspended' ? 'Déjà suspendu.' : undefined)}
+              onClick={() => setPending('suspend')}
+            >
+              Suspendre
+            </Button>
+            <Button
+              size="sm"
+              blockedReason={frozen ?? (account.status === 'active' ? 'Déjà actif.' : undefined)}
+              onClick={() => setPending('reactivate')}
+            >
+              Réactiver
+            </Button>
+            <Button size="sm" variant="danger" blockedReason={frozen} onClick={() => setPending('close')}>
+              Clôturer
+            </Button>
+            <Button size="sm" variant="danger" blockedReason={write} onClick={() => setPending('delete')}>
+              Supprimer
+            </Button>
+          </>
+        }
+      />
+      <section className="page">
+        <Tabs
+          label="Sections du compte"
+          tabs={[
+            {
+              to: '/accounts/$id/credentials',
+              params,
+              label: 'Identifiants',
+              blockedReason: held.includes('credentials:read') ? undefined : needs('credentials:read', 'Cet onglet'),
+            },
+            { to: '/accounts/$id/channels', params, label: 'Canaux & opérations' },
+            { to: '/accounts/$id/sessions', params, label: 'Sessions' },
+            { to: '/accounts/$id/webhooks', params, label: 'Webhooks MO/DLR' },
+          ]}
+        />
+        <AccountContext.Provider value={{ account, frozen }}>
+          <Outlet />
+        </AccountContext.Provider>
+      </section>
       {pending === 'rename' && <AccountForm customerId={account.customer_id} account={account} onClose={close} />}
-      {pending === 'channels' && (
-        <Settings
-          title={`Canaux du compte ${account.name}`}
-          label="Canaux"
-          initial={checked([account.smpp_enabled, 'smpp'], [account.rest_enabled, 'rest'])}
-          options={[
-            { value: 'smpp', label: 'SMPP' },
-            { value: 'rest', label: 'REST' },
-          ]}
-          last="Au moins un canal reste activé."
-          onClose={close}
-          save={(on) => () =>
-            gw.PATCH('/admin/accounts/{id}/channels', {
-              ...path,
-              body: { smpp_enabled: on.includes('smpp'), rest_enabled: on.includes('rest') },
-            })
-          }
-        />
-      )}
-      {pending === 'sessions' && <SessionsForm account={account} path={path} onClose={close} />}
-      {pending === 'ops' && (
-        <Settings
-          title={`Opérations SMPP du compte ${account.name}`}
-          label="Opérations SMPP"
-          initial={checked([account.query_sm_enabled, 'query_sm'], [account.cancel_sm_enabled, 'cancel_sm'])}
-          options={[
-            { value: 'query_sm', label: 'query_sm' },
-            { value: 'cancel_sm', label: 'cancel_sm' },
-          ]}
-          about="Les drapeaux se lisent au bind : les binds ouverts du compte sont déconnectés."
-          onClose={close}
-          save={(on) => {
-            const query = on.includes('query_sm')
-            const cancel = on.includes('cancel_sm')
-            if (query === account.query_sm_enabled && cancel === account.cancel_sm_enabled) {
-              return undefined
-            }
-            return () =>
-              gw.PATCH('/admin/accounts/{id}/smpp-ops', {
-                ...path,
-                body: {
-                  ...(query !== account.query_sm_enabled && { query_sm_enabled: query }),
-                  ...(cancel !== account.cancel_sm_enabled && { cancel_sm_enabled: cancel }),
-                },
-              })
-          }}
-        />
-      )}
       {pending === 'suspend' && (
         <Confirmation
           title={`Suspendre le compte ${account.name}`}
           action="Suspendre"
           invalidate={accountsKey}
           onClose={close}
+          onDone={done('suspendu')}
           refusals={{ 409: closedFinal }}
           call={() => gw.POST('/admin/accounts/{id}/suspend', path)}
         >
@@ -235,6 +182,7 @@ function Loaded({ account, writes }: { account: Account; writes: boolean }) {
           action="Réactiver"
           invalidate={accountsKey}
           onClose={close}
+          onDone={done('réactivé')}
           refusals={{ 422: closedFinal }}
           call={status({ status: 'active' })}
         >
@@ -250,6 +198,7 @@ function Loaded({ account, writes }: { account: Account; writes: boolean }) {
           danger
           invalidate={accountsKey}
           onClose={close}
+          onDone={done('fermé')}
           refusals={{ 422: closedFinal }}
           call={status({ status: 'closed' })}
         >
@@ -263,114 +212,18 @@ function Loaded({ account, writes }: { account: Account; writes: boolean }) {
           danger
           invalidate={accountsKey}
           onClose={close}
-          onDone={() => void navigate({ to: '/customers/$id', params: { id: account.customer_id } })}
+          onDone={() => {
+            notify(`Compte ${account.name} supprimé.`)
+            void queryClient
+              .prefetchQuery(customerQuery(account.customer_id))
+              .then(() => navigate({ to: '/customers/$id', params: { id: account.customer_id } }))
+              .then(() => document.querySelector<HTMLElement>('#contenu h1')?.focus())
+          }}
           call={() => gw.DELETE('/admin/accounts/{id}', path)}
         >
           <p>Définitif ; le journal d’audit en garde la trace.</p>
         </Confirmation>
       )}
     </>
-  )
-}
-
-function Settings({
-  title,
-  label,
-  initial,
-  options,
-  last,
-  about,
-  save,
-  onClose,
-  children,
-}: {
-  title: string
-  label: string
-  initial: string[]
-  options: { value: string; label: string }[]
-  last?: string
-  about?: string
-  save: (on: string[]) => ComponentProps<typeof Confirmation>['call'] | undefined
-  onClose: () => void
-  children?: ReactNode
-}) {
-  const queryClient = useQueryClient()
-  const { submit, waiting, refusal, describedBy } = useSubmission()
-  const [on, setOn] = useState(initial)
-  const form = useId()
-  const alone = last !== undefined && on.length === 1
-
-  async function confirm(event: FormEvent) {
-    event.preventDefault()
-    const call = save(on)
-    if (call === undefined) {
-      onClose()
-      return
-    }
-    const outcome = await submit(call)
-    if (outcome.failure === undefined) {
-      void queryClient.invalidateQueries({ queryKey: accountsKey })
-      onClose()
-    }
-  }
-
-  return (
-    <Modal
-      title={title}
-      onClose={onClose}
-      footer={
-        <>
-          <Button onClick={onClose}>Annuler</Button>
-          <Button variant="primary" type="submit" form={form} loading={waiting}>
-            Enregistrer
-          </Button>
-        </>
-      }
-    >
-      <form className="form" id={form} onSubmit={confirm}>
-        {refusal}
-        {about && <p>{about}</p>}
-        {children}
-        <Choices value={on} onChange={setOn} label={label} describedBy={describedBy}>
-          {options.map((o) => (
-            <Choice value={o.value} key={o.value} disabled={alone && on.includes(o.value)}>
-              {o.label}
-            </Choice>
-          ))}
-        </Choices>
-        {last && <p>{last}</p>}
-      </form>
-    </Modal>
-  )
-}
-
-function SessionsForm({ account, path, onClose }: { account: Account; path: AccountPath; onClose: () => void }) {
-  const [sessions, setSessions] = useState(String(account.max_sessions))
-  return (
-    <Settings
-      title={`Sessions du compte ${account.name}`}
-      label="Types de bind"
-      initial={account.allowed_bind_types}
-      options={bindTypes.map((t) => ({ value: t, label: t }))}
-      last="Au moins un type de bind."
-      onClose={onClose}
-      save={(on) => () =>
-        gw.PATCH('/admin/accounts/{id}/session-limits', {
-          ...path,
-          body: { max_sessions: Number(sessions), allowed_bind_types: bindTypes.filter((t) => on.includes(t)) },
-        })
-      }
-    >
-      <Field
-        label="Sessions simultanées"
-        type="number"
-        required
-        min={0}
-        max={2147483647}
-        step={1}
-        value={sessions}
-        onChange={(e) => setSessions(e.target.value)}
-      />
-    </Settings>
   )
 }

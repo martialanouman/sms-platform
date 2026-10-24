@@ -27,6 +27,11 @@ import { Route as ShellAuditAccessRouteImport } from './routes/_shell.audit.acce
 import { Route as ShellAuditControlPlaneRouteImport } from './routes/_shell.audit.control-plane'
 import { Route as ShellCustomersIndexRouteImport } from './routes/_shell.customers.index'
 import { Route as ShellCustomersIdRouteImport } from './routes/_shell.customers.$id'
+import { Route as ShellAccountsIdIndexRouteImport } from './routes/_shell.accounts.$id.index'
+import { Route as ShellAccountsIdChannelsRouteImport } from './routes/_shell.accounts.$id.channels'
+import { Route as ShellAccountsIdCredentialsRouteImport } from './routes/_shell.accounts.$id.credentials'
+import { Route as ShellAccountsIdSessionsRouteImport } from './routes/_shell.accounts.$id.sessions'
+import { Route as ShellAccountsIdWebhooksRouteImport } from './routes/_shell.accounts.$id.webhooks'
 
 const ShellRoute = ShellRouteImport.update({
   id: '/_shell',
@@ -117,6 +122,32 @@ const ShellCustomersIdRoute = ShellCustomersIdRouteImport.update({
   path: '/customers/$id',
   getParentRoute: () => ShellRoute,
 } as any)
+const ShellAccountsIdIndexRoute = ShellAccountsIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ShellAccountsIdRoute,
+} as any)
+const ShellAccountsIdChannelsRoute = ShellAccountsIdChannelsRouteImport.update({
+  id: '/channels',
+  path: '/channels',
+  getParentRoute: () => ShellAccountsIdRoute,
+} as any)
+const ShellAccountsIdCredentialsRoute =
+  ShellAccountsIdCredentialsRouteImport.update({
+    id: '/credentials',
+    path: '/credentials',
+    getParentRoute: () => ShellAccountsIdRoute,
+  } as any)
+const ShellAccountsIdSessionsRoute = ShellAccountsIdSessionsRouteImport.update({
+  id: '/sessions',
+  path: '/sessions',
+  getParentRoute: () => ShellAccountsIdRoute,
+} as any)
+const ShellAccountsIdWebhooksRoute = ShellAccountsIdWebhooksRouteImport.update({
+  id: '/webhooks',
+  path: '/webhooks',
+  getParentRoute: () => ShellAccountsIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof ShellIndexRoute
@@ -129,13 +160,18 @@ export interface FileRoutesByFullPath {
   '/groups': typeof ShellGroupsRoute
   '/operators': typeof ShellOperatorsRoute
   '/roles': typeof ShellRolesRoute
-  '/accounts/$id': typeof ShellAccountsIdRoute
+  '/accounts/$id': typeof ShellAccountsIdRouteWithChildren
   '/audit/access': typeof ShellAuditAccessRoute
   '/audit/control-plane': typeof ShellAuditControlPlaneRoute
   '/customers/$id': typeof ShellCustomersIdRoute
   '/accounts/': typeof ShellAccountsIndexRoute
   '/audit/': typeof ShellAuditIndexRoute
   '/customers/': typeof ShellCustomersIndexRoute
+  '/accounts/$id/channels': typeof ShellAccountsIdChannelsRoute
+  '/accounts/$id/credentials': typeof ShellAccountsIdCredentialsRoute
+  '/accounts/$id/sessions': typeof ShellAccountsIdSessionsRoute
+  '/accounts/$id/webhooks': typeof ShellAccountsIdWebhooksRoute
+  '/accounts/$id/': typeof ShellAccountsIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/access': typeof AccessRoute
@@ -147,13 +183,17 @@ export interface FileRoutesByTo {
   '/operators': typeof ShellOperatorsRoute
   '/roles': typeof ShellRolesRoute
   '/': typeof ShellIndexRoute
-  '/accounts/$id': typeof ShellAccountsIdRoute
   '/audit/access': typeof ShellAuditAccessRoute
   '/audit/control-plane': typeof ShellAuditControlPlaneRoute
   '/customers/$id': typeof ShellCustomersIdRoute
   '/accounts': typeof ShellAccountsIndexRoute
   '/audit': typeof ShellAuditIndexRoute
   '/customers': typeof ShellCustomersIndexRoute
+  '/accounts/$id/channels': typeof ShellAccountsIdChannelsRoute
+  '/accounts/$id/credentials': typeof ShellAccountsIdCredentialsRoute
+  '/accounts/$id/sessions': typeof ShellAccountsIdSessionsRoute
+  '/accounts/$id/webhooks': typeof ShellAccountsIdWebhooksRoute
+  '/accounts/$id': typeof ShellAccountsIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -168,13 +208,18 @@ export interface FileRoutesById {
   '/_shell/operators': typeof ShellOperatorsRoute
   '/_shell/roles': typeof ShellRolesRoute
   '/_shell/': typeof ShellIndexRoute
-  '/_shell/accounts/$id': typeof ShellAccountsIdRoute
+  '/_shell/accounts/$id': typeof ShellAccountsIdRouteWithChildren
   '/_shell/audit/access': typeof ShellAuditAccessRoute
   '/_shell/audit/control-plane': typeof ShellAuditControlPlaneRoute
   '/_shell/customers/$id': typeof ShellCustomersIdRoute
   '/_shell/accounts/': typeof ShellAccountsIndexRoute
   '/_shell/audit/': typeof ShellAuditIndexRoute
   '/_shell/customers/': typeof ShellCustomersIndexRoute
+  '/_shell/accounts/$id/channels': typeof ShellAccountsIdChannelsRoute
+  '/_shell/accounts/$id/credentials': typeof ShellAccountsIdCredentialsRoute
+  '/_shell/accounts/$id/sessions': typeof ShellAccountsIdSessionsRoute
+  '/_shell/accounts/$id/webhooks': typeof ShellAccountsIdWebhooksRoute
+  '/_shell/accounts/$id/': typeof ShellAccountsIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -196,6 +241,11 @@ export interface FileRouteTypes {
     | '/accounts/'
     | '/audit/'
     | '/customers/'
+    | '/accounts/$id/channels'
+    | '/accounts/$id/credentials'
+    | '/accounts/$id/sessions'
+    | '/accounts/$id/webhooks'
+    | '/accounts/$id/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/access'
@@ -207,13 +257,17 @@ export interface FileRouteTypes {
     | '/operators'
     | '/roles'
     | '/'
-    | '/accounts/$id'
     | '/audit/access'
     | '/audit/control-plane'
     | '/customers/$id'
     | '/accounts'
     | '/audit'
     | '/customers'
+    | '/accounts/$id/channels'
+    | '/accounts/$id/credentials'
+    | '/accounts/$id/sessions'
+    | '/accounts/$id/webhooks'
+    | '/accounts/$id'
   id:
     | '__root__'
     | '/_shell'
@@ -234,6 +288,11 @@ export interface FileRouteTypes {
     | '/_shell/accounts/'
     | '/_shell/audit/'
     | '/_shell/customers/'
+    | '/_shell/accounts/$id/channels'
+    | '/_shell/accounts/$id/credentials'
+    | '/_shell/accounts/$id/sessions'
+    | '/_shell/accounts/$id/webhooks'
+    | '/_shell/accounts/$id/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -372,6 +431,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShellCustomersIdRouteImport
       parentRoute: typeof ShellRoute
     }
+    '/_shell/accounts/$id/': {
+      id: '/_shell/accounts/$id/'
+      path: '/'
+      fullPath: '/accounts/$id/'
+      preLoaderRoute: typeof ShellAccountsIdIndexRouteImport
+      parentRoute: typeof ShellAccountsIdRoute
+    }
+    '/_shell/accounts/$id/channels': {
+      id: '/_shell/accounts/$id/channels'
+      path: '/channels'
+      fullPath: '/accounts/$id/channels'
+      preLoaderRoute: typeof ShellAccountsIdChannelsRouteImport
+      parentRoute: typeof ShellAccountsIdRoute
+    }
+    '/_shell/accounts/$id/credentials': {
+      id: '/_shell/accounts/$id/credentials'
+      path: '/credentials'
+      fullPath: '/accounts/$id/credentials'
+      preLoaderRoute: typeof ShellAccountsIdCredentialsRouteImport
+      parentRoute: typeof ShellAccountsIdRoute
+    }
+    '/_shell/accounts/$id/sessions': {
+      id: '/_shell/accounts/$id/sessions'
+      path: '/sessions'
+      fullPath: '/accounts/$id/sessions'
+      preLoaderRoute: typeof ShellAccountsIdSessionsRouteImport
+      parentRoute: typeof ShellAccountsIdRoute
+    }
+    '/_shell/accounts/$id/webhooks': {
+      id: '/_shell/accounts/$id/webhooks'
+      path: '/webhooks'
+      fullPath: '/accounts/$id/webhooks'
+      preLoaderRoute: typeof ShellAccountsIdWebhooksRouteImport
+      parentRoute: typeof ShellAccountsIdRoute
+    }
   }
 }
 
@@ -391,6 +485,26 @@ const ShellAuditRouteWithChildren = ShellAuditRoute._addFileChildren(
   ShellAuditRouteChildren,
 )
 
+interface ShellAccountsIdRouteChildren {
+  ShellAccountsIdChannelsRoute: typeof ShellAccountsIdChannelsRoute
+  ShellAccountsIdCredentialsRoute: typeof ShellAccountsIdCredentialsRoute
+  ShellAccountsIdSessionsRoute: typeof ShellAccountsIdSessionsRoute
+  ShellAccountsIdWebhooksRoute: typeof ShellAccountsIdWebhooksRoute
+  ShellAccountsIdIndexRoute: typeof ShellAccountsIdIndexRoute
+}
+
+const ShellAccountsIdRouteChildren: ShellAccountsIdRouteChildren = {
+  ShellAccountsIdChannelsRoute: ShellAccountsIdChannelsRoute,
+  ShellAccountsIdCredentialsRoute: ShellAccountsIdCredentialsRoute,
+  ShellAccountsIdSessionsRoute: ShellAccountsIdSessionsRoute,
+  ShellAccountsIdWebhooksRoute: ShellAccountsIdWebhooksRoute,
+  ShellAccountsIdIndexRoute: ShellAccountsIdIndexRoute,
+}
+
+const ShellAccountsIdRouteWithChildren = ShellAccountsIdRoute._addFileChildren(
+  ShellAccountsIdRouteChildren,
+)
+
 interface ShellRouteChildren {
   ShellAccountRoute: typeof ShellAccountRoute
   ShellAuditRoute: typeof ShellAuditRouteWithChildren
@@ -398,7 +512,7 @@ interface ShellRouteChildren {
   ShellOperatorsRoute: typeof ShellOperatorsRoute
   ShellRolesRoute: typeof ShellRolesRoute
   ShellIndexRoute: typeof ShellIndexRoute
-  ShellAccountsIdRoute: typeof ShellAccountsIdRoute
+  ShellAccountsIdRoute: typeof ShellAccountsIdRouteWithChildren
   ShellCustomersIdRoute: typeof ShellCustomersIdRoute
   ShellAccountsIndexRoute: typeof ShellAccountsIndexRoute
   ShellCustomersIndexRoute: typeof ShellCustomersIndexRoute
@@ -411,7 +525,7 @@ const ShellRouteChildren: ShellRouteChildren = {
   ShellOperatorsRoute: ShellOperatorsRoute,
   ShellRolesRoute: ShellRolesRoute,
   ShellIndexRoute: ShellIndexRoute,
-  ShellAccountsIdRoute: ShellAccountsIdRoute,
+  ShellAccountsIdRoute: ShellAccountsIdRouteWithChildren,
   ShellCustomersIdRoute: ShellCustomersIdRoute,
   ShellAccountsIndexRoute: ShellAccountsIndexRoute,
   ShellCustomersIndexRoute: ShellCustomersIndexRoute,

@@ -380,6 +380,10 @@
   overflow-wrap: anywhere;
 }
 
+.page-header__title--mono {
+  font-family: var(--font-mono);
+}
+
 .page-header__meta {
   margin: 0;
   color: var(--text-muted);

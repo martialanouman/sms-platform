@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { type FormEvent, useId, useState } from 'react'
+import { createContext, type FormEvent, type ReactNode, useContext, useId, useState } from 'react'
 import type { components } from './admin.gen'
 import { Status as CustomerStatus, customersKey } from './customers'
 import { gw } from './gw'
@@ -9,6 +9,16 @@ export type Account = components['schemas']['Account']
 type Status = Account['status']
 
 export const accountsKey = [...customersKey, 'accounts']
+
+export const AccountContext = createContext<{ account: Account; frozen?: ReactNode } | undefined>(undefined)
+
+export function useAccount() {
+  const value = useContext(AccountContext)
+  if (value === undefined) {
+    throw new Error('useAccount needs an account page')
+  }
+  return value
+}
 
 export const channels = (a: Account) =>
   [a.smpp_enabled && 'smpp', a.rest_enabled && 'rest'].filter((c) => c !== false).join(' · ')

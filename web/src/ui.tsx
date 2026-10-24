@@ -312,9 +312,11 @@ export function PageHeader({
   meta,
   actions,
   titleRef,
+  mono,
 }: {
   crumbs: ReactNode[]
   title: string
+  mono?: boolean
   status?: ReactNode
   meta?: ReactNode
   actions?: ReactNode
@@ -341,7 +343,11 @@ export function PageHeader({
         )}
       <div className="page-header__main">
         <div className="page-header__line">
-          <h1 className="page-header__title" ref={titleRef} tabIndex={-1}>
+          <h1
+            className={mono ? 'page-header__title page-header__title--mono' : 'page-header__title'}
+            ref={titleRef}
+            tabIndex={-1}
+          >
             {title}
           </h1>
           {status}

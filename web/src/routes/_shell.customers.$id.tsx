@@ -3,7 +3,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { type Account, AccountForm, accountsKey, channels, EffectiveStatus } from '../accounts'
 import { atMinute } from '../audit'
-import { ageFields, type Customer, CustomerForm, customersKey, GroupName, Status } from '../customers'
+import { ageFields, type Customer, CustomerForm, customerQuery, customersKey, GroupName, Status } from '../customers'
 import { gw } from '../gw'
 import { Failure, useClosedOn } from '../list'
 import { read } from '../queries'
@@ -39,11 +39,7 @@ function CustomerPage() {
   const me = useShellMe()
   const held = me.data?.permissions ?? []
   const readable = held.includes('customers:read')
-  const customer = useQuery({
-    queryKey: [...customersKey, id],
-    queryFn: () => read(gw.GET('/admin/customers/{id}', { params: { path: { id } } }), 'customer'),
-    enabled: readable,
-  })
+  const customer = useQuery({ ...customerQuery(id), enabled: readable })
   useClosedOn(customer.error)
 
   if (readable && customer.data) {

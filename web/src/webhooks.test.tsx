@@ -60,7 +60,7 @@ const sent = async (calls: Request[], method: string) =>
 
 test('the webhooks of an account show their event, URL and status, never a secret', async () => {
   stub([dlr, { ...mo, status: 'disabled' }])
-  const { container } = renderAt(`/accounts/${api.id}`)
+  const { container } = renderAt(`/accounts/${api.id}/webhooks`)
   const moRow = await row(/Messages entrants/)
   expect(moRow.textContent).toContain('https://hooks.example.com/mo')
   expect(within(moRow).getByText('Désactivé')).toBeDefined()
@@ -74,7 +74,7 @@ test('the webhooks of an account show their event, URL and status, never a secre
 test('a new webhook shows its secret once, then nothing is left of it', async () => {
   const calls = stub([mo], { [`POST ${path}`]: () => json(201, { ...dlr, secret }) })
   const user = userEvent.setup()
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/webhooks`)
   await user.click(within(await block()).getByRole('button', { name: 'Nouveau webhook' }))
   const dialog = await screen.findByRole('dialog', { name: 'Nouveau webhook' })
   expect(within(dialog).getByRole('combobox', { name: 'Événement' }).textContent).toContain('Accusés de réception')
@@ -105,7 +105,7 @@ test('a taken event, a closed account and an unavailable sealing are said in Fre
   let answer = 409
   stub([], { [`POST ${path}`]: () => json(answer, { code: 'x', message: 'refused', errors: [] }) })
   const user = userEvent.setup()
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/webhooks`)
   await user.click(within(await block()).getByRole('button', { name: 'Nouveau webhook' }))
   const dialog = await screen.findByRole('dialog', { name: 'Nouveau webhook' })
   await user.type(within(dialog).getByRole('textbox', { name: 'URL' }), 'https://hooks.example.com/mo')
@@ -123,7 +123,7 @@ test('a taken event, a closed account and an unavailable sealing are said in Fre
 test('an edit sends the URL and status that changed', async () => {
   const calls = stub([mo], { [`PATCH ${path}/${mo.id}`]: () => json(200, { ...mo, status: 'disabled' }) })
   const user = userEvent.setup()
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/webhooks`)
   await user.click(within(await row(/Messages entrants/)).getByRole('button', { name: 'Modifier' }))
   const dialog = await screen.findByRole('dialog', { name: 'Modifier le webhook Messages entrants (MO)' })
   await user.click(within(dialog).getByRole('combobox', { name: 'Statut' }))
@@ -139,7 +139,7 @@ test('an edit refused because the account closed meanwhile is said in French', a
     [`PATCH ${path}/${mo.id}`]: () => json(409, { code: 'conflict', message: 'closed', errors: [] }),
   })
   const user = userEvent.setup()
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/webhooks`)
   await user.click(within(await row(/Messages entrants/)).getByRole('button', { name: 'Modifier' }))
   const dialog = await screen.findByRole('dialog')
   const url = within(dialog).getByRole('textbox', { name: 'URL' })
@@ -153,7 +153,7 @@ test('an edit refused because the account closed meanwhile is said in French', a
 test('a rotation is confirmed, then shows the new secret once', async () => {
   const calls = stub([mo], { [`POST ${path}/${mo.id}/rotate-secret`]: () => json(200, { ...mo, secret }) })
   const user = userEvent.setup()
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/webhooks`)
   await user.click(within(await row(/Messages entrants/)).getByRole('button', { name: 'Rotation du secret' }))
   const dialog = await screen.findByRole('dialog', { name: 'Rotation du secret : Messages entrants (MO)' })
   expect(dialog.textContent).toContain('L’ancien secret cesse immédiatement d’être accepté.')
@@ -170,7 +170,7 @@ test('a rotation refused is said in French', async () => {
     [`POST ${path}/${mo.id}/rotate-secret`]: () => json(answer, { code: 'x', message: 'refused', errors: [] }),
   })
   const user = userEvent.setup()
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/webhooks`)
   await user.click(within(await row(/Messages entrants/)).getByRole('button', { name: 'Rotation du secret' }))
   const dialog = await screen.findByRole('dialog')
   await user.click(within(dialog).getByRole('button', { name: 'Tourner le secret' }))
@@ -183,7 +183,7 @@ test('a rotation refused is said in French', async () => {
 test('a webhook is deleted after a confirmation', async () => {
   const calls = stub([mo], { [`DELETE ${path}/${mo.id}`]: () => empty(204) })
   const user = userEvent.setup()
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/webhooks`)
   await user.click(within(await row(/Messages entrants/)).getByRole('button', { name: 'Supprimer' }))
   const dialog = await screen.findByRole('alertdialog')
   expect(dialog.textContent).toContain('Les messages entrants de ce compte ne sont plus remis par webhook.')
@@ -197,7 +197,7 @@ test('a webhook is deleted after a confirmation', async () => {
 
 test('a closed account freezes new webhooks and rotations but still edits and deletes', async () => {
   stub([mo], {}, writer, { ...api, status: 'closed' })
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/webhooks`)
   const moRow = await row(/Messages entrants/)
   expect(explained(within(moRow).getByRole('button', { name: 'Rotation du secret' }))).toBe('Fermé définitivement.')
   expect(explained(within(await block()).getByRole('button', { name: 'Nouveau webhook' }))).toBe(
@@ -209,7 +209,7 @@ test('a closed account freezes new webhooks and rotations but still edits and de
 
 test('without accounts:write every change is blocked; an unreadable list is said', async () => {
   stub([mo], {}, { ...me, permissions: ['accounts:read'] })
-  const { unmount } = renderAt(`/accounts/${api.id}`)
+  const { unmount } = renderAt(`/accounts/${api.id}/webhooks`)
   for (const name of ['Modifier', 'Rotation du secret', 'Supprimer']) {
     expect(explained(within(await row(/Messages entrants/)).getByRole('button', { name }))).toBe(
       'Cette action demande Comptes : modifier accounts:write.',
@@ -217,12 +217,12 @@ test('without accounts:write every change is blocked; an unreadable list is said
   }
   unmount()
   stub([], { [`GET ${path}`]: () => json(500, { code: 'internal', message: 'boom', errors: [] }) })
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/webhooks`)
   expect(await within(await block()).findByText('Les webhooks n’ont pas pu être chargés')).toBeDefined()
 })
 
 test('an account without webhooks says so', async () => {
   stub([])
-  renderAt(`/accounts/${api.id}`)
+  renderAt(`/accounts/${api.id}/webhooks`)
   expect(await within(await block()).findByText('Aucun webhook.')).toBeDefined()
 })
