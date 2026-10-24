@@ -1350,6 +1350,7 @@ button.ui-tabs__tab {
 .ui-card__foot {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--sp-4);
   padding: var(--sp-6) var(--pad-card);
   border-top: 1px solid var(--border-subtle);
@@ -1380,6 +1381,15 @@ button.ui-tabs__tab {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
   gap: var(--sp-7);
+}
+
+.ui-cards > .ui-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.ui-cards > .ui-card > .ui-card__foot {
+  margin-top: auto;
 }
 
 .ui-kv {

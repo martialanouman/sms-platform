@@ -63,3 +63,9 @@ test('the revoked pill, the warning banner and the event badges sit on their tin
 test('the actions of an end cell sit against its end, as the header above them', () => {
   expect(read('./app.css')).toMatch(/\n\.ui-table__cell--end \.row-actions \{[^}]*justify-content: flex-end;/)
 })
+
+test('cards side by side push their foot down, centred, so both feet line up', () => {
+  expect(read('./app.css')).toMatch(/\n\.ui-cards > \.ui-card \{[^}]*display: flex;[^}]*flex-direction: column;/)
+  expect(read('./app.css')).toMatch(/\n\.ui-cards > \.ui-card > \.ui-card__foot \{[^}]*margin-top: auto;/)
+  expect(read('./app.css')).toMatch(/\n\.ui-card__foot \{[^}]*align-items: center;/)
+})
