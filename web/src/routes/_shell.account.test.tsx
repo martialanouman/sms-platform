@@ -569,7 +569,7 @@ test('without gateway:personal_token, the delivery is refused and explained', as
   const issue = await screen.findByRole('button', { name: 'Délivrer' })
   expect(issue.getAttribute('aria-disabled')).toBe('true')
   expect(document.getElementById(issue.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
-    'Cette action demande Jeton personnel : se délivrer gateway:personal_token. Seul le rôle Propriétaire la détient par défaut ; un administrateur peut l’accorder.',
+    'Cette action demande Jeton personnel : émettre gateway:personal_token. Seul le rôle Propriétaire la détient par défaut ; un administrateur peut l’accorder.',
   )
   await userEvent.setup().click(issue)
   expect(calls.some((c) => c.url.endsWith('/api/gateway-token'))).toBe(false)
