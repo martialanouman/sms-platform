@@ -84,7 +84,7 @@ function ControlPlane() {
         </Card>
       )}
       {changes?.request_id && (
-        <Changes entry={changes} requestId={changes.request_id} onClose={() => setChanges(undefined)} />
+        <Changes entry={{ ...changes, request_id: changes.request_id }} onClose={() => setChanges(undefined)} />
       )}
     </>
   )
@@ -112,11 +112,11 @@ type Change = components['schemas']['AuditChange']
 
 const ops: Record<Change['op'], string> = { insert: 'Création', update: 'Modification', delete: 'Suppression' }
 
-const shown = (v: unknown) =>
+const shown = (v: unknown, side = '') =>
   v === null || v === undefined ? (
     <span className="ui-muted">vide</span>
   ) : (
-    <span className="ui-mono">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
+    <span className={`ui-mono${side}`}>{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
   )
 
 function Diff({ change }: { change: Change }) {
@@ -125,6 +125,7 @@ function Diff({ change }: { change: Change }) {
   const fields = [...new Set([...Object.keys(before), ...Object.keys(after)])]
   const same = (k: string) => JSON.stringify(before[k]) === JSON.stringify(after[k])
   const kept = fields.filter(same)
+  const changed = fields.filter((k) => !same(k))
   return (
     <section className="audit-change">
       <div className="audit-change__head">
@@ -132,16 +133,20 @@ function Diff({ change }: { change: Change }) {
         <h3 className="ui-mono">{change.table}</h3>
         <span className="audit-id">{change.pk}</span>
       </div>
-      <DataTable<string>
-        caption={`Champs modifiés de ${change.table}`}
-        rows={fields.filter((k) => !same(k))}
-        rowKey={(k) => k}
-        columns={[
-          { header: 'Champ', cell: (k) => <span className="ui-mono">{k}</span> },
-          { header: 'Avant', cell: (k) => shown(before[k]) },
-          { header: 'Après', cell: (k) => shown(after[k]) },
-        ]}
-      />
+      {changed.length === 0 ? (
+        <p className="ui-muted">Aucun champ lisible n’a changé.</p>
+      ) : (
+        <DataTable<string>
+          caption={`Champs modifiés de ${change.table}`}
+          rows={changed}
+          rowKey={(k) => k}
+          columns={[
+            { header: 'Champ', cell: (k) => <span className="ui-mono">{k}</span> },
+            { header: 'Avant', cell: (k) => shown(before[k], ' audit-before') },
+            { header: 'Après', cell: (k) => shown(after[k], ' audit-after') },
+          ]}
+        />
+      )}
       {kept.length > 0 && (
         <details>
           <summary>{kept.length === 1 ? '1 champ inchangé' : `${kept.length} champs inchangés`}</summary>
@@ -152,7 +157,8 @@ function Diff({ change }: { change: Change }) {
   )
 }
 
-function Changes({ entry, requestId, onClose }: { entry: Entry; requestId: string; onClose: () => void }) {
+function Changes({ entry, onClose }: { entry: Entry & { request_id: string }; onClose: () => void }) {
+  const requestId = entry.request_id
   const name = useOperatorName()
   const [position, setPosition] = useState<AuditSearch>({})
   const list = useQuery({
@@ -167,7 +173,12 @@ function Changes({ entry, requestId, onClose }: { entry: Entry; requestId: strin
   })
   useClosedOn(list.error)
   return (
-    <Modal title={`Modifications de ${entry.operation_id}`} wide onClose={onClose} footer={null}>
+    <Modal
+      title={`Modifications de ${entry.operation_id}`}
+      wide
+      onClose={onClose}
+      footer={<Button onClick={onClose}>Fermer</Button>}
+    >
       <KeyValue
         items={[
           { label: 'Date', value: <span className="ui-mono">{at(entry.at)}</span> },

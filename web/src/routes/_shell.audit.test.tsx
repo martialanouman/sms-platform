@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import { explained, json, me, once, renderAt, stubFetch, violations } from '../test'
@@ -157,8 +157,10 @@ test('the filters and the cursor travel in the request', async () => {
   await choose(user, 'ada', 'Ada')
   await user.clear(screen.getByLabelText('Du'))
   await user.type(screen.getByLabelText('Du'), '2026-10-20')
+  await user.tab()
   await user.clear(screen.getByLabelText('Au'))
   await user.type(screen.getByLabelText('Au'), '2026-10-21')
+  await user.tab()
   await waitFor(() => {
     const q = new URL(calls.at(-1)?.url ?? '').searchParams
     expect([q.get('operator'), q.get('from_date'), q.get('to_date'), q.get('cursor')]).toEqual([
@@ -202,6 +204,7 @@ test('Previous walks back the pages one at a time, and shows only when there is 
   await screen.findByText('create-route')
   await user.clear(screen.getByLabelText('Du'))
   await user.type(screen.getByLabelText('Du'), '2026-10-20')
+  await user.tab()
   await screen.findByText('list-audit-log')
   expect(screen.getByRole('button', { name: 'Plus récentes' }).getAttribute('aria-disabled')).toBe('true')
 })
@@ -253,12 +256,16 @@ test('the changes of a request show before and after, the changed columns marked
       .slice(1)
       .map((r) => r.textContent),
   ).toEqual(['nameab'])
+  expect(within(table).getByText('a').className).toBe('ui-mono audit-before')
+  expect(within(table).getByText('b').className).toBe('ui-mono audit-after')
   const unchanged = within(dialog).getByText('1 champ inchangé').closest('details') as HTMLElement
   expect(unchanged.textContent).toBe('1 champ inchangépriority1')
   expect(dialog.textContent).toContain(
     'Les secrets et leurs empreintes ne sont jamais journalisés : seuls les champs lisibles apparaissent.',
   )
-  await user.click(within(dialog).getByRole('button', { name: 'Fermer' }))
+  await user.click(
+    within(dialog.querySelector('.ui-modal__foot') as HTMLElement).getByRole('button', { name: 'Fermer' }),
+  )
 
   await user.click(
     within(screen.getByText('list-audit-log').closest('tr') as HTMLElement).getByRole('button', {
@@ -324,6 +331,7 @@ test('the access tab is filtered by operator and period like the other', async (
   await choose(user, 'ada', 'Ada')
   await user.clear(screen.getByLabelText('Du'))
   await user.type(screen.getByLabelText('Du'), '2026-10-20')
+  await user.tab()
   await waitFor(() => {
     q = new URL(calls.at(-1)?.url ?? '').searchParams
     expect([q.get('actor'), q.get('fromDate'), q.get('toDate')]).toEqual([ada, local('2026-10-20'), local(tomorrow)])
@@ -587,7 +595,6 @@ test('the filters apply as they change, and are taken away at once, frozen when 
   const { router } = renderAt('/audit/control-plane')
   const user = userEvent.setup()
   await screen.findByText('list-audit-log')
-  expect(screen.queryByRole('button', { name: 'Filtrer' })).toBeNull()
   const clear = screen.getByRole('button', { name: 'Retirer les filtres' })
   expect(clear.getAttribute('aria-disabled')).toBe('true')
   expect(explained(clear)).toBe('Aucun filtre actif.')
@@ -595,6 +602,7 @@ test('the filters apply as they change, and are taken away at once, frozen when 
   await waitFor(() => expect(router.state.location.search).toEqual({ operator: ada }))
   await user.clear(screen.getByLabelText('Au'))
   await user.type(screen.getByLabelText('Au'), '2026-10-21')
+  await user.tab()
   await waitFor(() => expect(router.state.location.search).toEqual({ operator: ada, to: '2026-10-21' }))
   expect(new URL(calls.at(-1)?.url ?? '').searchParams.get('to_date')).toBe(local('2026-10-22'))
   await user.click(screen.getByRole('button', { name: 'Retirer les filtres' }))
@@ -644,4 +652,85 @@ test('a deletion shows what was there, unchanged fields counted in the plural an
   expect(within(dialog).getByText('Suppression').className).toBe('ui-tag')
   const unchanged = within(dialog).getByText('3 champs inchangés').closest('details') as HTMLElement
   expect(unchanged.textContent).toBe('3 champs inchangésstatusactivegroup_idviderule{"to":"x"}')
+})
+
+test('a day typed does not filter until the field is left or Enter pressed, and nothing is mounted again', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, auditor),
+    'GET /api/gw/admin/audit-log': () => page([entry]),
+    'GET /api/audit/operators': directory,
+  })
+  const { router } = renderAt('/audit/control-plane')
+  const user = userEvent.setup()
+  await screen.findByText('list-audit-log')
+  const from = screen.getByLabelText('Du') as HTMLInputElement
+  const to = screen.getByLabelText('Au') as HTMLInputElement
+  from.focus()
+  fireEvent.change(from, { target: { value: '2026-10-01' } })
+  fireEvent.change(from, { target: { value: '2026-10-15' } })
+  expect(router.state.location.search).toEqual({})
+  expect(from.value).toBe('2026-10-15')
+  fireEvent.blur(from)
+  await waitFor(() => expect(router.state.location.search).toEqual({ from: '2026-10-15' }))
+  fireEvent.change(to, { target: { value: '2026-10-20' } })
+  fireEvent.keyDown(to, { key: 'Enter' })
+  await waitFor(() => expect(router.state.location.search).toEqual({ from: '2026-10-15', to: '2026-10-20' }))
+  expect(screen.getByLabelText('Du')).toBe(from)
+  expect(screen.getByLabelText('Au')).toBe(to)
+  const operator = screen.getByRole('combobox', { name: 'Opérateur' })
+  await choose(user, 'ada', 'Ada')
+  await waitFor(() =>
+    expect(router.state.location.search).toEqual({ operator: ada, from: '2026-10-15', to: '2026-10-20' }),
+  )
+  expect(screen.getByRole('combobox', { name: 'Opérateur' })).toBe(operator)
+  expect(screen.getByLabelText('Du')).toBe(from)
+  const clear = screen.getByRole('button', { name: 'Retirer les filtres' })
+  await user.click(clear)
+  await waitFor(() => expect(router.state.location.search).toEqual({}))
+  expect(screen.getByLabelText('Du')).toBe(from)
+  expect(from.value).toBe(today)
+  expect((operator as HTMLInputElement).value).toBe('')
+  expect(document.activeElement).toBe(clear)
+})
+
+test('filters equal to the default leave nothing to take away', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, auditor),
+    'GET /api/gw/admin/audit-log': () => page([entry]),
+    'GET /api/audit/operators': directory,
+  })
+  renderAt(`/audit/control-plane?from=${today}&to=${today}`)
+  await screen.findByText('list-audit-log')
+  const clear = screen.getByRole('button', { name: 'Retirer les filtres' })
+  expect(clear.getAttribute('aria-disabled')).toBe('true')
+  expect(explained(clear)).toBe('Aucun filtre actif.')
+})
+
+test('a modification that changed no readable field says so, and the dialog closes from its foot', async () => {
+  stubFetch({
+    'GET /api/auth/me': () => json(200, auditor),
+    'GET /api/gw/admin/audit-log': () => page([refused]),
+    'GET /api/gw/admin/audit-log/r-write/changes': () =>
+      page([
+        {
+          actor: ada,
+          table: 'webhooks',
+          pk: '{"id": 9}',
+          op: 'update',
+          before: { url: 'u' },
+          after: { url: 'u' },
+          at: entry.at,
+        },
+      ]),
+  })
+  renderAt('/audit/control-plane')
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('button', { name: 'Modifications' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Modifications de create-route' })
+  expect(await within(dialog).findByText('Aucun champ lisible n’a changé.')).toBeDefined()
+  expect(within(dialog).queryByRole('table', { name: 'Champs modifiés de webhooks' })).toBeNull()
+  await user.click(
+    within(dialog.querySelector('.ui-modal__foot') as HTMLElement).getByRole('button', { name: 'Fermer' }),
+  )
+  expect(screen.queryByRole('dialog')).toBeNull()
 })

@@ -1066,7 +1066,15 @@ button.ui-tabs__tab {
 
 .audit-change__head h3 {
   margin: 0;
-  font: var(--text-card-title);
+}
+
+.audit-before {
+  color: var(--text-danger);
+  text-decoration: line-through;
+}
+
+.audit-after {
+  color: var(--text-success);
 }
 
 .token-scopes {
