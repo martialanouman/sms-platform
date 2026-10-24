@@ -8,7 +8,7 @@ import {
 } from '@tanstack/react-router'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useRef, useState } from 'react'
+import { StrictMode, useRef, useState } from 'react'
 import { expect, test, vi } from 'vitest'
 import { explained } from './test'
 import {
@@ -303,7 +303,11 @@ test('a modal gives the focus back to its opener, or to the page title once the 
 
 test('a secret opened by another modal gives the focus back to the first opener, and says it will not be shown again', async () => {
   const user = userEvent.setup()
-  render(<Opened chained />)
+  render(
+    <StrictMode>
+      <Opened chained />
+    </StrictMode>,
+  )
   await user.click(screen.getByRole('button', { name: 'Ouvrir' }))
   await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Suite' }))
   const secret = await screen.findByRole('dialog', { name: 'Seconde' })

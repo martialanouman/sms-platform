@@ -93,7 +93,7 @@ test('the page of an account carries the header of the mock-up and opens on its 
   await waitFor(() =>
     expect(within(tabs).getByRole('link', { name: 'Identifiants' }).getAttribute('aria-current')).toBe('page'),
   )
-  expect(await card('Identifiants')).toBeDefined()
+  expect(await card('Bind SMPP')).toBeDefined()
   expect(screen.queryByRole('link', { name: '← Acme' })).toBeNull()
   expect(await violations(container)).toEqual([])
 })

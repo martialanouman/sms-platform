@@ -18,14 +18,15 @@ afterEach(() => {
 
 export function renderAt(path: string) {
   const router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: [path] }) })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const view = render(
     <StrictMode>
-      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
       </QueryClientProvider>
     </StrictMode>,
   )
-  return { router, ...view }
+  return { router, queryClient, ...view }
 }
 
 type Handler = (request: Request) => Response | Promise<Response>

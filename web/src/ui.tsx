@@ -905,7 +905,6 @@ export function SecretOnce({
 export function RotationModal({
   title,
   warning,
-  opener,
   onClose,
   onSubmit,
   waiting,
@@ -914,7 +913,6 @@ export function RotationModal({
 }: {
   title: ReactNode
   warning: ReactNode
-  opener?: Element | null
   onClose: () => void
   onSubmit: () => void
   waiting: boolean
@@ -925,7 +923,6 @@ export function RotationModal({
   return (
     <Modal
       title={title}
-      opener={opener}
       onClose={onClose}
       footer={
         <>
