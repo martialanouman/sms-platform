@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
-import { json, me, once, renderAt, stubFetch, violations } from '../test'
+import { explained, json, me, once, renderAt, stubFetch, violations } from '../test'
 
 const auditor = { ...me, permissions: ['audit:read'] }
 const ada = '01a159b0-0000-7000-8000-00000000000a'
@@ -107,7 +107,6 @@ test('the operator is chosen among every operator, by name or email, and sent by
   await waitFor(() => expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Adaada@example.test']))
   await user.click(screen.getByRole('option', { name: /^Ada/ }))
   expect(await violations(container)).toEqual([])
-  await user.click(screen.getByRole('button', { name: 'Filtrer' }))
   await waitFor(() => expect(new URL(calls.at(-1)?.url ?? '').searchParams.get('operator')).toBe(ada))
 })
 
@@ -136,9 +135,9 @@ test('the period defaults to today, from its start to its end', async () => {
   await screen.findByText('list-audit-log')
   const q = new URL(calls.at(-1)?.url ?? '').searchParams
   expect([q.get('from_date'), q.get('to_date')]).toEqual([local(today), local(tomorrow)])
-  expect((screen.getByLabelText('Depuis') as HTMLInputElement).value).toBe(today)
-  expect((screen.getByLabelText('Jusqu’à') as HTMLInputElement).value).toBe(today)
-  expect((screen.getByLabelText('Depuis') as HTMLInputElement).type).toBe('date')
+  expect((screen.getByLabelText('Du') as HTMLInputElement).value).toBe(today)
+  expect((screen.getByLabelText('Au') as HTMLInputElement).value).toBe(today)
+  expect((screen.getByLabelText('Du') as HTMLInputElement).type).toBe('date')
 })
 
 test('the filters and the cursor travel in the request', async () => {
@@ -156,11 +155,10 @@ test('the filters and the cursor travel in the request', async () => {
   expect(new URL(calls.at(-1)?.url ?? '').searchParams.get('cursor')).toBe('next-1')
 
   await choose(user, 'ada', 'Ada')
-  await user.clear(screen.getByLabelText('Depuis'))
-  await user.type(screen.getByLabelText('Depuis'), '2026-10-20')
-  await user.clear(screen.getByLabelText('Jusqu’à'))
-  await user.type(screen.getByLabelText('Jusqu’à'), '2026-10-21')
-  await user.click(screen.getByRole('button', { name: 'Filtrer' }))
+  await user.clear(screen.getByLabelText('Du'))
+  await user.type(screen.getByLabelText('Du'), '2026-10-20')
+  await user.clear(screen.getByLabelText('Au'))
+  await user.type(screen.getByLabelText('Au'), '2026-10-21')
   await waitFor(() => {
     const q = new URL(calls.at(-1)?.url ?? '').searchParams
     expect([q.get('operator'), q.get('from_date'), q.get('to_date'), q.get('cursor')]).toEqual([
@@ -202,7 +200,8 @@ test('Previous walks back the pages one at a time, and shows only when there is 
   expect(screen.getByRole('button', { name: 'Plus récentes' }).getAttribute('aria-disabled')).toBe('true')
   await user.click(screen.getByRole('button', { name: 'Plus anciennes' }))
   await screen.findByText('create-route')
-  await user.click(screen.getByRole('button', { name: 'Filtrer' }))
+  await user.clear(screen.getByLabelText('Du'))
+  await user.type(screen.getByLabelText('Du'), '2026-10-20')
   await screen.findByText('list-audit-log')
   expect(screen.getByRole('button', { name: 'Plus récentes' }).getAttribute('aria-disabled')).toBe('true')
 })
@@ -307,9 +306,8 @@ test('the access tab is filtered by operator and period like the other', async (
   let q = new URL(calls.at(-1)?.url ?? '').searchParams
   expect([q.get('actor'), q.get('fromDate'), q.get('toDate')]).toEqual([null, local(today), local(tomorrow)])
   await choose(user, 'ada', 'Ada')
-  await user.clear(screen.getByLabelText('Depuis'))
-  await user.type(screen.getByLabelText('Depuis'), '2026-10-20')
-  await user.click(screen.getByRole('button', { name: 'Filtrer' }))
+  await user.clear(screen.getByLabelText('Du'))
+  await user.type(screen.getByLabelText('Du'), '2026-10-20')
   await waitFor(() => {
     q = new URL(calls.at(-1)?.url ?? '').searchParams
     expect([q.get('actor'), q.get('fromDate'), q.get('toDate')]).toEqual([ada, local('2026-10-20'), local(tomorrow)])
@@ -358,9 +356,9 @@ test('the filters shown follow the address, back to today when the tab is opened
   await waitFor(() =>
     expect((screen.getByRole('combobox', { name: 'Opérateur' }) as HTMLInputElement).value).toBe('Ada'),
   )
-  expect((screen.getByLabelText('Depuis') as HTMLInputElement).value).toBe('2026-10-01')
+  expect((screen.getByLabelText('Du') as HTMLInputElement).value).toBe('2026-10-01')
   await userEvent.setup().click(screen.getByRole('link', { name: 'Administration de la passerelle' }))
-  await waitFor(() => expect((screen.getByLabelText('Depuis') as HTMLInputElement).value).toBe(today))
+  await waitFor(() => expect((screen.getByLabelText('Du') as HTMLInputElement).value).toBe(today))
   expect((screen.getByRole('combobox', { name: 'Opérateur' }) as HTMLInputElement).value).toBe('')
 })
 
@@ -374,8 +372,8 @@ test('a day the address cannot carry falls back to today, the screen standing', 
   await screen.findByText('Aucune entrée')
   const q = new URL(calls.at(-1)?.url ?? '').searchParams
   expect([q.get('fromDate'), q.get('toDate')]).toEqual([local(today), local(tomorrow)])
-  expect((screen.getByLabelText('Depuis') as HTMLInputElement).value).toBe(today)
-  expect((screen.getByLabelText('Jusqu’à') as HTMLInputElement).value).toBe(today)
+  expect((screen.getByLabelText('Du') as HTMLInputElement).value).toBe(today)
+  expect((screen.getByLabelText('Au') as HTMLInputElement).value).toBe(today)
 })
 
 test('the changes of a request are paged, and two changes of one row both show', async () => {
@@ -517,4 +515,30 @@ test('the access tab counts the entries it shows', async () => {
   })
   renderAt('/audit/access')
   expect(await screen.findByText('2 entrées affichées')).toBeDefined()
+})
+
+test('the filters apply as they change, and are taken away at once, frozen when none is set', async () => {
+  const calls = stubFetch({
+    'GET /api/auth/me': () => json(200, auditor),
+    'GET /api/gw/admin/audit-log': () => page([entry]),
+    'GET /api/audit/operators': directory,
+  })
+  const { router } = renderAt('/audit/control-plane')
+  const user = userEvent.setup()
+  await screen.findByText('list-audit-log')
+  expect(screen.queryByRole('button', { name: 'Filtrer' })).toBeNull()
+  const clear = screen.getByRole('button', { name: 'Retirer les filtres' })
+  expect(clear.getAttribute('aria-disabled')).toBe('true')
+  expect(explained(clear)).toBe('Aucun filtre actif.')
+  await choose(user, 'ada', 'Ada')
+  await waitFor(() => expect(router.state.location.search).toEqual({ operator: ada }))
+  await user.clear(screen.getByLabelText('Au'))
+  await user.type(screen.getByLabelText('Au'), '2026-10-21')
+  await waitFor(() => expect(router.state.location.search).toEqual({ operator: ada, to: '2026-10-21' }))
+  expect(new URL(calls.at(-1)?.url ?? '').searchParams.get('to_date')).toBe(local('2026-10-22'))
+  await user.click(screen.getByRole('button', { name: 'Retirer les filtres' }))
+  await waitFor(() => expect(router.state.location.search).toEqual({}))
+  expect((screen.getByLabelText('Au') as HTMLInputElement).value).toBe(today)
+  expect((screen.getByRole('combobox', { name: 'Opérateur' }) as HTMLInputElement).value).toBe('')
+  expect(screen.getByRole('button', { name: 'Retirer les filtres' }).getAttribute('aria-disabled')).toBe('true')
 })

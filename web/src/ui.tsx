@@ -86,6 +86,7 @@ export function Combobox<Item>({
   itemDetail,
   matches,
   empty,
+  onChange,
 }: {
   label: string
   name: string
@@ -96,6 +97,7 @@ export function Combobox<Item>({
   itemDetail: (item: Item) => ReactNode
   matches: (item: Item, query: string) => boolean
   empty: string
+  onChange?: (item: Item | null) => void
 }) {
   const id = useId()
   return (
@@ -103,6 +105,7 @@ export function Combobox<Item>({
       items={items}
       name={name}
       defaultValue={defaultValue}
+      onValueChange={(item) => onChange?.(item as Item | null)}
       itemToStringLabel={itemLabel}
       itemToStringValue={itemValue}
       filter={matches}

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import type { FormEvent } from 'react'
+import type { ChangeEvent } from 'react'
 import type { components } from './api.gen'
 import { type Paged, paged, text } from './list'
 import { auditOperatorsQuery } from './queries'
@@ -57,17 +57,20 @@ const sought = (o: Operator, query: string) =>
 
 export function AuditFilters({ search, onFilter }: { search: AuditSearch; onFilter: (next: AuditSearch) => void }) {
   const operators = useQuery(auditOperatorsQuery).data ?? []
-  const filter = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const form = new FormData(event.currentTarget)
-    onFilter({ operator: text(form.get('operator')), from: day(form.get('from')), to: day(form.get('to')) })
+  const shown = { operator: search.operator, from: search.from, to: search.to }
+  const filtered = Object.values(shown).some((v) => v !== undefined)
+  const date = (key: 'from' | 'to') => (event: ChangeEvent<HTMLInputElement>) => {
+    const value = day(event.currentTarget.value)
+    if (value) {
+      onFilter({ ...shown, [key]: value })
+    }
   }
   return (
-    <form
+    <div
       key={[search.operator, search.from, search.to].join('|')}
       className="audit-filters"
+      role="group"
       aria-label="Filtres du journal"
-      onSubmit={filter}
     >
       <Combobox
         key={operators.length}
@@ -80,10 +83,13 @@ export function AuditFilters({ search, onFilter }: { search: AuditSearch; onFilt
         itemDetail={(o) => o.email}
         matches={sought}
         empty="Aucun opérateur"
+        onChange={(o) => onFilter({ ...shown, operator: o?.id })}
       />
-      <Field label="Depuis" name="from" type="date" defaultValue={search.from ?? today()} />
-      <Field label="Jusqu’à" name="to" type="date" defaultValue={search.to ?? today()} />
-      <Button type="submit">Filtrer</Button>
-    </form>
+      <Field label="Du" name="from" type="date" defaultValue={search.from ?? today()} onChange={date('from')} />
+      <Field label="Au" name="to" type="date" defaultValue={search.to ?? today()} onChange={date('to')} />
+      <Button blockedReason={filtered ? undefined : 'Aucun filtre actif.'} onClick={() => onFilter({})}>
+        Retirer les filtres
+      </Button>
+    </div>
   )
 }
