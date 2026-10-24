@@ -102,7 +102,7 @@ test('the header says what a customer is and offers to create one; the table and
   expect(within(header).getByRole('button', { name: 'Nouveau client' })).toBeDefined()
   const card = table.closest('.ui-card') as HTMLElement
   expect(card.classList.contains('ui-card--flush')).toBe(true)
-  expect(within(card).getByText('1 client affiché')).toBeDefined()
+  expect(within(card).getByText('1 entrée affichée')).toBeDefined()
 })
 
 test('no customer at all says how to create one', async () => {
@@ -324,7 +324,7 @@ test('the pager tells how many are shown, its useless buttons frozen and explain
     'GET /api/gw/admin/customer-groups': directory,
   })
   renderAt('/customers')
-  expect(await screen.findByText('2 clients affichés')).toBeDefined()
+  expect(await screen.findByText('2 entrées affichées')).toBeDefined()
   const previous = screen.getByRole('button', { name: 'Précédent' })
   const next = screen.getByRole('button', { name: 'Suivant' })
   expect([previous, next].map((b) => b.getAttribute('aria-disabled'))).toEqual(['true', 'true'])
@@ -338,7 +338,7 @@ test('a single customer shown is said in the singular, with a way forward', asyn
     'GET /api/gw/admin/customer-groups': directory,
   })
   renderAt('/customers')
-  expect(await screen.findByText('1 client affiché')).toBeDefined()
+  expect(await screen.findByText('1 entrée affichée')).toBeDefined()
   expect(screen.getByRole('button', { name: 'Suivant' }).hasAttribute('aria-disabled')).toBe(false)
 })
 

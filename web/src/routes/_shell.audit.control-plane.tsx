@@ -73,7 +73,7 @@ function ControlPlane() {
             next={log.data.next_cursor}
             go={(next) => void navigate({ search: next })}
             count={log.data.data.length}
-            noun={['entrée affichée', 'entrées affichées']}
+            labels={['Plus récentes', 'Plus anciennes']}
           />
         </>
       )}
@@ -138,13 +138,7 @@ function Changes({ requestId, onClose }: { requestId: string; onClose: () => voi
         })
       )}
       {list.data && (
-        <Pager
-          search={position}
-          next={list.data.next_cursor}
-          go={setPosition}
-          count={list.data.data.length}
-          noun={['modification affichée', 'modifications affichées']}
-        />
+        <Pager search={position} next={list.data.next_cursor} go={setPosition} count={list.data.data.length} />
       )}
     </Modal>
   )

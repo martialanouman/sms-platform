@@ -76,7 +76,7 @@ function Access() {
             next={log.data.nextCursor}
             go={(next) => void navigate({ search: next })}
             count={log.data.data.length}
-            noun={['entrée affichée', 'entrées affichées']}
+            labels={['Plus récentes', 'Plus anciennes']}
           />
         </>
       )}
