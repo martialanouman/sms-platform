@@ -817,13 +817,29 @@
 }
 
 .form__inline {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--sp-4);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--sp-4);
+}
+
+.form__inline .ui-field__label {
+  margin-bottom: var(--sp-4);
+}
+
+.form__inline .ui-field__error {
+  margin-top: var(--sp-4);
 }
 
 .form__inline .ui-field {
-  flex: 1;
+  display: grid;
+  grid-row: span 3;
+  grid-template-rows: subgrid;
+  row-gap: 0;
+}
+
+.form__inline > .ui-button {
+  grid-row: 2;
 }
 
 .permission-picker {
