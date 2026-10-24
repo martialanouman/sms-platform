@@ -59,3 +59,7 @@ test('the revoked pill, the warning banner and the event badges sit on their tin
   expect(rule('\\.ui-badge--mo')).toMatch(/background: var\(--tint-blue\);[^}]*color: var\(--text-info\);/)
   expect(rule('\\.ui-badge--dlr')).toMatch(/background: var\(--tint-teal\);[^}]*color: var\(--text-accent\);/)
 })
+
+test('the actions of an end cell sit against its end, as the header above them', () => {
+  expect(read('./app.css')).toMatch(/\n\.ui-table__cell--end \.row-actions \{[^}]*justify-content: flex-end;/)
+})

@@ -67,7 +67,7 @@ function stub(
 
 const block = () => screen.findByRole('region', { name: 'Webhooks MO / DLR' })
 const row = async (name: RegExp) => within(await block()).findByRole('row', { name })
-const add = async () => within(await block()).getByRole('button', { name: 'Ajouter' })
+const add = async () => within(await block()).findByRole('button', { name: 'Ajouter' })
 const sent = async (calls: Request[], method: string) =>
   await calls.find((r) => r.method === method && r.url.includes('/webhooks'))?.json()
 const reads = (calls: Request[]) => calls.filter((r) => r.method === 'GET' && new URL(r.url).pathname === path).length
@@ -91,7 +91,9 @@ test('the webhooks read as the mock-up: event badge, mono URL, pill and five act
       .map((b) => b.textContent),
   ).toEqual(['Désactiver', 'Modifier l’URL', 'Rotation du secret', 'Supprimer'])
   expect(within(moRow).getByRole('button', { name: 'Supprimer' }).className).toContain('ui-button--danger')
-  expect(within(moRow).getByRole('button', { name: 'Supprimer' }).parentElement?.className).toBe('row-actions')
+  const actions = within(moRow).getByRole('button', { name: 'Supprimer' }).parentElement
+  expect(actions?.className).toBe('row-actions')
+  expect(actions?.parentElement?.className).toBe('ui-table__cell ui-table__cell--end')
   expect(within(region).getByRole('columnheader', { name: 'Actions' }).className).toContain('ui-table__cell--end')
   const dlrRow = await row(/accusés de réception/)
   expect(within(dlrRow).getByRole('rowheader').innerHTML).toBe(
@@ -317,6 +319,7 @@ test('without accounts:write every change is blocked; an unreadable list is said
   stub([], { [`GET ${path}`]: () => json(500, { code: 'internal', message: 'boom', errors: [] }) })
   renderAt(`/accounts/${api.id}/webhooks`)
   expect(await within(await block()).findByText('Les webhooks n’ont pas pu être chargés')).toBeDefined()
+  expect(within(await block()).queryByRole('button', { name: 'Ajouter' })).toBeNull()
 })
 
 test('an edit refused stays in its dialog, without a toast', async () => {
@@ -331,4 +334,15 @@ test('an edit refused stays in its dialog, without a toast', async () => {
   expect((await within(dialog).findByRole('alert')).textContent).toBe('URL refusée.')
   expect(screen.getByRole('dialog')).toBe(dialog)
   noToast()
+})
+
+test('nothing can be added before the list is read', async () => {
+  let answer: (r: Response) => void = () => {}
+  stub([], { [`GET ${path}`]: () => new Promise<Response>((resolve) => (answer = resolve)) })
+  renderAt(`/accounts/${api.id}/webhooks`)
+  const region = await block()
+  expect(within(region).getByText('Chargement des webhooks…')).toBeDefined()
+  expect(within(region).queryByRole('button', { name: 'Ajouter' })).toBeNull()
+  answer(json(200, []))
+  expect(await within(region).findByRole('button', { name: 'Ajouter' })).toBeDefined()
 })

@@ -72,14 +72,16 @@ export function Webhooks() {
         flush
         title="Webhooks MO / DLR"
         aside={
-          <Button
-            variant="primary"
-            size="sm"
-            blockedReason={frozen ?? (free.length === 0 ? 'Un webhook par événement au plus.' : undefined)}
-            onClick={() => ask('create')}
-          >
-            Ajouter
-          </Button>
+          webhooks.data && (
+            <Button
+              variant="primary"
+              size="sm"
+              blockedReason={frozen ?? (free.length === 0 ? 'Un webhook par événement au plus.' : undefined)}
+              onClick={() => ask('create')}
+            >
+              Ajouter
+            </Button>
+          )
         }
       >
         {webhooks.isPending ? (

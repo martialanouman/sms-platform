@@ -620,6 +620,10 @@
   gap: var(--sp-4);
 }
 
+.ui-table__cell--end .row-actions {
+  justify-content: flex-end;
+}
+
 .operator-cell {
   display: grid;
   gap: var(--sp-1);
