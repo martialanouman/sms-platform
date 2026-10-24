@@ -41,11 +41,24 @@ Humain, 2026-10-24, sur recommandation.
 
 - **Lettres accentuées** : le nom est décomposé (NFD) avant d'être réduit à `[a-z0-9]` ; « Société » donne `societe`,
   pas `socit`.
-- **`.form__inline`** : une rangée du formulaire où le champ prend la place et « Générer » s'aligne en bas, à la
-  hauteur du champ (`--control-height` des deux côtés).
+- **`.form__inline`** : une rangée où le champ prend la place et le bouton se pose à côté de la saisie ; la règle ne
+  fixe aucune hauteur, celle du champ et du bouton vient du kit (voir le correctif de revue 2).
 - **Une seule action, un seul bouton** (454) : le bouton garde sa place et change de libellé ; après une suspension,
   le focus reste sur lui, devenu « Réactiver ». Les raisons « Déjà suspendu. » et « Déjà actif. » tombent.
 - **455 vérifié au rendu** : CSS construite, deux cartes de corps inégaux côte à côte dans `agent-browser` ; les deux
   pieds ont le même haut (245 px) et la même hauteur (53 px), boutons à 13 et 12 px des bords.
 - **Pas de `min-height` sur le pied** : les deux pieds portent les mêmes boutons, donc la même hauteur ; le pied
   poussé en bas suffit (455).
+- **455 vaut pour toutes les grilles `.ui-cards`** : fiche client, onglets Sessions et Canaux en plus des identifiants ;
+  `.ui-card` en colonne n'y change rien (largeur étirée comme en bloc, aucune marge dépendant de leur fusion), et
+  `.ui-card__foot` ne sert qu'aux identifiants.
+- **Correctif de revue 1** : après « Créer » à vide puis « Générer », l'erreur périmée restait (`aria-invalid`, alerte) ;
+  `Field` oublie l'erreur de la dernière soumission quand son parent change sa valeur, et la garde quand la saisie
+  vient du clavier.
+- **Correctif de revue 2** : le bouton descendait au niveau du message d'erreur ; le champ de `.form__inline` est une
+  sous-grille de trois lignes (libellé, saisie, erreur) et le bouton se pose sur la deuxième. Mesuré au rendu : bouton
+  et saisie de même haut et même bas, avec ou sans erreur, sans marge en trop sous le champ.
+- **Correctif de revue 3** : libellé visible « Générer un System ID », nom accessible explicite.
+- **Correctif de revue 4** : l'action de statut d'un compte se fige sur la seule permission, comme le client ; la
+  raison « Fermé définitivement. » ne pouvait plus s'y afficher.
+- **Correctif de revue 5** : deux assertions du compte fermé, doublons du test par statut, retirées.
