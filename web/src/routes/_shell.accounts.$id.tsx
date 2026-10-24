@@ -108,7 +108,7 @@ function Loaded({ account, held }: { account: Account; held: string[] }) {
             {account.status !== 'closed' && (
               <Button
                 size="sm"
-                blockedReason={frozen}
+                blockedReason={write}
                 onClick={() => setPending(account.status === 'active' ? 'suspend' : 'reactivate')}
               >
                 {account.status === 'active' ? 'Suspendre' : 'Réactiver'}

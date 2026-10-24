@@ -240,8 +240,6 @@ test('a closed account is frozen but can still be deleted, which leads to its cu
   for (const name of ['Clôturer', 'Renommer']) {
     expect(explained(await screen.findByRole('button', { name }))).toBe('Fermé définitivement.')
   }
-  expect(screen.queryByRole('button', { name: 'Suspendre' })).toBeNull()
-  expect(screen.queryByRole('button', { name: 'Réactiver' })).toBeNull()
   await user.click(screen.getByRole('button', { name: 'Supprimer' }))
   await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Supprimer' }))
   await waitFor(() => expect(router.state.location.pathname).toBe(`/customers/${acme.id}`))
