@@ -33,6 +33,7 @@ type accountBody struct {
 type accountPage struct {
 	Data       []accountBody `json:"data"`
 	NextCursor *string       `json:"next_cursor"`
+	Total      *int          `json:"total"`
 }
 
 func (g gateway) createAccount(t *testing.T, body string) accountBody {
@@ -143,12 +144,20 @@ func TestAccountsAreFilteredByCustomerGroupAndStatusAndPaged(t *testing.T) {
 	names := func(path string) []string {
 		var out []string
 		cursor := ""
+		totals := map[int]bool{}
 		for range 6 {
 			p := as[accountPage](t, g.send(t, http.MethodGet, path+"&limit=1&cursor="+cursor, "accounts:read", ""), http.StatusOK)
+			if p.Total == nil {
+				t.Fatalf("%s: no total", path)
+			}
+			totals[*p.Total] = true
 			for _, a := range p.Data {
 				out = append(out, a.Name+"@"+a.CustomerName+":"+a.Status+"/"+a.CustomerStatus)
 			}
 			if p.NextCursor == nil {
+				if len(totals) != 1 || !totals[len(out)] {
+					t.Errorf("%s: totals %v for %d rows", path, totals, len(out))
+				}
 				return out
 			}
 			cursor = *p.NextCursor

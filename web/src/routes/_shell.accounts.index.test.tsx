@@ -45,7 +45,7 @@ function stub(who = reader, accounts: unknown[] = three) {
     'GET /api/auth/me': () => json(200, who),
     'GET /api/gw/admin/customer-groups': () => json(200, { data: [banks], next_cursor: null }),
     [`GET /api/gw/admin/customers/${acme.id}`]: () => json(200, { ...acme, group_id: null }),
-    'GET /api/gw/admin/accounts': () => json(200, { data: accounts, next_cursor: null }),
+    'GET /api/gw/admin/accounts': () => json(200, { data: accounts, next_cursor: 'n', total: 30 }),
   })
 }
 
@@ -78,7 +78,7 @@ test('the accounts list names their customer, their effective status in a pill a
   expect(within(old).getByText('smpp')).toBeDefined()
   expect(atMinute(account('old', '').created_at)).toMatch(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/)
   expect(within(old).getByText(atMinute(account('old', '').created_at)).className).toContain('ui-mono')
-  expect(screen.getByText('3 entrées affichées').closest('.ui-card')).toBe(table.closest('.ui-card'))
+  expect(screen.getByText('3 entrées affichées sur 30').closest('.ui-card')).toBe(table.closest('.ui-card'))
   expect(screen.queryByRole('button', { name: 'Nouveau compte' })).toBeNull()
   expect(
     (screen.getByRole('heading', { level: 1, name: 'Comptes' }).closest('.page-header') as HTMLElement).textContent,

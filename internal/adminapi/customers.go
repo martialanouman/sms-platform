@@ -65,6 +65,7 @@ type Customer struct {
 // Groups is the store of customer groups, within a transaction; a missing group is errs.ErrNotFound.
 type Groups interface {
 	Groups(ctx context.Context, status *string, after *Key, limit int) ([]CustomerGroup, error)
+	CountGroups(ctx context.Context, status *string) (int, error)
 	Group(ctx context.Context, id string) (CustomerGroup, error)
 	CreateGroup(ctx context.Context, name string, description *string) (CustomerGroup, error)
 	UpdateGroup(ctx context.Context, id string, p GroupPatch) (CustomerGroup, error)
@@ -95,6 +96,7 @@ type AccountRef struct {
 // Customers is the store of customers, within a transaction; a missing customer is errs.ErrNotFound.
 type Customers interface {
 	Customers(ctx context.Context, f CustomerFilter, after *Key, limit int) ([]Customer, error)
+	CountCustomers(ctx context.Context, f CustomerFilter) (int, error)
 	Customer(ctx context.Context, id string) (Customer, error)
 	CreateCustomer(ctx context.Context, name string, groupID *string, age MaxAge) (Customer, error)
 	UpdateCustomer(ctx context.Context, id string, p CustomerPatch) (Customer, error)
@@ -103,22 +105,33 @@ type Customers interface {
 	CustomerAccounts(ctx context.Context, id string) ([]AccountRef, error)
 }
 
-// GroupsPage is a page of customer groups, newest first, and the cursor of the next one.
-func GroupsPage(ctx context.Context, tx Tx, status *string, cursor string, limit int) ([]CustomerGroup, string, error) {
-	return page(cursor, limit, func(g CustomerGroup) Key { return Key{g.CreatedAt, g.ID} },
+// GroupsPage is a page of customer groups, newest first, the cursor of the next one and how many the status selects.
+func GroupsPage(ctx context.Context, tx Tx, status *string, cursor string, limit int) ([]CustomerGroup, string, int, error) {
+	groups, next, err := page(cursor, limit, func(g CustomerGroup) Key { return Key{g.CreatedAt, g.ID} },
 		func(after *Key, n int) ([]CustomerGroup, error) { return tx.Groups(ctx, status, after, n) })
+	if err != nil {
+		return nil, "", 0, err
+	}
+	total, err := tx.CountGroups(ctx, status)
+	return groups, next, total, err
 }
 
-// CustomersPage is a page of the customers f selects, newest first, and the cursor of the next one.
-func CustomersPage(ctx context.Context, tx Tx, f CustomerFilter, cursor string, limit int) ([]Customer, string, error) {
-	return page(cursor, limit, func(c Customer) Key { return Key{c.CreatedAt, c.ID} },
+// CustomersPage is a page of the customers f selects, newest first, the cursor of the next one and how many f selects.
+func CustomersPage(ctx context.Context, tx Tx, f CustomerFilter, cursor string, limit int) ([]Customer, string, int, error) {
+	customers, next, err := page(cursor, limit, func(c Customer) Key { return Key{c.CreatedAt, c.ID} },
 		func(after *Key, n int) ([]Customer, error) { return tx.Customers(ctx, f, after, n) })
+	if err != nil {
+		return nil, "", 0, err
+	}
+	total, err := tx.CountCustomers(ctx, f)
+	return customers, next, total, err
 }
 
-// GroupCustomersPage is a page of the customers of group id, newest first, and the cursor of the next one.
-func GroupCustomersPage(ctx context.Context, tx Tx, id, cursor string, limit int) ([]Customer, string, error) {
+// GroupCustomersPage is a page of the customers of group id, newest first, the cursor of the next one and their
+// number.
+func GroupCustomersPage(ctx context.Context, tx Tx, id, cursor string, limit int) ([]Customer, string, int, error) {
 	if _, err := tx.Group(ctx, id); err != nil {
-		return nil, "", err
+		return nil, "", 0, err
 	}
 	return CustomersPage(ctx, tx, CustomerFilter{GroupID: &id}, cursor, limit)
 }

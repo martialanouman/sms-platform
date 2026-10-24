@@ -178,21 +178,22 @@ func TestGroupsArePagedFilteredAndCountTheirMembers(t *testing.T) {
 	type groupPage struct {
 		Data       []group `json:"data"`
 		NextCursor *string `json:"next_cursor"`
+		Total      *int    `json:"total"`
 	}
 	one := as[groupPage](t, g.send(t, http.MethodGet, "/admin/customer-groups?limit=2", "customer-groups:read", ""), http.StatusOK)
-	if len(one.Data) != 2 || one.Data[0].ID != third.ID || one.Data[1].ID != second.ID || one.NextCursor == nil ||
+	if len(one.Data) != 2 || one.Data[0].ID != third.ID || one.Data[1].ID != second.ID || one.NextCursor == nil || one.Total == nil || *one.Total != 3 ||
 		*one.Data[0].MemberCount != 2 || *one.Data[1].MemberCount != 0 {
 		t.Fatalf("first page = %+v", one)
 	}
 	two := as[groupPage](t, g.send(t, http.MethodGet, "/admin/customer-groups?limit=2&cursor="+*one.NextCursor, "customer-groups:read", ""), http.StatusOK)
-	if len(two.Data) != 1 || two.Data[0].ID != first.ID || *two.Data[0].MemberCount != 1 || two.NextCursor != nil {
+	if len(two.Data) != 1 || two.Data[0].ID != first.ID || *two.Data[0].MemberCount != 1 || two.NextCursor != nil || two.Total == nil || *two.Total != 3 {
 		t.Fatalf("second page = %+v", two)
 	}
 	if read := as[group](t, g.send(t, http.MethodGet, "/admin/customer-groups/"+third.ID, "customer-groups:read", ""), http.StatusOK); *read.MemberCount != 2 {
 		t.Fatalf("read member_count = %d", *read.MemberCount)
 	}
 	archived := as[groupPage](t, g.send(t, http.MethodGet, "/admin/customer-groups?status=archived", "customer-groups:read", ""), http.StatusOK)
-	if len(archived.Data) != 1 || archived.Data[0].ID != second.ID {
+	if len(archived.Data) != 1 || archived.Data[0].ID != second.ID || archived.Total == nil || *archived.Total != 1 {
 		t.Fatalf("archived = %+v", archived)
 	}
 	if rec := g.send(t, http.MethodGet, "/admin/customer-groups?cursor=nope", "customer-groups:read", ""); rec.Code != http.StatusUnprocessableEntity {
@@ -254,14 +255,15 @@ func TestTheCustomersOfAGroupArePaged(t *testing.T) {
 	type customerPage struct {
 		Data       []customer `json:"data"`
 		NextCursor *string    `json:"next_cursor"`
+		Total      *int       `json:"total"`
 	}
 	path := "/admin/customer-groups/" + created.ID + "/customers"
 	one := as[customerPage](t, g.send(t, http.MethodGet, path+"?limit=1", "customer-groups:read", ""), http.StatusOK)
-	if len(one.Data) != 1 || one.Data[0].Name != "y" || one.NextCursor == nil {
+	if len(one.Data) != 1 || one.Data[0].Name != "y" || one.NextCursor == nil || one.Total == nil || *one.Total != 2 {
 		t.Fatalf("first page = %+v", one)
 	}
 	two := as[customerPage](t, g.send(t, http.MethodGet, path+"?limit=1&cursor="+*one.NextCursor, "customer-groups:read", ""), http.StatusOK)
-	if len(two.Data) != 1 || two.NextCursor != nil {
+	if len(two.Data) != 1 || two.NextCursor != nil || two.Total == nil || *two.Total != 2 {
 		t.Fatalf("second page = %+v", two)
 	}
 	x := two.Data[0]

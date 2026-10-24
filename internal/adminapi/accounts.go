@@ -48,16 +48,22 @@ type AccountPatch struct {
 // Accounts is the store of accounts, within a transaction; a missing account is errs.ErrNotFound.
 type Accounts interface {
 	Accounts(ctx context.Context, f AccountFilter, after *Key, limit int) ([]Account, error)
+	CountAccounts(ctx context.Context, f AccountFilter) (int, error)
 	Account(ctx context.Context, id string) (Account, error)
 	CreateAccount(ctx context.Context, a Account) (Account, error)
 	UpdateAccount(ctx context.Context, id string, p AccountPatch) (Account, error)
 	DeleteAccount(ctx context.Context, id string) error
 }
 
-// AccountsPage is a page of the accounts f selects, newest first, and the cursor of the next one.
-func AccountsPage(ctx context.Context, tx Tx, f AccountFilter, cursor string, limit int) ([]Account, string, error) {
-	return page(cursor, limit, func(a Account) Key { return Key{a.CreatedAt, a.ID} },
+// AccountsPage is a page of the accounts f selects, newest first, the cursor of the next one and how many f selects.
+func AccountsPage(ctx context.Context, tx Tx, f AccountFilter, cursor string, limit int) ([]Account, string, int, error) {
+	accounts, next, err := page(cursor, limit, func(a Account) Key { return Key{a.CreatedAt, a.ID} },
 		func(after *Key, n int) ([]Account, error) { return tx.Accounts(ctx, f, after, n) })
+	if err != nil {
+		return nil, "", 0, err
+	}
+	total, err := tx.CountAccounts(ctx, f)
+	return accounts, next, total, err
 }
 
 // SuspendAccount suspends account id; a closed account is a conflict.

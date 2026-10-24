@@ -93,7 +93,7 @@ func registerAccounts(api huma.API) {
 	}
 	huma.Register(api, huma.Operation{OperationID: "list-accounts", Method: http.MethodGet, Path: "/admin/accounts",
 		Tags: tags, Security: security("accounts:read"), Errors: []int{401, 403, 422}},
-		func(ctx context.Context, in *listAccountsInput) (*pageOutput[account], error) {
+		func(ctx context.Context, in *listAccountsInput) (*countedPageOutput[account], error) {
 			var f adminapi.AccountFilter
 			if in.CustomerID != "" {
 				f.CustomerID = &in.CustomerID
@@ -104,7 +104,7 @@ func registerAccounts(api huma.API) {
 			if in.Status != "" {
 				f.Status = &in.Status
 			}
-			accounts, next, err := adminapi.AccountsPage(ctx, adminapi.TxFrom(ctx), f, in.Cursor, in.Limit)
+			accounts, next, total, err := adminapi.AccountsPage(ctx, adminapi.TxFrom(ctx), f, in.Cursor, in.Limit)
 			if err != nil {
 				return nil, err
 			}
@@ -112,7 +112,7 @@ func registerAccounts(api huma.API) {
 			for i, a := range accounts {
 				data[i] = toAccount(a)
 			}
-			return page(data, next), nil
+			return counted(data, next, total), nil
 		})
 	huma.Register(api, huma.Operation{OperationID: "create-account", Method: http.MethodPost, Path: "/admin/accounts",
 		Tags: tags, Security: security("accounts:write"), DefaultStatus: http.StatusCreated, Errors: []int{401, 403, 409, 422}},

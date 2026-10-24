@@ -46,6 +46,11 @@ func refused(err error) error {
 	return err
 }
 
+func (t tx) CountGroups(ctx context.Context, status *string) (int, error) {
+	n, err := queries.CountGroups(ctx, t.db, status)
+	return int(n), err
+}
+
 func (t tx) Groups(ctx context.Context, status *string, after *adminapi.Key, limit int) ([]adminapi.CustomerGroup, error) {
 	p := sqlc.GroupsParams{Status: status, Lim: int64(limit)}
 	if after != nil {
@@ -90,6 +95,11 @@ func (t tx) DeleteGroup(ctx context.Context, id string) error {
 		return errs.ErrNotFound
 	}
 	return err
+}
+
+func (t tx) CountCustomers(ctx context.Context, f adminapi.CustomerFilter) (int, error) {
+	n, err := queries.CountCustomers(ctx, t.db, sqlc.CountCustomersParams{GroupID: f.GroupID, Status: f.Status})
+	return int(n), err
 }
 
 func (t tx) Customers(ctx context.Context, f adminapi.CustomerFilter, after *adminapi.Key, limit int) ([]adminapi.Customer, error) {

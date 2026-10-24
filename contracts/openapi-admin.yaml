@@ -2717,7 +2717,8 @@ components:
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/CustomerGroup' } }
         next_cursor: { $ref: '#/components/schemas/NextCursor' }
-      required: [data, next_cursor]
+        total: { type: integer, minimum: 0, description: 'The number of rows the filters select, whatever the cursor.' }
+      required: [data, next_cursor, total]
 
     CreatedBy:
       type: [string, "null"]
@@ -2766,7 +2767,8 @@ components:
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/Customer' } }
         next_cursor: { $ref: '#/components/schemas/NextCursor' }
-      required: [data, next_cursor]
+        total: { type: integer, minimum: 0, description: 'The number of rows the filters select, whatever the cursor.' }
+      required: [data, next_cursor, total]
 
     AccountRef:
       type: object
@@ -2920,7 +2922,8 @@ components:
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/Account' } }
         next_cursor: { $ref: '#/components/schemas/NextCursor' }
-      required: [data, next_cursor]
+        total: { type: integer, minimum: 0, description: 'The number of rows the filters select, whatever the cursor.' }
+      required: [data, next_cursor, total]
 
     Webhook:
       type: object

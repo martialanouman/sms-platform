@@ -122,12 +122,12 @@ func registerCustomerGroups(api huma.API) {
 	tags := []string{"customer-groups"}
 	huma.Register(api, huma.Operation{OperationID: "list-customer-groups", Method: http.MethodGet, Path: "/admin/customer-groups",
 		Tags: tags, Security: security("customer-groups:read"), Errors: []int{401, 403, 422}},
-		func(ctx context.Context, in *listGroupsInput) (*pageOutput[customerGroup], error) {
+		func(ctx context.Context, in *listGroupsInput) (*countedPageOutput[customerGroup], error) {
 			var status *string
 			if in.Status != "" {
 				status = &in.Status
 			}
-			groups, next, err := adminapi.GroupsPage(ctx, adminapi.TxFrom(ctx), status, in.Cursor, in.Limit)
+			groups, next, total, err := adminapi.GroupsPage(ctx, adminapi.TxFrom(ctx), status, in.Cursor, in.Limit)
 			if err != nil {
 				return nil, err
 			}
@@ -135,7 +135,7 @@ func registerCustomerGroups(api huma.API) {
 			for i, g := range groups {
 				out[i] = customerGroup(g)
 			}
-			return page(out, next), nil
+			return counted(out, next, total), nil
 		})
 	huma.Register(api, huma.Operation{OperationID: "create-customer-group", Method: http.MethodPost, Path: "/admin/customer-groups",
 		Tags: tags, Security: security("customer-groups:write"), DefaultStatus: http.StatusCreated, Errors: []int{401, 403, 409, 422}},
@@ -172,12 +172,12 @@ func registerCustomerGroups(api huma.API) {
 		})
 	huma.Register(api, huma.Operation{OperationID: "list-group-customers", Method: http.MethodGet, Path: "/admin/customer-groups/{id}/customers",
 		Tags: tags, Security: security("customer-groups:read"), Errors: []int{401, 403, 404, 422}},
-		func(ctx context.Context, in *listGroupCustomersInput) (*pageOutput[customer], error) {
-			customers, next, err := adminapi.GroupCustomersPage(ctx, adminapi.TxFrom(ctx), in.ID, in.Cursor, in.Limit)
+		func(ctx context.Context, in *listGroupCustomersInput) (*countedPageOutput[customer], error) {
+			customers, next, total, err := adminapi.GroupCustomersPage(ctx, adminapi.TxFrom(ctx), in.ID, in.Cursor, in.Limit)
 			if err != nil {
 				return nil, err
 			}
-			return page(toCustomers(customers), next), nil
+			return counted(toCustomers(customers), next, total), nil
 		})
 }
 
@@ -233,7 +233,7 @@ func registerCustomers(api huma.API) {
 	tags := []string{"customers"}
 	huma.Register(api, huma.Operation{OperationID: "list-customers", Method: http.MethodGet, Path: "/admin/customers",
 		Tags: tags, Security: security("customers:read"), Errors: []int{401, 403, 422}},
-		func(ctx context.Context, in *listCustomersInput) (*pageOutput[customer], error) {
+		func(ctx context.Context, in *listCustomersInput) (*countedPageOutput[customer], error) {
 			var f adminapi.CustomerFilter
 			if in.GroupID != "" {
 				f.GroupID = &in.GroupID
@@ -241,11 +241,11 @@ func registerCustomers(api huma.API) {
 			if in.Status != "" {
 				f.Status = &in.Status
 			}
-			customers, next, err := adminapi.CustomersPage(ctx, adminapi.TxFrom(ctx), f, in.Cursor, in.Limit)
+			customers, next, total, err := adminapi.CustomersPage(ctx, adminapi.TxFrom(ctx), f, in.Cursor, in.Limit)
 			if err != nil {
 				return nil, err
 			}
-			return page(toCustomers(customers), next), nil
+			return counted(toCustomers(customers), next, total), nil
 		})
 	huma.Register(api, huma.Operation{OperationID: "create-customer", Method: http.MethodPost, Path: "/admin/customers",
 		Tags: tags, Security: security("customers:write"), DefaultStatus: http.StatusCreated, Errors: []int{401, 403, 422}},

@@ -2286,6 +2286,8 @@ export interface components {
         CustomerGroupPage: {
             data: components["schemas"]["CustomerGroup"][];
             next_cursor: components["schemas"]["NextCursor"];
+            /** @description The number of rows the filters select, whatever the cursor. */
+            total: number;
         };
         /**
          * Format: uuid
@@ -2327,6 +2329,8 @@ export interface components {
         CustomerPage: {
             data: components["schemas"]["Customer"][];
             next_cursor: components["schemas"]["NextCursor"];
+            /** @description The number of rows the filters select, whatever the cursor. */
+            total: number;
         };
         AccountRef: {
             /** Format: uuid */
@@ -2456,6 +2460,8 @@ export interface components {
         AccountPage: {
             data: components["schemas"]["Account"][];
             next_cursor: components["schemas"]["NextCursor"];
+            /** @description The number of rows the filters select, whatever the cursor. */
+            total: number;
         };
         /** @description The account's MO or receipt webhook. Its secret is never returned after creation or rotation. */
         Webhook: {

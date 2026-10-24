@@ -9,6 +9,12 @@ WHERE (sqlc.narg(customer_id)::uuid IS NULL OR a.customer_id = sqlc.narg(custome
 ORDER BY a.created_at DESC, a.id DESC
 LIMIT sqlc.arg(lim)::bigint;
 
+-- name: CountAccounts :one
+SELECT count(*) FROM control_plane.accounts a JOIN control_plane.customers c ON c.id = a.customer_id
+WHERE (sqlc.narg(customer_id)::uuid IS NULL OR a.customer_id = sqlc.narg(customer_id))
+  AND (sqlc.narg(group_id)::uuid IS NULL OR c.group_id = sqlc.narg(group_id))
+  AND (sqlc.narg(status)::text IS NULL OR a.status = sqlc.narg(status));
+
 -- name: Account :one
 SELECT a.id, a.customer_id, c.name AS customer_name, c.status AS customer_status, a.name, a.status, a.smpp_enabled,
   a.rest_enabled, a.query_sm_enabled, a.cancel_sm_enabled, a.allowed_bind_types, a.max_sessions, a.created_at, a.updated_at

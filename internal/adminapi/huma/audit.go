@@ -39,6 +39,24 @@ type pageOutput[T any] struct {
 	}
 }
 
+type countedPageOutput[T any] struct {
+	Body struct {
+		Data       []T     `json:"data"`
+		NextCursor *string `json:"next_cursor"`
+		Total      int     `json:"total" minimum:"0"`
+	}
+}
+
+func counted[T any](data []T, next string, total int) *countedPageOutput[T] {
+	out := &countedPageOutput[T]{}
+	out.Body.Data = data
+	if next != "" {
+		out.Body.NextCursor = &next
+	}
+	out.Body.Total = total
+	return out
+}
+
 func page[T any](data []T, next string) *pageOutput[T] {
 	out := &pageOutput[T]{}
 	out.Body.Data = data

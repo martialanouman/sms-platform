@@ -115,6 +115,7 @@ function Customers() {
                     next={list.data.next_cursor}
                     go={(next) => void navigate({ search: next })}
                     count={list.data.data.length}
+                    total={list.data.total}
                   />
                 }
               >
