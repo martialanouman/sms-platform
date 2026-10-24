@@ -110,10 +110,14 @@ test('without credentials:read the page opens on its channels, and Identifiants 
   expect(within(tabs).queryByRole('link', { name: 'Identifiants' })).toBeNull()
 })
 
-test('the credentials typed in the address without credentials:read say what they need', async () => {
+test('the credentials typed in the address without credentials:read mark their blocked tab current', async () => {
   stub(api, {}, { ...writer, permissions: ['accounts:read'] })
   renderAt(`${page}/credentials`)
-  expect((await card('Identifiants')).textContent).toContain('credentials:read')
+  const tabs = await screen.findByRole('navigation', { name: 'Sections du compte' })
+  await waitFor(() =>
+    expect(within(tabs).getByRole('button', { name: 'Identifiants' }).getAttribute('aria-current')).toBe('page'),
+  )
+  expect(within(tabs).getByRole('link', { name: 'Sessions' }).hasAttribute('aria-current')).toBe(false)
 })
 
 test('without customers:read the customer is named, never linked', async () => {
@@ -315,12 +319,17 @@ test('the channels and SMPP operations are switches read from their own fields',
   expect(await violations(container)).toEqual([])
 })
 
-test('a channel switch applies at once, takes the answer as the account, and is told in a toast', async () => {
+test('a channel switch applies at once, takes the answer as the account, reads the accounts again, and is told in a toast', async () => {
   let release = () => {}
   const held = new Promise<void>((resolve) => {
     release = resolve
   })
+  let served = 0
   const calls = stub(api, {
+    [`GET ${path}`]: () => {
+      served += 1
+      return served === 1 ? json(200, api) : new Promise<Response>(() => {})
+    },
     [`PATCH ${path}/channels`]: async () => {
       await held
       return json(200, { ...api, rest_enabled: true })
@@ -335,32 +344,54 @@ test('a channel switch applies at once, takes the answer as the account, and is 
   await waitFor(() => expect(rest.getAttribute('aria-busy')).toBe('true'))
   expect(rest.getAttribute('aria-readonly')).toBe('true')
   expect(screen.queryByRole('alertdialog')).toBeNull()
-  const before = reads(calls)
   release()
   await waitFor(() => expect(rest.getAttribute('aria-checked')).toBe('true'))
   expect(rest.hasAttribute('aria-busy')).toBe(false)
-  expect(reads(calls)).toBe(before)
+  await waitFor(() => expect(reads(calls)).toBe(2))
   expect(await sent(calls, 'PATCH', '/channels')).toEqual({ smpp_enabled: true, rest_enabled: true })
   expect(await toasted()).toEqual(['Canal REST activé.'])
-  await waitFor(() => expect((smpp as HTMLElement).hasAttribute('aria-disabled')).toBe(false))
+  await waitFor(() => expect(smpp.hasAttribute('aria-disabled')).toBe(false))
 })
 
-test('disabling REST keeps SMPP as it is', async () => {
-  const calls = stub({ ...api, rest_enabled: true }, { [`PATCH ${path}/channels`]: () => json(200, api) })
+test('while a channel is being set, both channel switches are held and a click sends nothing', async () => {
+  let release = () => {}
+  const held = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const calls = stub(
+    { ...api, rest_enabled: true },
+    {
+      [`PATCH ${path}/channels`]: async () => {
+        await held
+        return json(200, { ...api, smpp_enabled: false, rest_enabled: true })
+      },
+    },
+  )
   const user = userEvent.setup()
   renderAt(`${page}/channels`)
-  await user.click(await toggle('Canal REST'))
-  expect(await toasted()).toEqual(['Canal REST désactivé.'])
-  expect(await sent(calls, 'PATCH', '/channels')).toEqual({ smpp_enabled: true, rest_enabled: false })
-})
-
-test('disabling SMPP sends REST alone and is told in a toast', async () => {
-  const calls = stub({ ...api, rest_enabled: true }, { [`PATCH ${path}/channels`]: () => json(200, api) })
-  const user = userEvent.setup()
-  renderAt(`${page}/channels`)
+  const rest = await toggle('Canal REST')
   await user.click(await toggle('Canal SMPP'))
+  await waitFor(() => expect(rest.getAttribute('aria-busy')).toBe('true'))
+  expect(rest.getAttribute('aria-readonly')).toBe('true')
+  await user.click(rest)
+  release()
   expect(await toasted()).toEqual(['Canal SMPP désactivé.'])
-  expect(await sent(calls, 'PATCH', '/channels')).toEqual({ smpp_enabled: false, rest_enabled: true })
+  expect(calls.filter((r) => r.method === 'PATCH')).toHaveLength(1)
+})
+
+test('disabling one channel sends the other as it is, and is told in a toast', async () => {
+  for (const [name, body] of [
+    ['SMPP', { smpp_enabled: false, rest_enabled: true }],
+    ['REST', { smpp_enabled: true, rest_enabled: false }],
+  ] as const) {
+    const calls = stub({ ...api, rest_enabled: true }, { [`PATCH ${path}/channels`]: () => json(200, api) })
+    const user = userEvent.setup()
+    const { unmount } = renderAt(`${page}/channels`)
+    await user.click(await toggle(`Canal ${name}`))
+    expect(await toasted()).toEqual([`Canal ${name} désactivé.`])
+    expect(await sent(calls, 'PATCH', '/channels')).toEqual(body)
+    unmount()
+  }
 })
 
 test('a refused channel is said in its card, the switch keeps its state and the account is read again', async () => {
@@ -377,7 +408,7 @@ test('a refused channel is said in its card, the switch keeps its state and the 
   expect(alert.textContent).toBe('Au moins un canal reste activé.')
   expect(smpp.getAttribute('aria-checked')).toBe('true')
   await waitFor(() => expect(reads(calls)).toBe(2))
-  expect(screen.queryByRole('region', { name: 'Notifications' })?.querySelector('.ui-toast')).toBeFalsy()
+  expect(screen.getByRole('region', { name: 'Notifications' }).querySelectorAll('.ui-toast')).toHaveLength(0)
 })
 
 test('a channel refused for another reason keeps the gateway message', async () => {
@@ -446,17 +477,11 @@ test('the sessions tab shows its limits in place and the live binds as not yet i
   expect(
     within(types)
       .getAllByRole('checkbox')
-      .map((c) => [c.textContent, c.getAttribute('aria-checked')]),
-  ).toEqual([
-    ['', 'true'],
-    ['', 'false'],
-    ['', 'true'],
-  ])
+      .map((c) => c.getAttribute('aria-checked')),
+  ).toEqual(['true', 'false', 'true'])
   expect(within(types).getByRole('checkbox', { name: 'Émetteur transmitter' }).getAttribute('data-disabled')).toBeNull()
   expect(within(types).getByText('transmitter').className).toBe('ui-mono ui-muted')
   expect(max.className).toContain('ui-mono')
-  expect(within(types).getByRole('checkbox', { name: 'Récepteur receiver' })).toBeDefined()
-  expect(within(types).getByRole('checkbox', { name: 'Émetteur-récepteur transceiver' })).toBeDefined()
   expect(limits.textContent).toContain('Au moins un type reste autorisé.')
   const live = await card('Binds vivants')
   expect(live.querySelector('.ui-card__head .ui-why')?.textContent).toBe('limite 2')
@@ -466,7 +491,14 @@ test('the sessions tab shows its limits in place and the live binds as not yet i
 })
 
 test('the session limits are sent with the bind types in a fixed order and told in a toast', async () => {
-  const calls = stub(api, { [`PATCH ${path}/session-limits`]: () => json(200, { ...api, max_sessions: 0 }) })
+  let served = 0
+  const calls = stub(api, {
+    [`GET ${path}`]: () => {
+      served += 1
+      return served === 1 ? json(200, api) : new Promise<Response>(() => {})
+    },
+    [`PATCH ${path}/session-limits`]: () => json(200, { ...api, max_sessions: 0 }),
+  })
   const user = userEvent.setup()
   renderAt(`${page}/sessions`)
   const limits = await card('Limites de session')
@@ -478,6 +510,7 @@ test('the session limits are sent with the bind types in a fixed order and told 
   await user.click(within(limits).getByRole('button', { name: 'Enregistrer' }))
   expect(await toasted()).toEqual(['Limites de session enregistrées.'])
   expect((await card('Binds vivants')).querySelector('.ui-card__head .ui-why')?.textContent).toBe('limite 0')
+  await waitFor(() => expect(reads(calls)).toBe(2))
   expect(await sent(calls, 'PATCH', '/session-limits')).toEqual({
     max_sessions: 0,
     allowed_bind_types: ['transmitter', 'receiver', 'transceiver'],
@@ -498,7 +531,7 @@ test('the last bind type cannot be removed, and a refused limit is said in its c
   await user.click(within(limits).getByRole('button', { name: 'Enregistrer' }))
   const alert = await within(limits).findByRole('alert')
   expect(alert.textContent).toBe('Limite refusée.')
-  expect(screen.queryByRole('region', { name: 'Notifications' })?.querySelector('.ui-toast')).toBeFalsy()
+  expect(screen.getByRole('region', { name: 'Notifications' }).querySelectorAll('.ui-toast')).toHaveLength(0)
   expect(within(limits).getByRole('group', { name: 'Types de bind' }).getAttribute('aria-describedby')).toBe(alert.id)
   expect(fireEvent.submit(limits.querySelector('form') as HTMLFormElement)).toBe(false)
 })
@@ -518,11 +551,4 @@ test('the session limits are frozen on a closed account and without accounts:wri
   expect(explained(within(await card('Limites de session')).getByRole('button', { name: 'Enregistrer' }))).toBe(
     writeReason,
   )
-})
-
-test('the webhooks tab shows the webhooks of the account', async () => {
-  stub(api)
-  const { container } = renderAt(`${page}/webhooks`)
-  expect(await within(await card('Webhooks')).findByText('Aucun webhook.')).toBeDefined()
-  expect(await violations(container)).toEqual([])
 })

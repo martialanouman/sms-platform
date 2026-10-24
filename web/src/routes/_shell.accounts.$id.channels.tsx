@@ -18,13 +18,13 @@ function AccountChannels() {
   const queryClient = useQueryClient()
   const notify = useToast()
   const { submit, refusal, fail } = useSubmission()
-  const [busy, setBusy] = useState<Channel>()
+  const [busy, setBusy] = useState(false)
   const [asked, setAsked] = useState<{ operation: Operation; on: boolean }>()
   const key = [...accountsKey, account.id]
   const enabled = { smpp: account.smpp_enabled, rest: account.rest_enabled }
 
   async function turn(channel: Channel, on: boolean) {
-    setBusy(channel)
+    setBusy(true)
     const outcome = await submit(() =>
       gw.PATCH('/admin/accounts/{id}/channels', {
         params: { path: { id: account.id } },
@@ -34,9 +34,10 @@ function AccountChannels() {
         },
       }),
     )
-    setBusy(undefined)
+    setBusy(false)
     if (outcome.failure === undefined) {
       queryClient.setQueryData(key, outcome.data)
+      void queryClient.invalidateQueries({ queryKey: accountsKey })
       notify(`Canal ${channel.toUpperCase()} ${on ? 'activé' : 'désactivé'}.`)
       return
     }
@@ -54,7 +55,7 @@ function AccountChannels() {
         about={about}
         checked={enabled[name]}
         onChange={(on) => void turn(name, on)}
-        busy={busy === name}
+        busy={busy}
         blockedReason={frozen ?? (!other ? lastChannel : undefined)}
       />
     )
