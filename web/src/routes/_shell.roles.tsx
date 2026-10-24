@@ -105,9 +105,11 @@ function Roles() {
             <Card
               flush
               footer={
-                <span className="ui-muted">
-                  {roles.data.length} {roles.data.length === 1 ? 'rôle' : 'rôles'}
-                </span>
+                <div className="ui-pager">
+                  <span>
+                    {roles.data.length} {roles.data.length === 1 ? 'rôle' : 'rôles'}
+                  </span>
+                </div>
               }
             >
               <DataTable

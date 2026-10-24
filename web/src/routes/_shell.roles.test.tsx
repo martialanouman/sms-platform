@@ -75,7 +75,7 @@ test('the roles are listed in a card, typed, counted, with a footer that counts 
   expect(within(row('Support')).getAllByRole('cell')[2]?.classList.contains('ui-table__cell--end')).toBe(true)
   expect(screen.queryByRole('button', { name: 'Voir les permissions' })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Modifier' })).toBeNull()
-  expect(screen.getByText('3 rôles')).toBeDefined()
+  expect(screen.getByText('3 rôles').parentElement?.className).toBe('ui-pager')
   expect(await violations(container)).toEqual([])
 })
 
