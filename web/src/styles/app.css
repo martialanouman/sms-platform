@@ -1397,10 +1397,21 @@ button.ui-tabs__tab {
   font-size: var(--fs-12);
 }
 
-.ui-chips {
+.ui-tags {
   display: flex;
   flex-wrap: wrap;
   gap: var(--sp-2);
+}
+
+.ui-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-input);
+  color: var(--text-secondary);
+  font-size: var(--fs-12);
+  white-space: nowrap;
 }
 
 .ui-chip {

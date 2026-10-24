@@ -194,9 +194,9 @@ function Operators() {
                     header: 'Rôles',
                     cell: (o) =>
                       o.roles.length > 0 ? (
-                        <span className="ui-chips">
+                        <span className="ui-tags">
                           {o.roles.map((r) => (
-                            <span className="ui-chip" key={r.id}>
+                            <span className="ui-tag" key={r.id}>
                               {r.name}
                             </span>
                           ))}

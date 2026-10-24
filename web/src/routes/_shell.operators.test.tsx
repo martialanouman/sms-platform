@@ -80,7 +80,7 @@ test('the operators are listed with their status, roles and factor', async () =>
   expect(cells('operateur@example.test').slice(0, 3)).toEqual(['Actif', 'Propriétaire', 'Enrôlé'])
   expect(tones('zed@example.test')).toEqual(['neutral', 'neutral'])
   expect(tones('operateur@example.test')).toEqual(['ok', 'ok'])
-  expect(within(row('ada@example.test')).getByText('Support').className).toBe('ui-chip')
+  expect(within(row('ada@example.test')).getByText('Support').className).toBe('ui-tag')
   expect(screen.getByText('3 entrées affichées sur 3')).toBeDefined()
   expect(
     screen.getByText(
