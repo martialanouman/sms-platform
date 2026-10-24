@@ -28,7 +28,8 @@ const acme = {
   updated_at: '2026-10-23T08:00:00Z',
 }
 const solo = { ...acme, id: '01a16026-0000-7000-8000-0000000000c2', name: 'Solo', status: 'suspended', group_id: null }
-const page = (data: unknown[], next: string | null = null) => json(200, { data, next_cursor: next })
+const page = (data: unknown[], next: string | null = null, total = data.length) =>
+  json(200, { data, next_cursor: next, total })
 
 async function row(name: string) {
   return within((await screen.findByRole('rowheader', { name })).closest('tr') as HTMLTableRowElement)
@@ -102,7 +103,7 @@ test('the header says what a customer is and offers to create one; the table and
   expect(within(header).getByRole('button', { name: 'Nouveau client' })).toBeDefined()
   const card = table.closest('.ui-card') as HTMLElement
   expect(card.classList.contains('ui-card--flush')).toBe(true)
-  expect(within(card).getByText('1 entrée affichée')).toBeDefined()
+  expect(within(card).getByText('1 entrée affichée sur 1')).toBeDefined()
 })
 
 test('no customer at all says how to create one', async () => {
@@ -324,7 +325,7 @@ test('the pager tells how many are shown, its useless buttons frozen and explain
     'GET /api/gw/admin/customer-groups': directory,
   })
   renderAt('/customers')
-  expect(await screen.findByText('2 entrées affichées')).toBeDefined()
+  expect(await screen.findByText('2 entrées affichées sur 2')).toBeDefined()
   const previous = screen.getByRole('button', { name: 'Précédent' })
   const next = screen.getByRole('button', { name: 'Suivant' })
   expect([previous, next].map((b) => b.getAttribute('aria-disabled'))).toEqual(['true', 'true'])
@@ -334,11 +335,11 @@ test('the pager tells how many are shown, its useless buttons frozen and explain
 test('a single customer shown is said in the singular, with a way forward', async () => {
   stubFetch({
     'GET /api/auth/me': () => json(200, reader),
-    'GET /api/gw/admin/customers': () => page([acme], 'c1'),
+    'GET /api/gw/admin/customers': () => page([acme], 'c1', 41),
     'GET /api/gw/admin/customer-groups': directory,
   })
   renderAt('/customers')
-  expect(await screen.findByText('1 entrée affichée')).toBeDefined()
+  expect(await screen.findByText('1 entrée affichée sur 41')).toBeDefined()
   expect(screen.getByRole('button', { name: 'Suivant' }).hasAttribute('aria-disabled')).toBe(false)
 })
 

@@ -37,12 +37,14 @@ export function Pager<Search extends Paged>({
   next,
   go,
   count,
+  total,
   labels = ['Précédent', 'Suivant'],
 }: {
   search: Search
   next?: string | null
   go: (next: Search) => void
   count: number
+  total?: number
   labels?: [back: string, forward: string]
 }) {
   const trail = search.trail ?? []
@@ -51,6 +53,7 @@ export function Pager<Search extends Paged>({
     <div className="ui-pager">
       <span>
         {count} {count === 1 ? 'entrée affichée' : 'entrées affichées'}
+        {total !== undefined && ` sur ${total}`}
       </span>
       <span className="ui-pager__nav">
         <Button
