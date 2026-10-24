@@ -73,4 +73,6 @@ test('cards side by side push their foot down, centred, so both feet line up', (
 test('a button beside a field sits on the row of its input, never on its error', () => {
   expect(read('./app.css')).toMatch(/\n\.form__inline \.ui-field \{[^}]*grid-template-rows: subgrid;/)
   expect(read('./app.css')).toMatch(/\n\.form__inline > \.ui-button \{[^}]*grid-row: 2;/)
+  expect(read('./app.css')).toMatch(/\n\.form__inline \.ui-field \{[^}]*grid-column: 1;/)
+  expect(read('./app.css')).toMatch(/\n\.form__inline > \.ui-button \{[^}]*grid-column: 2;/)
 })

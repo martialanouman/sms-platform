@@ -833,12 +833,14 @@
 
 .form__inline .ui-field {
   display: grid;
+  grid-column: 1;
   grid-row: span 3;
   grid-template-rows: subgrid;
   row-gap: 0;
 }
 
 .form__inline > .ui-button {
+  grid-column: 2;
   grid-row: 2;
 }
 
