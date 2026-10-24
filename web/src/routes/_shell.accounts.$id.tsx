@@ -105,20 +105,15 @@ function Loaded({ account, held }: { account: Account; held: string[] }) {
         }
         actions={
           <>
-            <Button
-              size="sm"
-              blockedReason={frozen ?? (account.status === 'suspended' ? 'Déjà suspendu.' : undefined)}
-              onClick={() => setPending('suspend')}
-            >
-              Suspendre
-            </Button>
-            <Button
-              size="sm"
-              blockedReason={frozen ?? (account.status === 'active' ? 'Déjà actif.' : undefined)}
-              onClick={() => setPending('reactivate')}
-            >
-              Réactiver
-            </Button>
+            {account.status !== 'closed' && (
+              <Button
+                size="sm"
+                blockedReason={frozen}
+                onClick={() => setPending(account.status === 'active' ? 'suspend' : 'reactivate')}
+              >
+                {account.status === 'active' ? 'Suspendre' : 'Réactiver'}
+              </Button>
+            )}
             <Button size="sm" variant="danger" blockedReason={frozen} onClick={() => setPending('close')}>
               Clôturer
             </Button>

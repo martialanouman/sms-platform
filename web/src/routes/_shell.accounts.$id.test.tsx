@@ -174,7 +174,7 @@ test('suspending, reactivating under a suspended customer, and closing are each 
   expect(await Promise.all(patches.map((r) => r.json()))).toEqual([{ status: 'active' }, { status: 'closed' }])
 })
 
-test('suspending by the keyboard is told in a toast and leaves the focus on Suspendre', async () => {
+test('suspending by the keyboard is told in a toast and leaves the focus on the same button, now Réactiver', async () => {
   let current: object = api
   stub(api, {
     [`GET ${path}`]: () => json(200, current),
@@ -194,8 +194,8 @@ test('suspending by the keyboard is told in a toast and leaves the focus on Susp
   await user.keyboard('{Enter}')
   await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
   expect(await toasted()).toEqual(['Compte api suspendu.'])
-  await waitFor(() => expect(explained(screen.getByRole('button', { name: 'Suspendre' }))).toBe('Déjà suspendu.'))
-  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Suspendre' }))
+  await waitFor(() => expect(screen.queryByRole('button', { name: 'Suspendre' })).toBeNull())
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Réactiver' }))
 })
 
 test('a suspension refused because the account is closed is said in French', async () => {
@@ -237,9 +237,11 @@ test('a closed account is frozen but can still be deleted, which leads to its cu
   stub({ ...api, status: 'closed' }, { [`DELETE ${path}`]: () => empty(204) })
   const user = userEvent.setup()
   const { router } = renderAt(`${page}/channels`)
-  for (const name of ['Suspendre', 'Réactiver', 'Clôturer', 'Renommer']) {
+  for (const name of ['Clôturer', 'Renommer']) {
     expect(explained(await screen.findByRole('button', { name }))).toBe('Fermé définitivement.')
   }
+  expect(screen.queryByRole('button', { name: 'Suspendre' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Réactiver' })).toBeNull()
   await user.click(screen.getByRole('button', { name: 'Supprimer' }))
   await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Supprimer' }))
   await waitFor(() => expect(router.state.location.pathname).toBe(`/customers/${acme.id}`))
@@ -250,7 +252,7 @@ test('a closed account is frozen but can still be deleted, which leads to its cu
 test('without accounts:write every change is blocked', async () => {
   stub(api, {}, { ...writer, permissions: ['accounts:read'] })
   renderAt(`${page}/channels`)
-  for (const name of ['Suspendre', 'Réactiver', 'Clôturer', 'Supprimer', 'Renommer']) {
+  for (const name of ['Suspendre', 'Clôturer', 'Supprimer', 'Renommer']) {
     expect(explained(await screen.findByRole('button', { name }))).toBe(writeReason)
   }
   for (const name of ['Canal SMPP', 'Canal REST', 'query_sm autorisé', 'cancel_sm autorisé']) {
@@ -258,10 +260,26 @@ test('without accounts:write every change is blocked', async () => {
   }
 })
 
-test('an active account cannot be reactivated', async () => {
-  stub(api)
-  renderAt(`${page}/channels`)
-  expect(explained(await screen.findByRole('button', { name: 'Réactiver' }))).toBe('Déjà actif.')
+test('only the status action that applies is offered, by the own status of the account', async () => {
+  for (const [status, offered] of [
+    ['active', ['Suspendre']],
+    ['suspended', ['Réactiver']],
+    ['closed', []],
+  ] as const) {
+    stub(
+      { ...api, status },
+      { [`GET /api/gw/admin/customers/${acme.id}`]: () => json(200, { ...acme, status: 'suspended' }) },
+    )
+    const { unmount } = renderAt(`${page}/channels`)
+    await screen.findByRole('button', { name: 'Supprimer' })
+    expect(
+      screen
+        .queryAllByRole('button')
+        .map((b) => b.textContent)
+        .filter((t) => t === 'Suspendre' || t === 'Réactiver'),
+    ).toEqual(offered)
+    unmount()
+  }
 })
 
 test('a rename onto a taken name is refused in French', async () => {

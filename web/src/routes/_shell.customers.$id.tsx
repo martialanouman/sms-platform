@@ -101,20 +101,15 @@ function Loaded({ customer, writes }: { customer: Customer; writes: boolean }) {
             <Button size="sm" blockedReason={write ?? closed} onClick={() => setPending('edit')}>
               Modifier
             </Button>
-            <Button
-              size="sm"
-              blockedReason={write ?? closed ?? (customer.status === 'suspended' ? 'Déjà suspendu.' : undefined)}
-              onClick={() => setPending('suspend')}
-            >
-              Suspendre
-            </Button>
-            <Button
-              size="sm"
-              blockedReason={write ?? closed ?? (customer.status === 'active' ? 'Déjà actif.' : undefined)}
-              onClick={() => setPending('reactivate')}
-            >
-              Réactiver
-            </Button>
+            {customer.status !== 'closed' && (
+              <Button
+                size="sm"
+                blockedReason={write}
+                onClick={() => setPending(customer.status === 'active' ? 'suspend' : 'reactivate')}
+              >
+                {customer.status === 'active' ? 'Suspendre' : 'Réactiver'}
+              </Button>
+            )}
             <Button size="sm" variant="danger" blockedReason={write ?? closed} onClick={() => setPending('close')}>
               Clôturer
             </Button>
