@@ -63,3 +63,16 @@ test('the revoked pill, the warning banner and the event badges sit on their tin
 test('the actions of an end cell sit against its end, as the header above them', () => {
   expect(read('./app.css')).toMatch(/\n\.ui-table__cell--end \.row-actions \{[^}]*justify-content: flex-end;/)
 })
+
+test('cards side by side push their foot down, centred, so both feet line up', () => {
+  expect(read('./app.css')).toMatch(/\n\.ui-cards > \.ui-card \{[^}]*display: flex;[^}]*flex-direction: column;/)
+  expect(read('./app.css')).toMatch(/\n\.ui-cards > \.ui-card > \.ui-card__foot \{[^}]*margin-top: auto;/)
+  expect(read('./app.css')).toMatch(/\n\.ui-card__foot \{[^}]*align-items: center;/)
+})
+
+test('a button beside a field sits on the row of its input, never on its error', () => {
+  expect(read('./app.css')).toMatch(/\n\.form__inline \.ui-field \{[^}]*grid-template-rows: subgrid;/)
+  expect(read('./app.css')).toMatch(/\n\.form__inline > \.ui-button \{[^}]*grid-row: 2;/)
+  expect(read('./app.css')).toMatch(/\n\.form__inline \.ui-field \{[^}]*grid-column: 1;/)
+  expect(read('./app.css')).toMatch(/\n\.form__inline > \.ui-button \{[^}]*grid-column: 2;/)
+})

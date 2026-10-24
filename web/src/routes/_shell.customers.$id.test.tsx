@@ -79,7 +79,6 @@ test('the page of a customer shows who it is, its group and its ages', async () 
   ).toEqual([
     ['Modifier', false],
     ['Suspendre', false],
-    ['Réactiver', false],
     ['Clôturer', true],
     ['Supprimer', true],
   ])
@@ -167,26 +166,29 @@ test('reactivating says its accounts stay suspended, and closing is definitive',
   expect(await Promise.all(patches.map((r) => r.json()))).toEqual([{ status: 'active' }, { status: 'closed' }])
 })
 
-test('each status action is blocked and explained where it does nothing', async () => {
-  stub({ ...acme, status: 'suspended' })
-  renderAt(`/customers/${acme.id}`)
-  const suspend = await screen.findByRole('button', { name: 'Suspendre' })
-  expect(suspend.getAttribute('aria-disabled')).toBe('true')
-  expect(document.getElementById(suspend.getAttribute('aria-describedby') ?? '')?.textContent).toBe('Déjà suspendu.')
-  expect(screen.getByRole('button', { name: 'Réactiver' }).hasAttribute('aria-disabled')).toBe(false)
-})
-
-test('an active customer cannot be reactivated', async () => {
-  stub(acme)
-  renderAt(`/customers/${acme.id}`)
-  const reactivate = await screen.findByRole('button', { name: 'Réactiver' })
-  expect(document.getElementById(reactivate.getAttribute('aria-describedby') ?? '')?.textContent).toBe('Déjà actif.')
+test('only the status action that applies is offered', async () => {
+  for (const [status, offered] of [
+    ['active', ['Suspendre']],
+    ['suspended', ['Réactiver']],
+    ['closed', []],
+  ] as const) {
+    stub({ ...acme, status })
+    const { unmount } = renderAt(`/customers/${acme.id}`)
+    await screen.findByRole('button', { name: 'Supprimer' })
+    expect(
+      screen
+        .queryAllByRole('button')
+        .map((b) => b.textContent)
+        .filter((t) => t === 'Suspendre' || t === 'Réactiver'),
+    ).toEqual(offered)
+    unmount()
+  }
 })
 
 test('a closed customer is frozen but can still be deleted', async () => {
   stub({ ...acme, status: 'closed' })
   renderAt(`/customers/${acme.id}`)
-  for (const name of ['Suspendre', 'Réactiver', 'Clôturer', 'Modifier']) {
+  for (const name of ['Clôturer', 'Modifier']) {
     const button = await screen.findByRole('button', { name })
     expect(document.getElementById(button.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
       'Fermé définitivement.',
@@ -515,7 +517,7 @@ test('a new account refused because the customer is closed is said in French', a
   expect(await within(dialog).findByText('Ce client est fermé ou n’existe plus.')).toBeDefined()
 })
 
-test('suspending by the keyboard leaves the focus on Suspendre, now blocked', async () => {
+test('suspending by the keyboard leaves the focus on the same button, now Réactiver', async () => {
   let current = acme
   stub(acme, {
     [`GET ${path}`]: () => json(200, current),
@@ -535,8 +537,8 @@ test('suspending by the keyboard leaves the focus on Suspendre, now blocked', as
   within(dialog).getByRole('button', { name: 'Suspendre' }).focus()
   await user.keyboard('{Enter}')
   await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
-  await waitFor(() => expect(explained(screen.getByRole('button', { name: 'Suspendre' }))).toBe('Déjà suspendu.'))
-  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Suspendre' }))
+  await waitFor(() => expect(screen.queryByRole('button', { name: 'Suspendre' })).toBeNull())
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Réactiver' }))
 })
 
 test('without customer-groups:read the group of the customer is said unreadable', async () => {

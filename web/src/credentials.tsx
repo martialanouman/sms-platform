@@ -65,6 +65,16 @@ const when = (iso: string | null) =>
 
 const mono = (text: string) => <span className="ui-mono">{text}</span>
 
+export function systemIdFrom(name: string, random: () => number) {
+  const root =
+    name
+      .normalize('NFD')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '')
+      .slice(0, 10) || 'bind'
+  return `${root}_${String(Math.floor(random() * 10000)).padStart(4, '0')}`
+}
+
 export function Credentials() {
   const { account } = useAccount()
   const me = useShellMe()
@@ -154,7 +164,9 @@ export function Credentials() {
           )
         })}
       </div>
-      {pending?.action === 'create' && <CreateBind accountId={account.id} onClose={close} onCreated={reveal} />}
+      {pending?.action === 'create' && (
+        <CreateBind accountId={account.id} accountName={account.name} onClose={close} onCreated={reveal} />
+      )}
       {pending?.action === 'rotate' && pending.c && (
         <Rotate accountId={account.id} credential={pending.c} onClose={close} onRotated={reveal} />
       )}
@@ -187,7 +199,7 @@ export function Credentials() {
           call={() => gw.DELETE('/admin/accounts/{id}/credentials/{credential_id}', path(pending.c as Credential))}
         >
           <p>Le secret est effacé ; seule une rotation ravive l’identifiant.</p>
-          {pending.c.system_id && <p>Le system_id {pending.c.system_id} reste réservé à ce compte.</p>}
+          {pending.c.system_id && <p>Le System ID {pending.c.system_id} reste réservé à ce compte.</p>}
         </Confirmation>
       )}
       {shown && (
@@ -200,7 +212,7 @@ export function Credentials() {
           <KeyValue
             items={[
               { label: 'Compte', value: mono(account.name) },
-              ...(shown.secret.system_id ? [{ label: 'system_id', value: mono(shown.secret.system_id) }] : []),
+              ...(shown.secret.system_id ? [{ label: 'System ID', value: mono(shown.secret.system_id) }] : []),
             ]}
           />
         </SecretOnce>
@@ -251,7 +263,7 @@ function Filled({
     >
       <KeyValue
         items={[
-          ...(c.system_id ? [{ label: 'system_id', value: mono(c.system_id) }] : []),
+          ...(c.system_id ? [{ label: 'System ID', value: mono(c.system_id) }] : []),
           { label: 'Dernière utilisation', value: when(c.last_used_at) },
           { label: 'Dernière rotation', value: when(c.rotated_at) },
           ...(grace ? [{ label: 'Ancien secret', value: <>accepté jusqu’au {mono(atMinute(grace))}</> }] : []),
@@ -292,10 +304,12 @@ function Empty({
 
 function CreateBind({
   accountId,
+  accountName,
   onClose,
   onCreated,
 }: {
   accountId: string
+  accountName: string
   onClose: () => void
   onCreated: (s: Shown) => void
 }) {
@@ -311,7 +325,7 @@ function CreateBind({
         body: { type: 'smpp_bind', system_id: systemId },
       }),
     )
-    const said = { 409: 'Ce system_id est déjà pris.', 422: 'Ce compte est fermé ou n’existe plus.' }[
+    const said = { 409: 'Ce System ID est déjà pris.', 422: 'Ce compte est fermé ou n’existe plus.' }[
       outcome.response?.status ?? 0
     ]
     if (said) {
@@ -337,16 +351,19 @@ function CreateBind({
     >
       <form className="form" id={form} onSubmit={save}>
         {refusal}
-        <Field
-          label="system_id"
-          required
-          maxLength={15}
-          pattern="[!-~]{1,15}"
-          autoComplete="off"
-          value={systemId}
-          onChange={(e) => setSystemId(e.target.value)}
-          aria-describedby={describedBy}
-        />
+        <div className="form__inline">
+          <Field
+            label="System ID"
+            required
+            maxLength={15}
+            pattern="[!-~]{1,15}"
+            autoComplete="off"
+            value={systemId}
+            onChange={(e) => setSystemId(e.target.value)}
+            aria-describedby={describedBy}
+          />
+          <Button onClick={() => setSystemId(systemIdFrom(accountName, Math.random))}>Générer un System ID</Button>
+        </div>
         <p>Le secret est généré par la passerelle et montré une seule fois.</p>
       </form>
     </Modal>

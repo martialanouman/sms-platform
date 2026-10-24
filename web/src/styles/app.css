@@ -816,6 +816,34 @@
   font: var(--text-body);
 }
 
+.form__inline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--sp-4);
+}
+
+.form__inline .ui-field__label {
+  margin-bottom: var(--sp-4);
+}
+
+.form__inline .ui-field__error {
+  margin-top: var(--sp-4);
+}
+
+.form__inline .ui-field {
+  display: grid;
+  grid-column: 1;
+  grid-row: span 3;
+  grid-template-rows: subgrid;
+  row-gap: 0;
+}
+
+.form__inline > .ui-button {
+  grid-column: 2;
+  grid-row: 2;
+}
+
 .permission-picker {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1340,6 +1368,7 @@ button.ui-tabs__tab {
 .ui-card__foot {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--sp-4);
   padding: var(--sp-6) var(--pad-card);
   border-top: 1px solid var(--border-subtle);
@@ -1370,6 +1399,15 @@ button.ui-tabs__tab {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
   gap: var(--sp-7);
+}
+
+.ui-cards > .ui-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.ui-cards > .ui-card > .ui-card__foot {
+  margin-top: auto;
 }
 
 .ui-kv {
